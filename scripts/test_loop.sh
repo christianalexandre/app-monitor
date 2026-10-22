@@ -46,6 +46,11 @@ check "cancelled watchdog leaves no .timeout" test ! -e "$tmp/cancelled.timeout"
 kill "$target" 2>/dev/null
 wait "$target" 2>/dev/null
 
+echo "test-loop: result_of"
+printf '%s\n' '{"type":"assistant"}' '{"type":"result","result":"report line 1\nreport line 2\nLOOP: CONTINUE"}' >"$tmp/result.jsonl"
+check "multi-line report is kept whole" test "$(result_of "$tmp/result.jsonl")" = "$(printf 'report line 1\nreport line 2\nLOOP: CONTINUE')"
+check "log without result gives nothing" test -z "$(result_of "$tmp/short.jsonl")"
+
 echo "test-loop: loop_watch"
 mkdir -p "$tmp/repo/scripts" "$tmp/repo/.loop"
 cp "$here/loop_watch.sh" "$tmp/repo/scripts/"
