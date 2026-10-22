@@ -87,9 +87,8 @@ internal fun addStopHook(
 ) = addShutdownHook(shutdownHook { server.stop() })
 
 /**
- * Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure, [Error]s and
- * foreign [CancellationException]s included, is reported through [onStatus], as is a [stop] past [stopTimeout].
- * A [VirtualMachineError] is rethrown.
+ * Feeds [store] from [server] until cancelled; reports through [onStatus] a stop by someone else, a [stop] past
+ * [stopTimeout] and any failure, foreign [CancellationException]s included. Rethrows a [VirtualMachineError].
  */
 internal suspend fun runServer(
     server: AppMonitorServer,
@@ -103,6 +102,7 @@ internal suspend fun runServer(
         val port = start()
         onStatus("Listening on port $port")
         store.collect(server.sessions)
+        onStatus("Server stopped")
     } catch (e: CancellationException) {
         currentCoroutineContext().ensureActive()
         onStatus("Server failed: ${e.message ?: e::class.simpleName}")

@@ -138,7 +138,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 
 - `main` starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
-  or "Server failed" with any startup or session failure, `Error`s included
+  "Server stopped" when `sessions` completes because someone else stopped
+  the server, or "Server failed" with any startup or session failure, `Error`s included
   (a `VirtualMachineError` is rethrown after it). A `CancellationException`
   is rethrown only when the server coroutine itself is cancelled; one from
   another scope while it is still active shows "Server failed" too.

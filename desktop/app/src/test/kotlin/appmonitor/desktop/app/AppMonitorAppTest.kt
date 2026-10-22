@@ -123,6 +123,27 @@ class AppMonitorAppTest {
     }
 
     @Test
+    fun `shows the stopped status when the server is stopped by someone else`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = CopyOnWriteArrayList<String>()
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                runServer(server, TrafficStore(), start = {
+                    server.start().also { launch { server.stop() } }
+                }) { statuses += it }
+            }
+        }
+
+        assertEquals("Listening on port", statuses.first().substringBeforeLast(' '))
+        assertEquals(listOf("Server stopped"), statuses.drop(1))
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(), statuses.last()) }
+
+            onNodeWithText("Server stopped").assertExists()
+        }
+    }
+
+    @Test
     fun `reports an Error thrown by the server start`() {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
         val statuses = mutableListOf<String>()

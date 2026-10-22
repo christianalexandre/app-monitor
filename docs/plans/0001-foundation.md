@@ -364,7 +364,7 @@ for `HandshakeException` and `SessionClosedException` are a style choice.
   while the advertiser close is in progress sees the port free once that
   close returns; a registration throwing an `Error` on the second address
   closes the first.
-- [ ] **M0.R25 Desktop app server-stopped status.** When `sessions` completes
+- [x] **M0.R25 Desktop app server-stopped status.** When `sessions` completes
   without a failure (the server stopped by someone else), `runServer` leaves
   "Listening on port N"; the `runServer` KDoc is 5 lines, over the comment
   limit.
