@@ -64,7 +64,7 @@ written down as states and transitions (SDD) before their code.
   Accept: `./gradlew :sdk:core:allTests` — order of fallbacks with fake
   resolvers; a late TXT record and two services with different names are
   handled as documented.
-- [ ] **M1.7 `sdk/android-okhttp` interceptor.** Captures request, response,
+- [x] **M1.7 `sdk/android-okhttp` interceptor.** (ADR-0025, SDD 05; masking and `maxBodyBytes` added to `AppMonitorOptions`, capped at `Protocol.MAX_BODY_BYTES`; DEBT-0021 paid, DEBT-0025 opened; also captures WebSocket frames through `AppMonitorWebSocketFactory`; Accept ran as `:sdk:android-okhttp:allTests`, tests are in `jvmTest`) Captures request, response,
   failure and WebSocket frames from OkHttp, applies M1.1's masking and body
   limit before handing events to `sdk/core`; never alters or delays the
   app's call beyond reading the bounded body.

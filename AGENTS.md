@@ -104,6 +104,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
 | SDK core tests (buffer, backoff, transport, discovery) | `./gradlew :sdk:core:allTests` | active; JVM and Android host; transport against an in-process desktop, discovery with fake browsers |
+| OkHttp capture tests (interceptor + WebSocket factory) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3`, Android host has no tests |
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
 | Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change |
 | Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
