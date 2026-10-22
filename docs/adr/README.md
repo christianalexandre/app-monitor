@@ -27,3 +27,4 @@ Rules:
 | [0007](0007-android-kmp-target.md) | Android target through the Android KMP library plugin | Accepted |
 | [0008](0008-protocol-schema-and-fixtures.md) | Protocol schema layout and golden fixtures | Accepted |
 | [0009](0009-desktop-server-sessions-and-mdns.md) | Desktop server sessions, endpoint and mDNS advertisement | Accepted |
+| [0010](0010-fake-client-and-headless-server.md) | Fake client replays golden fixtures; desktop server runs headless | Accepted |
