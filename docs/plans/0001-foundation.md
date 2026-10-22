@@ -345,6 +345,40 @@ reported as a timeout).
   Accept: `make scripts-test` — with a newer `.jsonl` created while watching,
   the watcher prints that session's events.
 
+### Eighth milestone review
+
+Findings of the `code-review` of `d8fbae9..2e3d390` (after M0.R20–M0.R23).
+One joined a debt: `TrafficState.received` decodes the payload inside the
+`MutableStateFlow.update` lambda, so a lost compare-and-set decodes again
+(DEBT-0004). One was already tracked: `toByteArray` copies in `BodyFormat`
+(DEBT-0006). One was rejected: the fake client's two identical catch branches
+for `HandshakeException` and `SessionClosedException` are a style choice.
+
+- [ ] **M0.R24 Server stop under cancellation.** `stop` runs `release` in the
+  caller's context, so when `runServer`'s `withTimeout` cancels it mid-close,
+  `stopSuspend` throws at its first suspension, the engine keeps the port, and
+  a later `stop` (the shutdown hook) returns at once; `MdnsAdvertiser.start`
+  rolls back only on `Exception`, so an `Error` from a later address leaks the
+  registrations already made.
+  Accept: `./gradlew :desktop:server:test` — a test that cancels `stop`
+  while the advertiser close is in progress sees the port free once that
+  close returns; a registration throwing an `Error` on the second address
+  closes the first.
+- [ ] **M0.R25 Desktop app server-stopped status.** When `sessions` completes
+  without a failure (the server stopped by someone else), `runServer` leaves
+  "Listening on port N"; the `runServer` KDoc is 5 lines, over the comment
+  limit.
+  Accept: `./gradlew :desktop:app:test` — a test where `sessions` completes
+  reports a stopped status through `onStatus`; no comment block over 4 lines
+  (grep in the PR).
+- [ ] **M0.R26 Loop usage-limit detection.** With no verdict line, `loop.sh`
+  also greps the free-text report for `usage limit|rate limit`, so a crashed
+  session whose report only mentions rate limiting waits and retries up to
+  `LIMIT_RETRIES` times instead of stopping.
+  Accept: `make scripts-test` — a session with no verdict whose report
+  mentions "rate limit" and whose `rate_limit_event` is `allowed` stops with
+  "no verdict line"; a session with a non-`allowed` limit event still waits.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
