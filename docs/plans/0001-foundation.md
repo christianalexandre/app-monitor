@@ -129,7 +129,7 @@ server).
   Deviation: the CLI body moved from `main` to an internal `run` returning the
   exit status, so tests drive it; `discover` takes internal address and
   browser factories, like `MdnsAdvertiser`. mDNS failures exit 1 too.
-- [ ] **M0.R8 Desktop app startup errors and body decoding cost.** The app's
+- [x] **M0.R8 Desktop app startup errors and body decoding cost.** The app's
   `LaunchedEffect` only catches `IOException`, so other startup failures skip
   the "Server failed" status; `BodyFormat` decodes and parses a JSON body
   twice per render, and `hexDump` boxes every byte and calls `String.format`
@@ -137,6 +137,9 @@ server).
   Accept: `./gradlew :desktop:app:test` — a test where the server start
   throws a non-IO exception shows the failed status; a multi-MB hex dump
   formats in linear time within the existing bound.
+  Deviation: the startup body moved from `main` to an internal `runServer`,
+  tested with a stopped (single-use) server; a test also pins that the
+  default format and rendering share one decode.
 - [ ] **M0.R9 Loop log and CI cancellation.** `run_session` writes stderr into
   the `.jsonl` that `jq` parses, so one non-JSON line hides the result and the
   rate-limit events; the CI concurrency group cancels in-progress `dev` push

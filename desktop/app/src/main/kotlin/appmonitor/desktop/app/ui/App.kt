@@ -165,13 +165,14 @@ private fun Body(
         Text("None", style = MaterialTheme.typography.caption)
         return
     }
-    var format by remember(body) { mutableStateOf(defaultFormat(headers, body)) }
+    val decoded = remember(body) { DecodedBody(body) }
+    var format by remember(decoded) { mutableStateOf(defaultFormat(headers, decoded)) }
     Row {
         BodyFormat.entries.forEach { option ->
             TextButton(onClick = { format = option }, enabled = option != format) { Text(option.label) }
         }
     }
-    val rendered = remember(body, format) { render(body, format) }
+    val rendered = remember(decoded, format) { render(decoded, format) }
     Text(rendered, Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false)
 }
 

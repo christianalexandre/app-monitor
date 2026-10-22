@@ -109,7 +109,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 ```
 
 - `main` starts `AppMonitorServer` with the default config and feeds
-  `TrafficStore`; the window shows "Listening on port N" or the start error.
+  `TrafficStore` through `runServer`; the window shows "Listening on port N",
+  or "Server failed" with any startup or session exception (not only I/O).
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
   duration is the difference of the envelopes' `timestamp_ms`. Other
@@ -119,7 +120,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
   user can switch. JSON is re-indented from the original text in one linear
-  pass, never re-encoded; each body is rendered once per format.
+  pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
+  most once per body, shared by the default-format choice and rendering; each
+  body is rendered once per format. The hex dump is one linear pass.
 
 ## Limits
 
