@@ -2,8 +2,8 @@
 # Tests loop.sh's run_session/watchdog and loop_watch.sh, no Claude needed.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+# No EXIT trap: bash 5 runs it in the watchdog subshells too, deleting $tmp.
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
 
 failures=0
 check() { # name condition...
@@ -54,4 +54,5 @@ code=$?
 check "empty .loop exits 1" test "$code" -eq 1
 check "empty .loop prints the no-session message" grep -q "no session in" "$tmp/watch.err"
 
+rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }
