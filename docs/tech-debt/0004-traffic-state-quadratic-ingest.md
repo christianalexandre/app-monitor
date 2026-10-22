@@ -17,6 +17,9 @@ re-filters it on each recomposition, and each row compares itself with the
 selected exchange by data-class equality, deep-comparing headers and bodies. Ingest is O(n) per event, so a long
 session is quadratic overall and the UI slows as traffic accumulates.
 
+The payload is decoded inside the `MutableStateFlow.update` lambda, so
+concurrent sessions that lose a compare-and-set decode it again.
+
 ## Why it was accepted
 
 Found in the M0 milestone review. The store is a skeleton (PLAN-0001 M0.5);
