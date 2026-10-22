@@ -447,7 +447,7 @@ directory, with an explicit `rm -rf` before the final exit.
   its KDoc.
   Accept: `./gradlew :desktop:server:test` — `stop` racing `start`, with an
   advertiser whose close throws, rethrows that failure from `stop`.
-- [ ] **M0.R33 Loop verdict on the last line only.** `verdict_of` takes the
+- [x] **M0.R33 Loop verdict on the last line only.** `verdict_of` takes the
   last matching line anywhere in the report, so a report that quotes
   `LOOP: CONTINUE` mid-text and ends without a verdict continues the loop.
   Accept: `make scripts-test` — a report with `LOOP: CONTINUE` followed by

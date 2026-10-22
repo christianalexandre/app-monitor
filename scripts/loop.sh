@@ -61,9 +61,9 @@ run_session() {
 result_of() { jq -c 'select(.type == "result")' "$1" 2>/dev/null | tail -1 | jq -r '.result // empty'; }
 cost_of() { jq -r 'select(.type == "result") | .total_cost_usd // empty' "$1" 2>/dev/null | tail -1; }
 limit_status() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.status' "$1" 2>/dev/null | tail -1; }
-# Last verdict line of report $1, trailing whitespace and CR stripped; only
-# an exact `LOOP: CONTINUE` continues, so nothing may follow it.
-verdict_of() { sed 's/[[:space:]]*$//' "$1" | grep -E '^LOOP: (CONTINUE|STOP( .*)?)$' | tail -1; }
+# Last non-blank line of report $1, trailing whitespace and CR stripped, if
+# it is a verdict; only an exact `LOOP: CONTINUE` continues.
+verdict_of() { sed 's/[[:space:]]*$//' "$1" | awk 'NF { last = $0 } END { print last }' | grep -E '^LOOP: (CONTINUE|STOP( .*)?)$'; }
 limit_reset() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.resetsAt' "$1" 2>/dev/null | tail -1; }
 
 # Sourced by scripts/test_loop.sh, which only needs the functions above.
