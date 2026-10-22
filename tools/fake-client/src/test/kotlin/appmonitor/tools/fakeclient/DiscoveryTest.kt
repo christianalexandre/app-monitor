@@ -10,6 +10,7 @@ import java.net.InetAddress
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import javax.jmdns.ServiceEvent
+import javax.jmdns.ServiceListener
 import javax.jmdns.impl.ServiceInfoImpl
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,13 +79,72 @@ class DiscoveryTest {
             assertEquals(addresses, closed.toList())
         }
 
+    @Test
+    fun `a TXT record that arrives after SRV and A gives the path`() =
+        runBlocking {
+            val address = InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1)) as Inet4Address
+
+            val target =
+                discover(timeoutMs = 5_000, addresses = { listOf(address) }) { _, listener ->
+                    listener.serviceResolved(resolved("AppMonitor", address, 47474))
+                    listener.serviceResolved(resolved("AppMonitor", address, 47474, path = "/v2/ws"))
+                    AutoCloseable {}
+                }
+
+            assertEquals(Target("10.0.0.1", 47474, "/v2/ws"), target)
+        }
+
+    @Test
+    fun `the service name matches case-insensitively and other names are ignored`() =
+        runBlocking {
+            val address = InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1)) as Inet4Address
+
+            val target =
+                discover(timeoutMs = 5_000, serviceName = "appmonitor", addresses = { listOf(address) }) { _, listener ->
+                    listener.serviceResolved(resolved("Other", address, 1111, path = "/v1/ws"))
+                    listener.serviceResolved(resolved("AppMonitor", address, 47474, path = "/v1/ws"))
+                    AutoCloseable {}
+                }
+
+            assertEquals(Target("10.0.0.1", 47474, "/v1/ws"), target)
+        }
+
+    @Test
+    fun `a resolve that blocks does not hold back the next service`() =
+        runBlocking {
+            val address = InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1)) as Inet4Address
+            val stale = CountDownLatch(1)
+            var browsed: ServiceListener? = null
+
+            val target =
+                discover(
+                    timeoutMs = 2_000,
+                    addresses = { listOf(address) },
+                    resolve = { event ->
+                        if (event.name == "Stale") stale.await()
+                        checkNotNull(browsed).serviceResolved(resolved(event.name, address, 47474, path = "/v1/ws"))
+                    },
+                ) { _, listener ->
+                    browsed = listener
+                    // Both on the browsing thread, as JmDNS delivers them.
+                    listener.serviceAdded(resolved("Stale", address, 47474))
+                    listener.serviceAdded(resolved("AppMonitor", address, 47474))
+                    AutoCloseable {}
+                }
+
+            assertEquals(Target("10.0.0.1", 47474, "/v1/ws"), target)
+            stale.countDown()
+        }
+
     private fun resolved(
         name: String,
         host: Inet4Address,
         port: Int,
+        path: String? = null,
     ): ServiceEvent {
+        val properties = path?.let { mapOf(Protocol.MDNS_TXT_PATH to it) } ?: emptyMap()
         val info =
-            object : ServiceInfoImpl(Protocol.MDNS_SERVICE_TYPE, name, "", port, 0, 0, false, emptyMap<String, Any>()) {
+            object : ServiceInfoImpl(Protocol.MDNS_SERVICE_TYPE, name, "", port, 0, 0, false, properties) {
                 override fun getInet4Addresses() = arrayOf(host)
             }
         return object : ServiceEvent(info) {

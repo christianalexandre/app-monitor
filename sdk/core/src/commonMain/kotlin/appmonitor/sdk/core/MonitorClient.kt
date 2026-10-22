@@ -65,7 +65,7 @@ internal data class ClientConfig(
  * [start] once, [stop] once; [send] is safe from any thread and never blocks.
  */
 internal class MonitorClient(
-    private val hello: Hello,
+    hello: () -> Hello,
     private val discover: suspend () -> Endpoint?,
     private val config: ClientConfig = ClientConfig(),
     private val cleartextPermitted: (host: String) -> Boolean = ::isCleartextPermitted,
@@ -77,6 +77,9 @@ internal class MonitorClient(
     private val backoff = Backoff(config.backoffInitial, config.backoffMax, random = random)
     private val stopRequested = CompletableDeferred<Unit>()
     private val mutableState = MutableStateFlow(ClientState.Idle)
+
+    // Built on the client's scope, off the caller's thread: it may read storage.
+    private val hello by lazy(hello)
 
     private val lock = Any()
     private var client: HttpClient? = null

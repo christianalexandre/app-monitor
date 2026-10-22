@@ -1,10 +1,10 @@
 ---
 id: DEBT-0011
 title: Fake client discovery blocks the JmDNS listener and matches names by case
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: More than one `_appmonitor._tcp` service is seen on one LAN, or M1 `sdk/core` implements discovery
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0011 — Fake client discovery blocks the JmDNS listener and matches names by case
@@ -32,4 +32,8 @@ fake client, or M1 `sdk/core` implements discovery and needs the same rules.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid in PLAN-0002 M1.6 (ADR-0024). `requestServiceInfo` runs on an IO
+coroutine per service, so a stale one no longer holds the listener, and
+`DesktopSelector` compares names case-insensitively. `DiscoveryTest` pins
+both. On Android, `NsdBrowser` serializes `resolveService` below API 34,
+where NsdManager allows one resolve at a time.

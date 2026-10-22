@@ -1,0 +1,86 @@
+package appmonitor.sdk.core
+
+import appmonitor.protocol.DesktopAnswer
+import appmonitor.protocol.DesktopSelector
+import appmonitor.protocol.Protocol
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+
+/** Where the Android emulator reaches its host's loopback (ADR-0002). */
+internal const val EMULATOR_HOST: String = "10.0.2.2"
+
+/** A platform mDNS browser for [Protocol.MDNS_SERVICE_TYPE]; answers may repeat per name and come from any thread. */
+internal fun interface MdnsBrowser {
+    fun browse(onAnswer: (DesktopAnswer) -> Unit): AutoCloseable
+}
+
+/** Bounds of SDD 04's discovering state; tests shorten them. */
+internal data class DiscoveryConfig(
+    val mdnsBeforeEmulator: Duration = 3.seconds,
+    val txtGrace: Duration = DesktopSelector.TXT_GRACE_MS.milliseconds,
+)
+
+/**
+ * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host is the only source; else
+ * mDNS through [mdns] (null when it may not run), then [EMULATOR_HOST] when [onEmulator].
+ */
+internal fun discovery(
+    options: AppMonitorOptions,
+    mdns: () -> MdnsBrowser?,
+    onEmulator: Boolean,
+    config: DiscoveryConfig = DiscoveryConfig(),
+    log: (String) -> Unit = ::platformLog,
+): suspend () -> Endpoint? {
+    val manual = options.host
+    if (manual != null) return { Endpoint(manual, options.port) }
+    return {
+        val browser = mdns()
+        val found =
+            try {
+                when {
+                    browser == null -> null
+
+                    // Bounded so the emulator fallback runs inside MonitorClient's discovery timeout.
+                    onEmulator -> withTimeoutOrNull(config.mdnsBeforeEmulator) { discoverMdns(browser, config.txtGrace) }
+
+                    else -> discoverMdns(browser, config.txtGrace)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("mDNS discovery failed: $e")
+                null
+            }
+        found ?: if (onEmulator) Endpoint(EMULATOR_HOST) else null
+    }
+}
+
+/** The desktop [DesktopSelector] picks from [browser]'s answers; suspends until one is found. Always closes the browser. */
+internal suspend fun discoverMdns(
+    browser: MdnsBrowser,
+    txtGrace: Duration,
+): Endpoint {
+    val answers = Channel<DesktopAnswer>(Channel.UNLIMITED)
+    val selector = DesktopSelector()
+    val browsing = browser.browse { answers.trySend(it) }
+    try {
+        var chosen: DesktopAnswer? = null
+        while (chosen == null && !selector.hasCandidate) chosen = selector.offer(answers.receive())
+        if (chosen == null) {
+            chosen = withTimeoutOrNull(txtGrace) {
+                var complete: DesktopAnswer? = null
+                while (complete == null) complete = selector.offer(answers.receive())
+                complete
+            } ?: selector.settle()
+        }
+        val desktop = checkNotNull(chosen)
+        return Endpoint(desktop.host, desktop.port, desktop.path ?: Protocol.WEBSOCKET_PATH)
+    } finally {
+        answers.close()
+        runCatching { browsing.close() }
+    }
+}

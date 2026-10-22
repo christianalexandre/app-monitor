@@ -69,7 +69,7 @@ internal class MdnsAdvertiser private constructor(
                 port,
                 0,
                 0,
-                mapOf("v" to Protocol.VERSION.toString(), "path" to Protocol.WEBSOCKET_PATH),
+                mapOf("v" to Protocol.VERSION.toString(), Protocol.MDNS_TXT_PATH to Protocol.WEBSOCKET_PATH),
             )
 
         fun lanAddresses(): List<InetAddress> =
