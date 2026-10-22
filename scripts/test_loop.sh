@@ -51,6 +51,12 @@ printf '%s\n' '{"type":"assistant"}' '{"type":"result","result":"report line 1\n
 check "multi-line report is kept whole" test "$(result_of "$tmp/result.jsonl")" = "$(printf 'report line 1\nreport line 2\nLOOP: CONTINUE')"
 check "log without result gives nothing" test -z "$(result_of "$tmp/short.jsonl")"
 
+echo "test-loop: stderr stays out of the jsonl"
+run_session "$tmp/noisy.jsonl" sh -c 'echo "warning: not json" >&2; echo '"'"'{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}'"'"'; echo '"'"'{"type":"result","result":"LOOP: CONTINUE"}'"'"''
+check "non-JSON stderr does not hide the verdict" test "$(result_of "$tmp/noisy.jsonl")" = "LOOP: CONTINUE"
+check "non-JSON stderr does not hide rate-limit events" test "$(limit_status "$tmp/noisy.jsonl")" = allowed
+check "stderr lands in the .err log" grep -qx "warning: not json" "$tmp/noisy.jsonl.err"
+
 echo "test-loop: loop_watch"
 mkdir -p "$tmp/repo/scripts" "$tmp/repo/.loop"
 cp "$here/loop_watch.sh" "$tmp/repo/scripts/"

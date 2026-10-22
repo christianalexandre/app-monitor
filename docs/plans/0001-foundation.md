@@ -140,13 +140,15 @@ server).
   Deviation: the startup body moved from `main` to an internal `runServer`,
   tested with a stopped (single-use) server; a test also pins that the
   default format and rendering share one decode.
-- [ ] **M0.R9 Loop log and CI cancellation.** `run_session` writes stderr into
+- [x] **M0.R9 Loop log and CI cancellation.** `run_session` writes stderr into
   the `.jsonl` that `jq` parses, so one non-JSON line hides the result and the
   rate-limit events; the CI concurrency group cancels in-progress `dev` push
   runs, which ADR-0012 relies on to seed the Gradle cache.
   Accept: `make scripts-test` — a session that prints a non-JSON stderr line
   still yields its verdict; `ci.yml` cancels in progress only for
   `pull_request` events.
+  Deviation: stderr goes to `<log>.err` beside the `.jsonl`, which also keeps
+  `make loop-watch` (jq on the same file) alive.
 
 ## Outcome
 

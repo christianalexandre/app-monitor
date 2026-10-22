@@ -22,7 +22,7 @@ Where each part lives in the repository.
 | `desktop/server/` | JVM module: `AppMonitorServer` (Ktor WebSocket, handshake), `DeviceSession` flows, `MdnsAdvertiser`, `ServerConfig` (ADR-0009); headless `Main.kt` that logs to stdout (ADR-0010); `AppMonitorServerTest`, `MdnsPartialFailureTest`, `ServerLifecycleTest` |
 | `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (`App.kt` panes, `BodyFormat.kt`) (ADR-0011); tests for state, body formats and the offscreen UI |
 | `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest`, `MainTest` (CLI errors), `DiscoveryTest` |
-| `.loop/` | `make loop` session logs (git-ignored) |
+| `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report |
 
 ## Planned layout
 
