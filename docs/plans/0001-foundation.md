@@ -292,13 +292,16 @@ does not).
   Deviation: `replay` now uses Ktor's raw CIO session (`webSocketRawSession`),
   since the default session completes `closeReason` with its own close; it
   sends a normal close after the traffic and fails on any non-`NORMAL` reply.
-- [ ] **M0.R19 Loop timeout marker.** `run_session` removes a stale `.done`
+- [x] **M0.R19 Loop timeout marker.** `run_session` removes a stale `.done`
   but not a stale `.timeout`, so a reused log path always returns 124; the
   watchdog's `kill` succeeds on an exited, unreaped session, so a session that
   ends at the deadline is reported as timed out.
   Accept: `make scripts-test` — a run after a timed-out run on the same log
   path returns the command's code; a session that exits by itself returns its
   code even when the timeout marker appears.
+  Deviation: the marker cannot tell an exit at the deadline from a kill, so
+  `run_session` also requires exit status 143 (ADR-0015); the test stands
+  in for the deadline race with a session that ignores `TERM`.
 
 ## Outcome
 

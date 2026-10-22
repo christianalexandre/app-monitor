@@ -32,6 +32,19 @@ code=$?
 check "slow command times out with 124" test "$code" -eq 124
 check "slow command leaves a .timeout" test -e "$tmp/slow.jsonl.timeout"
 
+timeout_s=30
+run_session "$tmp/slow.jsonl" sh -c 'exit 3'
+code=$?
+check "run after a timeout on the same log returns its code" test "$code" -eq 3
+check "run after a timeout clears the stale .timeout" test ! -e "$tmp/slow.jsonl.timeout"
+
+# Ignoring TERM stands in for a session that exits as the deadline hits.
+timeout_s=1
+run_session "$tmp/late.jsonl" sh -c 'trap "" TERM; sleep 1.5; exit 5'
+code=$?
+check "session exiting by itself at the deadline returns its code" test "$code" -eq 5
+check "session exiting by itself still sees the marker" test -e "$tmp/late.jsonl.timeout"
+
 echo "test-loop: watchdog"
 timeout_s=30
 sleep 30 &

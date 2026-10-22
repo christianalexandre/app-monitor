@@ -10,7 +10,7 @@ Where each part lives in the repository.
 | `docs/` | SDD, guidelines, ADRs, tech debt, plans; `screenshots/` for UI evidence |
 | `.claude/` | Shared Claude Code settings and slash commands |
 | `.github/` | Issue forms, one PR template per change type; workflows `pr-conventions.yml` (branch, title, trailers, docs) and `ci.yml` (`make check` on ubuntu, ADR-0012) |
-| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `loop.sh` also backs `make loop-worktree` (`--worktree`, honours `LOOP_WORKTREE`); its watchdog polls a `.done` marker (ADR-0014); `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
+| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `loop.sh` also backs `make loop-worktree` (`--worktree`, honours `LOOP_WORKTREE`); its watchdog polls a `.done` marker (ADR-0014) and a timeout is reported only when its `TERM` ended the session (ADR-0015); `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
 | `Makefile` | Command façade |
 | `settings.gradle.kts`, `build.gradle.kts` | Gradle root: module list, root lint and `check` |
 | `gradle/libs.versions.toml` | Version catalog, shared with `build-logic` |
