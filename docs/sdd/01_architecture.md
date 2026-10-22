@@ -55,7 +55,7 @@ before rethrowing, so the port is free again.
 
 ```
 device                         AppMonitorServer
-  │── Envelope(core, Hello) ──►│ version ≠ Protocol.VERSION, or not Hello
+  │── Envelope(core, Hello) ──►│ version ≠ Protocol.VERSION, not Hello, or none in 10 s
   │                            │   → close 1002 (protocol error)
   │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
@@ -68,7 +68,11 @@ device                         AppMonitorServer
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
 - `AppMonitorServer` is single use: `stop()` completes `sessions` for good,
-  so a restarted server would deliver no session; create a new instance.
+  and `start()` after `stop()` throws; create a new instance.
+- `stop()` closes every mDNS registration, frees the port and completes
+  `sessions` even when a registration fails to close; it then rethrows the
+  first failure (the others suppressed).
+- A connection that sends no frame within 10 s of opening is closed with 1002.
 
 ### Without the desktop UI
 

@@ -13,8 +13,17 @@ internal class MdnsAdvertiser private constructor(
 ) : AutoCloseable {
     val addresses: List<InetAddress> get() = registrations.map { it.first }
 
+    /** Closes every registration, then rethrows the first failure with the others suppressed. */
     override fun close() {
-        registrations.forEach { it.second.close() }
+        var failure: Exception? = null
+        for ((_, registration) in registrations) {
+            try {
+                registration.close()
+            } catch (e: Exception) {
+                if (failure == null) failure = e else failure.addSuppressed(e)
+            }
+        }
+        if (failure != null) throw failure
     }
 
     companion object {
