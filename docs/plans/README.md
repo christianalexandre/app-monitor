@@ -24,8 +24,10 @@ record of how the milestone was actually built once it is done.
   (`code-review`) in at most three rounds — the first on the whole milestone
   diff, the next ones only on what changed since — and turns correctness
   findings into `MN.R*` tasks, the rest into one DEBT per round (ADR-0016).
-  Then it opens the close-plan PR — **without merging it**. The owner merging
-  that PR is the approval to start the next plan.
+  Then it opens the close-plan PR and merges it after green CI, unless a
+  correctness finding is left open or `PLAN_CHECKPOINT=1` is set: then it
+  stops, and the owner merging that PR is the approval to start the next
+  plan (ADR-0019).
 
 ## Index
 

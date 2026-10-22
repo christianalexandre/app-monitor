@@ -3,6 +3,7 @@
 # reports STOP; `--worktree` only creates the worktree. Env (defaults):
 #   MAX_ITERATIONS=20  MAX_BUDGET_USD=20 (per iteration)  ITERATION_TIMEOUT=5400 (s)
 #   LIMIT_RETRIES=8    LOOP_WORKTREE=../<repo>-loop
+#   PLAN_CHECKPOINT=1 stops at each plan's close instead of merging it (ADR-0019)
 set -uo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -66,6 +67,8 @@ limit_status() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.s
 # Last non-blank line of report $1, trailing whitespace and CR stripped, if
 # it is a verdict; only an exact `LOOP: CONTINUE` continues.
 verdict_of() { sed 's/[[:space:]]*$//' "$1" | awk 'NF { last = $0 } END { print last }' | grep -E '^LOOP: (CONTINUE|STOP( .*)?)$'; }
+# Basename of the worktree's `status: Active` plan, empty when there is none.
+active_plan() { grep -l '^status: Active' "$worktree"/docs/plans/[0-9]*.md 2>/dev/null | head -1 | xargs -r basename; }
 limit_reset() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.resetsAt' "$1" 2>/dev/null | tail -1; }
 
 # Sourced by scripts/test_loop.sh, which only needs the functions above.
@@ -83,6 +86,7 @@ retries=0
 i=1
 while ((i <= max)); do
   base="$logs/$(date +%Y%m%d-%H%M%S)-$i"
+  plan_before="$(active_plan)"
   echo "loop: iteration $i/$max → $base.md (live: make loop-watch)"
   run_session "$base.jsonl" claude -p "/next" --permission-mode auto \
     --output-format stream-json --verbose --max-budget-usd "$budget"
@@ -125,6 +129,10 @@ while ((i <= max)); do
   if [[ "$verdict" != "LOOP: CONTINUE" ]]; then
     notify "stopped after $i iteration(s): $verdict"
     exit 0
+  fi
+  plan_after="$(active_plan)"
+  if [[ "$plan_after" != "$plan_before" ]]; then
+    notify "active plan: ${plan_before:-none} → ${plan_after:-none}"
   fi
   i=$((i + 1))
 done
