@@ -12,6 +12,7 @@ import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.STOP_TIMEOUT
+import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +93,7 @@ internal fun once(stop: suspend () -> Unit): suspend () -> Unit {
 internal fun addStopHook(
     stop: suspend () -> Unit,
     addShutdownHook: (Thread) -> Unit = Runtime.getRuntime()::addShutdownHook,
-    onFailure: (Throwable) -> Unit = { System.err.println("Server stop failed: $it") },
+    onFailure: (Throwable) -> Unit = ::printStopFailure,
 ) = addShutdownHook(shutdownHook(onFailure = onFailure, stop = stop))
 
 /**

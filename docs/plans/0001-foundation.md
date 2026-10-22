@@ -494,7 +494,7 @@ watchdog subshells).
   Accept: with a stray `protocol/fixtures/stale.bin`,
   `./gradlew :protocol:jvmTest -PupdateFixtures` passes and removes it; the
   fixtures are written once per run.
-- [ ] **M0.R38 Desktop app stop hook default.** `addStopHook` repeats
+- [x] **M0.R38 Desktop app stop hook default.** `addStopHook` repeats
   `shutdownHook`'s default `onFailure`, so the two can drift.
   Accept: `./gradlew :desktop:app:test` — `addStopHook` has no copy of the
   default message; its tests still pass.
