@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 
@@ -32,10 +33,11 @@ fun main() {
     val store = TrafficStore()
     var status by mutableStateOf("Starting server…")
     val server = AppMonitorServer()
-    addStopHook(server)
+    val stop = once(server::stop)
+    addStopHook(stop)
     exitAfter {
         runBlocking {
-            runUntilExit(serve = { runServer(server, store) { status = it } }) {
+            runUntilExit(serve = { runServer(server, store, stop = stop) { status = it } }) {
                 awaitApplication {
                     Window(
                         onCloseRequest = ::exitApplication,
@@ -80,11 +82,18 @@ internal suspend fun runUntilExit(
     }
 }
 
-/** Stops [server] on SIGINT, SIGTERM or `exitProcess`, giving up after [STOP_TIMEOUT]. */
+/** [stop] run by the first caller only; later calls return at once, so exit waits for one [STOP_TIMEOUT] at most. */
+internal fun once(stop: suspend () -> Unit): suspend () -> Unit {
+    val claimed = AtomicBoolean(false)
+    return { if (claimed.compareAndSet(false, true)) stop() }
+}
+
+/** Runs [stop] on SIGINT, SIGTERM or `exitProcess`, giving up after [STOP_TIMEOUT]; failures go to [onFailure]. */
 internal fun addStopHook(
-    server: AppMonitorServer,
+    stop: suspend () -> Unit,
     addShutdownHook: (Thread) -> Unit = Runtime.getRuntime()::addShutdownHook,
-) = addShutdownHook(shutdownHook { server.stop() })
+    onFailure: (Throwable) -> Unit = { System.err.println("Server stop failed: $it") },
+) = addShutdownHook(shutdownHook(onFailure = onFailure, stop = stop))
 
 /**
  * Feeds [store] from [server] until cancelled; reports through [onStatus] a stop by someone else, a [stop] past

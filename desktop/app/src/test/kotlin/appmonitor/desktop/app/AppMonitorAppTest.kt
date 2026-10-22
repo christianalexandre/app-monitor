@@ -266,13 +266,46 @@ class AppMonitorAppTest {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
         val port = runBlocking { server.start() }
         val hooks = CopyOnWriteArrayList<Thread>()
-        addStopHook(server, hooks::add)
+        addStopHook(server::stop, hooks::add)
 
         val hook = hooks.single().apply { start() }
         hook.join(TIMEOUT_MS)
 
         assertFalse(hook.isAlive)
         ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+    }
+
+    @Test
+    fun `a stop that never returns delays the exit by one stop timeout and is reported once`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val stop = once { awaitCancellation() }
+        val hooks = CopyOnWriteArrayList<Thread>()
+        val hookFailures = CopyOnWriteArrayList<Throwable>()
+        val statuses = CopyOnWriteArrayList<String>()
+        val started = CompletableDeferred<Unit>()
+        addStopHook(stop, hooks::add) { hookFailures += it }
+
+        val begin = System.nanoTime()
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                runUntilExit(
+                    serve = {
+                        runServer(server, TrafficStore(), start = {
+                            started.complete(Unit)
+                            awaitCancellation()
+                        }, stop = stop, stopTimeout = 200.milliseconds) { statuses += it }
+                    },
+                ) { started.await() }
+            }
+        }
+        val hook = hooks.single().apply { start() }
+        hook.join(TIMEOUT_MS)
+        val elapsedMs = (System.nanoTime() - begin) / 1_000_000
+
+        assertFalse(hook.isAlive)
+        assertTrue(elapsedMs < 200 + 1_000, "exit took ${elapsedMs}ms")
+        assertEquals(listOf("Server stop timed out after 200ms"), statuses)
+        assertEquals(emptyList(), hookFailures)
     }
 
     @Test

@@ -81,7 +81,7 @@ device                         AppMonitorServer
   for that before returning, so the port is free once `stop()` returns. The
   engine and advertiser are published only when `start()` completes. This
   holds when `stop()` arrives while a failed `start()` is still releasing.
-- A second `stop()` (e.g. the shutdown hook after the app gave up) waits for
+- A second `stop()` (e.g. the headless server's shutdown hook) waits for
   the first one to finish releasing instead of returning at once, and
   rethrows the same release failure, so a failure is still reported when the
   first caller was cancelled.
@@ -161,6 +161,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   too. Both use `shutdownHook`: `stop()` runs on a daemon thread and the hook
   gives up after `STOP_TIMEOUT`, so a `start` stuck in mDNS registration
   cannot hang the exit; mDNS goodbye is then lost.
+  The app's hook and `runServer` share one `once(server::stop)`: whichever
+  runs first stops the server and the other returns at once, so a hanging
+  `stop()` delays the exit by one `STOP_TIMEOUT` and is reported once.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
   duration is the difference of the envelopes' `timestamp_ms`. Other
