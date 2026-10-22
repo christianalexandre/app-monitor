@@ -1,5 +1,9 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint build branch-check loop
+.PHONY: help check docs-check lint build branch-check loop loop-watch loop-worktree
+
+# Default macOS location; an ANDROID_HOME from the environment wins.
+ANDROID_HOME ?= $(HOME)/Library/Android/sdk
+export ANDROID_HOME
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -18,5 +22,14 @@ build: ## Compile and test every Gradle module, build-logic included
 branch-check: ## Current branch follows <type>/<kebab-slug>
 	@scripts/branch_check.sh
 
-loop: ## Run /next in fresh sessions until it stops (MAX_ITERATIONS, MAX_BUDGET_USD)
+loop: ## Run /next in fresh sessions in ../app-monitor-loop until it stops
 	@scripts/loop.sh
+
+loop-watch: ## Follow the running loop session live
+	@scripts/loop_watch.sh
+
+loop-worktree: ## Create the loop worktree (open `claude` there once to trust it)
+	@git fetch -q origin --prune
+	@test -d ../$(notdir $(CURDIR))-loop || git worktree add -q --detach ../$(notdir $(CURDIR))-loop origin/dev
+	@echo "worktree: $(abspath ../$(notdir $(CURDIR))-loop)"
+

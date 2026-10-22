@@ -20,7 +20,10 @@ record of how the milestone was actually built once it is done.
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
   code of that milestone. The roadmap row then links to it.
-- A milestone ends with a checkpoint: the loop stops and the owner reviews.
+- **Checkpoint**: when every task is `[x]`, the agent reviews the whole
+  milestone diff (`code-review`), turns findings into `MN.R*` tasks or DEBTs,
+  and only then opens the close-plan PR — **without merging it**. The owner
+  merging that PR is the approval to start the next plan.
 
 ## Index
 
@@ -40,6 +43,12 @@ A real Android app (emulator and device) shows traffic in the desktop.
 reconnection), `sdk/android-okhttp` interceptor, `sdk/no-op`, Android sample
 app, device approval dialog in the desktop, header masking.
 
+Hardening found in the M0 review, needed before real devices connect:
+body size limit with a `body_truncated` / original size in the protocol (new
+field numbers, no renumbering); WebSocket `maxFrameSize` on the server;
+keep-alive ping with timeout so a device that drops off Wi-Fi ends its
+session; timeout for the first `Hello` frame.
+
 ### M2 — iOS SDK (capture layer 1)
 
 A real iOS app (simulator and device) shows all its URLSession traffic. Swift
@@ -47,7 +56,8 @@ package `sdk/ios` (Network.framework transport, NWBrowser, swift-protobuf),
 URLSession capture ported from `app-network-monitor` without Pulse, sessions
 created before `start()`, uploads, WebSocket tasks, background sessions
 (ADR-0004 layer 1). Contract tests against `protocol/fixtures/`. SwiftUI sample
-app. Info.plist build-phase script.
+app. Info.plist build-phase script. Protocol field telling which capture
+layer produced an entry (ADR-0004 requires the UI to show it).
 
 ### M3 — Release gate
 

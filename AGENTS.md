@@ -64,7 +64,8 @@ iteration) only when the decision touches:
 `docs/plans/`, implement it on a semantic branch, run the gates, update docs,
 commit, open the PR to `dev`.
 `make loop` repeats it, each iteration in a **fresh session** (the docs are the
-memory); `/loop /next` repeats it inside one session. Stop conditions are in
+memory) inside a dedicated worktree (`../app-monitor-loop`), so the main
+checkout stays free; `/loop /next` repeats it inside one session. Stop conditions are in
 `.claude/commands/next.md`. Everything the loop writes — reports included —
 is in English.
 
@@ -104,7 +105,9 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
 | Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change |
 | Branch name check | `make branch-check` | active |
-| Development loop, fresh session per iteration | `make loop` | active; logs in `.loop/` |
+| Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES` |
+| Follow the running loop live | `make loop-watch` | active |
+| Create the loop worktree | `make loop-worktree` | active; open `claude` there once to accept the trust dialog |
 
 Commands are added here **in the same PR** that creates them.
 
