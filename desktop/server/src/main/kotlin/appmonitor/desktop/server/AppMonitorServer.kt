@@ -29,9 +29,12 @@ import java.util.UUID
  * `Hello` / `HelloAck` handshake becomes a [DeviceSession] on [sessions]. Single use:
  * after [stop], [sessions] completes and the server cannot start again.
  */
-class AppMonitorServer(
-    private val config: ServerConfig = ServerConfig(),
+class AppMonitorServer internal constructor(
+    private val config: ServerConfig,
+    private val startAdvertiser: (serviceName: String, port: Int) -> MdnsAdvertiser,
 ) {
+    constructor(config: ServerConfig = ServerConfig()) : this(config, { name, port -> MdnsAdvertiser.start(name, port) })
+
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
     private var server: EmbeddedServer<*, *>? = null
     private var advertiser: MdnsAdvertiser? = null
@@ -42,7 +45,7 @@ class AppMonitorServer(
     /** Addresses the mDNS service is published on; empty when not advertising. */
     val advertisedAddresses: List<InetAddress> get() = advertiser?.addresses.orEmpty()
 
-    /** Starts listening and advertising; returns the bound port. */
+    /** Starts listening and advertising; returns the bound port. If advertising fails, the port is released. */
     suspend fun start(): Int {
         check(server == null) { "Server already started" }
         val server =
@@ -60,7 +63,14 @@ class AppMonitorServer(
                 .first()
                 .port
         if (config.advertise) {
-            advertiser = withContext(Dispatchers.IO) { MdnsAdvertiser.start(config.serviceName, port) }
+            advertiser =
+                try {
+                    withContext(Dispatchers.IO) { startAdvertiser(config.serviceName, port) }
+                } catch (e: Exception) {
+                    server.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
+                    this.server = null
+                    throw e
+                }
         }
         return port
     }
