@@ -36,3 +36,5 @@ Rules:
 | [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Open |
 | [0017](0017-spotless-walks-build-dir.md) | Spotless walks build directories while tests write them | The same spotless failure on a build file appears a second time, locally or in CI | Open |
 | [0018](0018-empty-request-id-merges-exchanges.md) | Network events without a request id merge into one exchange | The M1 SDK starts sending network envelopes to the desktop | Open |
+| [0019](0019-sdk-bodies-not-masked.md) | The SDK masks headers and query parameters, never bodies | The first request to mask a field inside a request or response body | Open |
+| [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
