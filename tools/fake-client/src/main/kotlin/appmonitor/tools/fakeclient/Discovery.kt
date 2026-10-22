@@ -15,9 +15,8 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 
 /**
- * Browses [Protocol.MDNS_SERVICE_TYPE] on every address in [addresses] and returns the first
- * desktop resolved, or `null` after [timeoutMs]. [serviceName] restricts the match. An address
- * whose browser fails to open is skipped; discovery fails only when every address fails.
+ * First desktop of [Protocol.MDNS_SERVICE_TYPE] named [serviceName], if set, on any of [addresses], or
+ * `null` after [timeoutMs]. An address whose browser fails is skipped; fails only when all of them do.
  */
 internal suspend fun discover(
     timeoutMs: Long,
