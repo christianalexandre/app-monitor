@@ -36,20 +36,40 @@ echo "test-loop: watchdog"
 timeout_s=30
 sleep 30 &
 target=$!
-watchdog "$target" "$tmp/cancelled.timeout" &
+watchdog "$target" "$tmp/cancelled.timeout" "$tmp/cancelled.done" &
 dog=$!
 sleep 0.3
-kill -TERM "$dog"
+touch "$tmp/cancelled.done"
+start=$SECONDS
 wait "$dog"
+check "cancelled watchdog stops within a poll" test $((SECONDS - start)) -lt 2
 check "cancelled watchdog leaves its target alive" kill -0 "$target"
 check "cancelled watchdog leaves no .timeout" test ! -e "$tmp/cancelled.timeout"
 kill "$target" 2>/dev/null
 wait "$target" 2>/dev/null
 
+# A TERM-cancelled watchdog leaked a sleep or hung on ~3% of these (ADR-0014).
+poll_s=0.11
+for _ in $(seq 20); do run_session "$tmp/instant.jsonl" true; done
+check "instant sessions leave no sleep behind" test -z "$(pgrep -f "sleep $poll_s")"
+check "instant sessions leave no .timeout" test ! -e "$tmp/instant.jsonl.timeout"
+check "instant sessions leave no .done" test ! -e "$tmp/instant.jsonl.done"
+poll_s=0.2
+
 echo "test-loop: result_of"
 printf '%s\n' '{"type":"assistant"}' '{"type":"result","result":"report line 1\nreport line 2\nLOOP: CONTINUE"}' >"$tmp/result.jsonl"
 check "multi-line report is kept whole" test "$(result_of "$tmp/result.jsonl")" = "$(printf 'report line 1\nreport line 2\nLOOP: CONTINUE')"
 check "log without result gives nothing" test -z "$(result_of "$tmp/short.jsonl")"
+
+echo "test-loop: verdict_of"
+printf 'report\nLOOP: CONTINUE \n' >"$tmp/space.md"
+printf 'report\r\nLOOP: CONTINUE\r\n' >"$tmp/crlf.md"
+printf 'LOOP: CONTINUE\nLOOP: STOP checkpoint\t\n' >"$tmp/stop.md"
+printf 'no verdict here\n' >"$tmp/none.md"
+check "trailing space still continues" test "$(verdict_of "$tmp/space.md")" = "LOOP: CONTINUE"
+check "trailing CR still continues" test "$(verdict_of "$tmp/crlf.md")" = "LOOP: CONTINUE"
+check "last verdict wins, trimmed" test "$(verdict_of "$tmp/stop.md")" = "LOOP: STOP checkpoint"
+check "report without verdict gives nothing" test -z "$(verdict_of "$tmp/none.md")"
 
 echo "test-loop: stderr stays out of the jsonl"
 run_session "$tmp/noisy.jsonl" sh -c 'echo "warning: not json" >&2; echo '"'"'{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}'"'"'; echo '"'"'{"type":"result","result":"LOOP: CONTINUE"}'"'"''
@@ -64,6 +84,20 @@ cp "$here/loop_watch.sh" "$tmp/repo/scripts/"
 code=$?
 check "empty .loop exits 1" test "$code" -eq 1
 check "empty .loop prints the no-session message" grep -q "no session in" "$tmp/watch.err"
+
+echo "test-loop: make loop-worktree"
+git() { command git -c user.name=test -c user.email=test@example.com "$@"; }
+git init -q -b dev "$tmp/origin" && git -C "$tmp/origin" commit -q --allow-empty -m init
+git clone -q "$tmp/origin" "$tmp/clone"
+mkdir -p "$tmp/clone/scripts"
+cp "$here/loop.sh" "$tmp/clone/scripts/"
+cp "$here/../Makefile" "$tmp/clone/"
+LOOP_WORKTREE="$tmp/wt" make -s -C "$tmp/clone" loop-worktree >"$tmp/wt.out" 2>&1
+code=$?
+unset -f git
+check "loop-worktree exits 0" test "$code" -eq 0
+check "loop-worktree honours LOOP_WORKTREE" test -e "$tmp/wt/.git"
+check "loop-worktree prints the worktree" grep -qx "worktree: $tmp/wt" "$tmp/wt.out"
 
 rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }

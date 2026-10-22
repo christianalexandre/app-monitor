@@ -200,7 +200,7 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   Deviation: `start` releases its own server and advertiser (locals), not
   the fields `stop` may have already taken; a lock orders `stopped` and the
   advertiser hand-off. The first test fails `start` by cancellation.
-- [ ] **M0.R13 Loop verdict, watchdog and worktree.** `loop.sh` compares the
+- [x] **M0.R13 Loop verdict, watchdog and worktree.** `loop.sh` compares the
   verdict exactly, so `LOOP: CONTINUE` with a trailing space or CR stops the
   loop; a TERM that reaches the watchdog before `sleeper=$!` orphans the
   `sleep`; `make loop-worktree` re-implements `ensure_worktree` and ignores
@@ -208,6 +208,10 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   Accept: `make scripts-test` — a verdict line with trailing whitespace or CR
   continues; an immediate TERM leaves no `sleep` behind; `make loop-worktree`
   goes through `loop.sh`'s `ensure_worktree`.
+  Deviation: no `TERM` cancel could be made race-free in bash 3.2, so the
+  watchdog polls a `.done` marker (ADR-0014); the test runs instant sessions
+  instead of sending `TERM`. Verdicts go through a new `verdict_of`;
+  `make loop-worktree` calls `loop.sh --worktree`.
 - [ ] **M0.R14 Client and app edge cases.** `Replay` awaits `closeReason`
   with no bound after the channel closes; `runServer` misses an `Error` at
   startup, leaving "Starting server…"; the body format state is keyed on the
