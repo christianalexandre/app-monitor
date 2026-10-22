@@ -67,9 +67,9 @@ private fun parse(args: Array<String>): Options? {
     }
     return Options(
         host = values["--host"],
-        port = values["--port"]?.let { it.toIntOrNull() ?: return null },
+        port = values["--port"]?.let { it.toIntOrNull()?.takeIf { p -> p in 1..65_535 } ?: return null },
         serviceName = values["--name"],
-        timeoutMs = values["--timeout"]?.let { it.toLongOrNull() ?: return null } ?: 10_000L,
+        timeoutMs = values["--timeout"]?.let { it.toLongOrNull()?.takeIf { ms -> ms > 0 } ?: return null } ?: 10_000L,
     )
 }
 

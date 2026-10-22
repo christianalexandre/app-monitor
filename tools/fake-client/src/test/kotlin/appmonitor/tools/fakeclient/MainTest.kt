@@ -41,6 +41,17 @@ class MainTest {
             assertTrue("404" in err, err)
         }
 
+    @Test
+    fun `a timeout of zero or less or a port out of range is a usage error`() =
+        runBlocking {
+            listOf(arrayOf("--timeout", "0"), arrayOf("--timeout", "-5"), arrayOf("--host", "h", "--port", "70000")).forEach { args ->
+                val (status, err) = run(*args)
+
+                assertEquals(2, status, args.joinToString(" "))
+                assertTrue(err.startsWith("Usage: fake-client"), err)
+            }
+        }
+
     // Outside runBlocking: CoroutineScope.embeddedServer would make the server its child.
     private suspend fun serveNothing(): Int {
         val server = embeddedServer(CIO, host = "127.0.0.1", port = 0) {}

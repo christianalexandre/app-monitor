@@ -27,3 +27,4 @@ Rules:
 | [0007](0007-mdns-failure-stops-server.md) | mDNS failure on one interface stops the whole server | A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host | Open |
 | [0008](0008-accepted-channels-not-enforced.md) | Accepted channels are not enforced after the handshake | The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes | Open |
 | [0009](0009-discovery-ignores-late-txt.md) | Fake client discovery keeps the resolve before the TXT record | The advertised path can differ from `Protocol.WEBSOCKET_PATH`, or M1 `sdk/core` implements discovery | Open |
+| [0010](0010-headless-server-bind-failure-trace.md) | Headless server prints a stack trace when the port is taken | The headless server is started by something other than a developer at a terminal, or someone reports the trace as a bug | Open |

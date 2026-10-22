@@ -170,13 +170,17 @@ advertising case joined DEBT-0007.
   Deviation: `runServer` takes an internal `stop` parameter, since the
   server's failing-advertiser constructor is not visible from `desktop/app`.
   The handshake-after-`stop` path (close 1001) has no test: it needs a race.
-- [ ] **M0.R11 CLI arguments and close reason.** The fake client accepts
+- [x] **M0.R11 CLI arguments and close reason.** The fake client accepts
   `--timeout` of 0 or less and reports it as "no desktop found"; the server's
   `--port` parse failure is a stack trace; `Replay` truncates the close reason
   by UTF-16 chars, not the 123 UTF-8 bytes RFC 6455 allows.
   Accept: `./gradlew :tools:fake-client:test :desktop:server:test` — tests
   for `--timeout 0` (usage, exit 2), a bad `--port` (one-line error, no stack
   trace) and a multibyte close reason that fits in 123 bytes.
+  Deviation: `--port` out of range is rejected too (server 0–65535, fake
+  client 1–65535), and the server rejects unknown arguments; its parsing
+  moved to an internal `parsePort`, tested directly. A bind failure on a
+  valid port still ends in a stack trace (DEBT-0010).
 
 ## Outcome
 

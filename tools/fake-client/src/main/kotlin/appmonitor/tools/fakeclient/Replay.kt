@@ -60,11 +60,31 @@ private suspend fun DefaultClientWebSocketSession.awaitHelloAck(timeoutMs: Long)
 
 private suspend fun DefaultClientWebSocketSession.fail(reply: String): Nothing {
     val message = "Desktop did not answer Hello with HelloAck: $reply"
-    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, message.take(MAX_CLOSE_REASON)))
+    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, message.truncateUtf8(MAX_CLOSE_REASON)))
     throw HandshakeException(message)
+}
+
+/** The longest prefix that fits in [maxBytes] of UTF-8, never splitting a surrogate pair. */
+internal fun String.truncateUtf8(maxBytes: Int): String {
+    var bytes = 0
+    var end = 0
+    while (end < length) {
+        val codePoint = codePointAt(end)
+        val size =
+            when {
+                codePoint < 0x80 -> 1
+                codePoint < 0x800 -> 2
+                codePoint < 0x10000 -> 3
+                else -> 4
+            }
+        if (bytes + size > maxBytes) break
+        bytes += size
+        end += Character.charCount(codePoint)
+    }
+    return substring(0, end)
 }
 
 private const val HANDSHAKE_TIMEOUT_MS = 10_000L
 
-// RFC 6455 caps the close frame payload at 125 bytes, 2 of them for the code.
+// RFC 6455 caps the close frame payload at 125 bytes, 2 of them for the code; the rest is UTF-8.
 private const val MAX_CLOSE_REASON = 123
