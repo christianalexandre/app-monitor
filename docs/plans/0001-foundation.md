@@ -54,6 +54,41 @@ A desktop app that receives fake traffic over the real protocol.
   Deviation: the owner checkpoint is the close-plan PR, after the milestone
   review. README's Desktop row moved from planned to skeleton.
 
+### Milestone review (M0 checkpoint)
+
+Findings of the `code-review` of `d8fbae9..d6dfdc8`. Two became debts:
+DEBT-0004 (quadratic ingest in `TrafficState`) and DEBT-0005 (duplicated
+LAN-interface filter).
+
+- [ ] **M0.R1 Loop scripts.** `scripts/loop_watch.sh` dies silently under
+  `pipefail` when `.loop/` has no session; the `loop.sh` watchdog trap does not
+  exit, so a normal session end still runs `kill -TERM` on a reaped PID and can
+  leave a spurious `.timeout`.
+  Accept: `make loop-watch` with an empty `.loop/` prints the "no session"
+  message; a bash test of `run_session` with a short command leaves no
+  `.timeout` and returns the command's exit code.
+- [ ] **M0.R2 Fake client handshake failure.** When the first reply is not a
+  `HelloAck`, `Replay` awaits the close reason and hangs if the peer keeps the
+  socket open; the `IllegalStateException` escapes `Main` as a stack trace.
+  Accept: `./gradlew :tools:fake-client:test` — a test server that answers
+  with a non-`HelloAck` frame and stays open makes `replay` fail within a
+  bounded time with a clear error.
+- [ ] **M0.R3 mDNS partial failure.** `MdnsAdvertiser` leaks the JmDNS
+  instances already created when a later interface throws, and
+  `AppMonitorServer.start` leaves the HTTP server bound with no advertiser.
+  Accept: `./gradlew :desktop:server:test` — a test that makes registration
+  fail on one address shows every created instance closed and the port free.
+- [ ] **M0.R4 Body rendering cost and strictness.** `indentJson` is O(n²)
+  (`nextSignificant` copies the rest of the body per bracket); `render` is not
+  memoized in `App.kt`; bare words nested in objects/arrays (`{"a": foo}`)
+  are accepted as JSON.
+  Accept: `./gradlew :desktop:app:test` — tests for a nested bare word
+  (not JSON) and for a multi-MB JSON body formatted in linear time.
+- [ ] **M0.R5 Comment length.** KDoc blocks over 4 lines in `desktop/server`
+  (`DeviceSession.kt`, `AppMonitorServer.kt`, `ServerConfig.kt`) and any other
+  source block breaking `docs/guidelines/02_comments.md`.
+  Accept: no comment block over 4 lines outside public SDK API (grep in the PR).
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
