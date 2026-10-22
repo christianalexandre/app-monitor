@@ -24,6 +24,8 @@ fun main(args: Array<String>) {
                 replay(target)
             } catch (e: IOException) {
                 exit("Cannot reach the desktop: $e", 1)
+            } catch (e: HandshakeException) {
+                exit(e.message.orEmpty(), 1)
             }
         println("Session ${ack.session_id}: sent ${Fixtures.traffic.size} envelopes")
     }

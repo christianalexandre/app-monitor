@@ -15,6 +15,8 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(project(":desktop:server"))
+    testImplementation(libs.ktor.server.cio)
+    testImplementation(libs.ktor.server.websockets)
 }
 
 tasks.processResources {
