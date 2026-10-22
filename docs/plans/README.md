@@ -20,10 +20,12 @@ record of how the milestone was actually built once it is done.
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
   code of that milestone. The roadmap row then links to it.
-- **Checkpoint**: when every task is `[x]`, the agent reviews the whole
-  milestone diff (`code-review`), turns findings into `MN.R*` tasks or DEBTs,
-  and only then opens the close-plan PR — **without merging it**. The owner
-  merging that PR is the approval to start the next plan.
+- **Checkpoint**: when every task is `[x]`, the agent reviews the milestone
+  (`code-review`) in at most three rounds — the first on the whole milestone
+  diff, the next ones only on what changed since — and turns correctness
+  findings into `MN.R*` tasks, the rest into one DEBT per round (ADR-0016).
+  Then it opens the close-plan PR — **without merging it**. The owner merging
+  that PR is the approval to start the next plan.
 
 ## Index
 
