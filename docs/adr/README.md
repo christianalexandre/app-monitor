@@ -26,3 +26,4 @@ Rules:
 | [0006](0006-gradle-build-and-lint.md) | Gradle build with convention plugins, Spotless and ktlint | Accepted |
 | [0007](0007-android-kmp-target.md) | Android target through the Android KMP library plugin | Accepted |
 | [0008](0008-protocol-schema-and-fixtures.md) | Protocol schema layout and golden fixtures | Accepted |
+| [0009](0009-desktop-server-sessions-and-mdns.md) | Desktop server sessions, endpoint and mDNS advertisement | Accepted |

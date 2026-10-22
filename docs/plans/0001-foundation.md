@@ -28,7 +28,7 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: `./gradlew :protocol:allTests` — round-trip and fixture tests pass.
   Deviation: Android target added to `appmonitor.kmp-library` with AGP
   9.3.3 (ADR-0007). Fixture files are checked on JVM only (ADR-0008).
-- [ ] **M0.3 Desktop server.** `desktop/server`: Ktor WebSocket server,
+- [x] **M0.3 Desktop server.** (#6) `desktop/server`: Ktor WebSocket server,
   handshake, per-device sessions exposed as `Flow`, mDNS advertisement
   (`_appmonitor._tcp`) via JmDNS.
   Accept: integration test — a client connects, handshakes, sends 100
