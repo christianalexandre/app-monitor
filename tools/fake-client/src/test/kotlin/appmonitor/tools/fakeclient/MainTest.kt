@@ -82,6 +82,18 @@ class MainTest {
         }
 
     @Test
+    fun `--help prints the usage to out and exits 0`() =
+        runBlocking {
+            val out = ByteArrayOutputStream()
+            val err = ByteArrayOutputStream()
+            val status = withTimeout(TIMEOUT_MS) { run(arrayOf("--help"), PrintStream(out), PrintStream(err)) }
+
+            assertEquals(0, status)
+            assertTrue(out.toString().startsWith("Usage: fake-client"), out.toString())
+            assertEquals("", err.toString())
+        }
+
+    @Test
     fun `--help as the value of another option is not a usage request`() =
         runBlocking {
             val (status, err) = run("--name", "--help", "--timeout", "1")

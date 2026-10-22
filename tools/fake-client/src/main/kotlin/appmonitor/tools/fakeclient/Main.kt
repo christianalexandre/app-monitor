@@ -22,7 +22,7 @@ internal suspend fun run(
     err: PrintStream,
 ): Int {
     val options = parse(args) ?: return err.fail(USAGE, 2)
-    if (options.help) return err.fail(USAGE, 0)
+    if (options.help) return out.fail(USAGE, 0)
     val target =
         try {
             options.host?.let { Target(it, options.port ?: Protocol.DEFAULT_PORT) }

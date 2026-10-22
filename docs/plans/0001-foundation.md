@@ -482,7 +482,7 @@ watchdog subshells).
   `LOOP_WORKTREE` (an existing file) exits non-zero and does not print
   "created worktree"; the leaked-sleep check only sees the test's own
   processes.
-- [ ] **M0.R36 Fake client help and comment length.** `--help` prints the
+- [x] **M0.R36 Fake client help and comment length.** `--help` prints the
   usage to stderr; the `discover` KDoc is 5 lines, over the comment limit.
   Accept: `./gradlew :tools:fake-client:test` — `--help` writes the usage to
   `out`, exits 0 and leaves `err` empty; no comment block over 4 lines (grep
