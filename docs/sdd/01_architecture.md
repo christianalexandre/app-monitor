@@ -93,8 +93,12 @@ waits for `HelloAck`, sends the four `network` fixtures stamped with the
 current time and closes. Any other first reply, or none within 10 s, closes
 the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
 `HelloAck` whose payload does not decode counts as another reply. A desktop
-that closes or drops before `HelloAck` fails within the same 10 s, even if
-Ktor never completes the close reason. Any other failure (unresolvable host,
+that closes or drops before `HelloAck` fails within the same 10 s. After the
+traffic the client sends a normal close and waits up to 10 s for the
+desktop's: a close that is not `NORMAL` (e.g. `PROTOCOL_ERROR` for a rejected
+frame) exits 1 with its reason; none at all counts as a dropped connection. A frame rejected after the desktop read that close still reads as `NORMAL` (DEBT-0014).
+The client uses Ktor's raw CIO session, since the default one reports its own
+close instead of the desktop's. Any other failure (unresolvable host,
 non-WebSocket endpoint, mDNS bind, connection dropped while sending) exits 1
 with one line on stderr, never a stack trace. The close reason is cut to the 123
 UTF-8 bytes RFC 6455 allows. Bad arguments (`--timeout` of 0 or less, a

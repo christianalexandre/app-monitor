@@ -2,6 +2,7 @@ package appmonitor.tools.fakeclient
 
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
+import appmonitor.v1.HelloAck
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
@@ -12,6 +13,7 @@ import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
@@ -125,11 +127,17 @@ class HandshakeFailureTest {
         }
 
     @Test
-    fun `a close reason that never completes is bounded`() =
+    fun `fails with the close reason when the desktop closes after HelloAck`() =
         runBlocking {
-            val reason = withTimeout(TIMEOUT_MS) { CompletableDeferred<CloseReason?>().awaitWithin(200) }
+            val port = serve(ackThenClose)
 
-            assertEquals("no close reason in time", reason)
+            val error =
+                withTimeout(TIMEOUT_MS) {
+                    assertFailsWith<SessionClosedException> { replay(Target("127.0.0.1", port)) }
+                }
+
+            assertContains(error.message.orEmpty(), "PROTOCOL_ERROR")
+            assertContains(error.message.orEmpty(), "Frames must be binary envelopes")
         }
 
     private suspend fun serve(handler: suspend DefaultWebSocketServerSession.() -> Unit): Int {
@@ -152,4 +160,12 @@ class HandshakeFailureTest {
         // Field 1 as a length-delimited value claiming 127 bytes that never come.
         val MALFORMED = ByteString.of(0x0A, 0x7F)
     }
+}
+
+/** Acks the Hello, then closes with `PROTOCOL_ERROR` as the desktop does on a frame it rejects. */
+internal val ackThenClose: suspend DefaultWebSocketServerSession.() -> Unit = {
+    incoming.receive()
+    val ack = HelloAck(Protocol.VERSION, "session", listOf(Protocol.CHANNEL_CORE)).encodeByteString()
+    send(Frame.Binary(true, Envelope(channel = Protocol.CHANNEL_CORE, type = "HelloAck", payload = ack).encode()))
+    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
 }

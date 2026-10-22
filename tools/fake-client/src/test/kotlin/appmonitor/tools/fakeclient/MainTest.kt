@@ -1,8 +1,13 @@
 package appmonitor.tools.fakeclient
 
+import appmonitor.protocol.Protocol
+import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.routing.routing
+import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
@@ -66,6 +71,17 @@ class MainTest {
         }
 
     @Test
+    fun `a desktop that closes the session with an error exits 1`() =
+        runBlocking {
+            val port = serveAckThenClose()
+
+            val (status, err) = run("--host", "127.0.0.1", "--port", "$port")
+
+            assertEquals(1, status)
+            assertOneLine(err, "Desktop closed the session: CloseReason(reason=PROTOCOL_ERROR")
+        }
+
+    @Test
     fun `--help as the value of another option is not a usage request`() =
         runBlocking {
             val (status, err) = run("--name", "--help", "--timeout", "1")
@@ -77,6 +93,20 @@ class MainTest {
     // Outside runBlocking: CoroutineScope.embeddedServer would make the server its child.
     private suspend fun serveNothing(): Int {
         val server = embeddedServer(CIO, host = "127.0.0.1", port = 0) {}
+        server.startSuspend(wait = false)
+        this.server = server
+        return server.engine
+            .resolvedConnectors()
+            .first()
+            .port
+    }
+
+    private suspend fun serveAckThenClose(): Int {
+        val server =
+            embeddedServer(CIO, host = "127.0.0.1", port = 0) {
+                install(WebSockets)
+                routing { webSocket(Protocol.WEBSOCKET_PATH) { ackThenClose() } }
+            }
         server.startSuspend(wait = false)
         this.server = server
         return server.engine
