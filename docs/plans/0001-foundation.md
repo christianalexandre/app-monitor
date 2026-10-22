@@ -453,7 +453,7 @@ directory, with an explicit `rm -rf` before the final exit.
   Accept: `make scripts-test` — a report with `LOOP: CONTINUE` followed by
   non-verdict lines stops with "no verdict line"; trailing blank lines after
   the verdict are still accepted.
-- [ ] **M0.R34 Fixture regeneration only when asked.** Any value of the
+- [x] **M0.R34 Fixture regeneration only when asked.** Any value of the
   `updateFixtures` Gradle property, `false` included, regenerates the golden
   fixtures.
   Accept: with one fixture edited by hand,

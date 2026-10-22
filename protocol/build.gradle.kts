@@ -25,5 +25,9 @@ tasks.named<Test>("jvmTest") {
     val fixtures = layout.projectDirectory.dir("fixtures")
     inputs.dir(fixtures).withPropertyName("fixtures").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("appmonitor.fixtures", fixtures.asFile.absolutePath)
-    providers.gradleProperty("updateFixtures").orNull?.let { systemProperty("appmonitor.updateFixtures", "true") }
+    // `-PupdateFixtures` alone is an empty value; `=false` must not rewrite the golden files.
+    val update = providers.gradleProperty("updateFixtures").orNull
+    if (update != null && (update.isEmpty() || update.toBoolean())) {
+        systemProperty("appmonitor.updateFixtures", "true")
+    }
 }
