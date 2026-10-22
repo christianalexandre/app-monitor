@@ -24,6 +24,7 @@ import kotlinx.coroutines.withTimeout
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class AppMonitorAppTest {
@@ -49,6 +50,24 @@ class AppMonitorAppTest {
             val screenshot = File(System.getProperty("screenshotDir"), "app.png")
             screenshot.parentFile.mkdirs()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", screenshot)
+        }
+    }
+
+    @Test
+    fun `shows the failed status when the server start throws a non-IO exception`() {
+        // A stopped server is single use: start throws IllegalStateException.
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        runBlocking {
+            server.stop()
+            withTimeout(TIMEOUT_MS) { runServer(server, TrafficStore()) { statuses += it } }
+        }
+
+        assertEquals(listOf("Server failed: Server is single use: create a new instance"), statuses)
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(), statuses.last()) }
+
+            onNodeWithText(statuses.last()).assertExists()
         }
     }
 

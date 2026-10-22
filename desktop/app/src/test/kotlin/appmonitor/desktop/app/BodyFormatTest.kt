@@ -1,14 +1,17 @@
 package appmonitor.desktop.app
 
 import appmonitor.desktop.app.ui.BodyFormat
+import appmonitor.desktop.app.ui.DecodedBody
 import appmonitor.desktop.app.ui.defaultFormat
 import appmonitor.desktop.app.ui.formatDuration
 import appmonitor.desktop.app.ui.render
 import appmonitor.v1.Header
+import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
 import okio.ByteString.Companion.toByteString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTimedValue
@@ -21,17 +24,17 @@ class BodyFormatTest {
     fun `pretty prints json`() {
         val body = """{"name":"café","tags":[1,2]}""".encodeUtf8()
 
-        assertEquals(BodyFormat.Json, defaultFormat(listOf(json), body))
-        assertEquals("{\n    \"name\": \"café\",\n    \"tags\": [\n        1,\n        2\n    ]\n}", render(body, BodyFormat.Json))
+        assertEquals(BodyFormat.Json, defaultFormat(listOf(json), decoded(body)))
+        assertEquals("{\n    \"name\": \"café\",\n    \"tags\": [\n        1,\n        2\n    ]\n}", render(decoded(body), BodyFormat.Json))
     }
 
     @Test
     fun `falls back to text, then hex`() {
-        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), "not json".encodeUtf8()))
-        assertEquals(BodyFormat.Hex, defaultFormat(emptyList(), binary))
-        assertEquals("Not valid UTF-8 text", render(binary, BodyFormat.Text))
-        assertEquals("Not a JSON document", render("plain".encodeUtf8(), BodyFormat.Json))
-        assertEquals("-1.5e3", render(" -1.5e3 ".encodeUtf8(), BodyFormat.Json))
+        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), decoded("not json".encodeUtf8())))
+        assertEquals(BodyFormat.Hex, defaultFormat(emptyList(), decoded(binary)))
+        assertEquals("Not valid UTF-8 text", render(decoded(binary), BodyFormat.Text))
+        assertEquals("Not a JSON document", render(decoded("plain".encodeUtf8()), BodyFormat.Json))
+        assertEquals("-1.5e3", render(decoded(" -1.5e3 ".encodeUtf8()), BodyFormat.Json))
     }
 
     @Test
@@ -40,17 +43,17 @@ class BodyFormatTest {
 
         assertEquals(
             "{\n    \"id\": 12345678901234567890,\n    \"x\": 1.0e3,\n    \"s\": \"a\\\\\\\"{,:}\",\n    \"e\": {},\n    \"l\": []\n}",
-            render(body, BodyFormat.Json),
+            render(decoded(body), BodyFormat.Json),
         )
     }
 
     @Test
     fun `rejects bare words at any depth`() {
-        assertEquals("Not a JSON document", render("""{"a": foo}""".encodeUtf8(), BodyFormat.Json))
-        assertEquals("Not a JSON document", render("""[1, [true, nope]]""".encodeUtf8(), BodyFormat.Json))
-        assertEquals("Not a JSON document", render("""{"n": 01}""".encodeUtf8(), BodyFormat.Json))
-        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), """{"a": foo}""".encodeUtf8()))
-        assertEquals("{\n    \"a\": null\n}", render("""{"a": null}""".encodeUtf8(), BodyFormat.Json))
+        assertEquals("Not a JSON document", render(decoded("""{"a": foo}""".encodeUtf8()), BodyFormat.Json))
+        assertEquals("Not a JSON document", render(decoded("""[1, [true, nope]]""".encodeUtf8()), BodyFormat.Json))
+        assertEquals("Not a JSON document", render(decoded("""{"n": 01}""".encodeUtf8()), BodyFormat.Json))
+        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), decoded("""{"a": foo}""".encodeUtf8())))
+        assertEquals("{\n    \"a\": null\n}", render(decoded("""{"a": null}""".encodeUtf8()), BodyFormat.Json))
     }
 
     @Test
@@ -58,7 +61,7 @@ class BodyFormatTest {
         val element = """{"k":[1,2,{"a":"v"}]}"""
         val body = List(200_000) { element }.joinToString(",", "[", "]").encodeUtf8()
 
-        val (rendered, elapsed) = measureTimedValue { render(body, BodyFormat.Json) }
+        val (rendered, elapsed) = measureTimedValue { render(decoded(body), BodyFormat.Json) }
 
         assertTrue(body.size > 4_000_000, "body is ${body.size} bytes")
         assertEquals(1 + 200_000 * 9 + 1, rendered.lines().size)
@@ -66,14 +69,34 @@ class BodyFormatTest {
     }
 
     @Test
+    fun `decodes and parses a body once for the default format and its rendering`() {
+        val body = decoded("""{"a":1}""".encodeUtf8())
+
+        assertEquals(BodyFormat.Json, defaultFormat(listOf(json), body))
+        assertSame(body.prettyJson, render(body, BodyFormat.Json))
+        assertSame(body.text, render(body, BodyFormat.Text))
+    }
+
+    @Test
+    fun `dumps a multi-megabyte body as hex in linear time`() {
+        val body = ByteArray(4_000_000) { it.toByte() }.toByteString()
+
+        val (rendered, elapsed) = measureTimedValue { render(decoded(body), BodyFormat.Hex) }
+
+        assertEquals(250_000, rendered.lines().size)
+        assertEquals("003d08f0  f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  |................|", rendered.lines().last())
+        assertTrue(elapsed < 5.seconds, "took $elapsed")
+    }
+
+    @Test
     fun `dumps hex with offsets and ascii`() {
         val body = "0123456789abcdefXY".encodeUtf8()
 
-        assertEquals("00000000  00 7f 80 ff                                      |....|", render(binary, BodyFormat.Hex))
+        assertEquals("00000000  00 7f 80 ff                                      |....|", render(decoded(binary), BodyFormat.Hex))
         assertEquals(
             "00000000  30 31 32 33 34 35 36 37 38 39 61 62 63 64 65 66  |0123456789abcdef|\n" +
                 "00000010  58 59                                            |XY|",
-            render(body, BodyFormat.Hex),
+            render(decoded(body), BodyFormat.Hex),
         )
     }
 
@@ -82,4 +105,6 @@ class BodyFormatTest {
         assertEquals("250 ms", formatDuration(250))
         assertEquals("1.50 s", formatDuration(1_500))
     }
+
+    private fun decoded(body: ByteString) = DecodedBody(body)
 }
