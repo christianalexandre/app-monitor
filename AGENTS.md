@@ -98,7 +98,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | What | Command | State |
 | --- | --- | --- |
 | List make targets | `make help` | active; default goal |
-| All gates | `make check` | active: `docs-check` + `lint` + `build` |
+| All gates | `make check` | active: `docs-check` + `lint` + `scripts-test` + `build` |
 | Docs consistency | `make docs-check` | active |
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
@@ -110,6 +110,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Headless desktop server, logs envelopes to stdout | `make server` | active; `ARGS="--port N"` |
 | Replay fixture traffic to a desktop | `make fake-traffic` | active; mDNS discovery, or `ARGS="--host H [--port N]"`; `--name S` picks a service, `--timeout MS` bounds discovery |
 | Fake client tests (replay + mDNS discovery) | `./gradlew :tools:fake-client:test` | active; needs a multicast-capable LAN interface |
+| Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, ADR-0013 |
 | Branch name check | `make branch-check` | active |
 | Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES` |
 | Follow the running loop live | `make loop-watch` | active |

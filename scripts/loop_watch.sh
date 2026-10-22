@@ -3,7 +3,7 @@
 set -euo pipefail
 logs="$(cd "$(dirname "$0")/.." && pwd)/.loop"
 
-latest="$(ls -t "$logs"/*.jsonl 2>/dev/null | head -1)"
+latest="$(ls -t "$logs"/*.jsonl 2>/dev/null | head -1 || true)"
 [[ -n "$latest" ]] || { echo "loop-watch: no session in $logs yet" >&2; exit 1; }
 echo "loop-watch: $latest (Ctrl+C to leave; the loop keeps running)"
 

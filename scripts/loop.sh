@@ -14,9 +14,6 @@ limit_retries="${LIMIT_RETRIES:-8}"
 logs="$repo/.loop"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 
-mkdir -p "$logs"
-command -v jq >/dev/null || { echo "loop: jq is required" >&2; exit 1; }
-
 notify() {
   echo "loop: $1"
   command -v osascript >/dev/null && osascript -e "display notification \"$1\" with title \"app-monitor loop\"" || true
@@ -29,23 +26,29 @@ ensure_worktree() {
   echo "loop: created worktree $worktree"
 }
 
-# Runs one session into $1 (stream-json). Exit 124 means the watchdog fired.
+# Kills $1 after $timeout_s seconds and touches $2; a TERM cancels it cleanly.
+watchdog() {
+  local sleeper=
+  trap '[[ -n $sleeper ]] && kill "$sleeper" 2>/dev/null; exit 0' TERM
+  sleep "$timeout_s" &
+  sleeper=$!
+  wait "$sleeper"
+  kill -TERM "$1" 2>/dev/null && touch "$2"
+}
+
+# Runs "${@:2}" in the worktree, output into $1. Exit 124 means it timed out.
 run_session() {
-  (cd "$worktree" && exec claude -p "/next" --permission-mode auto \
-    --output-format stream-json --verbose --max-budget-usd "$budget") >"$1" 2>&1 &
+  local log="$1"
+  shift
+  (cd "$worktree" && exec "$@") >"$log" 2>&1 &
   local pid=$!
-  (
-    sleep "$timeout_s" &
-    trap 'kill $! 2>/dev/null' TERM
-    wait $!
-    kill -TERM "$pid" 2>/dev/null && touch "$1.timeout"
-  ) &
-  local watchdog=$!
+  watchdog "$pid" "$log.timeout" &
+  local watchdog_pid=$!
   wait "$pid"
   local code=$?
-  kill -TERM "$watchdog" 2>/dev/null
-  wait "$watchdog" 2>/dev/null
-  [[ -e "$1.timeout" ]] && return 124
+  kill -TERM "$watchdog_pid" 2>/dev/null
+  wait "$watchdog_pid" 2>/dev/null
+  [[ -e "$log.timeout" ]] && return 124
   return "$code"
 }
 
@@ -54,13 +57,19 @@ cost_of() { jq -r 'select(.type == "result") | .total_cost_usd // empty' "$1" 2>
 limit_status() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.status' "$1" 2>/dev/null | tail -1; }
 limit_reset() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.resetsAt' "$1" 2>/dev/null | tail -1; }
 
+# Sourced by scripts/test_loop.sh, which only needs the functions above.
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
+
+mkdir -p "$logs"
+command -v jq >/dev/null || { echo "loop: jq is required" >&2; exit 1; }
 ensure_worktree
 retries=0
 i=1
 while ((i <= max)); do
   base="$logs/$(date +%Y%m%d-%H%M%S)-$i"
   echo "loop: iteration $i/$max → $base.md (live: make loop-watch)"
-  run_session "$base.jsonl"
+  run_session "$base.jsonl" claude -p "/next" --permission-mode auto \
+    --output-format stream-json --verbose --max-budget-usd "$budget"
   code=$?
   result="$(result_of "$base.jsonl")"
   printf '%s\n' "$result" >"$base.md"

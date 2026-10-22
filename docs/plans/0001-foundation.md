@@ -60,13 +60,16 @@ Findings of the `code-review` of `d8fbae9..d6dfdc8`. Two became debts:
 DEBT-0004 (quadratic ingest in `TrafficState`) and DEBT-0005 (duplicated
 LAN-interface filter).
 
-- [ ] **M0.R1 Loop scripts.** `scripts/loop_watch.sh` dies silently under
+- [x] **M0.R1 Loop scripts.** `scripts/loop_watch.sh` dies silently under
   `pipefail` when `.loop/` has no session; the `loop.sh` watchdog trap does not
   exit, so a normal session end still runs `kill -TERM` on a reaped PID and can
   leave a spurious `.timeout`.
   Accept: `make loop-watch` with an empty `.loop/` prints the "no session"
   message; a bash test of `run_session` with a short command leaves no
   `.timeout` and returns the command's exit code.
+  Deviation: `run_session` takes its command and the watchdog became its own
+  function, so `scripts/test_loop.sh` can drive them; it runs in
+  `make check` as `make scripts-test` (ADR-0013).
 - [ ] **M0.R2 Fake client handshake failure.** When the first reply is not a
   `HelloAck`, `Replay` awaits the close reason and hangs if the peer keeps the
   socket open; the `IllegalStateException` escapes `Main` as a stack trace.
