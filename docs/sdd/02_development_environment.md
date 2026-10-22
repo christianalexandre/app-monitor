@@ -16,8 +16,20 @@ No `protoc` is needed: Wire generates Kotlin without it (ADR-0001).
 
 ## Running things
 
-Nothing to run yet. The commands table in `AGENTS.md` is the source of truth
-and grows with each module.
+The commands table in `AGENTS.md` is the source of truth and grows with each
+module. Gradle comes from the wrapper (`./gradlew`, version pinned with a
+checksum in `gradle/wrapper/gradle-wrapper.properties`); no local Gradle
+install is needed. Library and plugin versions live in
+`gradle/libs.versions.toml`. See ADR-0006.
+
+Module scripts apply one convention plugin from `build-logic/`:
+
+| Plugin id | For | Adds |
+| --- | --- | --- |
+| `appmonitor.lint` | every module (applied by the others) | Spotless + ktlint on `src/**/*.kt` and `*.gradle.kts` |
+| `appmonitor.kotlin-jvm` | JVM-only modules (desktop, tools) | Kotlin JVM, toolchain 21, JUnit Platform |
+| `appmonitor.kmp-library` | shared KMP code (protocol, SDK core) | targets `jvm`, `iosArm64`, `iosSimulatorArm64` |
+| `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
 ## Limits
 

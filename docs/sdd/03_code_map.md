@@ -12,6 +12,10 @@ Where each part lives in the repository.
 | `.github/` | PR/issue templates and workflows |
 | `scripts/` | Shell scripts behind `make` targets |
 | `Makefile` | Command façade |
+| `settings.gradle.kts`, `build.gradle.kts` | Gradle root: module list, root lint and `check` |
+| `gradle/libs.versions.toml` | Version catalog, shared with `build-logic` |
+| `gradle/wrapper/`, `gradlew*` | Gradle wrapper (pinned, checksummed) |
+| `build-logic/` | Convention plugins `appmonitor.*` (ADR-0006) |
 
 ## Planned layout
 

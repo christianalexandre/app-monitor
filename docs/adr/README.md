@@ -23,3 +23,4 @@ Rules:
 | [0003](0003-native-swift-ios-sdk.md) | Native Swift iOS SDK, no Kotlin runtime | Accepted |
 | [0004](0004-layered-ios-capture.md) | Layered capture coverage on iOS | Accepted |
 | [0005](0005-desktop-storage-and-mcp.md) | SQLite storage and in-process MCP server | Accepted |
+| [0006](0006-gradle-build-and-lint.md) | Gradle build with convention plugins, Spotless and ktlint | Accepted |

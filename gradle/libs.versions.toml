@@ -1,0 +1,12 @@
+[versions]
+kotlin = "2.4.21"
+compose-multiplatform = "1.12.2"
+spotless = "8.10.4"
+ktlint = "1.8.0"
+
+[libraries]
+# Gradle plugins, consumed by build-logic convention plugins
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose-multiplatform" }
+spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }

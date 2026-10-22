@@ -15,10 +15,12 @@ A desktop app that receives fake traffic over the real protocol.
 
 ## Tasks
 
-- [ ] **M0.1 Gradle skeleton.** Wrapper, version catalog, `build-logic`
+- [x] **M0.1 Gradle skeleton.** (#4) Wrapper, version catalog, `build-logic`
   convention plugins (KMP library, JVM, Compose desktop), ktlint,
   `.editorconfig`. `make check` runs docs-check + lint + build.
   Accept: `make check` passes on a clean clone.
+  Deviation: KMP convention has no Android target yet; it lands with AGP
+  in M0.2 (ADR-0006). Wrapper pinned to Gradle 9.7.1, not 9.8.2 (KGP limit).
 - [ ] **M0.2 Protocol module.** `protocol/` with `.proto` for `Envelope`,
   `Hello`/`HelloAck`, `network` channel (`RequestStarted`, `ResponseReceived`,
   `RequestFailed`, `WebSocketFrame`). Wire codegen for JVM, Android and iOS
