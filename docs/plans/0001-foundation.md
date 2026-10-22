@@ -49,8 +49,10 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: workflow green on the PR that adds it.
   Deviation: also runs on push to `dev`, so PRs read a shared Gradle cache;
   `setup-gradle` uses the open-source `basic` cache provider (ADR-0012).
-- [ ] **M0.7 Docs sync.** SDD code map and `AGENTS.md` commands reflect M0.
+- [x] **M0.7 Docs sync.** SDD code map and `AGENTS.md` commands reflect M0.
   Accept: `make docs-check`; checkpoint with the owner.
+  Deviation: the owner checkpoint is the close-plan PR, after the milestone
+  review. README's Desktop row moved from planned to skeleton.
 
 ## Outcome
 
