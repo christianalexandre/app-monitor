@@ -10,7 +10,7 @@ Where each part lives in the repository.
 | `docs/` | SDD, guidelines, ADRs, tech debt, plans; `screenshots/` for UI evidence |
 | `.claude/` | Shared Claude Code settings and slash commands |
 | `.github/` | Issue forms, one PR template per change type; workflows `pr-conventions.yml` (branch, title, trailers, docs) and `ci.yml` (`make check` on ubuntu, ADR-0012) |
-| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `loop.sh` also backs `make loop-worktree` (`--worktree`, honours `LOOP_WORKTREE`); its watchdog polls a `.done` marker (ADR-0014) and a timeout is reported only when its `TERM` ended the session (ADR-0015); `loop_watch.sh` follows the newest `.loop/*.jsonl` and switches when a newer session starts (`LOOP_WATCH_POLL`, default 2 s); `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
+| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `loop.sh` also backs `make loop-worktree` (`--worktree`, honours `LOOP_WORKTREE`); its watchdog polls a `.done` marker (ADR-0014) and a timeout is reported only when its `TERM` ended the session (ADR-0015); a session without a verdict waits for a usage limit only on a non-`allowed` `rate_limit_event`, never on the report's text; `loop_watch.sh` follows the newest `.loop/*.jsonl` and switches when a newer session starts (`LOOP_WATCH_POLL`, default 2 s); `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
 | `Makefile` | Command façade |
 | `settings.gradle.kts`, `build.gradle.kts` | Gradle root: module list, root lint and `check` |
 | `gradle/libs.versions.toml` | Version catalog, shared with `build-logic` |

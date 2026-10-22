@@ -97,7 +97,7 @@ while ((i <= max)); do
   verdict="$(verdict_of "$base.md")"
   if [[ -z "$verdict" ]]; then
     status="$(limit_status "$base.jsonl")"
-    if [[ -n "$status" && "$status" != allowed* ]] || grep -qiE 'usage limit|rate limit' "$base.md"; then
+    if [[ -n "$status" && "$status" != allowed* ]]; then
       if ((retries >= limit_retries)); then
         notify "usage limit: gave up after $retries waits"
         exit 1
