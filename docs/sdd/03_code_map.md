@@ -10,7 +10,7 @@ Where each part lives in the repository.
 | `docs/` | SDD, guidelines, ADRs, tech debt, plans; `screenshots/` for UI evidence |
 | `.claude/` | Shared Claude Code settings and slash commands |
 | `.github/` | Issue forms, one PR template per change type; workflows `pr-conventions.yml` (branch, title, trailers, docs) and `ci.yml` (`make check` on ubuntu, ADR-0012) |
-| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
+| `scripts/` | Shell scripts behind `make` targets; `pr_title_check.sh` used by `pr-conventions.yml`; `loop.sh` also backs `make loop-worktree` (`--worktree`, honours `LOOP_WORKTREE`); its watchdog polls a `.done` marker (ADR-0014); `test_loop.sh` tests `loop.sh` and `loop_watch.sh` (ADR-0013) |
 | `Makefile` | Command façade |
 | `settings.gradle.kts`, `build.gradle.kts` | Gradle root: module list, root lint and `check` |
 | `gradle/libs.versions.toml` | Version catalog, shared with `build-logic` |
@@ -22,7 +22,7 @@ Where each part lives in the repository.
 | `desktop/server/` | JVM module: `AppMonitorServer` (Ktor WebSocket, handshake), `DeviceSession` flows, `MdnsAdvertiser`, `ServerConfig` (ADR-0009); headless `Main.kt` that logs to stdout (ADR-0010); `AppMonitorServerTest`, `MdnsPartialFailureTest`, `ServerLifecycleTest`, `MainTest` (`--port` parsing) |
 | `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (`App.kt` panes, `BodyFormat.kt`) (ADR-0011); tests for state, body formats and the offscreen UI |
 | `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest`, `MainTest` (CLI errors), `DiscoveryTest` |
-| `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report |
+| `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report; a transient `.jsonl.done` while a session ends |
 
 ## Planned layout
 

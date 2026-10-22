@@ -41,7 +41,5 @@ loop-watch: ## Follow the running loop session live
 	@scripts/loop_watch.sh
 
 loop-worktree: ## Create the loop worktree (open `claude` there once to trust it)
-	@git fetch -q origin --prune
-	@test -d ../$(notdir $(CURDIR))-loop || git worktree add -q --detach ../$(notdir $(CURDIR))-loop origin/dev
-	@echo "worktree: $(abspath ../$(notdir $(CURDIR))-loop)"
+	@scripts/loop.sh --worktree
 

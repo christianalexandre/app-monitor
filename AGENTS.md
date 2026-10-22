@@ -114,7 +114,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Branch name check | `make branch-check` | active |
 | Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES` |
 | Follow the running loop live | `make loop-watch` | active |
-| Create the loop worktree | `make loop-worktree` | active; open `claude` there once to accept the trust dialog |
+| Create the loop worktree | `make loop-worktree` | active; honours `LOOP_WORKTREE`; open `claude` there once to accept the trust dialog |
 
 Commands are added here **in the same PR** that creates them.
 

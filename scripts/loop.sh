@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs /next in a fresh Claude Code session per iteration, inside a dedicated
-# worktree, until it reports STOP. Env (defaults):
+# Runs /next in a fresh session per iteration in a dedicated worktree until it
+# reports STOP; `--worktree` only creates the worktree. Env (defaults):
 #   MAX_ITERATIONS=20  MAX_BUDGET_USD=20 (per iteration)  ITERATION_TIMEOUT=5400 (s)
 #   LIMIT_RETRIES=8    LOOP_WORKTREE=../<repo>-loop
 set -uo pipefail
@@ -11,6 +11,7 @@ max="${MAX_ITERATIONS:-20}"
 budget="${MAX_BUDGET_USD:-20}"
 timeout_s="${ITERATION_TIMEOUT:-5400}"
 limit_retries="${LIMIT_RETRIES:-8}"
+poll_s=0.2
 logs="$repo/.loop"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 
@@ -26,14 +27,15 @@ ensure_worktree() {
   echo "loop: created worktree $worktree"
 }
 
-# Kills $1 after $timeout_s seconds and touches $2; a TERM cancels it cleanly.
+# Kills $1 after $timeout_s seconds and touches $2, unless $3 appears first.
+# Polled, never cancelled by a signal: ADR-0014.
 watchdog() {
-  local sleeper=
-  trap '[[ -n $sleeper ]] && kill "$sleeper" 2>/dev/null; exit 0' TERM
-  sleep "$timeout_s" &
-  sleeper=$!
-  wait "$sleeper"
-  kill -TERM "$1" 2>/dev/null && touch "$2"
+  local deadline=$((SECONDS + timeout_s))
+  while ((SECONDS < deadline)); do
+    [[ -e "$3" ]] && return 0
+    sleep "$poll_s"
+  done
+  [[ -e "$3" ]] || { kill -TERM "$1" 2>/dev/null && touch "$2"; }
 }
 
 # Runs "${@:2}" in the worktree, stdout into $1, stderr into $1.err (jq reads
@@ -41,14 +43,16 @@ watchdog() {
 run_session() {
   local log="$1"
   shift
+  rm -f "$log.done"
   (cd "$worktree" && exec "$@") >"$log" 2>"$log.err" &
   local pid=$!
-  watchdog "$pid" "$log.timeout" &
+  watchdog "$pid" "$log.timeout" "$log.done" &
   local watchdog_pid=$!
   wait "$pid"
   local code=$?
-  kill -TERM "$watchdog_pid" 2>/dev/null
-  wait "$watchdog_pid" 2>/dev/null
+  touch "$log.done"
+  wait "$watchdog_pid"
+  rm -f "$log.done"
   [[ -e "$log.timeout" ]] && return 124
   return "$code"
 }
@@ -56,11 +60,18 @@ run_session() {
 result_of() { jq -c 'select(.type == "result")' "$1" 2>/dev/null | tail -1 | jq -r '.result // empty'; }
 cost_of() { jq -r 'select(.type == "result") | .total_cost_usd // empty' "$1" 2>/dev/null | tail -1; }
 limit_status() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.status' "$1" 2>/dev/null | tail -1; }
+# Last verdict line of report $1, trailing whitespace and CR stripped.
+verdict_of() { sed 's/[[:space:]]*$//' "$1" | grep -E '^LOOP: (CONTINUE|STOP)' | tail -1; }
 limit_reset() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.resetsAt' "$1" 2>/dev/null | tail -1; }
 
 # Sourced by scripts/test_loop.sh, which only needs the functions above.
 [[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
 
+if [[ "${1:-}" == --worktree ]]; then
+  ensure_worktree || exit 1
+  echo "worktree: $worktree"
+  exit 0
+fi
 mkdir -p "$logs"
 command -v jq >/dev/null || { echo "loop: jq is required" >&2; exit 1; }
 ensure_worktree
@@ -82,7 +93,7 @@ while ((i <= max)); do
     exit 1
   fi
 
-  verdict="$(grep -E '^LOOP: (CONTINUE|STOP)' "$base.md" | tail -1)"
+  verdict="$(verdict_of "$base.md")"
   if [[ -z "$verdict" ]]; then
     status="$(limit_status "$base.jsonl")"
     if [[ -n "$status" && "$status" != allowed* ]] || grep -qiE 'usage limit|rate limit' "$base.md"; then
