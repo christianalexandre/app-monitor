@@ -105,7 +105,7 @@ Findings of the `code-review` of `d8fbae9..a3046dd` (after M0.R1–M0.R5).
 One became a debt: DEBT-0007 (mDNS failure on one interface stops the whole
 server).
 
-- [ ] **M0.R6 Server lifecycle.** `AppMonitorServer.stop` closes the advertiser
+- [x] **M0.R6 Server lifecycle.** `AppMonitorServer.stop` closes the advertiser
   outside a `try`/`finally`, and `MdnsAdvertiser.close` stops at the first
   failing registration, leaving the port bound and `sessions` open; `start`
   after `stop` passes its check although `newSessions` is closed; the
@@ -114,6 +114,9 @@ server).
   close throws shows every registration closed, the port free and `sessions`
   completed; `start` after `stop` fails; a client that connects and never
   sends `Hello` is closed within a bounded time.
+  Deviation: `stop` rethrows the first close failure after cleaning up; the
+  10 s handshake timeout is an internal constructor parameter, like the
+  advertiser factory, so the test bounds it at 200 ms.
 - [ ] **M0.R7 Fake client errors and discovery leak.** `discover` leaks the
   JmDNS browsers already created when a later `JmDNS.create` throws; `Main`
   only catches `IOException`/`HandshakeException`, so an unresolvable host or

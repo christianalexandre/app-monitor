@@ -20,9 +20,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetAddress
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * WebSocket server devices connect to (ADR-0002); each handshaken connection is a
@@ -30,13 +33,15 @@ import java.util.UUID
  */
 class AppMonitorServer internal constructor(
     private val config: ServerConfig,
+    private val handshakeTimeout: Duration = 10.seconds,
     private val startAdvertiser: (serviceName: String, port: Int) -> MdnsAdvertiser,
 ) {
-    constructor(config: ServerConfig = ServerConfig()) : this(config, { name, port -> MdnsAdvertiser.start(name, port) })
+    constructor(config: ServerConfig = ServerConfig()) : this(config, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
     private var server: EmbeddedServer<*, *>? = null
     private var advertiser: MdnsAdvertiser? = null
+    private var stopped = false
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -46,6 +51,7 @@ class AppMonitorServer internal constructor(
 
     /** Starts listening and advertising; returns the bound port. If advertising fails, the port is released. */
     suspend fun start(): Int {
+        check(!stopped) { "Server is single use: create a new instance" }
         check(server == null) { "Server already started" }
         val server =
             embeddedServer(CIO, host = config.host, port = config.port) {
@@ -74,16 +80,27 @@ class AppMonitorServer internal constructor(
         return port
     }
 
+    /** Releases the port and completes [sessions] even if closing mDNS fails, then rethrows that failure. */
     suspend fun stop() {
-        advertiser?.let { withContext(Dispatchers.IO) { it.close() } }
-        advertiser = null
-        server?.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
-        server = null
-        newSessions.close()
+        stopped = true
+        val advertiser = advertiser
+        this.advertiser = null
+        try {
+            advertiser?.let { withContext(Dispatchers.IO) { it.close() } }
+        } finally {
+            server?.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
+            server = null
+            newSessions.close()
+        }
     }
 
     private suspend fun DefaultWebSocketServerSession.serve() {
-        val hello = (incoming.receiveCatching().getOrNull() as? Frame.Binary)?.decodeEnvelope()?.toHello()
+        val first = withTimeoutOrNull(handshakeTimeout) { incoming.receiveCatching() }
+        if (first == null) {
+            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
+            return
+        }
+        val hello = (first.getOrNull() as? Frame.Binary)?.decodeEnvelope()?.toHello()
         if (hello == null) {
             close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "First frame must be a Hello envelope"))
             return
