@@ -100,7 +100,8 @@ device                         AppMonitorServer
 `desktop/server` has a headless `main` (`make server`) that prints one line
 per session connect/disconnect and per envelope, decoded for the `network`
 messages. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
-the desktop over mDNS (or `--host`), sends `protocol/fixtures/hello.bin`,
+the desktop over mDNS on every LAN IPv4 address, skipping one where JmDNS
+cannot open (or at `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
 current time and closes. Any other first reply, or none within 10 s, closes
 the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
@@ -111,7 +112,7 @@ desktop's: a close that is not `NORMAL` (e.g. `PROTOCOL_ERROR` for a rejected
 frame) exits 1 with its reason; none at all counts as a dropped connection. A frame rejected after the desktop read that close still reads as `NORMAL` (DEBT-0014).
 The client uses Ktor's raw CIO session, since the default one reports its own
 close instead of the desktop's. Any other failure (unresolvable host,
-non-WebSocket endpoint, mDNS bind, connection dropped while sending) exits 1
+non-WebSocket endpoint, mDNS bind on every interface, connection dropped while sending) exits 1
 with one line on stderr, never a stack trace. The close reason is cut to the 123
 UTF-8 bytes RFC 6455 allows. Bad arguments (`--timeout` of 0 or less, a
 `--port` out of range: 1–65535 for the fake client, 0–65535 for the server)

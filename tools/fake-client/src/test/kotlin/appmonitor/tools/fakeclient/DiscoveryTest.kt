@@ -1,5 +1,6 @@
 package appmonitor.tools.fakeclient
 
+import appmonitor.protocol.Protocol
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -8,6 +9,8 @@ import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import javax.jmdns.ServiceEvent
+import javax.jmdns.impl.ServiceInfoImpl
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -16,22 +19,38 @@ import kotlin.test.assertTrue
 
 class DiscoveryTest {
     @Test
-    fun `a failing browser creation closes the ones already created`() =
+    fun `an address whose browser fails is skipped and the service is found on the next`() =
         runBlocking {
-            val addresses = (1..3).map { InetAddress.getByAddress(byteArrayOf(10, 0, 0, it.toByte())) as Inet4Address }
-            val created = mutableListOf<Inet4Address>()
-            val closed = mutableListOf<Inet4Address>()
+            val addresses = (1..2).map { InetAddress.getByAddress(byteArrayOf(10, 0, 0, it.toByte())) as Inet4Address }
+            val closed = CopyOnWriteArrayList<Inet4Address>()
 
-            assertFailsWith<IOException> {
-                discover(timeoutMs = 1_000, addresses = { addresses }) { address, _ ->
-                    if (address == addresses[1]) throw IOException("bind failed")
-                    created += address
+            val target =
+                discover(timeoutMs = 5_000, addresses = { addresses }) { address, listener ->
+                    if (address == addresses[0]) throw IOException("bind failed")
+                    listener.serviceResolved(resolved("desktop", address, 47474))
                     AutoCloseable { closed += address }
                 }
-            }
 
-            assertEquals(listOf(addresses[0]), created)
-            assertEquals(created, closed)
+            assertEquals(Target("10.0.0.2", 47474, Protocol.WEBSOCKET_PATH), target)
+            assertEquals(listOf(addresses[1]), closed.toList())
+        }
+
+    @Test
+    fun `discover fails only when every address fails`() =
+        runBlocking {
+            val addresses = (1..3).map { InetAddress.getByAddress(byteArrayOf(10, 0, 0, it.toByte())) as Inet4Address }
+            val tried = CopyOnWriteArrayList<Inet4Address>()
+
+            val failure =
+                assertFailsWith<IOException> {
+                    discover(timeoutMs = 5_000, addresses = { addresses }) { address, _ ->
+                        tried += address
+                        throw IOException("bind failed on ${address.hostAddress}")
+                    }
+                }
+
+            assertEquals("bind failed on 10.0.0.1", failure.message)
+            assertEquals(addresses, tried.toList())
         }
 
     @Test
@@ -56,4 +75,24 @@ class DiscoveryTest {
             withTimeout(5_000) { while (closed.size < 2) delay(10) }
             assertEquals(addresses, closed.toList())
         }
+
+    private fun resolved(
+        name: String,
+        host: Inet4Address,
+        port: Int,
+    ): ServiceEvent {
+        val info =
+            object : ServiceInfoImpl(Protocol.MDNS_SERVICE_TYPE, name, "", port, 0, 0, false, emptyMap<String, Any>()) {
+                override fun getInet4Addresses() = arrayOf(host)
+            }
+        return object : ServiceEvent(info) {
+            override fun getDNS() = error("not browsed")
+
+            override fun getType() = Protocol.MDNS_SERVICE_TYPE
+
+            override fun getName() = name
+
+            override fun getInfo() = info
+        }
+    }
 }

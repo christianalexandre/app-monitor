@@ -428,7 +428,7 @@ One was already tracked: `utf8OrNull` and `hexDump` copy the whole body
 (DEBT-0006). One was rejected: `scripts/test_loop.sh` does remove its temp
 directory, with an explicit `rm -rf` before the final exit.
 
-- [ ] **M0.R30 Fake client discovery skips a failing address.** The first
+- [x] **M0.R30 Fake client discovery skips a failing address.** The first
   `browse` failure fails the whole discovery, so one interface where JmDNS
   cannot open (VPN, bridge) hides a desktop advertised on another.
   Accept: `./gradlew :tools:fake-client:test` — with a browser factory that
