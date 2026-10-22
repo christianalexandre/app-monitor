@@ -498,6 +498,14 @@ watchdog subshells).
   `shutdownHook`'s default `onFailure`, so the two can drift.
   Accept: `./gradlew :desktop:app:test` — `addStopHook` has no copy of the
   default message; its tests still pass.
+- [ ] **M0.R39 Flaky discovery skip test.** The `dev` push CI run for #56
+  failed `DiscoveryTest` "an address whose browser fails is skipped…" (run
+  39834502803), and the same code passed on #57: the browser for the
+  resolved address is closed by the detached IO coroutine, which may not have
+  run by the time the test asserts `closed`.
+  Accept: `./gradlew :tools:fake-client:test --rerun` 20 times in a row
+  without a failure; either `discover` closes every browser it opened before
+  returning, or the test waits for the close within a bound.
 
 ## Outcome
 
