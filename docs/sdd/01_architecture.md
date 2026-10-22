@@ -89,7 +89,11 @@ current time and closes. Any other first reply, or none within 10 s, closes
 the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
 `HelloAck` whose payload does not decode counts as another reply. Any other
 failure (unresolvable host, non-WebSocket endpoint, mDNS bind) exits 1 with
-one line on stderr, never a stack trace. See ADR-0010.
+one line on stderr, never a stack trace. The close reason is cut to the 123
+UTF-8 bytes RFC 6455 allows. Bad arguments (`--timeout` of 0 or less, a
+`--port` out of range: 1–65535 for the fake client, 0–65535 for the server)
+print the usage line and exit 2. A server port that cannot be bound is still
+a stack trace (DEBT-0010). See ADR-0010.
 
 ## SDKs
 

@@ -10,7 +10,9 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -18,7 +20,10 @@ import okio.ByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class HandshakeFailureTest {
     private var server: EmbeddedServer<*, *>? = null
@@ -45,6 +50,28 @@ class HandshakeFailureTest {
                 }
 
             assertContains(error.message.orEmpty(), "got ${Protocol.CHANNEL_CORE}/Hello")
+        }
+
+    @Test
+    fun `a multibyte close reason fits in 123 UTF-8 bytes`() =
+        runBlocking {
+            val reason = CompletableDeferred<CloseReason?>()
+            val port =
+                serve {
+                    incoming.receive()
+                    val wrong = Envelope(channel = "é".repeat(100), type = "Hello", payload = ByteString.EMPTY)
+                    send(Frame.Binary(true, wrong.encode()))
+                    reason.complete(closeReason.await())
+                }
+
+            withTimeout(TIMEOUT_MS) {
+                assertFailsWith<HandshakeException> { replay(Target("127.0.0.1", port)) }
+                val message = assertNotNull(reason.await()).message
+
+                assertEquals(CloseReason.Codes.PROTOCOL_ERROR.code, reason.await()?.code)
+                assertTrue(message.startsWith("Desktop did not answer Hello with HelloAck: got éé"), message)
+                assertTrue(message.encodeToByteArray().size in 122..123, "${message.encodeToByteArray().size} bytes")
+            }
         }
 
     @Test
