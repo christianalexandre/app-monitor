@@ -52,7 +52,7 @@ run_session() {
   return "$code"
 }
 
-result_of() { jq -r 'select(.type == "result") | .result // empty' "$1" 2>/dev/null | tail -1; }
+result_of() { jq -c 'select(.type == "result")' "$1" 2>/dev/null | tail -1 | jq -r '.result // empty'; }
 cost_of() { jq -r 'select(.type == "result") | .total_cost_usd // empty' "$1" 2>/dev/null | tail -1; }
 limit_status() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.status' "$1" 2>/dev/null | tail -1; }
 limit_reset() { jq -r 'select(.type == "rate_limit_event") | .rate_limit_info.resetsAt' "$1" 2>/dev/null | tail -1; }
