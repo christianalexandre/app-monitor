@@ -171,7 +171,8 @@ private fun Body(
             TextButton(onClick = { format = option }, enabled = option != format) { Text(option.label) }
         }
     }
-    Text(render(body, format), Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false)
+    val rendered = remember(body, format) { render(body, format) }
+    Text(rendered, Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false)
 }
 
 @Composable

@@ -9,6 +9,9 @@ import okio.ByteString.Companion.encodeUtf8
 import okio.ByteString.Companion.toByteString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTimedValue
 
 class BodyFormatTest {
     private val json = Header("content-type", "application/json; charset=utf-8")
@@ -39,6 +42,27 @@ class BodyFormatTest {
             "{\n    \"id\": 12345678901234567890,\n    \"x\": 1.0e3,\n    \"s\": \"a\\\\\\\"{,:}\",\n    \"e\": {},\n    \"l\": []\n}",
             render(body, BodyFormat.Json),
         )
+    }
+
+    @Test
+    fun `rejects bare words at any depth`() {
+        assertEquals("Not a JSON document", render("""{"a": foo}""".encodeUtf8(), BodyFormat.Json))
+        assertEquals("Not a JSON document", render("""[1, [true, nope]]""".encodeUtf8(), BodyFormat.Json))
+        assertEquals("Not a JSON document", render("""{"n": 01}""".encodeUtf8(), BodyFormat.Json))
+        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), """{"a": foo}""".encodeUtf8()))
+        assertEquals("{\n    \"a\": null\n}", render("""{"a": null}""".encodeUtf8(), BodyFormat.Json))
+    }
+
+    @Test
+    fun `formats a multi-megabyte body in linear time`() {
+        val element = """{"k":[1,2,{"a":"v"}]}"""
+        val body = List(200_000) { element }.joinToString(",", "[", "]").encodeUtf8()
+
+        val (rendered, elapsed) = measureTimedValue { render(body, BodyFormat.Json) }
+
+        assertTrue(body.size > 4_000_000, "body is ${body.size} bytes")
+        assertEquals(1 + 200_000 * 9 + 1, rendered.lines().size)
+        assertTrue(elapsed < 5.seconds, "took $elapsed")
     }
 
     @Test
