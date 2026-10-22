@@ -127,6 +127,21 @@ class HandshakeFailureTest {
         }
 
     @Test
+    fun `fails with the handshake error when the peer replies wrong and drops`() =
+        runBlocking {
+            val wrong = Envelope(channel = Protocol.CHANNEL_CORE, type = "Hello", payload = ByteString.EMPTY)
+            val peer = DroppingPeer(readHello = true, reply = wrong.encode())
+
+            val error =
+                withTimeout(TIMEOUT_MS) {
+                    assertFailsWith<HandshakeException> { replay(Target("127.0.0.1", peer.port), handshakeTimeoutMs = 500) }
+                }
+            peer.join()
+
+            assertContains(error.message.orEmpty(), "got ${Protocol.CHANNEL_CORE}/Hello")
+        }
+
+    @Test
     fun `fails with the close reason when the desktop closes after HelloAck`() =
         runBlocking {
             val port = serve(ackThenClose)

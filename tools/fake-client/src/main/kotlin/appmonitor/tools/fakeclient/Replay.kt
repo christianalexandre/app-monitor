@@ -39,9 +39,8 @@ internal class SessionClosedException(
 ) : Exception(message)
 
 /**
- * Handshakes with [target], sends [traffic] stamped with the current time and closes. Returns the
- * `HelloAck`; throws [HandshakeException] on any other first reply or none in [handshakeTimeoutMs],
- * and [SessionClosedException] when the desktop answers the session with a close that is not normal.
+ * Sends [hello], then [traffic] stamped with the current time, and closes; returns the `HelloAck`.
+ * Throws [HandshakeException] on another first reply or none, [SessionClosedException] on an abnormal close.
  */
 suspend fun replay(
     target: Target,
