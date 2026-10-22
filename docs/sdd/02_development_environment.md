@@ -8,9 +8,11 @@ What a machine needs to build and test the whole repository.
 | --- | --- | --- |
 | JDK | 21 | Gradle, desktop app |
 | Xcode | 26.x | iOS SDK, iOS samples, simulator tests (macOS only) |
-| Android SDK | `ANDROID_HOME` set, `platform-tools` and `emulator` on `PATH` | Android SDK, emulator tests |
+| Android SDK | `ANDROID_HOME` (the `Makefile` defaults it to `~/Library/Android/sdk`), `platform-tools` and `emulator` on `PATH` | Android targets, emulator tests |
 | GitHub CLI | authenticated | PRs from `/pr` and `/next` |
 | GNU Make | any | command façade |
+| jq | any | `make loop`, `make loop-watch` |
+| Claude Code CLI | logged in | `make loop` |
 
 No `protoc` is needed: Wire generates Kotlin without it (ADR-0001).
 The Android SDK must provide platform `android-36` and build tools 36.0.0

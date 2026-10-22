@@ -19,3 +19,4 @@ Rules:
 | Debt | Title | Trigger | Status |
 | --- | --- | --- | --- |
 | [0001](0001-jmdns-pinned-to-3-6-3.md) | JmDNS pinned to 3.6.3 | A JmDNS release newer than 3.6.4, or a security advisory for 3.6.3 | Open |
+| [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or the first UI/e2e suite lands | Open |
