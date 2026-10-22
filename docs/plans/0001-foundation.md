@@ -412,12 +412,14 @@ states the shipped behaviour.
   exits 0 reporting a CONTINUE as a stop.
   Deviation: such a line is no verdict (stops with "no verdict line"), and
   so is `LOOP: STOP` glued to a word (`LOOP: STOPPED`).
-- [ ] **M0.R29 Fake client discovery timeout.** The `--timeout` budget starts
+- [x] **M0.R29 Fake client discovery timeout.** The `--timeout` budget starts
   only after every JmDNS instance is created, so `JmDNS.create` on each
   interface is outside the bound the CLI documents.
   Accept: `./gradlew :tools:fake-client:test` — with a browser factory that
   blocks longer than `--timeout`, `discover` returns within the timeout plus
   a small margin, and the browsers it created are closed.
+  Deviation: browsers open in a detached IO coroutine; one that finishes
+  opening after `discover` returned is closed on arrival.
 
 ## Outcome
 
