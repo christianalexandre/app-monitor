@@ -150,6 +150,31 @@ server).
   Deviation: stderr goes to `<log>.err` beside the `.jsonl`, which also keeps
   `make loop-watch` (jq on the same file) alive.
 
+### Third milestone review
+
+Findings of the `code-review` of `d8fbae9..ec3c5e6` (after M0.R6–M0.R9).
+Two became debts: DEBT-0008 (accepted channels not enforced) and DEBT-0009
+(discovery keeps the first resolve, before the TXT record). The zero-address
+advertising case joined DEBT-0007.
+
+- [ ] **M0.R10 Server lifecycle under cancellation.** `start` assigns `server`
+  only after `startSuspend` returns, and drops the advertiser built by
+  `startAdvertiser` when cancelled on resume, so `stop` frees neither;
+  `newSessions.send` after `stop` throws outside the session `try`/`finally`;
+  `runServer` lets a `stop` failure escape the `LaunchedEffect` and mask the
+  original failure.
+  Accept: `./gradlew :desktop:server:test :desktop:app:test` — a test that
+  cancels `start` during advertising shows every registration closed and the
+  port free; a test where `stop` throws shows `runServer` reporting it through
+  `onStatus` without throwing.
+- [ ] **M0.R11 CLI arguments and close reason.** The fake client accepts
+  `--timeout` of 0 or less and reports it as "no desktop found"; the server's
+  `--port` parse failure is a stack trace; `Replay` truncates the close reason
+  by UTF-16 chars, not the 123 UTF-8 bytes RFC 6455 allows.
+  Accept: `./gradlew :tools:fake-client:test :desktop:server:test` — tests
+  for `--timeout 0` (usage, exit 2), a bad `--port` (one-line error, no stack
+  trace) and a multibyte close reason that fits in 123 bytes.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).

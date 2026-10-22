@@ -15,7 +15,9 @@ paid_date:
 `AppMonitorServer.start` treats an advertising failure as fatal. A VPN or
 container bridge that passes the LAN filter but rejects JmDNS makes the
 desktop show "Server failed" and accept no connection, not even from a device
-that knows the host and port.
+that knows the host and port. The opposite case is silent: when no address
+passes the LAN filter, `start` succeeds with zero registrations and the
+desktop shows "Listening" while nothing is published.
 
 ## Why it was accepted
 
