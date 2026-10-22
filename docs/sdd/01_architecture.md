@@ -62,6 +62,10 @@ device                         AppMonitorServer
   │                            │   → close 1002 (protocol error)
   │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
+  │                            │ channel not accepted, or a known network event
+  │                            │   undecodable / without request_id → close 1002
+  │                            │ frame > Protocol.MAX_FRAME_BYTES → close 1009
+  │◄─ ping every 15 s ─────────│ no pong within 15 s → close 1011, session ends
 ```
 
 - `sessions: Flow<DeviceSession>`: every handshaken connection, once, in order.
@@ -98,6 +102,21 @@ device                         AppMonitorServer
   before `HelloAck` is sent, under the lock `stop()` takes, so a device that
   got `HelloAck` is always on `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
+- Envelope rules (ADR-0021): an envelope on a channel not accepted in
+  `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
+  `WebSocketFrame` whose payload does not decode or has an empty
+  `request_id`, closes the connection with 1002; every earlier envelope is
+  still delivered. Unknown `network` types and other accepted channels pass
+  undecoded.
+- Frames are read up to `Protocol.MAX_FRAME_BYTES`: one
+  `Protocol.MAX_BODY_BYTES` (1 MiB) body plus 256 KiB for URL, headers and
+  envelope. A larger frame is refused from its header and closes with 1009;
+  a client still writing that frame may see the reset (1006) instead.
+- Keep-alive: the server pings every 15 s; without the pong within 15 s it
+  closes with 1011 and the session's `envelopes` completes, so a device gone
+  from Wi-Fi ends within ~30 s. Pongs are read behind data frames: a
+  collector stalled longer than the timeout ends a healthy session
+  (DEBT-0022).
 
 ### Without the desktop UI
 

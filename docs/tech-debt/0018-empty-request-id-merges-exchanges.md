@@ -1,10 +1,10 @@
 ---
 id: DEBT-0018
 title: Network events without a request id merge into one exchange
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: The M1 SDK starts sending network envelopes to the desktop
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0018 — Network events without a request id merge into one exchange
@@ -28,4 +28,6 @@ The M1 SDK starts sending network envelopes to the desktop.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+The server closes with 1002 on a known `network` event whose payload does not
+decode or carries an empty `request_id` (ADR-0021), so `TrafficState` never
+sees one. It costs one more decode per `network` envelope.

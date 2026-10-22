@@ -14,4 +14,10 @@ object Protocol {
 
     /** DNS-SD service type the desktop advertises (ADR-0002). */
     const val MDNS_SERVICE_TYPE: String = "_appmonitor._tcp.local."
+
+    /** Most bytes of one body a sender puts in an envelope (ADR-0018). */
+    const val MAX_BODY_BYTES: Int = 1 shl 20
+
+    /** Largest frame the desktop reads: one body plus URL, headers and envelope (ADR-0021). */
+    const val MAX_FRAME_BYTES: Long = MAX_BODY_BYTES + (256L shl 10)
 }
