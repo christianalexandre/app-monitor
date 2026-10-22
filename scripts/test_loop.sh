@@ -98,6 +98,20 @@ code=$?
 check "empty .loop exits 1" test "$code" -eq 1
 check "empty .loop prints the no-session message" grep -q "no session in" "$tmp/watch.err"
 
+event() { printf '{"type":"assistant","message":{"content":[{"type":"text","text":"%s"}]}}\n' "$1"; }
+event "first session" >"$tmp/repo/.loop/a.jsonl"
+touch -t 202001010000 "$tmp/repo/.loop/a.jsonl"
+LOOP_WATCH_POLL=0.2 "$tmp/repo/scripts/loop_watch.sh" >"$tmp/watch.out" 2>&1 &
+watcher=$!
+sleep 1
+event "second session" >"$tmp/repo/.loop/b.jsonl"
+for _ in $(seq 25); do grep -q "second session" "$tmp/watch.out" && break; sleep 0.2; done
+kill "$watcher" 2>/dev/null
+wait "$watcher" 2>/dev/null
+check "watcher prints the first session's events" grep -q "💬 first session" "$tmp/watch.out"
+check "watcher switches to a newer session" grep -q "💬 second session" "$tmp/watch.out"
+check "stopped watcher leaves no tail behind" test -z "$(pgrep -f "tail -n +1 -F $tmp/repo")"
+
 echo "test-loop: make loop-worktree"
 git() { command git -c user.name=test -c user.email=test@example.com "$@"; }
 git init -q -b dev "$tmp/origin" && git -C "$tmp/origin" commit -q --allow-empty -m init

@@ -339,7 +339,7 @@ reported as a timeout).
   Deviation: no code fix; Ktor 3.6.0's `WebSocketSession.close(reason)`
   swallows any send or flush failure, so `fail` already throws
   `HandshakeException`; the test pins it, and the KDoc is shortened.
-- [ ] **M0.R23 Loop watch follows the next session.** `loop_watch.sh` picks
+- [x] **M0.R23 Loop watch follows the next session.** `loop_watch.sh` picks
   the newest `.jsonl` once, so it keeps following a finished session when the
   loop starts the next one.
   Accept: `make scripts-test` — with a newer `.jsonl` created while watching,
