@@ -32,24 +32,12 @@ record of how the milestone was actually built once it is done.
 | Plan | Milestone | Title | Status |
 | --- | --- | --- | --- |
 | [0001](0001-foundation.md) | M0 | Foundation | Done |
+| [0002](0002-android-sdk.md) | M1 | Android SDK | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M1 — Android SDK
-
-A real Android app (emulator and device) shows traffic in the desktop.
-`sdk/core` (KMP: discovery mDNS → `10.0.2.2`, connection, offline ring buffer,
-reconnection), `sdk/android-okhttp` interceptor, `sdk/no-op`, Android sample
-app, device approval dialog in the desktop, header masking.
-
-Hardening found in the M0 review, needed before real devices connect:
-body size limit with a `body_truncated` / original size in the protocol (new
-field numbers, no renumbering); WebSocket `maxFrameSize` on the server;
-keep-alive ping with timeout so a device that drops off Wi-Fi ends its
-session; timeout for the first `Hello` frame.
 
 ### M2 — iOS SDK (capture layer 1)
 
