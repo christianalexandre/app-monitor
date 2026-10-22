@@ -35,7 +35,7 @@ internal suspend fun startWithShutdownHook(
     server: AppMonitorServer,
     addShutdownHook: (Thread) -> Unit,
 ): Int {
-    addShutdownHook(Thread { runBlocking { server.stop() } })
+    addShutdownHook(shutdownHook { server.stop() })
     return server.start()
 }
 

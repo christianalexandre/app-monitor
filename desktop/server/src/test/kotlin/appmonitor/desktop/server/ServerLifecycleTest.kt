@@ -8,6 +8,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.CloseReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -135,7 +136,8 @@ class ServerLifecycleTest {
             val starting = async(Dispatchers.Default) { runCatching { server.start() } }
             withTimeout(TIMEOUT_MS) { registering.await() }
 
-            val stopping = async(Dispatchers.Default) { server.stop() }
+            // Undispatched: stop marks the server stopped before release lets start finish.
+            val stopping = async(Dispatchers.Default, CoroutineStart.UNDISPATCHED) { server.stop() }
             release.countDown()
             withTimeout(TIMEOUT_MS) { stopping.await() }
             val result = withTimeout(TIMEOUT_MS) { starting.await() }
@@ -164,7 +166,7 @@ class ServerLifecycleTest {
             val starting = async(Dispatchers.Default) { runCatching { server.start() } }
             withTimeout(TIMEOUT_MS) { entered.await() }
 
-            val stopping = async(Dispatchers.Default) { server.stop() }
+            val stopping = async(Dispatchers.Default, CoroutineStart.UNDISPATCHED) { server.stop() }
             delay(100)
             assertFalse(stopping.isCompleted)
             gate.complete(Unit)

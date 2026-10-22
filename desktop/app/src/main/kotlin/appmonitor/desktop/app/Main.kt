@@ -11,21 +11,28 @@ import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.STOP_TIMEOUT
+import appmonitor.desktop.server.shutdownHook
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlin.system.exitProcess
+import kotlin.time.Duration
 
 fun main() {
     val store = TrafficStore()
     var status by mutableStateOf("Starting server…")
+    val server = AppMonitorServer()
+    addStopHook(server)
     runBlocking {
-        runUntilExit(serve = { runServer(AppMonitorServer(), store) { status = it } }) {
+        runUntilExit(serve = { runServer(server, store) { status = it } }) {
             awaitApplication {
                 Window(
                     onCloseRequest = ::exitApplication,
@@ -54,15 +61,22 @@ internal suspend fun runUntilExit(
     }
 }
 
+/** Stops [server] on SIGINT, SIGTERM or `exitProcess`, giving up after [STOP_TIMEOUT]. */
+internal fun addStopHook(
+    server: AppMonitorServer,
+    addShutdownHook: (Thread) -> Unit = Runtime.getRuntime()::addShutdownHook,
+) = addShutdownHook(shutdownHook { server.stop() })
+
 /**
  * Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure, [Error]s
- * included, is reported through [onStatus]. A [VirtualMachineError] is rethrown after it.
+ * included, is reported through [onStatus], as is a [stop] past [stopTimeout]. A [VirtualMachineError] is rethrown.
  */
 internal suspend fun runServer(
     server: AppMonitorServer,
     store: TrafficStore,
     start: suspend () -> Int = server::start,
     stop: suspend () -> Unit = server::stop,
+    stopTimeout: Duration = STOP_TIMEOUT,
     onStatus: (String) -> Unit,
 ) {
     try {
@@ -77,9 +91,12 @@ internal suspend fun runServer(
     } finally {
         withContext(NonCancellable) {
             try {
-                stop()
-            } catch (e: Exception) {
+                withTimeout(stopTimeout) { stop() }
+            } catch (e: TimeoutCancellationException) {
+                onStatus("Server stop timed out after $stopTimeout")
+            } catch (e: Throwable) {
                 onStatus("Server stop failed: ${e.message ?: e::class.simpleName}")
+                if (e is VirtualMachineError) throw e
             }
         }
     }

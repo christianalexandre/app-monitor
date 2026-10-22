@@ -14,7 +14,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -63,9 +62,10 @@ class MainTest {
             gate.complete(Unit)
             hook.join(TIMEOUT_MS)
 
+            // The hook's stop may land before or after start returns; either way the port is freed.
             assertFalse(hook.isAlive)
+            withTimeout(TIMEOUT_MS) { starting.await() }
             ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
-            assertIs<IllegalStateException>(withTimeout(TIMEOUT_MS) { starting.await() }.exceptionOrNull())
         }
 
     private fun parse(vararg args: String): Pair<Int?, String> {

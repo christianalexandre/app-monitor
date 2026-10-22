@@ -268,7 +268,7 @@ on the body alone cannot go stale, since a body and its headers arrive in the
 same event; the two port ranges differ on purpose (bind accepts 0, connect
 does not).
 
-- [ ] **M0.R17 Desktop app shutdown.** The app registers no shutdown hook, so
+- [x] **M0.R17 Desktop app shutdown.** The app registers no shutdown hook, so
   SIGINT or SIGTERM skips `stop`; `runServer` catches only `Exception` around
   `stop`, so an `Error` escapes and masks the first failure; `stop` awaits an
   in-flight `start` with no bound, so a `start` stuck in mDNS registration
@@ -277,6 +277,12 @@ does not).
   app's shutdown hook stops the server; an `Error` from `stop` is reported
   through `onStatus`; a hook whose `stop` never returns gives up within a
   bounded time.
+  Deviation: the bounded hook is `shutdownHook` in `desktop/server`, shared
+  by the headless server and the app; `runServer` also bounds its `stop`.
+  CI exposed a race in two `ServerLifecycleTest` stop-during-start tests
+  (`stop` dispatched after `start` finished); `stop` now starts undispatched.
+  `MainTest`'s hook test no longer asserts `start` fails: the hook's worker
+  thread may stop after `start` returns; it still asserts the port is freed.
 - [ ] **M0.R18 Fake client ignores a close after HelloAck.** `replay` sends
   every envelope and reports success even when the desktop closed the session
   with `PROTOCOL_ERROR`, since buffered sends do not throw.
