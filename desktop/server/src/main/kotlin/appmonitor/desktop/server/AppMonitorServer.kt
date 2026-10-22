@@ -16,6 +16,7 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -39,9 +40,12 @@ class AppMonitorServer internal constructor(
     constructor(config: ServerConfig = ServerConfig()) : this(config, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
-    private var server: EmbeddedServer<*, *>? = null
-    private var advertiser: MdnsAdvertiser? = null
-    private var stopped = false
+
+    @Volatile private var server: EmbeddedServer<*, *>? = null
+
+    @Volatile private var advertiser: MdnsAdvertiser? = null
+
+    @Volatile private var stopped = false
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -49,7 +53,7 @@ class AppMonitorServer internal constructor(
     /** Addresses the mDNS service is published on; empty when not advertising. */
     val advertisedAddresses: List<InetAddress> get() = advertiser?.addresses.orEmpty()
 
-    /** Starts listening and advertising; returns the bound port. If advertising fails, the port is released. */
+    /** Starts listening and advertising; returns the bound port. On failure or cancellation, the port and mDNS are released. */
     suspend fun start(): Int {
         check(!stopped) { "Server is single use: create a new instance" }
         check(server == null) { "Server already started" }
@@ -60,29 +64,36 @@ class AppMonitorServer internal constructor(
                     webSocket(Protocol.WEBSOCKET_PATH) { serve() }
                 }
             }
-        server.startSuspend(wait = false)
         this.server = server
-        val port =
-            server.engine
-                .resolvedConnectors()
-                .first()
-                .port
-        if (config.advertise) {
-            advertiser =
-                try {
-                    withContext(Dispatchers.IO) { startAdvertiser(config.serviceName, port) }
-                } catch (e: Exception) {
-                    server.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
-                    this.server = null
-                    throw e
-                }
+        try {
+            server.startSuspend(wait = false)
+            val port =
+                server.engine
+                    .resolvedConnectors()
+                    .first()
+                    .port
+            if (config.advertise) {
+                // Assigned inside the block: a cancelled withContext drops its result.
+                withContext(Dispatchers.IO) { advertiser = startAdvertiser(config.serviceName, port) }
+            }
+            return port
+        } catch (e: Throwable) {
+            withContext(NonCancellable) { release() }
+            throw e
         }
-        return port
     }
 
     /** Releases the port and completes [sessions] even if closing mDNS fails, then rethrows that failure. */
     suspend fun stop() {
         stopped = true
+        try {
+            release()
+        } finally {
+            newSessions.close()
+        }
+    }
+
+    private suspend fun release() {
         val advertiser = advertiser
         this.advertiser = null
         try {
@@ -90,7 +101,6 @@ class AppMonitorServer internal constructor(
         } finally {
             server?.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
             server = null
-            newSessions.close()
         }
     }
 
@@ -116,8 +126,11 @@ class AppMonitorServer internal constructor(
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
             )
         send(Frame.Binary(true, helloAck(session).encode()))
-        newSessions.send(session)
         try {
+            if (newSessions.trySend(session).isFailure) {
+                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+                return
+            }
             for (frame in incoming) {
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {

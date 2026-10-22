@@ -6,12 +6,17 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.CloseReason
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -38,6 +43,37 @@ class ServerLifecycleTest {
             assertTrue(registrations.all { it.closed })
             ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
             assertEquals(emptyList(), withTimeout(TIMEOUT_MS) { server.sessions.toList() })
+        }
+
+    @Test
+    fun `cancelling start during advertising closes every registration and frees the port`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val registrations = CopyOnWriteArrayList<Registration>()
+            val registering = CompletableDeferred<Unit>()
+            val release = CountDownLatch(1)
+            val addresses = listOf("10.0.0.1", "10.0.0.2").map { InetAddress.getByName(it) }
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser
+                        .start(name, boundPort, addresses) {
+                            Registration(failOnClose = false).also { registrations += it }
+                        }.also {
+                            registering.complete(Unit)
+                            release.await()
+                        }
+                }
+            val starting = launch(Dispatchers.Default) { server.start() }
+            withTimeout(TIMEOUT_MS) { registering.await() }
+
+            starting.cancel()
+            release.countDown()
+            withTimeout(TIMEOUT_MS) { starting.join() }
+
+            assertEquals(2, registrations.size)
+            assertTrue(registrations.all { it.closed })
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            server.stop()
         }
 
     @Test
