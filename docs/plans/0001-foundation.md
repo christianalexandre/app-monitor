@@ -461,6 +461,44 @@ directory, with an explicit `rm -rf` before the final exit.
   test and leaves the edit in place; `-PupdateFixtures` alone still
   regenerates it.
 
+### Eleventh milestone review
+
+Findings of the `code-review` of `d8fbae9..b3ae9bd` (after M0.R30–M0.R34).
+One was already tracked: an advertiser with zero LAN addresses starts
+silently (DEBT-0007). Three were rejected: the body format keyed on the body
+alone (rejected in the sixth review, same reason); publishing the session
+before `HelloAck` is M0.R27's fix, and a client that drops after `Hello`
+shows as connected, then disconnected, which is what happened; the missing
+EXIT trap in `scripts/test_loop.sh` is deliberate (bash 5 runs it in the
+watchdog subshells).
+
+- [ ] **M0.R35 Loop worktree failure and notification quoting.**
+  `ensure_worktree` ends with an `echo`, so a failed `git fetch` or
+  `git worktree add` returns 0 and `make loop-worktree` succeeds; `make loop`
+  ignores its status. `notify` puts the message in an AppleScript literal
+  unescaped, so a `"` drops the notification. The test's `pgrep -f "sleep
+  0.11"` matches any process on the machine.
+  Accept: `make scripts-test` — `loop.sh --worktree` with an unusable
+  `LOOP_WORKTREE` (an existing file) exits non-zero and does not print
+  "created worktree"; the leaked-sleep check only sees the test's own
+  processes.
+- [ ] **M0.R36 Fake client help and comment length.** `--help` prints the
+  usage to stderr; the `discover` KDoc is 5 lines, over the comment limit.
+  Accept: `./gradlew :tools:fake-client:test` — `--help` writes the usage to
+  `out`, exits 0 and leaves `err` empty; no comment block over 4 lines (grep
+  in the PR).
+- [ ] **M0.R37 Fixture regeneration once, stale files removed.** The
+  regeneration runs in `FixtureTest`'s `init`, once per test method, and
+  never deletes a `.bin` whose sample was removed, so
+  `everyFixtureHasASample` fails right after `-PupdateFixtures`.
+  Accept: with a stray `protocol/fixtures/stale.bin`,
+  `./gradlew :protocol:jvmTest -PupdateFixtures` passes and removes it; the
+  fixtures are written once per run.
+- [ ] **M0.R38 Desktop app stop hook default.** `addStopHook` repeats
+  `shutdownHook`'s default `onFailure`, so the two can drift.
+  Accept: `./gradlew :desktop:app:test` — `addStopHook` has no copy of the
+  default message; its tests still pass.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
