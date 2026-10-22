@@ -67,6 +67,8 @@ device                         AppMonitorServer
   frame closes the connection with 1002.
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
+- `AppMonitorServer` is single use: `stop()` completes `sessions` for good,
+  so a restarted server would deliver no session; create a new instance.
 
 ### Without the desktop UI
 

@@ -27,9 +27,8 @@ internal class HandshakeException(
 ) : Exception(message)
 
 /**
- * Connects to [target], handshakes with [hello], sends [traffic] stamped with the current time
- * and closes. Returns the desktop's `HelloAck`, or throws [HandshakeException] when the first
- * reply is anything else or does not arrive within [handshakeTimeoutMs].
+ * Handshakes with [target], sends [traffic] stamped with the current time and closes. Returns the
+ * `HelloAck`; throws [HandshakeException] on any other first reply or none in [handshakeTimeoutMs].
  */
 suspend fun replay(
     target: Target,

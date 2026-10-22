@@ -25,9 +25,8 @@ import java.net.InetAddress
 import java.util.UUID
 
 /**
- * WebSocket server devices connect to (ADR-0002). Each connection that completes the
- * `Hello` / `HelloAck` handshake becomes a [DeviceSession] on [sessions]. Single use:
- * after [stop], [sessions] completes and the server cannot start again.
+ * WebSocket server devices connect to (ADR-0002); each handshaken connection is a
+ * [DeviceSession] on [sessions]. Single use: [sessions] completes on [stop] for good.
  */
 class AppMonitorServer internal constructor(
     private val config: ServerConfig,
