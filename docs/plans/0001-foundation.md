@@ -1,10 +1,10 @@
 ---
 id: PLAN-0001
 title: Foundation
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M0
 started: 2026-10-21
-finished:
+finished: 2026-10-22
 ---
 
 # PLAN-0001 — Foundation (M0)
@@ -509,4 +509,28 @@ watchdog subshells).
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`).
+- **Shipped**: M0.1 Gradle skeleton (#4); M0.2 protocol schema, Wire codegen
+  and golden fixtures (#5); M0.3 desktop WebSocket server with handshake,
+  sessions and mDNS (#6); loop hardening with worktree, timeout and
+  checkpoint review (#7); M0.4 fake client and headless server (#8); M0.5
+  Compose desktop app skeleton (#9); M0.6 PR CI (#10); M0.7 docs sync (#11).
+  Eleven milestone review rounds then shipped M0.R1–M0.R39 in #12–#63: plan
+  updates in #12, #19, #24, #27, #31, #34, #38, #43, #47, #51, #57, fixes in
+  the rest, and the review bound in #62.
+- **Decisions**: ADR-0006 to ADR-0016. ADR-0016 caps the milestone review at
+  three incremental, correctness-only rounds; this plan closed under it.
+- **Debt**: DEBT-0001 to DEBT-0018 created, all open; none paid. DEBT-0002's
+  trigger fired at M0.5 and was re-armed after measuring. No review finding
+  is left open outside these debts: every task of the eleventh round is done.
+- **Deviations**: per task above. The milestone review added 39 tasks to the
+  7 planned (M0.R1–M0.R39) and 52 of the plan's 60 PRs (#4–#63).
+  `AppMonitorServer` lifecycle alone took eight tasks (R6, R10, R12, R15, R20, R24, R27, R32).
+  The owner checkpoint of M0.7 moved to this close-plan PR.
+- **Lessons**: an unbounded "no findings" exit never converges, since each
+  fix is reviewed again and the diff only grows (ADR-0016). Concurrent
+  start/stop lifecycles need their states and transitions written down
+  before the code, not discovered race by race in review. Tests that depend
+  on a coroutine finishing (R39) or on a LAN interface flake in CI; wait on
+  the observable effect with a bound. Hardening found here that real devices
+  need (body size limit, `maxFrameSize`, keep-alive, `Hello` timeout) is in
+  the M1 roadmap.
