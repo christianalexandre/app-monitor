@@ -72,6 +72,10 @@ device                         AppMonitorServer
 - `stop()` closes every mDNS registration, frees the port and completes
   `sessions` even when a registration fails to close; it then rethrows the
   first failure (the others suppressed).
+- `start()` that fails or is cancelled (even mid-advertising) closes what it
+  already registered and frees the port before rethrowing.
+- A connection that finishes its handshake after `stop()` is closed with
+  1001 (going away) instead of failing on the closed `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
 
 ### Without the desktop UI
@@ -111,6 +115,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 - `main` starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
   or "Server failed" with any startup or session exception (not only I/O).
+  A failing `stop()` shows "Server stop failed" instead of escaping the
+  effect or hiding the first failure.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
   duration is the difference of the envelopes' `timestamp_ms`. Other

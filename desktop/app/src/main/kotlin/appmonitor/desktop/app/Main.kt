@@ -28,10 +28,11 @@ fun main() =
         }
     }
 
-/** Starts [server] and feeds [store] until cancelled; any startup or session failure is reported through [onStatus]. */
+/** Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure is reported through [onStatus]. */
 internal suspend fun runServer(
     server: AppMonitorServer,
     store: TrafficStore,
+    stop: suspend () -> Unit = server::stop,
     onStatus: (String) -> Unit,
 ) {
     try {
@@ -43,6 +44,12 @@ internal suspend fun runServer(
     } catch (e: Exception) {
         onStatus("Server failed: ${e.message ?: e::class.simpleName}")
     } finally {
-        withContext(NonCancellable) { server.stop() }
+        withContext(NonCancellable) {
+            try {
+                stop()
+            } catch (e: Exception) {
+                onStatus("Server stop failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
     }
 }

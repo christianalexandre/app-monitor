@@ -157,7 +157,7 @@ Two became debts: DEBT-0008 (accepted channels not enforced) and DEBT-0009
 (discovery keeps the first resolve, before the TXT record). The zero-address
 advertising case joined DEBT-0007.
 
-- [ ] **M0.R10 Server lifecycle under cancellation.** `start` assigns `server`
+- [x] **M0.R10 Server lifecycle under cancellation.** `start` assigns `server`
   only after `startSuspend` returns, and drops the advertiser built by
   `startAdvertiser` when cancelled on resume, so `stop` frees neither;
   `newSessions.send` after `stop` throws outside the session `try`/`finally`;
@@ -167,6 +167,9 @@ advertising case joined DEBT-0007.
   cancels `start` during advertising shows every registration closed and the
   port free; a test where `stop` throws shows `runServer` reporting it through
   `onStatus` without throwing.
+  Deviation: `runServer` takes an internal `stop` parameter, since the
+  server's failing-advertiser constructor is not visible from `desktop/app`.
+  The handshake-after-`stop` path (close 1001) has no test: it needs a race.
 - [ ] **M0.R11 CLI arguments and close reason.** The fake client accepts
   `--timeout` of 0 or less and reports it as "no desktop found"; the server's
   `--port` parse failure is a stack trace; `Replay` truncates the close reason

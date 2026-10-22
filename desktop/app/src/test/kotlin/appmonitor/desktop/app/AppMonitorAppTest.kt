@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.io.File
+import java.io.IOException
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -69,6 +70,23 @@ class AppMonitorAppTest {
 
             onNodeWithText(statuses.last()).assertExists()
         }
+    }
+
+    @Test
+    fun `reports a stop failure without throwing or hiding the start failure`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        runBlocking {
+            server.stop()
+            withTimeout(TIMEOUT_MS) {
+                runServer(server, TrafficStore(), stop = { throw IOException("stop failed") }) { statuses += it }
+            }
+        }
+
+        assertEquals(
+            listOf("Server failed: Server is single use: create a new instance", "Server stop failed: stop failed"),
+            statuses,
+        )
     }
 
     // Real server and fake client: the UI renders what actually crossed the wire.
