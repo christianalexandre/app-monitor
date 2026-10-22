@@ -32,6 +32,8 @@ class DiscoveryTest {
                 }
 
             assertEquals(Target("10.0.0.2", 47474, Protocol.WEBSOCKET_PATH), target)
+            // Resolved inside browse: that browser is closed on arrival, after discover returns.
+            withTimeout(5_000) { while (closed.isEmpty()) delay(10) }
             assertEquals(listOf(addresses[1]), closed.toList())
         }
 
