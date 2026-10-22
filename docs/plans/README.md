@@ -31,7 +31,7 @@ record of how the milestone was actually built once it is done.
 
 | Plan | Milestone | Title | Status |
 | --- | --- | --- | --- |
-| [0001](0001-foundation.md) | M0 | Foundation | Active |
+| [0001](0001-foundation.md) | M0 | Foundation | Done |
 
 ## Roadmap
 
