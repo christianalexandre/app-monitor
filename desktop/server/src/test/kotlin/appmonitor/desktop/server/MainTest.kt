@@ -1,10 +1,20 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -30,9 +40,41 @@ class MainTest {
         }
     }
 
+    @Test
+    fun `the shutdown hook stops a server whose start is still running`() =
+        runBlocking<Unit> {
+            val port = ServerSocket(0).use { it.localPort }
+            val entered = CompletableDeferred<Unit>()
+            val gate = CompletableDeferred<Unit>()
+            val server =
+                AppMonitorServer(
+                    ServerConfig(host = "127.0.0.1", port = port, advertise = false),
+                    startEngine = {
+                        entered.complete(Unit)
+                        gate.await()
+                        it.startSuspend(wait = false)
+                    },
+                ) { _, _ -> error("not advertising") }
+            val hooks = CopyOnWriteArrayList<Thread>()
+            val starting = async(Dispatchers.Default) { runCatching { startWithShutdownHook(server, hooks::add) } }
+            withTimeout(TIMEOUT_MS) { entered.await() }
+
+            val hook = hooks.single().apply { start() }
+            gate.complete(Unit)
+            hook.join(TIMEOUT_MS)
+
+            assertFalse(hook.isAlive)
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            assertIs<IllegalStateException>(withTimeout(TIMEOUT_MS) { starting.await() }.exceptionOrNull())
+        }
+
     private fun parse(vararg args: String): Pair<Int?, String> {
         val err = ByteArrayOutputStream()
         val port = parsePort(arrayOf(*args), PrintStream(err))
         return port to err.toString()
+    }
+
+    private companion object {
+        const val TIMEOUT_MS = 5_000L
     }
 }

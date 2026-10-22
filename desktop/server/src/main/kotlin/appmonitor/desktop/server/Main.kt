@@ -17,8 +17,7 @@ fun main(args: Array<String>) {
     val port = parsePort(args, System.err) ?: exitProcess(2)
     val server = AppMonitorServer(ServerConfig(port = port))
     runBlocking {
-        val bound = server.start()
-        Runtime.getRuntime().addShutdownHook(Thread { runBlocking { server.stop() } })
+        val bound = startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook)
         println("Listening on port $bound, path ${Protocol.WEBSOCKET_PATH}; mDNS on ${server.advertisedAddresses}")
         server.sessions.collect { session ->
             launch {
@@ -29,6 +28,15 @@ fun main(args: Array<String>) {
             }
         }
     }
+}
+
+/** Registers a hook that stops [server] before starting it, so a shutdown during [AppMonitorServer.start] still releases it. */
+internal suspend fun startWithShutdownHook(
+    server: AppMonitorServer,
+    addShutdownHook: (Thread) -> Unit,
+): Int {
+    addShutdownHook(Thread { runBlocking { server.stop() } })
+    return server.start()
 }
 
 /** The `--port` value, or [Protocol.DEFAULT_PORT]; on a bad argument prints one line on [err] and returns null. */
