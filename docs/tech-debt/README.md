@@ -24,3 +24,4 @@ Rules:
 | [0004](0004-traffic-state-quadratic-ingest.md) | TrafficState ingest is linear per event | M5 replaces the in-memory store, or a session over 10k requests lags the UI | Open |
 | [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or M1 `sdk/core` implements discovery | Open |
 | [0006](0006-body-rendering-unbounded.md) | Body rendering is synchronous and unbounded | The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane | Open |
+| [0007](0007-mdns-failure-stops-server.md) | mDNS failure on one interface stops the whole server | A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host | Open |
