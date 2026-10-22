@@ -40,3 +40,4 @@ Rules:
 | [0020](0020-body-truncation-fields.md) | Bodies carry a truncation flag and their original size | Accepted |
 | [0021](0021-server-frame-limit-keep-alive-and-envelope-rules.md) | Server frame limit, keep-alive and envelope rules | Accepted |
 | [0022](0022-sdk-connection-lifecycle.md) | SDK connection lifecycle, offline buffer and backoff | Accepted |
+| [0023](0023-sdk-core-module-and-ktor-transport.md) | sdk/core module layout and its Ktor CIO transport | Accepted |

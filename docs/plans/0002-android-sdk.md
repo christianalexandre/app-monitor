@@ -48,7 +48,7 @@ written down as states and transitions (SDD) before their code.
   off, stopped), transitions, who owns each resource, what `stop()` during
   each state does, buffer policy when offline.
   Accept: `make docs-check`; the chapter lists every state with its exits.
-- [ ] **M1.5 `sdk/core` transport.** KMP module (Android + JVM): Ktor client
+- [x] **M1.5 `sdk/core` transport.** (ADR-0023; `internal` `MonitorClient` takes a `discover` function; the `AppMonitor` entry point moved to M1.6, which needs the `Context`) KMP module (Android + JVM): Ktor client
   WebSocket, `Hello`/`HelloAck`, an in-memory ring buffer that drops the
   oldest events when full, reconnection with backoff, all per M1.4. Connects
   to an explicit host only.
@@ -56,7 +56,8 @@ written down as states and transitions (SDD) before their code.
   `AppMonitorServer`: handshake, 1000 events delivered in order, events
   queued while the desktop is down arrive after it returns, `stop()` in each
   state releases everything.
-- [ ] **M1.6 `sdk/core` discovery.** Manual host → mDNS (`NsdManager` on
+- [ ] **M1.6 `sdk/core` discovery.** `AppMonitor.start(context, options)` /
+  `stop()` per SDD 04 (idle, ignored second start, new client after stop). Manual host → mDNS (`NsdManager` on
   Android) → `10.0.2.2` on the emulator (ADR-0002), with a shared discovery
   contract that pays DEBT-0005, DEBT-0009, DEBT-0011 and DEBT-0012 (or
   re-arms each with a reason).

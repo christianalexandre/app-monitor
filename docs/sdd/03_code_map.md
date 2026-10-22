@@ -22,12 +22,13 @@ Where each part lives in the repository.
 | `desktop/server/` | JVM module: `AppMonitorServer` (Ktor WebSocket, handshake, frame limit, keep-alive), `EnvelopeRules` (what closes a session with 1002, ADR-0021), `DeviceSession` flows, `MdnsAdvertiser`, `ServerConfig` (ADR-0009); `shutdownHook` and its default report `printStopFailure` (bounded stop at exit, shared with the app); headless `Main.kt` that logs to stdout (ADR-0010); `AppMonitorServerTest`, `ServerHardeningTest` (1009, ping timeout, envelope rules), `MdnsPartialFailureTest`, `ServerLifecycleTest`, `ShutdownHookTest`, `MainTest` (`--port` parsing, startup hook) |
 | `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (`App.kt` panes, `BodyFormat.kt`) (ADR-0011); tests for state, body formats and the offscreen UI |
 | `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest`, `MainTest` (CLI errors), `DiscoveryTest` |
+| `sdk/core/` | KMP (JVM + Android) SDK core, convention `appmonitor.kmp-sdk` (ADR-0023): `MonitorClient` (states of SDD 04 over a Ktor CIO WebSocket), `EventBuffer` (offline ring buffer), `Backoff`, `Platform` (cleartext policy, log); `commonTest` buffer and backoff, `jvmTest` `MonitorClientTest` against an in-process `AppMonitorServer` |
 | `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report; a transient `.jsonl.done` while a session ends |
 
 ## Planned layout
 
 ```
-sdk/core/            KMP: connection, discovery, buffer, reconnection
+sdk/core/            discovery (transport is in "Today")
 sdk/android-okhttp/  OkHttp interceptor
 sdk/ktor/            Ktor HttpClient plugin (KMP)
 sdk/no-op/           empty artifacts for release builds

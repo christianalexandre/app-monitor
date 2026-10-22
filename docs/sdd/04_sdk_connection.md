@@ -2,9 +2,12 @@
 
 How `sdk/core` (KMP, Android + JVM) finds the desktop, connects, holds
 events while it cannot send them, and lets go of everything on `stop()`.
-**(planned)**: this chapter is the contract `sdk/core` is written against
-(PLAN-0002 M1.5 transport, M1.6 discovery); no code exists yet. Decisions in
-ADR-0022; public API in ADR-0017; approval and masking in ADR-0018.
+The transport is `internal` `MonitorClient` in `sdk/core` (ADR-0023), which
+connects to the endpoint its `discover` function returns. **(planned)**:
+discovery sources and the `AppMonitor.start` / `stop` entry point (idle,
+ignored second `start()`, new client after `stop()`), PLAN-0002 M1.6.
+Decisions in ADR-0022; public API in ADR-0017; approval and masking in
+ADR-0018.
 
 ## How it works
 
@@ -28,7 +31,7 @@ it. The client is a state machine; exactly one state is current.
 | --- | --- | --- |
 | **idle** | Nothing; no client yet. Events are dropped. | `start()` with `enabled` → discovering. `start()` with `enabled = false` → stays idle. |
 | **discovering** | Tries the sources in order: manual `host` → mDNS `_appmonitor._tcp` → `10.0.2.2` when running on the emulator (ADR-0002). mDNS is skipped, with one log line, when `ACCESS_LOCAL_NETWORK` is needed and not granted (ADR-0017). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
-| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off. Cleartext blocked by the app's network security policy → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
+| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off. Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
 | **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
 | **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off. `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
