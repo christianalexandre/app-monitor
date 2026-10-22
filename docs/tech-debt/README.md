@@ -25,7 +25,7 @@ Rules:
 | [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or M1 `sdk/core` implements discovery | Open |
 | [0006](0006-body-rendering-unbounded.md) | Body rendering is synchronous and unbounded | The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane | Open |
 | [0007](0007-mdns-failure-stops-server.md) | mDNS failure on one interface stops the whole server | A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host | Open |
-| [0008](0008-accepted-channels-not-enforced.md) | Accepted channels are not enforced after the handshake | The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes | Open |
+| [0008](0008-accepted-channels-not-enforced.md) | Accepted channels are not enforced after the handshake | The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes | Paid |
 | [0009](0009-discovery-ignores-late-txt.md) | Fake client discovery keeps the resolve before the TXT record | The advertised path can differ from `Protocol.WEBSOCKET_PATH`, or M1 `sdk/core` implements discovery | Open |
 | [0010](0010-headless-server-bind-failure-trace.md) | Headless server prints a stack trace when the port is taken | The headless server is started by something other than a developer at a terminal, or someone reports the trace as a bug | Open |
 | [0011](0011-fake-client-discovery-listener.md) | Fake client discovery blocks the JmDNS listener and matches names by case | More than one `_appmonitor._tcp` service is seen on one LAN, or M1 `sdk/core` implements discovery | Open |
@@ -35,6 +35,8 @@ Rules:
 | [0015](0015-stop-bound-vs-jmdns-close.md) | The 5 s stop bound may cut a slow mDNS close | A "Server stop timed out" status or a shutdown hook timeout seen on a real desktop | Open |
 | [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Open |
 | [0017](0017-spotless-walks-build-dir.md) | Spotless walks build directories while tests write them | The same spotless failure on a build file appears a second time, locally or in CI | Open |
-| [0018](0018-empty-request-id-merges-exchanges.md) | Network events without a request id merge into one exchange | The M1 SDK starts sending network envelopes to the desktop | Open |
+| [0018](0018-empty-request-id-merges-exchanges.md) | Network events without a request id merge into one exchange | The M1 SDK starts sending network envelopes to the desktop | Paid |
 | [0019](0019-sdk-bodies-not-masked.md) | The SDK masks headers and query parameters, never bodies | The first request to mask a field inside a request or response body | Open |
 | [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
+| [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Open |
+| [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | Desktop ingest writes to SQLite (M5), or a session closed with 1011 "Ping timeout" while the device was reachable | Open |

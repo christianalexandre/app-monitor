@@ -34,7 +34,7 @@ written down as states and transitions (SDD) before their code.
   renumbered); fixtures regenerated; the desktop shows "truncated, N bytes".
   Accept: `./gradlew :protocol:allTests :desktop:app:test` — fixture and
   round-trip tests for the new fields; a UI test shows the truncation note.
-- [ ] **M1.3 Server hardening for real devices.** WebSocket `maxFrameSize`
+- [x] **M1.3 Server hardening for real devices.** (ADR-0021; DEBT-0008 and DEBT-0018 paid by closing with 1002; DEBT-0021, DEBT-0022 opened) WebSocket `maxFrameSize`
   derived from the body limit; keep-alive ping with a timeout that ends the
   session of a device gone from Wi-Fi; accepted channels enforced
   (DEBT-0008); envelopes without a `request_id` rejected or kept apart

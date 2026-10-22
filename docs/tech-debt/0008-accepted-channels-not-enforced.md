@@ -1,10 +1,10 @@
 ---
 id: DEBT-0008
 title: Accepted channels are not enforced after the handshake
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0008 — Accepted channels are not enforced after the handshake
@@ -29,4 +29,6 @@ SDK starts sending envelopes to the desktop.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+The server closes with 1002 on an envelope whose channel was not accepted in
+`HelloAck`, after delivering every earlier one (ADR-0021). Unknown types in an
+accepted channel still pass, so a newer SDK message is not a violation.

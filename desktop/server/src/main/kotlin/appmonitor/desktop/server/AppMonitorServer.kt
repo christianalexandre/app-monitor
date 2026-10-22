@@ -41,6 +41,8 @@ import kotlin.time.Duration.Companion.seconds
 class AppMonitorServer internal constructor(
     private val config: ServerConfig,
     private val handshakeTimeout: Duration = 10.seconds,
+    private val pingPeriod: Duration = 15.seconds,
+    private val pingTimeout: Duration = 15.seconds,
     private val createEngine: (module: Application.() -> Unit) -> EmbeddedServer<*, *> = { module ->
         embeddedServer(CIO, host = config.host, port = config.port, module = module)
     },
@@ -84,7 +86,11 @@ class AppMonitorServer internal constructor(
         try {
             val engine =
                 createEngine {
-                    install(WebSockets)
+                    install(WebSockets) {
+                        maxFrameSize = Protocol.MAX_FRAME_BYTES
+                        pingPeriodMillis = pingPeriod.inWholeMilliseconds
+                        timeoutMillis = pingTimeout.inWholeMilliseconds
+                    }
                     routing {
                         webSocket(Protocol.WEBSOCKET_PATH) { serve() }
                     }
@@ -196,6 +202,11 @@ class AppMonitorServer internal constructor(
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
                     close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
+                    break
+                }
+                val violation = envelope.violation(session.channels)
+                if (violation != null) {
+                    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
                     break
                 }
                 session.deliver(envelope)
