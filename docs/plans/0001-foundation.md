@@ -381,6 +381,40 @@ for `HandshakeException` and `SessionClosedException` are a style choice.
   Deviation: the tests run `loop.sh` end to end with a stub `claude` on
   `PATH` and `LIMIT_RETRIES=0`, so the wait branch exits without sleeping.
 
+### Ninth milestone review
+
+Findings of the `code-review` of `d8fbae9..f667405` (after M0.R24–M0.R26).
+One became a debt: DEBT-0018 (network events without a request id merge into
+one exchange). One was already tracked: `exchangesOf` re-filters every
+exchange on each recomposition (DEBT-0004). One was rejected: M0.R26's text
+describes the defect it fixed, as every review task does; its Accept line
+states the shipped behaviour.
+
+- [ ] **M0.R27 Server stop failures and late handshakes.** Only the first
+  `stop` caller awaits the release; a later one only joins, so when the first
+  is cancelled (`runServer`'s timeout) a failing mDNS close is never
+  reported; `MdnsAdvertiser.close` catches only `Exception`, so an `Error`
+  from one registration leaves the others open; the server sends `HelloAck`
+  before checking that the session can be published, so a device connecting
+  during `stop` gets a successful handshake and then a `GOING_AWAY` close.
+  Accept: `./gradlew :desktop:server:test` — a second `stop` after a cancelled
+  first one rethrows the advertiser close failure; a registration whose close
+  throws an `Error` still lets the others close; a client handshaking after
+  `stop` began gets no `HelloAck`.
+- [ ] **M0.R28 Loop verdict with trailing text.** `verdict_of` matches any
+  line starting with `LOOP: CONTINUE`, but the loop compares it to the exact
+  string, so `LOOP: CONTINUE — next task` stops the loop with exit 0 as if
+  it were a deliberate stop.
+  Accept: `make scripts-test` — a report ending in `LOOP: CONTINUE` followed
+  by more text either continues or stops with "no verdict line"; it never
+  exits 0 reporting a CONTINUE as a stop.
+- [ ] **M0.R29 Fake client discovery timeout.** The `--timeout` budget starts
+  only after every JmDNS instance is created, so `JmDNS.create` on each
+  interface is outside the bound the CLI documents.
+  Accept: `./gradlew :tools:fake-client:test` — with a browser factory that
+  blocks longer than `--timeout`, `discover` returns within the timeout plus
+  a small margin, and the browsers it created are closed.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
