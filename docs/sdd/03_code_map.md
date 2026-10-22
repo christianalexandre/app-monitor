@@ -7,7 +7,7 @@ Where each part lives in the repository.
 | Path | What |
 | --- | --- |
 | `AGENTS.md` | Agent instructions (`CLAUDE.md` links here) |
-| `docs/` | SDD, guidelines, ADRs, tech debt, plans |
+| `docs/` | SDD, guidelines, ADRs, tech debt, plans; `screenshots/` for UI evidence |
 | `.claude/` | Shared Claude Code settings and slash commands |
 | `.github/` | PR/issue templates and workflows |
 | `scripts/` | Shell scripts behind `make` targets |
@@ -20,6 +20,7 @@ Where each part lives in the repository.
 | `protocol/fixtures/` | Golden encoded envelopes, one per message |
 | `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants, round-trip and fixture tests |
 | `desktop/server/` | JVM module: Ktor WebSocket server, handshake, `DeviceSession` flows, mDNS advertiser (ADR-0009); headless `main` that logs to stdout (ADR-0010) |
+| `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (panes, body formats) (ADR-0011) |
 | `tools/fake-client/` | JVM CLI: discovers the desktop over mDNS and replays `protocol/fixtures` (ADR-0010) |
 
 ## Planned layout
@@ -33,7 +34,6 @@ sdk/ios/             Swift package
 desktop/storage/     SQLDelight
 desktop/mcp/         MCP server
 desktop/feature-*/   one module per debug tool (channel + UI)
-desktop/app/         Compose app, DI, navigation
 samples/             Android, iOS and KMP sample apps
 ```
 

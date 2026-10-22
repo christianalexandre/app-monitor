@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint build server fake-traffic branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint build desktop server fake-traffic branch-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -18,6 +18,9 @@ lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
+
+desktop: ## Run the desktop app (listens for devices on port 47474)
+	@./gradlew -q :desktop:app:run
 
 server: ## Headless desktop server, logs every envelope (ARGS="--port N")
 	@./gradlew -q :desktop:server:run --args="$(ARGS)"

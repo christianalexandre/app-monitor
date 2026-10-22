@@ -16,8 +16,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`, `desktop/server`, `tools/fake-client`. Everything else is
-**(planned)**.
+Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
+`tools/fake-client`. Everything else is **(planned)**.
 
 ## Protocol
 
@@ -83,11 +83,35 @@ current time and closes. See ADR-0010.
 
 ## Desktop
 
-Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage,
-MCP server bound to `127.0.0.1`. Each debug tool is a feature module owning a
-`channel`. See ADR-0005.
+Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
+**(planned)**, MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
+is a feature module owning a `channel` **(planned)**. See ADR-0005.
+
+`desktop/app` today (ADR-0011):
+
+```
+AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<TrafficState> ──► AppMonitorApp
+                                 one coroutine per session;     devices + HTTP exchanges,
+                                 TrafficState.received(envelope) immutable snapshots
+```
+
+- `main` starts `AppMonitorServer` with the default config and feeds
+  `TrafficStore`; the window shows "Listening on port N" or the start error.
+- `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
+  `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
+  duration is the difference of the envelopes' `timestamp_ms`. Other
+  channels, other types and undecodable payloads leave the state unchanged.
+- A device stays in the list after it disconnects, with its traffic.
+- UI: three panes (devices, requests of the selected device, detail). Bodies
+  open as JSON when the `Content-Type` says JSON and it parses, as text when
+  it is UTF-8, else as hex; the user can switch. JSON is re-indented from the
+  original text, never re-encoded.
 
 ## Limits
+
+- The desktop store is in memory and unbounded; it lives until the app
+  closes (SQLDelight in M5).
+- WebSocket frames are received but not shown (DEBT-0003).
 
 Debug builds only; release builds use no-op artifacts. Device and desktop must
 share a network (or USB/emulator loopback).

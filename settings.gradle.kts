@@ -19,4 +19,5 @@ rootProject.name = "app-monitor"
 
 include(":protocol")
 include(":desktop:server")
+include(":desktop:app")
 include(":tools:fake-client")

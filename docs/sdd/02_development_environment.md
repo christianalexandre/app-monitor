@@ -38,4 +38,5 @@ Module scripts apply one convention plugin from `build-logic/`:
 ## Limits
 
 iOS targets build only on macOS. On Linux/Windows the desktop app and the
-Android/JVM parts build normally.
+Android/JVM parts build normally. The desktop UI test renders offscreen and
+needs no display.
