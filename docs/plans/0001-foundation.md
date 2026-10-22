@@ -329,13 +329,16 @@ reported as a timeout).
   path runs even when the UI throws.
   Deviation: the exit path is `exitAfter`, which exits 1 after printing a UI
   failure instead of 0.
-- [ ] **M0.R22 Fake client handshake diagnosis.** `fail` closes the session
+- [x] **M0.R22 Fake client handshake diagnosis.** `fail` closes the session
   before throwing `HandshakeException`; on a dropped connection the close
   throws and `replay` reports "Connection to the desktop dropped" instead of
   the handshake error; the `replay` KDoc is 5 lines, over the comment limit.
   Accept: `./gradlew :tools:fake-client:test` — a server that answers with a
   non-`HelloAck` frame and drops the connection makes `replay` raise
   `HandshakeException`; no comment block over 4 lines (grep in the PR).
+  Deviation: no code fix; Ktor 3.6.0's `WebSocketSession.close(reason)`
+  swallows any send or flush failure, so `fail` already throws
+  `HandshakeException`; the test pins it, and the KDoc is shortened.
 - [ ] **M0.R23 Loop watch follows the next session.** `loop_watch.sh` picks
   the newest `.jsonl` once, so it keeps following a finished session when the
   loop starts the next one.
