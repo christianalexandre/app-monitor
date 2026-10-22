@@ -40,3 +40,4 @@ Rules:
 | [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
 | [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Open |
 | [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | Desktop ingest writes to SQLite (M5), or a session closed with 1011 "Ping timeout" while the device was reachable | Open |
+| [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible on the desktop | A developer reports an event missing from the desktop, or the protocol gains per-envelope sequence numbers | Open |

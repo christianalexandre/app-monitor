@@ -17,3 +17,4 @@ Rules:
 | 01 | [Architecture](01_architecture.md) |
 | 02 | [Development environment](02_development_environment.md) |
 | 03 | [Code map](03_code_map.md) |
+| 04 | [SDK connection lifecycle](04_sdk_connection.md) |

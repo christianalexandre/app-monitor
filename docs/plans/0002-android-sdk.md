@@ -43,7 +43,7 @@ written down as states and transitions (SDD) before their code.
   frame closes with 1009; a client that stops answering pings ends its
   session within the bound; a non-accepted channel and an empty
   `request_id` follow the documented rule.
-- [ ] **M1.4 SDK connection lifecycle on paper.** SDD chapter for `sdk/core`:
+- [x] **M1.4 SDK connection lifecycle on paper.** (`docs/sdk-connection-lifecycle`; SDD 04, ADR-0022, DEBT-0023) SDD chapter for `sdk/core`:
   states (idle, discovering, connecting, handshaking, connected, backing
   off, stopped), transitions, who owns each resource, what `stop()` during
   each state does, buffer policy when offline.
