@@ -56,7 +56,7 @@ written down as states and transitions (SDD) before their code.
   `AppMonitorServer`: handshake, 1000 events delivered in order, events
   queued while the desktop is down arrive after it returns, `stop()` in each
   state releases everything.
-- [ ] **M1.6 `sdk/core` discovery.** `AppMonitor.start(context, options)` /
+- [x] **M1.6 `sdk/core` discovery.** (ADR-0024; `DesktopSelector` in `protocol`, shared with the fake client; DEBT-0009, DEBT-0011 paid; DEBT-0005, DEBT-0012 re-armed; DEBT-0024 opened; masking options left to M1.7) `AppMonitor.start(context, options)` /
   `stop()` per SDD 04 (idle, ignored second start, new client after stop). Manual host → mDNS (`NsdManager` on
   Android) → `10.0.2.2` on the emulator (ADR-0002), with a shared discovery
   contract that pays DEBT-0005, DEBT-0009, DEBT-0011 and DEBT-0012 (or

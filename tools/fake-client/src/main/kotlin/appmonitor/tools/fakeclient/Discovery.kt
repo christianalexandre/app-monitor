@@ -1,10 +1,13 @@
 package appmonitor.tools.fakeclient
 
+import appmonitor.protocol.DesktopAnswer
+import appmonitor.protocol.DesktopSelector
 import appmonitor.protocol.Protocol
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -15,58 +18,72 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 
 /**
- * First desktop of [Protocol.MDNS_SERVICE_TYPE] named [serviceName], if set, on any of [addresses], or
- * `null` after [timeoutMs]. An address whose browser fails is skipped; fails only when all of them do.
+ * The desktop [DesktopSelector] picks among [Protocol.MDNS_SERVICE_TYPE] answers, named [serviceName] if
+ * set, on any of [addresses], or `null` after [timeoutMs]. An address whose browser fails is skipped;
+ * fails only when all of them do. [resolve] runs off the JmDNS listener thread: it may block.
  */
 internal suspend fun discover(
     timeoutMs: Long,
     serviceName: String? = null,
     addresses: () -> List<Inet4Address> = ::lanAddresses,
+    resolve: (ServiceEvent) -> Unit = { it.dns.requestServiceInfo(it.type, it.name, timeoutMs) },
     browse: (Inet4Address, ServiceListener) -> AutoCloseable = ::browse,
 ): Target? {
-    val found = CompletableDeferred<Target>()
+    val answers = Channel<Result<DesktopAnswer>>(Channel.UNLIMITED)
+    val work = CoroutineScope(Dispatchers.IO)
     val listener =
         object : ServiceListener {
-            override fun serviceAdded(event: ServiceEvent) = event.dns.requestServiceInfo(event.type, event.name)
+            override fun serviceAdded(event: ServiceEvent) {
+                work.launch { resolve(event) }
+            }
 
             override fun serviceRemoved(event: ServiceEvent) = Unit
 
             override fun serviceResolved(event: ServiceEvent) {
-                if (serviceName != null && event.name != serviceName) return
                 val info = event.info
                 val host = info.inet4Addresses.firstOrNull()?.hostAddress ?: return
-                // Fires again when the TXT record arrives after SRV/A; path falls back to the default.
-                found.complete(Target(host, info.port, info.getPropertyString("path") ?: Protocol.WEBSOCKET_PATH))
+                answers.trySend(Result.success(DesktopAnswer(event.name, host, info.port, info.getPropertyString(Protocol.MDNS_TXT_PATH))))
             }
         }
     val browsers = Browsers()
     // Opened off the timeout: JmDNS.create blocks and ignores cancellation.
-    val opening =
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val all = addresses()
-                val failures = mutableListOf<Exception>()
-                for (address in all) {
-                    val browser =
-                        try {
-                            browse(address, listener)
-                        } catch (e: Exception) {
-                            failures += e
-                            continue
-                        }
-                    if (!browsers.add(browser)) break
-                }
-                if (all.isNotEmpty() && failures.size == all.size) {
-                    found.completeExceptionally(failures.first().apply { failures.drop(1).forEach(::addSuppressed) })
-                }
-            } catch (e: Throwable) {
-                found.completeExceptionally(e)
+    work.launch {
+        try {
+            val all = addresses()
+            val failures = mutableListOf<Exception>()
+            for (address in all) {
+                val browser =
+                    try {
+                        browse(address, listener)
+                    } catch (e: Exception) {
+                        failures += e
+                        continue
+                    }
+                if (!browsers.add(browser)) break
             }
+            if (all.isNotEmpty() && failures.size == all.size) {
+                answers.trySend(Result.failure(failures.first().apply { failures.drop(1).forEach(::addSuppressed) }))
+            }
+        } catch (e: Throwable) {
+            answers.trySend(Result.failure(e))
         }
+    }
+    val selector = DesktopSelector(serviceName)
     try {
-        return withTimeoutOrNull(timeoutMs) { found.await() }
+        val chosen =
+            withTimeoutOrNull(timeoutMs) {
+                var found: DesktopAnswer? = null
+                while (found == null && !selector.hasCandidate) found = selector.offer(answers.receive().getOrThrow())
+                found ?: withTimeoutOrNull(DesktopSelector.TXT_GRACE_MS) {
+                    var complete: DesktopAnswer? = null
+                    while (complete == null) complete = selector.offer(answers.receive().getOrThrow())
+                    complete
+                }
+            } ?: selector.settle()
+        return chosen?.let { Target(it.host, it.port, it.path ?: Protocol.WEBSOCKET_PATH) }
     } finally {
-        opening.cancel()
+        work.cancel()
+        answers.close()
         withContext(NonCancellable + Dispatchers.IO) { browsers.closeAll() }
     }
 }

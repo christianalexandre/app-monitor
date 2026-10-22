@@ -251,7 +251,7 @@ class MonitorClientTest {
         cleartextPermitted: (String) -> Boolean = { true },
         log: (String) -> Unit = {},
     ): MonitorClient {
-        val client = MonitorClient(hello, discover, config, cleartextPermitted, log)
+        val client = MonitorClient({ hello }, discover, config, cleartextPermitted, log)
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

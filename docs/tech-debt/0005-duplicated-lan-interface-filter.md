@@ -3,7 +3,7 @@ id: DEBT-0005
 title: LAN interface filter duplicated in server and fake client
 status: Open
 date: 2026-10-21
-trigger: The first change to either filter, or M1 sdk/core implements discovery
+trigger: The first change to either filter, or a JVM client of sdk/core needs mDNS
 paid_date:
 ---
 
@@ -23,10 +23,14 @@ Found in the M0 milestone review. The fake client only depends on
 premature while `sdk/core` (M1) will need its own discovery and shows where the
 shared code belongs.
 
+Re-armed in PLAN-0002 M1.6 (ADR-0024): `sdk/core` discovers through
+Android's `NsdManager`, which picks the interfaces itself, so it needs no
+filter and is not the shared place. The JVM target has no mDNS.
+
 ## Trigger
 
-The first change to either filter, or M1 `sdk/core` implements discovery —
-then the filter moves to one shared place.
+The first change to either filter, or a JVM client of `sdk/core` needs mDNS
+— then the filter moves to one shared place.
 
 ## How it was paid
 

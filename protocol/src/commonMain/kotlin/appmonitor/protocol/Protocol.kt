@@ -15,6 +15,9 @@ object Protocol {
     /** DNS-SD service type the desktop advertises (ADR-0002). */
     const val MDNS_SERVICE_TYPE: String = "_appmonitor._tcp.local."
 
+    /** TXT key carrying [WEBSOCKET_PATH]; read through [DesktopSelector]. */
+    const val MDNS_TXT_PATH: String = "path"
+
     /** Most bytes of one body a sender puts in an envelope (ADR-0018). */
     const val MAX_BODY_BYTES: Int = 1 shl 20
 

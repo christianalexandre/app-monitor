@@ -18,17 +18,16 @@ Where each part lives in the repository.
 | `build-logic/` | Convention plugins `appmonitor.*` (ADR-0006) |
 | `protocol/proto/` | Protobuf schema `appmonitor.v1` (ADR-0008) |
 | `protocol/fixtures/` | Golden encoded envelopes, one per message |
-| `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants; `commonTest` round-trip, `jvmTest` fixture check (ADR-0008) |
+| `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants, `DesktopSelector` (mDNS answer rule, ADR-0024); `commonTest` round-trip and selector, `jvmTest` fixture check (ADR-0008) |
 | `desktop/server/` | JVM module: `AppMonitorServer` (Ktor WebSocket, handshake, frame limit, keep-alive), `EnvelopeRules` (what closes a session with 1002, ADR-0021), `DeviceSession` flows, `MdnsAdvertiser`, `ServerConfig` (ADR-0009); `shutdownHook` and its default report `printStopFailure` (bounded stop at exit, shared with the app); headless `Main.kt` that logs to stdout (ADR-0010); `AppMonitorServerTest`, `ServerHardeningTest` (1009, ping timeout, envelope rules), `MdnsPartialFailureTest`, `ServerLifecycleTest`, `ShutdownHookTest`, `MainTest` (`--port` parsing, startup hook) |
 | `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (`App.kt` panes, `BodyFormat.kt`) (ADR-0011); tests for state, body formats and the offscreen UI |
-| `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest`, `MainTest` (CLI errors), `DiscoveryTest` |
-| `sdk/core/` | KMP (JVM + Android) SDK core, convention `appmonitor.kmp-sdk` (ADR-0023): `MonitorClient` (states of SDD 04 over a Ktor CIO WebSocket), `EventBuffer` (offline ring buffer), `Backoff`, `Platform` (cleartext policy, log); `commonTest` buffer and backoff, `jvmTest` `MonitorClientTest` against an in-process `AppMonitorServer` |
+| `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS through `DesktopSelector`), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest`, `MainTest` (CLI errors), `DiscoveryTest` |
+| `sdk/core/` | KMP (JVM + Android) SDK core, convention `appmonitor.kmp-sdk` (ADR-0023): `MonitorClient` (states of SDD 04 over a Ktor CIO WebSocket), `EventBuffer` (offline ring buffer), `Backoff`, `Discovery` (sources and mDNS selection, ADR-0024), `MonitorHolder` (start/stop), `AppMonitorOptions`, `DeviceId`, `Platform` (cleartext policy, log); `androidMain` `AppMonitor` (public entry point), `NsdBrowser`, `AndroidDevice` (`Hello`, permission, emulator), manifest declaring `ACCESS_LOCAL_NETWORK`; `commonTest` buffer, backoff, discovery, device id; `jvmTest` `MonitorClientTest` against an in-process `AppMonitorServer`, `MonitorHolderTest` |
 | `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report; a transient `.jsonl.done` while a session ends |
 
 ## Planned layout
 
 ```
-sdk/core/            discovery (transport is in "Today")
 sdk/android-okhttp/  OkHttp interceptor
 sdk/ktor/            Ktor HttpClient plugin (KMP)
 sdk/no-op/           empty artifacts for release builds

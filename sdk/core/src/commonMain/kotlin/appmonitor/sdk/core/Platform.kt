@@ -4,3 +4,6 @@ package appmonitor.sdk.core
 internal expect fun isCleartextPermitted(host: String): Boolean
 
 internal expect fun platformLog(message: String)
+
+/** `Hello.sdk_version` of this build. */
+internal const val SDK_VERSION: String = "0.1.0-dev"

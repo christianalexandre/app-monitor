@@ -3,7 +3,7 @@ id: DEBT-0012
 title: Per-address mDNS instances share a host and service name
 status: Open # Open | Paid | Dropped
 date: 2026-10-22
-trigger: A desktop with two addresses on one LAN is seen renamed or flapping, or M1 SDK discovery filters by service name
+trigger: A desktop with two addresses on one LAN is seen renamed or flapping, or an SDK option filters by service name
 paid_date:
 ---
 
@@ -25,10 +25,14 @@ has one LAN address. The fix (one instance per interface, distinct host
 names, or `JmmDNS`) is a design choice that also touches DEBT-0007, better
 made with real devices discovering the desktop in M1.
 
+Re-armed in PLAN-0002 M1.6 (ADR-0024): the SDK has no service name option;
+it keeps the first desktop answered, and a renamed `AppMonitor (2)` of the
+same desktop leads to the same server.
+
 ## Trigger
 
-A desktop with two addresses on one LAN is seen renamed or flapping, or the
-M1 SDK discovery filters by service name.
+A desktop with two addresses on one LAN is seen renamed or flapping, or an
+SDK option filters by service name.
 
 ## How it was paid
 
