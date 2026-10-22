@@ -117,7 +117,7 @@ server).
   Deviation: `stop` rethrows the first close failure after cleaning up; the
   10 s handshake timeout is an internal constructor parameter, like the
   advertiser factory, so the test bounds it at 200 ms.
-- [ ] **M0.R7 Fake client errors and discovery leak.** `discover` leaks the
+- [x] **M0.R7 Fake client errors and discovery leak.** `discover` leaks the
   JmDNS browsers already created when a later `JmDNS.create` throws; `Main`
   only catches `IOException`/`HandshakeException`, so an unresolvable host or
   a non-WebSocket endpoint crashes with a stack trace, and a malformed
@@ -126,6 +126,9 @@ server).
   host and an HTTP 404 endpoint exit with a one-line error (no stack trace),
   a malformed `HelloAck` raises `HandshakeException`, and a failing browser
   creation closes the ones already created.
+  Deviation: the CLI body moved from `main` to an internal `run` returning the
+  exit status, so tests drive it; `discover` takes internal address and
+  browser factories, like `MdnsAdvertiser`. mDNS failures exit 1 too.
 - [ ] **M0.R8 Desktop app startup errors and body decoding cost.** The app's
   `LaunchedEffect` only catches `IOException`, so other startup failures skip
   the "Server failed" status; `BodyFormat` decodes and parses a JSON body

@@ -3,6 +3,7 @@ package appmonitor.tools.fakeclient
 import appmonitor.protocol.Protocol
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Inet4Address
@@ -12,12 +13,14 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 
 /**
- * Browses [Protocol.MDNS_SERVICE_TYPE] on every multicast-capable LAN IPv4 address and returns
- * the first desktop resolved, or `null` after [timeoutMs]. [serviceName] restricts the match.
+ * Browses [Protocol.MDNS_SERVICE_TYPE] on every address in [addresses] and returns the first
+ * desktop resolved, or `null` after [timeoutMs]. [serviceName] restricts the match.
  */
 internal suspend fun discover(
     timeoutMs: Long,
     serviceName: String? = null,
+    addresses: () -> List<Inet4Address> = ::lanAddresses,
+    browse: (Inet4Address, ServiceListener) -> AutoCloseable = ::browse,
 ): Target? {
     val found = CompletableDeferred<Target>()
     val listener =
@@ -34,22 +37,28 @@ internal suspend fun discover(
                 found.complete(Target(host, info.port, info.getPropertyString("path") ?: Protocol.WEBSOCKET_PATH))
             }
         }
-    // A host name of its own: sharing the desktop's makes the two JmDNS instances conflict.
-    val browsers =
-        withContext(Dispatchers.IO) {
-            lanAddresses().map {
-                JmDNS
-                    .create(
-                        it,
-                        "appmonitor-fake-client",
-                    ).apply { addServiceListener(Protocol.MDNS_SERVICE_TYPE, listener) }
-            }
-        }
+    val browsers = mutableListOf<AutoCloseable>()
     try {
+        withContext(Dispatchers.IO) { addresses().forEach { browsers += browse(it, listener) } }
         return withTimeoutOrNull(timeoutMs) { found.await() }
     } finally {
-        withContext(Dispatchers.IO) { browsers.forEach { it.close() } }
+        withContext(NonCancellable + Dispatchers.IO) { browsers.forEach { runCatching { it.close() } } }
     }
+}
+
+// A host name of its own: sharing the desktop's makes the two JmDNS instances conflict.
+private fun browse(
+    address: Inet4Address,
+    listener: ServiceListener,
+): JmDNS {
+    val jmdns = JmDNS.create(address, "appmonitor-fake-client")
+    try {
+        jmdns.addServiceListener(Protocol.MDNS_SERVICE_TYPE, listener)
+    } catch (e: Exception) {
+        runCatching { jmdns.close() }
+        throw e
+    }
+    return jmdns
 }
 
 private fun lanAddresses(): List<Inet4Address> =

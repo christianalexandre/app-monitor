@@ -55,7 +55,7 @@ private suspend fun DefaultClientWebSocketSession.awaitHelloAck(timeoutMs: Long)
     if (frame !is Frame.Binary) fail("got a ${frame.frameType} frame")
     val envelope = runCatching { Envelope.ADAPTER.decode(frame.readBytes()) }.getOrNull() ?: fail("got a frame that is not an Envelope")
     if (envelope.channel != Protocol.CHANNEL_CORE || envelope.type != "HelloAck") fail("got ${envelope.channel}/${envelope.type}")
-    return HelloAck.ADAPTER.decode(envelope.payload)
+    return runCatching { HelloAck.ADAPTER.decode(envelope.payload) }.getOrNull() ?: fail("got a malformed HelloAck")
 }
 
 private suspend fun DefaultClientWebSocketSession.fail(reply: String): Nothing {
