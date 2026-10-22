@@ -434,7 +434,7 @@ directory, with an explicit `rm -rf` before the final exit.
   Accept: `./gradlew :tools:fake-client:test` — with a browser factory that
   throws for the first address, `discover` still finds the service on the
   second; it fails only when every address fails.
-- [ ] **M0.R31 Desktop app single stop timeout on exit.** When `stop` hangs,
+- [x] **M0.R31 Desktop app single stop timeout on exit.** When `stop` hangs,
   `runServer` waits `STOP_TIMEOUT`, then `exitProcess` runs the shutdown hook,
   which waits the same release another `STOP_TIMEOUT` and reports the failure
   a second time.
