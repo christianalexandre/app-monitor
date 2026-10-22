@@ -487,7 +487,7 @@ watchdog subshells).
   Accept: `./gradlew :tools:fake-client:test` — `--help` writes the usage to
   `out`, exits 0 and leaves `err` empty; no comment block over 4 lines (grep
   in the PR).
-- [ ] **M0.R37 Fixture regeneration once, stale files removed.** The
+- [x] **M0.R37 Fixture regeneration once, stale files removed.** The
   regeneration runs in `FixtureTest`'s `init`, once per test method, and
   never deletes a `.bin` whose sample was removed, so
   `everyFixtureHasASample` fails right after `-PupdateFixtures`.
