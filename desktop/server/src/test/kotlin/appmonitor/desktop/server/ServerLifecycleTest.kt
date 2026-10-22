@@ -1,12 +1,16 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.Envelope
+import appmonitor.v1.Hello
+import appmonitor.v1.Platform
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.server.engine.embeddedServer
 import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
@@ -280,6 +284,66 @@ class ServerLifecycleTest {
         }
 
     @Test
+    fun `second stop after a cancelled first one rethrows the advertiser close failure`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val closing = CompletableDeferred<Unit>()
+            val closeGate = CountDownLatch(1)
+            val registration = Registration(failOnClose = true, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                }
+            server.start()
+            val stopping = launch(Dispatchers.Default) { server.stop() }
+            withTimeout(TIMEOUT_MS) { closing.await() }
+
+            try {
+                withTimeout(TIMEOUT_MS) { stopping.cancelAndJoin() }
+            } finally {
+                closeGate.countDown()
+            }
+            val error = assertFailsWith<IOException> { withTimeout(TIMEOUT_MS) { server.stop() } }
+
+            assertEquals("close failed", error.message)
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+        }
+
+    @Test
+    fun `client handshaking after stop began gets no HelloAck`() =
+        runBlocking {
+            val closing = CompletableDeferred<Unit>()
+            val closeGate = CountDownLatch(1)
+            val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                }
+            val port = server.start()
+            val stopping = async(Dispatchers.Default) { server.stop() }
+            withTimeout(TIMEOUT_MS) { closing.await() }
+            val client = HttpClient(CIO) { install(WebSockets) }
+            try {
+                val frames = mutableListOf<Frame>()
+                var reason: CloseReason? = null
+                withTimeout(TIMEOUT_MS) {
+                    client.webSocket(host = "127.0.0.1", port = port, path = Protocol.WEBSOCKET_PATH) {
+                        send(Frame.Binary(true, hello.encode()))
+                        for (frame in incoming) frames += frame
+                        reason = closeReason.await()
+                    }
+                }
+
+                assertEquals(emptyList(), frames)
+                assertEquals(CloseReason.Codes.GOING_AWAY.code, reason?.code)
+            } finally {
+                client.close()
+                closeGate.countDown()
+                withTimeout(TIMEOUT_MS) { stopping.await() }
+            }
+        }
+
+    @Test
     fun `start after stop fails without building an engine`() =
         runBlocking<Unit> {
             var built = 0
@@ -336,5 +400,18 @@ class ServerLifecycleTest {
 
     private companion object {
         const val TIMEOUT_MS = 5_000L
+
+        val hello =
+            Envelope(
+                channel = Protocol.CHANNEL_CORE,
+                type = "Hello",
+                payload =
+                    Hello(
+                        protocol_version = Protocol.VERSION,
+                        platform = Platform.PLATFORM_JVM,
+                        device_id = "device-0001",
+                    ).encodeByteString(),
+                timestamp_ms = 1L,
+            )
     }
 }

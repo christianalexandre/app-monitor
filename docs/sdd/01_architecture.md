@@ -71,8 +71,8 @@ device                         AppMonitorServer
   and `start()` after `stop()` throws before building an engine; create a
   new instance.
 - `stop()` closes every mDNS registration, frees the port and completes
-  `sessions` even when a registration fails to close; it then rethrows the
-  first failure (the others suppressed).
+  `sessions` even when a registration fails to close (an `Error` included);
+  it then rethrows the first failure (the others suppressed).
 - `start()` that fails or is cancelled (even mid-advertising) closes what it
   already registered and frees the port before rethrowing; a failure while
   releasing is suppressed on the original one.
@@ -82,13 +82,17 @@ device                         AppMonitorServer
   engine and advertiser are published only when `start()` completes. This
   holds when `stop()` arrives while a failed `start()` is still releasing.
 - A second `stop()` (e.g. the shutdown hook after the app gave up) waits for
-  the first one to finish releasing instead of returning at once.
+  the first one to finish releasing instead of returning at once, and
+  rethrows the same release failure, so a failure is still reported when the
+  first caller was cancelled.
 - The release runs on its own coroutine (`Dispatchers.IO`), not the caller's:
   a `stop()` cancelled mid-close (the app's `withTimeout`) returns at once,
   but the mDNS close and port release still finish, and a later `stop()`
   waits for them.
-- A connection that finishes its handshake after `stop()` is closed with
-  1001 (going away) instead of failing on the closed `sessions`.
+- A connection that finishes its handshake after `stop()` began gets no
+  `HelloAck`: it is closed with 1001 (going away). The session is published
+  before `HelloAck` is sent, under the lock `stop()` takes, so a device that
+  got `HelloAck` is always on `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
 
 ### Without the desktop UI

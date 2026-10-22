@@ -390,9 +390,9 @@ exchange on each recomposition (DEBT-0004). One was rejected: M0.R26's text
 describes the defect it fixed, as every review task does; its Accept line
 states the shipped behaviour.
 
-- [ ] **M0.R27 Server stop failures and late handshakes.** Only the first
-  `stop` caller awaits the release; a later one only joins, so when the first
-  is cancelled (`runServer`'s timeout) a failing mDNS close is never
+- [x] **M0.R27 Server stop failures and late handshakes.** (#48) Only the
+  first `stop` caller awaits the release; a later one only joins, so when
+  the first is cancelled (`runServer`'s timeout) a failing mDNS close is never
   reported; `MdnsAdvertiser.close` catches only `Exception`, so an `Error`
   from one registration leaves the others open; the server sends `HelloAck`
   before checking that the session can be published, so a device connecting
@@ -401,6 +401,8 @@ states the shipped behaviour.
   first one rethrows the advertiser close failure; a registration whose close
   throws an `Error` still lets the others close; a client handshaking after
   `stop` began gets no `HelloAck`.
+  Deviation: every `stop` now awaits and rethrows the release failure; the
+  session is published under the lock `stop` takes, before `HelloAck`.
 - [ ] **M0.R28 Loop verdict with trailing text.** `verdict_of` matches any
   line starting with `LOOP: CONTINUE`, but the loop compares it to the exact
   string, so `LOOP: CONTINUE — next task` stops the loop with exit 0 as if

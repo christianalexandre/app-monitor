@@ -15,11 +15,11 @@ internal class MdnsAdvertiser private constructor(
 
     /** Closes every registration, then rethrows the first failure with the others suppressed. */
     override fun close() {
-        var failure: Exception? = null
+        var failure: Throwable? = null
         for ((_, registration) in registrations) {
             try {
                 registration.close()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 if (failure == null) failure = e else failure.addSuppressed(e)
             }
         }
