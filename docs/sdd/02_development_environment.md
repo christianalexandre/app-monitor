@@ -35,6 +35,17 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.kmp-library` | shared KMP code (protocol, SDK core) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
+## CI
+
+`.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin
+21 for every PR to `dev` and every push to `dev` (the push run seeds the
+Gradle cache PRs read). It uses the runner's preinstalled Android SDK
+(`ANDROID_HOME` from the environment wins over the `Makefile` default) and
+`setup-gradle` with `cache-provider: basic`. iOS tasks are skipped on Linux,
+so iOS simulator tests run only locally until the release gate (M3). See
+ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
+trailers and `make docs-check`.
+
 ## Limits
 
 iOS targets build only on macOS. On Linux/Windows the desktop app and the

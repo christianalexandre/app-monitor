@@ -44,9 +44,11 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: Compose desktop UI test with fake traffic; screenshot in the PR.
   Deviation: WebSocket frames left out (DEBT-0003). DEBT-0002's "first UI
   suite" trigger fired; measured and re-armed instead of paid (UI test 0.65 s).
-- [ ] **M0.6 PR CI.** `.github/workflows/ci.yml` on PRs to `dev`: `make check`
+- [x] **M0.6 PR CI.** (#10) `.github/workflows/ci.yml` on PRs to `dev`: `make check`
   + JVM tests on ubuntu.
   Accept: workflow green on the PR that adds it.
+  Deviation: also runs on push to `dev`, so PRs read a shared Gradle cache;
+  `setup-gradle` uses the open-source `basic` cache provider (ADR-0012).
 - [ ] **M0.7 Docs sync.** SDD code map and `AGENTS.md` commands reflect M0.
   Accept: `make docs-check`; checkpoint with the owner.
 
