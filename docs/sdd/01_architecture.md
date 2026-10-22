@@ -108,15 +108,17 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   channels, other types and undecodable payloads leave the state unchanged.
 - A device stays in the list after it disconnects, with its traffic.
 - UI: three panes (devices, requests of the selected device, detail). Bodies
-  open as JSON when the `Content-Type` says JSON and it parses, as text when
-  it is UTF-8, else as hex; the user can switch. JSON is re-indented from the
-  original text, never re-encoded.
+  open as JSON when the `Content-Type` says JSON and it parses as strict JSON
+  (no bare words at any depth), as text when it is UTF-8, else as hex; the
+  user can switch. JSON is re-indented from the original text in one linear
+  pass, never re-encoded; each body is rendered once per format.
 
 ## Limits
 
 - The desktop store is in memory and unbounded; it lives until the app
   closes (SQLDelight in M5).
 - WebSocket frames are received but not shown (DEBT-0003).
+- Bodies render on the UI thread, whole and unbounded (DEBT-0006).
 
 Debug builds only; release builds use no-op artifacts. Device and desktop must
 share a network (or USB/emulator loopback).

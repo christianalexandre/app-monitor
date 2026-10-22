@@ -3,6 +3,9 @@ package appmonitor.desktop.app.ui
 import appmonitor.v1.Header
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okio.ByteString
 import java.nio.ByteBuffer
@@ -18,7 +21,7 @@ internal enum class BodyFormat(
     Hex("Hex"),
 }
 
-private val JSON_SCALAR = Regex("\"(?s).*\"|true|false|null|-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?")
+private val JSON_LITERAL = Regex("true|false|null|-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?")
 
 /** UTF-8 text of [body], or null when it is not valid UTF-8. */
 internal fun utf8OrNull(body: ByteString): String? =
@@ -37,13 +40,24 @@ internal fun utf8OrNull(body: ByteString): String? =
 internal fun prettyJsonOrNull(body: ByteString): String? {
     val text = utf8OrNull(body) ?: return null
     return try {
-        val element = Json.parseToJsonElement(text)
-        // The parser accepts a bare word as a primitive; JSON only has quoted strings and these literals.
-        if (element is JsonPrimitive && !text.trim().matches(JSON_SCALAR)) return null
+        if (!Json.parseToJsonElement(text).isStrictJson()) return null
         indentJson(text)
     } catch (_: SerializationException) {
         null
     }
+}
+
+// The parser accepts bare words as primitives at any depth; JSON only has quoted strings and these literals.
+private fun JsonElement.isStrictJson(): Boolean {
+    val pending = ArrayDeque(listOf(this))
+    while (pending.isNotEmpty()) {
+        when (val element = pending.removeLast()) {
+            is JsonObject -> pending.addAll(element.values)
+            is JsonArray -> pending.addAll(element)
+            is JsonPrimitive -> if (!element.isString && !element.content.matches(JSON_LITERAL)) return false
+        }
+    }
+    return true
 }
 
 // Re-indents without re-encoding: numbers and escapes keep the device's exact text.
@@ -101,7 +115,10 @@ private fun indentJson(text: String): String {
 
 private fun closing(open: Char) = if (open == '{') '}' else ']'
 
-private fun String.nextSignificant(from: Int): Char? = substring(from).firstOrNull { !it.isWhitespace() }
+private fun String.nextSignificant(from: Int): Char? {
+    for (index in from until length) if (!this[index].isWhitespace()) return this[index]
+    return null
+}
 
 /** Classic hex dump: offset, 16 bytes in hex, printable ASCII. */
 internal fun hexDump(body: ByteString): String =

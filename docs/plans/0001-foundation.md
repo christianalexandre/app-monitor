@@ -84,12 +84,14 @@ LAN-interface filter).
   fail on one address shows every created instance closed and the port free.
   Deviation: `MdnsAdvertiser.start` and `AppMonitorServer` take an internal
   registration/advertiser factory so the failure is injected without a LAN.
-- [ ] **M0.R4 Body rendering cost and strictness.** `indentJson` is O(n²)
+- [x] **M0.R4 Body rendering cost and strictness.** `indentJson` is O(n²)
   (`nextSignificant` copies the rest of the body per bracket); `render` is not
   memoized in `App.kt`; bare words nested in objects/arrays (`{"a": foo}`)
   are accepted as JSON.
   Accept: `./gradlew :desktop:app:test` — tests for a nested bare word
   (not JSON) and for a multi-MB JSON body formatted in linear time.
+  Deviation: numbers with leading zeros are rejected too. Rendering stays on
+  the UI thread with no size cap (DEBT-0006).
 - [ ] **M0.R5 Comment length.** KDoc blocks over 4 lines in `desktop/server`
   (`DeviceSession.kt`, `AppMonitorServer.kt`, `ServerConfig.kt`) and any other
   source block breaking `docs/guidelines/02_comments.md`.
