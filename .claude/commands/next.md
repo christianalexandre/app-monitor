@@ -24,18 +24,26 @@ always work from `origin/dev`, never `git switch dev`.
 ## 2. Pick
 
 - The first `[ ]` task of the active plan.
-- **All tasks `[x]`** → checkpoint review, then close the plan:
-  1. Review the whole milestone with the `code-review` skill on the diff from
-     the commit that added the plan
+- **All tasks `[x]`** → checkpoint review, then close the plan (ADR-0016):
+  1. Count the review rounds already in the plan (`### … milestone review`
+     headings). **Three or more** → skip to 4.
+  2. Review with the `code-review` skill. Round 1: the diff from the commit
+     that added the plan
      (`git log --diff-filter=A --format=%H -1 origin/dev -- <plan file>`) to
-     `origin/dev`.
-  2. Each finding becomes a new task in the plan (`MN.R1`, `MN.R2`…, with an
-     Accept line) or a DEBT with a trigger. If tasks were added, merge that
-     plan change and continue with them — the plan is not done yet.
-  3. No findings left → fill *Outcome* (review findings included), set
-     `status: Done` and `finished`, update the index, open a
-     `docs/close-plan-<slug>` PR and **do not merge it**: the owner merging it
-     is the checkpoint approval. **Stop: checkpoint.**
+     `origin/dev`. Later rounds: only from the end commit of the previous
+     round (its heading says `code-review of A..B`; use `B`) to `origin/dev`.
+  3. Triage. **Only correctness findings** — wrong result, crash, hang, leak,
+     race, data loss, security/privacy, each with a concrete failure
+     scenario — become tasks (`MN.R1`, `MN.R2`…, with an Accept line).
+     Everything else (style, comment length, naming, duplication) goes into
+     **one** DEBT for the round (trigger: next PR that touches the file) or
+     is rejected with a reason. If tasks were added, merge that plan change
+     and continue with them — the plan is not done yet.
+  4. No correctness finding, or three rounds done → fill *Outcome* (review
+     findings included, open ones as DEBTs), set `status: Done` and
+     `finished`, update the index, open a `docs/close-plan-<slug>` PR and
+     **do not merge it**: the owner merging it is the checkpoint approval.
+     **Stop: checkpoint.**
 - **No active plan**:
   - Close-plan PR still open → **stop**: waiting for the owner.
   - Last plan `Done` on `origin/dev` (the owner merged it) → write the next
