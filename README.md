@@ -73,7 +73,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | iOS | `sdk-ios` (Swift Package) | All `URLSession` traffic, incl. background sessions | planned — M2 |
 | iOS | `sdk-ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
-| Desktop | macOS · Linux · Windows | — | planned — M0 |
+| Desktop | macOS · Linux · Windows | — | skeleton, in-memory — M0 |
 
 ## Roadmap
 
