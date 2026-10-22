@@ -39,11 +39,12 @@ watchdog() {
 }
 
 # Runs "${@:2}" in the worktree, stdout into $1, stderr into $1.err (jq reads
-# $1 and stops at the first non-JSON line). Exit 124 means it timed out.
+# $1 and stops at the first non-JSON line). Exit 124: the watchdog's TERM
+# killed it; a session that exits by itself keeps its code (ADR-0015).
 run_session() {
   local log="$1"
   shift
-  rm -f "$log.done"
+  rm -f "$log.done" "$log.timeout"
   (cd "$worktree" && exec "$@") >"$log" 2>"$log.err" &
   local pid=$!
   watchdog "$pid" "$log.timeout" "$log.done" &
@@ -53,7 +54,7 @@ run_session() {
   touch "$log.done"
   wait "$watchdog_pid"
   rm -f "$log.done"
-  [[ -e "$log.timeout" ]] && return 124
+  [[ -e "$log.timeout" ]] && ((code == 143)) && return 124
   return "$code"
 }
 
