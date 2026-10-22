@@ -11,7 +11,7 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 
 /** Where a desktop listens. */
-internal data class Target(
+data class Target(
     val host: String,
     val port: Int = Protocol.DEFAULT_PORT,
     val path: String = Protocol.WEBSOCKET_PATH,
@@ -21,7 +21,7 @@ internal data class Target(
  * Connects to [target], handshakes with [hello], sends [traffic] stamped with the current time
  * and closes. Returns the desktop's `HelloAck`.
  */
-internal suspend fun replay(
+suspend fun replay(
     target: Target,
     hello: Envelope = Fixtures.hello,
     traffic: List<Envelope> = Fixtures.traffic,

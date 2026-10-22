@@ -38,10 +38,12 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: running it against the server shows the requests in the server log.
   Deviation: the "server log" needed a headless `main` in `desktop/server`
   (`make server`), added here (ADR-0010).
-- [ ] **M0.5 Desktop app skeleton.** `desktop/app` in Compose: device list,
+- [x] **M0.5 Desktop app skeleton.** (#9) `desktop/app` in Compose: device list,
   request list (method, URL, status, duration), detail (headers, body as
   text/JSON/hex). In-memory store.
   Accept: Compose desktop UI test with fake traffic; screenshot in the PR.
+  Deviation: WebSocket frames left out (DEBT-0003). DEBT-0002's "first UI
+  suite" trigger fired; measured and re-armed instead of paid (UI test 0.65 s).
 - [ ] **M0.6 PR CI.** `.github/workflows/ci.yml` on PRs to `dev`: `make check`
   + JVM tests on ubuntu.
   Accept: workflow green on the PR that adds it.

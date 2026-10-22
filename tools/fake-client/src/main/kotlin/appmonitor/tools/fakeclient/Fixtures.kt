@@ -3,7 +3,7 @@ package appmonitor.tools.fakeclient
 import appmonitor.v1.Envelope
 
 /** Golden envelopes from `protocol/fixtures`, bundled as resources by the build. */
-internal object Fixtures {
+object Fixtures {
     val hello: Envelope = load("hello.bin")
 
     /** Every `network` fixture, in the order a request lives through them. */
