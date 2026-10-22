@@ -1,7 +1,7 @@
 ---
 id: ADR-0018
 title: What the Android SDK captures and masks, and device approval
-status: Proposed
+status: Accepted
 date: 2026-10-22
 superseded_by:
 ---
@@ -129,8 +129,23 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`. The owner chooses A–F (or accepts the
-recommendations).
+The owner accepted the recommendations:
+
+- **A.** Masking runs on the device, before the wire.
+- **B.** `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`
+  masked by default, name kept, value `██`; `maskedHeaders` and
+  `maskedQueryParameters` (empty by default) add more. No query parameter is
+  masked by default: this is a debug tool, and the developer opts in.
+  Bodies are not masked (DEBT-0019).
+- **C.** 1 MiB per body, configurable through `maxBodyBytes`; unreadable
+  bodies sent empty with a marker; responses copied as the app reads them.
+- **D.** Random UUID per install in no-backup storage; `device_name` is
+  `Build.MANUFACTURER` + `Build.MODEL`.
+- **E.** Approval per (`device_id`, `app_id`) before `HelloAck`; reject
+  closes with 1008; approvals kept in memory until the desktop quits, so
+  they are asked again after a restart until M5 persists them.
+- **F.** Accepted for M1: a device trusts any `_appmonitor._tcp` it finds
+  (DEBT-0020).
 
 ## Consequences
 
@@ -139,3 +154,4 @@ recommendations).
 - The desktop server gets a pending state between `Hello` and `HelloAck`;
   the SDD lifecycle in M1.3/M1.4/M1.9 documents it.
 - The iOS SDK (M2) applies the same defaults and limit.
+- DEBT-0019 (body masking) and DEBT-0020 (the device trusts any desktop).

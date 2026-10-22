@@ -21,7 +21,7 @@ Decisions in the "stop and ask" areas of `AGENTS.md` come first, so the
 code that depends on them is written once. M0's lesson: lifecycles are
 written down as states and transitions (SDD) before their code.
 
-- [!] **M1.1 SDK API and privacy decisions.** (ADR-0017, ADR-0018 `Proposed`: waiting for the owner, `docs/sdk-api-and-privacy-adrs`) Two `Proposed` ADRs, one stop:
+- [x] **M1.1 SDK API and privacy decisions.** (ADR-0017, ADR-0018 `Accepted`: the owner took every recommendation, `minSdk` 24) Two `Proposed` ADRs, one stop:
   (a) the public API an app developer touches — `AppMonitor.start(...)`
   options (manual host, enabled flag), the OkHttp interceptor, the no-op
   artifact's matching surface, the SDK's own `minSdk`; (b) what is captured

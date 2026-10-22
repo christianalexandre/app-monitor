@@ -1,7 +1,7 @@
 ---
 id: ADR-0017
 title: Android SDK public API and minSdk
-status: Proposed
+status: Accepted
 date: 2026-10-22
 superseded_by:
 ---
@@ -151,8 +151,21 @@ Recommended: 2 (only one real option).
 
 ## Decision
 
-Empty while `Proposed`. The owner chooses A–F (or accepts the
-recommendations).
+The owner accepted the recommendations:
+
+- **A.** Explicit `AppMonitor.start(context, options)` / `stop()`, called in
+  `Application.onCreate`.
+- **B.** Immutable `AppMonitorOptions` with defaults and a `@JvmOverloads`
+  constructor; no binary-compatibility promise before 1.0.
+- **C.** `AppMonitorInterceptor()`, added by the developer (application
+  interceptor documented as the default); WebSocket frames through
+  `AppMonitorWebSocketFactory(client)` (b).
+- **D.** The SDK modules' `minSdk` is **24**. Older versions are not a
+  target: supporting them would constrain the SDK for a debug-only tool.
+- **E.** The SDK declares `ACCESS_LOCAL_NETWORK`; the app requests it. Not
+  granted → one log line and fallback to manual host / emulator.
+- **F.** No network security config shipped; a documented `debug-overrides`
+  snippet, and a transport error that names the fix.
 
 ## Consequences
 
