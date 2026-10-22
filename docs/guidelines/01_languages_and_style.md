@@ -6,8 +6,9 @@ How code is written in each language of the repository.
 
 - **English everywhere** in the repository: identifiers, docs, comments,
   commits, PRs.
-- **Kotlin**: official Kotlin style, enforced by ktlint (added with the first
-  Kotlin module). `explicitApi()` in every published SDK module.
+- **Kotlin**: `ktlint_official` style, enforced by ktlint through Spotless
+  (`make lint`; fix with `./gradlew spotlessApply`). `explicitApi()` in every
+  published SDK module.
 - **Swift**: Swift API Design Guidelines, enforced by swift-format (added with
   the iOS SDK). Public SDK API is `public` on purpose; everything else is
   `internal` or narrower.

@@ -96,8 +96,10 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 
 | What | Command | State |
 | --- | --- | --- |
-| All gates | `make check` | active: `docs-check` (lint/build/test join as modules land) |
+| All gates | `make check` | active: `docs-check` + `lint` + `build` |
 | Docs consistency | `make docs-check` | active |
+| Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
+| Gradle build and tests | `make build` | active |
 | Branch name check | `make branch-check` | active |
 | Development loop, fresh session per iteration | `make loop` | active; logs in `.loop/` |
 
