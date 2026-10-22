@@ -32,3 +32,5 @@ Rules:
 | [0012](0012-mdns-instances-share-names.md) | Per-address mDNS instances share a host and service name | A desktop with two addresses on one LAN is seen renamed or flapping, or M1 SDK discovery filters by service name | Open |
 | [0013](0013-loop-timeout-leaves-children.md) | Loop timeout kills only the session process | An iteration after a timeout fails on a held port or a Gradle lock | Open |
 | [0014](0014-late-frame-rejection-reported-normal.md) | A rejection of a late frame reaches the client as a normal close | An SDK or a test needs to know the desktop rejected one of the last frames it sent | Open |
+| [0015](0015-stop-bound-vs-jmdns-close.md) | The 5 s stop bound may cut a slow mDNS close | A "Server stop timed out" status or a shutdown hook timeout seen on a real desktop | Open |
+| [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Open |

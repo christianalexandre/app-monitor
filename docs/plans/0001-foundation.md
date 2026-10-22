@@ -303,6 +303,43 @@ does not).
   `run_session` also requires exit status 143 (ADR-0015); the test stands
   in for the deadline race with a session that ignores `TERM`.
 
+### Seventh milestone review
+
+Findings of the `code-review` of `d8fbae9..47e3919` (after M0.R17–M0.R19).
+Two became debts: DEBT-0015 (the 5 s stop bound may cut a slow sequential
+JmDNS close) and DEBT-0016 (a watchdog kill that does not exit 143 is not
+reported as a timeout).
+
+- [ ] **M0.R20 Stop during a failed start.** `start` clears `startup` before
+  `release`, so a `stop` that runs in between returns while the failed start
+  still holds the port and mDNS; a second `stop` (the shutdown hook after
+  `runServer` gave up) returns at once while the first release still runs;
+  `start` builds the engine before its single-use checks.
+  Accept: `./gradlew :desktop:server:test` — a test that calls `stop` while a
+  failing `start` is releasing sees the port free when `stop` returns; a
+  second `stop` during a slow first release waits for it; `start` after
+  `stop` fails without building an engine.
+- [ ] **M0.R21 Desktop app exit paths.** `main` calls `exitProcess` only when
+  `runBlocking` returns, so a UI failure leaves the JVM alive on AWT threads;
+  `runServer` rethrows any `CancellationException` from `start` or the
+  session collection, leaving "Starting server…" when its own coroutine is
+  still active.
+  Accept: `./gradlew :desktop:app:test` — a `CancellationException` thrown by
+  `start` in an active coroutine is reported through `onStatus`; the exit
+  path runs even when the UI throws.
+- [ ] **M0.R22 Fake client handshake diagnosis.** `fail` closes the session
+  before throwing `HandshakeException`; on a dropped connection the close
+  throws and `replay` reports "Connection to the desktop dropped" instead of
+  the handshake error; the `replay` KDoc is 5 lines, over the comment limit.
+  Accept: `./gradlew :tools:fake-client:test` — a server that answers with a
+  non-`HelloAck` frame and drops the connection makes `replay` raise
+  `HandshakeException`; no comment block over 4 lines (grep in the PR).
+- [ ] **M0.R23 Loop watch follows the next session.** `loop_watch.sh` picks
+  the newest `.jsonl` once, so it keeps following a finished session when the
+  loop starts the next one.
+  Accept: `make scripts-test` — with a newer `.jsonl` created while watching,
+  the watcher prints that session's events.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
