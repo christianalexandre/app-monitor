@@ -1,7 +1,7 @@
 # 01 — Architecture
 
 The target architecture agreed before the first line of code. Parts not yet
-built are marked **(planned)**; see `../plan.md` for their milestone.
+built are marked **(planned)**; see `../plans/` for their milestone.
 
 ## Overview
 

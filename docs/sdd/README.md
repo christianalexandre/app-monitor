@@ -6,7 +6,7 @@ belongs in `guidelines/`.
 Rules:
 
 - Changed the design → change the chapter in the same PR.
-- Describe what exists. Planned work lives in `../plan.md`; missing work in
+- Describe what exists. Planned work lives in `../plans/`; missing work in
   `../tech-debt/`.
 - New chapter: copy `_template.md` to `NN_topic.md` and add it below.
 

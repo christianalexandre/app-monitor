@@ -7,7 +7,7 @@ Where each part lives in the repository.
 | Path | What |
 | --- | --- |
 | `AGENTS.md` | Agent instructions (`CLAUDE.md` links here) |
-| `docs/` | SDD, guidelines, ADRs, tech debt, plan |
+| `docs/` | SDD, guidelines, ADRs, tech debt, plans |
 | `.claude/` | Shared Claude Code settings and slash commands |
 | `.github/` | PR/issue templates and workflows |
 | `scripts/` | Shell scripts behind `make` targets |

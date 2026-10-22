@@ -15,6 +15,6 @@ Task: <!-- M0.3 or N/A -->
 ## Docs
 
 - [ ] `docs/sdd/` reflects the change (or N/A)
-- [ ] `docs/plan.md` task status updated (or N/A)
+- [ ] Active plan in `docs/plans/` updated (or N/A)
 - [ ] ADR / DEBT created or referenced: <!-- ADR-NNNN, DEBT-NNNN or none -->
 

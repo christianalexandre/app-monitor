@@ -4,8 +4,9 @@ What "done" means for a task.
 
 ## Rules
 
-- **A task is done when its acceptance criterion in `plan.md` is proven by a
-  command**, and that command is in the PR's "What was actually run".
+- **A task is done when its Accept line in the active plan (`docs/plans/`)
+  is proven by a command**, and that command is in the PR's "What was
+  actually run".
 - **Every bug fix ships a regression test** that fails without the fix.
 - **Protocol changes ship contract fixtures**: binary samples encoded by one
   side and decoded by the other (Kotlin ↔ Swift). Fields are never renumbered

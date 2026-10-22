@@ -5,7 +5,7 @@ How work leaves and comes back to `dev`.
 ## Branches
 
 - **`main`** — released code. Receives only `dev`, through a release PR that
-  passes the release gate (see `plan.md`, milestone "Release gate").
+  passes the release gate (roadmap in `../plans/`, milestone M3).
 - **`dev`** — integration, default branch. Receives only PRs from work
   branches.
 - **Work branches**: `<type>/<kebab-slug>`, created from `dev`, merged back to

@@ -23,7 +23,7 @@ as features.
 | `docs/guidelines/` | **How to write** it: style, naming, git flow, comments, tests. | Prescriptive. |
 | `docs/adr/` | Why a decision was taken. One decision per file. | Historical. Immutable once accepted. |
 | `docs/tech-debt/` | What is known to be missing, **with a trigger**. | Backlog of conscious debt. |
-| `docs/plan.md` | The milestone queue and the status of every task. | Loop state. |
+| `docs/plans/` | One plan per milestone: its tasks while active, its outcome once done. Roadmap in the README. | Loop state while active; history once done. |
 
 **Read `docs/sdd/` and `docs/guidelines/` before writing code.** The rule that
 separates them: **if it describes how things are, it is SDD; if it tells you
@@ -51,7 +51,8 @@ internal APIs, test strategy. The owner reviews it in the PR.
 The agent **stops and asks** (ADR with `status: Proposed`, then ends the
 iteration) only when the decision touches:
 
-1. **Product scope** — a feature not in `docs/plan.md`, or dropping one.
+1. **Product scope** — a feature not in a plan or in the roadmap
+   (`docs/plans/`), or dropping one.
 2. **Public API of an SDK** — anything an app developer would have to change.
 3. **Licensing / cost** — a dependency that is not MIT, Apache-2.0, BSD or
    similar, or that costs money.
@@ -59,8 +60,9 @@ iteration) only when the decision touches:
 
 ## The loop
 
-`/next` runs one iteration: pick the next task in `docs/plan.md`, implement it
-on a semantic branch, run the gates, update docs, commit, open the PR to `dev`.
+`/next` runs one iteration: pick the next task of the active plan in
+`docs/plans/`, implement it on a semantic branch, run the gates, update docs,
+commit, open the PR to `dev`.
 `/loop /next` repeats it. Stop conditions are in `.claude/commands/next.md`.
 
 ## Code comments

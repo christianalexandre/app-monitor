@@ -1,5 +1,5 @@
 ---
-description: Runs one loop iteration — next task in docs/plan.md, end to end, merged into dev
+description: Runs one loop iteration — next task of the active plan in docs/plans/, end to end, merged into dev
 argument-hint: "[optional task id, e.g. M0.3]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 ---
@@ -11,22 +11,26 @@ file only sequences it. Task override: **$ARGUMENTS** (empty = next in plan).
 
 - `git switch dev && git pull --ff-only`. Working tree must be clean; if not,
   stop and report what is dirty.
-- If `docs/plan.md` has a `[~]` task, **resume it** on its branch instead of
-  picking a new one.
+- The active plan is the one file in `docs/plans/` with `status: Active`
+  (`docs/plans/README.md` has the rules). If it has a `[~]` task, **resume
+  it** on its branch instead of picking a new one.
 
 ## 2. Pick
 
-- The first `[ ]` task of the first milestone that still has open tasks.
-- If the previous milestone just closed (all `[x]`) and the owner has not
-  reviewed it in this conversation, **stop: checkpoint** (see 8).
-- A `Refine` task is a `docs/` PR that breaks the milestone into tasks with
-  Accept lines. Nothing else.
+- The first `[ ]` task of the active plan.
+- **All tasks `[x]`** → close the plan: fill *Outcome*, set `status: Done`
+  and `finished`, update the index, in a `docs/close-plan-<slug>` PR. Then
+  **stop: checkpoint** (see 8).
+- **No active plan** and the owner approved the last checkpoint → write the
+  next plan from the roadmap in `docs/plans/README.md` (`_template.md`,
+  `status: Active`, `started`), in a `docs/plan-<slug>` PR. Nothing else in
+  that iteration.
 
 ## 3. Branch
 
 - `git switch -c <type>/<slug>` from `dev` (guidelines 03). Type follows what
   the task delivers (`feat`, `build`, `ci`, `docs`…).
-- Mark the task `[~]` (`<branch>`) in `docs/plan.md`.
+- Mark the task `[~]` (`<branch>`) in the active plan.
 
 ## 4. Understand
 
@@ -53,7 +57,8 @@ file only sequences it. Task override: **$ARGUMENTS** (empty = next in plan).
 ## 7. Ship
 
 - Update `docs/sdd/`, `AGENTS.md` commands and other docs the change touched.
-- Mark the task `[x]` in `docs/plan.md`.
+- Mark the task `[x]` in the active plan. Note deviations (task split,
+  added, reordered) as you go — they feed the plan's *Outcome*.
 - Commit (Conventional Commits, no attribution trailers), push, then follow
   `.claude/commands/pr.md` to open the PR to `dev`.
 - Wait for CI: `gh pr checks --watch`. Green → `gh pr merge --squash
@@ -68,7 +73,7 @@ and what did not**, ADRs/DEBTs created, next task.
 
 Then:
 
-- **Continue** (next iteration) if the milestone still has open tasks.
-- **Stop** on: milestone checkpoint, `Proposed` ADR, `[!]` task, missing
-  tool/credential, or empty plan. When running under `/loop`, end the loop
-  instead of scheduling another wakeup.
+- **Continue** (next iteration) if the active plan still has open tasks.
+- **Stop** on: plan checkpoint, `Proposed` ADR, `[!]` task, missing
+  tool/credential, or an empty roadmap. When running under `/loop`, end the
+  loop instead of scheduling another wakeup.

@@ -1,7 +1,7 @@
 # Documentation
 
-Four folders and one plan. Each folder has a `README.md` (its rules and index)
-and a `_template.md` (where every new file is born).
+Five folders. Each one has a `README.md` (its rules and index) and a
+`_template.md` (where every new file is born).
 
 | Where | Answers | Nature |
 | --- | --- | --- |
@@ -9,13 +9,13 @@ and a `_template.md` (where every new file is born).
 | [`guidelines/`](guidelines/README.md) | "How do I write this?" | Prescriptive. |
 | [`adr/`](adr/README.md) | "Why is it like this?" | One decision per file, immutable once accepted. |
 | [`tech-debt/`](tech-debt/README.md) | "What is known to be missing?" | Conscious debt, **with a trigger**. |
-| [`plan.md`](plan.md) | "What comes next?" | Milestones and task status. |
+| [`plans/`](plans/README.md) | "What are we building, and how was it built?" | One plan per milestone; immutable once done. Roadmap in the README. |
 
 ## Two naming conventions
 
 | Folder | Name | The number is |
 | --- | --- | --- |
-| `adr/`, `tech-debt/` | `0001-short-slug.md` | **identity** — never reused; file has frontmatter (`id`, `status`) |
+| `adr/`, `tech-debt/`, `plans/` | `0001-short-slug.md` | **identity** — never reused; file has frontmatter (`id`, `status`) |
 | `sdd/`, `guidelines/` | `01_topic.md` | **reading order** — chapters may be merged or renumbered; no frontmatter |
 
 ## The flow
