@@ -16,11 +16,13 @@ Where each part lives in the repository.
 | `gradle/libs.versions.toml` | Version catalog, shared with `build-logic` |
 | `gradle/wrapper/`, `gradlew*` | Gradle wrapper (pinned, checksummed) |
 | `build-logic/` | Convention plugins `appmonitor.*` (ADR-0006) |
+| `protocol/proto/` | Protobuf schema `appmonitor.v1` (ADR-0008) |
+| `protocol/fixtures/` | Golden encoded envelopes, one per message |
+| `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants, round-trip and fixture tests |
 
 ## Planned layout
 
 ```
-protocol/            .proto files + generation
 sdk/core/            KMP: connection, discovery, buffer, reconnection
 sdk/android-okhttp/  OkHttp interceptor
 sdk/ktor/            Ktor HttpClient plugin (KMP)

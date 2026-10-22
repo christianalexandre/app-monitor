@@ -1,0 +1,55 @@
+// Channel "network": HTTP and WebSocket traffic seen by the app. Event times
+// come from Envelope.timestamp_ms.
+syntax = "proto3";
+
+package appmonitor.v1;
+
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+message RequestStarted {
+  // Unique per device; links the events of one request.
+  string request_id = 1;
+  string method = 2;
+  string url = 3;
+  repeated Header headers = 4;
+  bytes body = 5;
+}
+
+message ResponseReceived {
+  string request_id = 1;
+  int32 status_code = 2;
+  repeated Header headers = 3;
+  bytes body = 4;
+}
+
+message RequestFailed {
+  string request_id = 1;
+  // Platform error description, e.g. "java.net.SocketTimeoutException: timeout".
+  string error = 2;
+}
+
+message WebSocketFrame {
+  enum Direction {
+    DIRECTION_UNSPECIFIED = 0;
+    DIRECTION_SENT = 1;
+    DIRECTION_RECEIVED = 2;
+  }
+
+  enum Opcode {
+    OPCODE_UNSPECIFIED = 0;
+    OPCODE_TEXT = 1;
+    OPCODE_BINARY = 2;
+    OPCODE_PING = 3;
+    OPCODE_PONG = 4;
+    OPCODE_CLOSE = 5;
+  }
+
+  // request_id of the RequestStarted that opened the WebSocket.
+  string request_id = 1;
+  Direction direction = 2;
+  Opcode opcode = 3;
+  bytes payload = 4;
+}

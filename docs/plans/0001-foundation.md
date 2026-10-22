@@ -21,11 +21,13 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: `make check` passes on a clean clone.
   Deviation: KMP convention has no Android target yet; it lands with AGP
   in M0.2 (ADR-0006). Wrapper pinned to Gradle 9.7.1, not 9.8.2 (KGP limit).
-- [ ] **M0.2 Protocol module.** `protocol/` with `.proto` for `Envelope`,
+- [x] **M0.2 Protocol module.** `protocol/` with `.proto` for `Envelope`,
   `Hello`/`HelloAck`, `network` channel (`RequestStarted`, `ResponseReceived`,
   `RequestFailed`, `WebSocketFrame`). Wire codegen for JVM, Android and iOS
   targets. Golden binary fixtures in `protocol/fixtures/`.
   Accept: `./gradlew :protocol:allTests` — round-trip and fixture tests pass.
+  Deviation: Android target added to `appmonitor.kmp-library` with AGP
+  9.3.3 (ADR-0007). Fixture files are checked on JVM only (ADR-0008).
 - [ ] **M0.3 Desktop server.** `desktop/server`: Ktor WebSocket server,
   handshake, per-device sessions exposed as `Flow`, mDNS advertisement
   (`_appmonitor._tcp`) via JmDNS.

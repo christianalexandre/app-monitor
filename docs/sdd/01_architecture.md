@@ -16,7 +16,7 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-All parts are **(planned)**.
+Built: `protocol`. Everything else is **(planned)**.
 
 ## Protocol
 
@@ -24,6 +24,18 @@ Protobuf messages wrapped in an `Envelope` with a `channel` (`network`, later
 `logs`, `analytics`, `db`, …) so new debug tools plug in without changing the
 transport. Generated with Wire (Kotlin) and swift-protobuf (Swift).
 Bidirectional from day one. See ADR-0001.
+
+Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
+
+| Channel | Messages |
+| --- | --- |
+| `core` | `Hello` (device → desktop, first frame), `HelloAck` |
+| `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
+
+`Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`
+is when the event happened on the sender. Constants shared by both ends
+(`Protocol.VERSION`, channel names) live in `appmonitor.protocol.Protocol`.
+Golden binary fixtures in `protocol/fixtures/` pin the encoding.
 
 ## Connection
 

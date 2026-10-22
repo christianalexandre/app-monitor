@@ -13,6 +13,8 @@ What a machine needs to build and test the whole repository.
 | GNU Make | any | command façade |
 
 No `protoc` is needed: Wire generates Kotlin without it (ADR-0001).
+The Android SDK must provide platform `android-36` and build tools 36.0.0
+(AGP 9.3, ADR-0007).
 
 ## Running things
 
@@ -28,7 +30,7 @@ Module scripts apply one convention plugin from `build-logic/`:
 | --- | --- | --- |
 | `appmonitor.lint` | every module (applied by the others) | Spotless + ktlint on `src/**/*.kt` and `*.gradle.kts` |
 | `appmonitor.kotlin-jvm` | JVM-only modules (desktop, tools) | Kotlin JVM, toolchain 21, JUnit Platform |
-| `appmonitor.kmp-library` | shared KMP code (protocol, SDK core) | targets `jvm`, `iosArm64`, `iosSimulatorArm64` |
+| `appmonitor.kmp-library` | shared KMP code (protocol, SDK core) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
 ## Limits
