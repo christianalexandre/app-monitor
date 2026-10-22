@@ -29,9 +29,13 @@ Facts this decision rests on, read from the upstream sources on 2026-10-21:
   default branch (`dev`) are visible to every PR.
 - `./gradlew build` already runs every JVM and Android host test, so
   `make check` covers "JVM tests" without a separate step.
-- Kotlin/Native iOS targets cannot link or run tests on Linux; KGP skips
-  those tasks there, so iOS simulator tests stay a macOS-only check
-  (`docs/sdd/02_development_environment.md`, *Limits*).
+- Kotlin/Native iOS targets compile on Linux but cannot link or run tests:
+  the first run of this workflow (PR #10) logged "Task
+  'iosSimulatorArm64Test' for target 'ios_simulator_arm64' cannot run on the
+  current host (linux-x86_64)" and marked it `SKIPPED`, while `jvmTest`,
+  `testAndroidHostTest`, `:desktop:app:test`, `:desktop:server:test` (mDNS
+  included) and `:tools:fake-client:test` ran and passed. That run took
+  4 m 49 s on a cold cache.
 - Latest releases on 2026-10-21: `actions/checkout` v7.0.1,
   `actions/setup-java` v6.1.0, `gradle/actions` v6.4.0,
   `actions/upload-artifact` v7.0.2.
