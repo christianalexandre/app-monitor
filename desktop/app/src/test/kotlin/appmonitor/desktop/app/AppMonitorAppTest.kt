@@ -23,6 +23,7 @@ import appmonitor.v1.Platform
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -33,10 +34,13 @@ import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class AppMonitorAppTest {
@@ -151,6 +155,48 @@ class AppMonitorAppTest {
             listOf("Server failed: Server is single use: create a new instance", "Server stop failed: stop failed"),
             statuses,
         )
+    }
+
+    @Test
+    fun `reports an Error thrown by the server stop`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        runBlocking {
+            server.stop()
+            withTimeout(TIMEOUT_MS) {
+                runServer(server, TrafficStore(), stop = { throw NotImplementedError("stop") }) { statuses += it }
+            }
+        }
+
+        assertEquals(listOf("Server failed: Server is single use: create a new instance", "Server stop failed: stop"), statuses)
+    }
+
+    @Test
+    fun `a stop that never returns is reported after the stop timeout`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        runBlocking {
+            server.stop()
+            withTimeout(TIMEOUT_MS) {
+                runServer(server, TrafficStore(), stop = { awaitCancellation() }, stopTimeout = 200.milliseconds) { statuses += it }
+            }
+        }
+
+        assertEquals("Server stop timed out after 200ms", statuses.last())
+    }
+
+    @Test
+    fun `the app shutdown hook stops the server`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val port = runBlocking { server.start() }
+        val hooks = CopyOnWriteArrayList<Thread>()
+        addStopHook(server, hooks::add)
+
+        val hook = hooks.single().apply { start() }
+        hook.join(TIMEOUT_MS)
+
+        assertFalse(hook.isAlive)
+        ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
     }
 
     @Test

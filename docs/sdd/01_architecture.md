@@ -128,13 +128,18 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
   or "Server failed" with any startup or session failure, `Error`s included
   (a `VirtualMachineError` is rethrown after it).
-  A failing `stop()` shows "Server stop failed" instead of escaping the
-  server coroutine or hiding the first failure.
+  A failing `stop()`, `Error`s included, shows "Server stop failed" instead
+  of escaping the server coroutine or hiding the first failure; a `stop()`
+  still running after `STOP_TIMEOUT` (5 s) shows "Server stop timed out".
 - Exit: `runServer` runs beside `awaitApplication`, not inside the
   composition; `runUntilExit` cancels it when the last window closes and
   waits for its `stop()` (mDNS goodbye, port release) before `main` calls
   `exitProcess`. The headless server (`make server`) registers its shutdown
-  hook before `start`, so a SIGINT during startup still stops the server.
+  hook before `start`, so a SIGINT during startup still stops the server; the
+  app registers one before the window opens, so SIGINT or SIGTERM stops it
+  too. Both use `shutdownHook`: `stop()` runs on a daemon thread and the hook
+  gives up after `STOP_TIMEOUT`, so a `start` stuck in mDNS registration
+  cannot hang the exit; mDNS goodbye is then lost.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
   duration is the difference of the envelopes' `timestamp_ms`. Other
