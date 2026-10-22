@@ -15,7 +15,8 @@ paid_date:
 UI thread, over the whole body. It is linear and memoized per body and format,
 but a body of tens of MB still blocks the detail pane while it formats, and a
 JSON body nested thousands of levels deep produces indentation that grows with
-depth × lines. There is no size cap and no truncation.
+depth × lines. There is no size cap and no truncation. `utf8OrNull` and
+`hexDump` each copy the whole body with `toByteArray`.
 
 ## Why it was accepted
 

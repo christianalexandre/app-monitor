@@ -182,6 +182,40 @@ advertising case joined DEBT-0007.
   moved to an internal `parsePort`, tested directly. A bind failure on a
   valid port still ends in a stack trace (DEBT-0010).
 
+### Fourth milestone review
+
+Findings of the `code-review` of `d8fbae9..c8b2074` (after M0.R10–M0.R11).
+One joined a debt: the body copied by `toByteArray` per decode and hex dump
+(DEBT-0006).
+
+- [ ] **M0.R12 Server start/stop races.** A failure in `release()` inside
+  `start`'s catch replaces the original bind failure or cancellation; `stop`
+  during an in-flight `start` lets `start` assign the advertiser after
+  `release()` ran, so the mDNS registration leaks and `start` returns a port
+  for a stopped server.
+  Accept: `./gradlew :desktop:server:test` — a test where `start` fails and
+  the advertiser close also throws sees the original failure (the close one
+  suppressed); a test that calls `stop` while the advertiser is being created
+  shows that advertiser closed and `start` failing.
+- [ ] **M0.R13 Loop verdict, watchdog and worktree.** `loop.sh` compares the
+  verdict exactly, so `LOOP: CONTINUE` with a trailing space or CR stops the
+  loop; a TERM that reaches the watchdog before `sleeper=$!` orphans the
+  `sleep`; `make loop-worktree` re-implements `ensure_worktree` and ignores
+  `LOOP_WORKTREE`.
+  Accept: `make scripts-test` — a verdict line with trailing whitespace or CR
+  continues; an immediate TERM leaves no `sleep` behind; `make loop-worktree`
+  goes through `loop.sh`'s `ensure_worktree`.
+- [ ] **M0.R14 Client and app edge cases.** `Replay` awaits `closeReason`
+  with no bound after the channel closes; `runServer` misses an `Error` at
+  startup, leaving "Starting server…"; the body format state is keyed on the
+  body bytes only, so an exchange with the same bytes keeps the previous
+  exchange's format; `--help` is matched as the value of another option.
+  Accept: `./gradlew :tools:fake-client:test :desktop:app:test` — tests for a
+  dropped connection failing within the handshake bound, an `Error` from
+  `start` reported through `onStatus`, two exchanges with the same body and
+  different `Content-Type` opening in their own default format, and
+  `--name --help` not printing usage.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
