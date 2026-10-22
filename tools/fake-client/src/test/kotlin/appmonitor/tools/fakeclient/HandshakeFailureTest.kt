@@ -64,6 +64,25 @@ class HandshakeFailureTest {
             assertContains(error.message.orEmpty(), "no reply within 200 ms")
         }
 
+    @Test
+    fun `fails when the HelloAck payload is malformed`() =
+        runBlocking {
+            val port =
+                serve {
+                    incoming.receive()
+                    val ack = Envelope(channel = Protocol.CHANNEL_CORE, type = "HelloAck", payload = MALFORMED)
+                    send(Frame.Binary(true, ack.encode()))
+                    awaitCancellation()
+                }
+
+            val error =
+                withTimeout(TIMEOUT_MS) {
+                    assertFailsWith<HandshakeException> { replay(Target("127.0.0.1", port)) }
+                }
+
+            assertContains(error.message.orEmpty(), "got a malformed HelloAck")
+        }
+
     private suspend fun serve(handler: suspend DefaultWebSocketServerSession.() -> Unit): Int {
         val server =
             embeddedServer(CIO, host = "127.0.0.1", port = 0) {
@@ -80,5 +99,8 @@ class HandshakeFailureTest {
 
     private companion object {
         const val TIMEOUT_MS = 5_000L
+
+        // Field 1 as a length-delimited value claiming 127 bytes that never come.
+        val MALFORMED = ByteString.of(0x0A, 0x7F)
     }
 }
