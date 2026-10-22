@@ -156,6 +156,35 @@ class ServerLifecycleTest {
         }
 
     @Test
+    fun `stop racing start rethrows the advertiser close failure`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val registration = Registration(failOnClose = true)
+            val registering = CompletableDeferred<Unit>()
+            val release = CountDownLatch(1)
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                        registering.complete(Unit)
+                        release.await()
+                    }
+                }
+            val starting = async(Dispatchers.Default) { runCatching { server.start() } }
+            withTimeout(TIMEOUT_MS) { registering.await() }
+
+            val stopping = async(Dispatchers.Default, CoroutineStart.UNDISPATCHED) { runCatching { server.stop() } }
+            release.countDown()
+            val stopFailure = withTimeout(TIMEOUT_MS) { stopping.await() }.exceptionOrNull()
+            val startFailure = withTimeout(TIMEOUT_MS) { starting.await() }.exceptionOrNull()
+
+            assertIs<IOException>(stopFailure)
+            assertEquals("close failed", stopFailure.message)
+            assertIs<IllegalStateException>(startFailure)
+            assertTrue(registration.closed)
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+        }
+
+    @Test
     fun `stop while the engine is starting waits for start and frees the port`() =
         runBlocking<Unit> {
             val port = ServerSocket(0).use { it.localPort }

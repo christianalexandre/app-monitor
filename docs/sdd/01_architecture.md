@@ -78,7 +78,8 @@ device                         AppMonitorServer
   releasing is suppressed on the original one.
 - `stop()` during an in-flight `start()` wins: `start()` closes the
   advertiser it was creating, frees the port and throws, and `stop()` waits
-  for that before returning, so the port is free once `stop()` returns. The
+  for that before returning, so the port is free once `stop()` returns. If
+  `start()`'s mDNS close fails, `stop()` rethrows that failure too. The
   engine and advertiser are published only when `start()` completes. This
   holds when `stop()` arrives while a failed `start()` is still releasing.
 - A second `stop()` (e.g. the headless server's shutdown hook) waits for

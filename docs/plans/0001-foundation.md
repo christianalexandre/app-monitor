@@ -441,7 +441,7 @@ directory, with an explicit `rm -rf` before the final exit.
   Accept: `./gradlew :desktop:app:test` — with a `stop` that never returns,
   closing the window exits after one `STOP_TIMEOUT` (plus a small margin) and
   reports the timeout once.
-- [ ] **M0.R32 Server stop sees a release failure in start.** When `stop`
+- [x] **M0.R32 Server stop sees a release failure in start.** When `stop`
   runs during `start`, `start` releases the advertiser itself and a failing
   mDNS close reaches only `start`'s caller; `stop` returns normally, against
   its KDoc.
