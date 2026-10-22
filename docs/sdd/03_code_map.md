@@ -9,7 +9,7 @@ Where each part lives in the repository.
 | `AGENTS.md` | Agent instructions (`CLAUDE.md` links here) |
 | `docs/` | SDD, guidelines, ADRs, tech debt, plans; `screenshots/` for UI evidence |
 | `.claude/` | Shared Claude Code settings and slash commands |
-| `.github/` | PR/issue templates and workflows |
+| `.github/` | PR/issue templates; workflows `pr-conventions.yml` (branch, title, trailers, docs) and `ci.yml` (`make check` on ubuntu, ADR-0012) |
 | `scripts/` | Shell scripts behind `make` targets |
 | `Makefile` | Command façade |
 | `settings.gradle.kts`, `build.gradle.kts` | Gradle root: module list, root lint and `check` |

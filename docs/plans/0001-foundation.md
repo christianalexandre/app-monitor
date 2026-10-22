@@ -44,7 +44,7 @@ A desktop app that receives fake traffic over the real protocol.
   Accept: Compose desktop UI test with fake traffic; screenshot in the PR.
   Deviation: WebSocket frames left out (DEBT-0003). DEBT-0002's "first UI
   suite" trigger fired; measured and re-armed instead of paid (UI test 0.65 s).
-- [ ] **M0.6 PR CI.** `.github/workflows/ci.yml` on PRs to `dev`: `make check`
+- [~] **M0.6 PR CI.** (`ci/pr-workflow`) `.github/workflows/ci.yml` on PRs to `dev`: `make check`
   + JVM tests on ubuntu.
   Accept: workflow green on the PR that adds it.
 - [ ] **M0.7 Docs sync.** SDD code map and `AGENTS.md` commands reflect M0.
