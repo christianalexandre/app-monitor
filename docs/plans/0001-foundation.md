@@ -237,13 +237,16 @@ the session's children running). The O(n) rescan per recomposition is already
 DEBT-0004; the missing WebSocket ping and `maxFrameSize` are already in the
 M1 roadmap hardening.
 
-- [ ] **M0.R15 Stop during start.** `start` publishes `server` before
+- [x] **M0.R15 Stop during start.** `start` publishes `server` before
   `startSuspend`, so a `stop` that runs while the engine is starting calls
   `stopSuspend` on it and returns while `startSuspend` may still bind; the
   port is freed only when `start` reaches its `stopped` check.
   Accept: `./gradlew :desktop:server:test` — a test that calls `stop` while
   `start` is inside `startSuspend` sees the port free when `stop` returns and
   `start` failing.
+  Deviation: `stop` awaits the in-flight `start`, which releases its own
+  engine; the engine start is an internal constructor parameter so the test
+  holds `start` inside it. The advertiser-creation test now stops concurrently.
 - [ ] **M0.R16 Shutdown on exit.** The headless server adds its shutdown hook
   only after `start` returns, so a SIGINT during startup skips `stop`; the
   desktop app relies on cancelling the `LaunchedEffect`, and nothing waits for

@@ -76,7 +76,9 @@ device                         AppMonitorServer
   already registered and frees the port before rethrowing; a failure while
   releasing is suppressed on the original one.
 - `stop()` during an in-flight `start()` wins: `start()` closes the
-  advertiser it was creating, frees the port and throws.
+  advertiser it was creating, frees the port and throws, and `stop()` waits
+  for that before returning, so the port is free once `stop()` returns. The
+  engine and advertiser are published only when `start()` completes.
 - A connection that finishes its handshake after `stop()` is closed with
   1001 (going away) instead of failing on the closed `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.

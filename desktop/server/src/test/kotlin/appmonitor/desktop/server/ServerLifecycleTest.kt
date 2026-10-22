@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -22,6 +23,7 @@ import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -133,14 +135,43 @@ class ServerLifecycleTest {
             val starting = async(Dispatchers.Default) { runCatching { server.start() } }
             withTimeout(TIMEOUT_MS) { registering.await() }
 
-            server.stop()
+            val stopping = async(Dispatchers.Default) { server.stop() }
             release.countDown()
+            withTimeout(TIMEOUT_MS) { stopping.await() }
             val result = withTimeout(TIMEOUT_MS) { starting.await() }
 
             assertIs<IllegalStateException>(result.exceptionOrNull())
             assertTrue(registration.closed)
             assertEquals(emptyList(), server.advertisedAddresses)
             ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+        }
+
+    @Test
+    fun `stop while the engine is starting waits for start and frees the port`() =
+        runBlocking<Unit> {
+            val port = ServerSocket(0).use { it.localPort }
+            val entered = CompletableDeferred<Unit>()
+            val gate = CompletableDeferred<Unit>()
+            val server =
+                AppMonitorServer(
+                    ServerConfig(host = "127.0.0.1", port = port, advertise = false),
+                    startEngine = {
+                        entered.complete(Unit)
+                        gate.await()
+                        it.startSuspend(wait = false)
+                    },
+                ) { _, _ -> error("not advertising") }
+            val starting = async(Dispatchers.Default) { runCatching { server.start() } }
+            withTimeout(TIMEOUT_MS) { entered.await() }
+
+            val stopping = async(Dispatchers.Default) { server.stop() }
+            delay(100)
+            assertFalse(stopping.isCompleted)
+            gate.complete(Unit)
+            withTimeout(TIMEOUT_MS) { stopping.await() }
+
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            assertIs<IllegalStateException>(withTimeout(TIMEOUT_MS) { starting.await() }.exceptionOrNull())
         }
 
     @Test
