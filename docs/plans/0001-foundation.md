@@ -279,6 +279,8 @@ does not).
   bounded time.
   Deviation: the bounded hook is `shutdownHook` in `desktop/server`, shared
   by the headless server and the app; `runServer` also bounds its `stop`.
+  CI exposed a race in two `ServerLifecycleTest` stop-during-start tests
+  (`stop` dispatched after `start` finished); `stop` now starts undispatched.
 - [ ] **M0.R18 Fake client ignores a close after HelloAck.** `replay` sends
   every envelope and reports success even when the desktop closed the session
   with `PROTOCOL_ERROR`, since buffered sends do not throw.
