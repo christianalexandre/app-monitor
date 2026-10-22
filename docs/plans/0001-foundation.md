@@ -77,11 +77,13 @@ LAN-interface filter).
   with a non-`HelloAck` frame and stays open makes `replay` fail within a
   bounded time with a clear error.
   Deviation: also bounds a peer that never replies (10 s handshake timeout).
-- [ ] **M0.R3 mDNS partial failure.** `MdnsAdvertiser` leaks the JmDNS
+- [x] **M0.R3 mDNS partial failure.** `MdnsAdvertiser` leaks the JmDNS
   instances already created when a later interface throws, and
   `AppMonitorServer.start` leaves the HTTP server bound with no advertiser.
   Accept: `./gradlew :desktop:server:test` — a test that makes registration
   fail on one address shows every created instance closed and the port free.
+  Deviation: `MdnsAdvertiser.start` and `AppMonitorServer` take an internal
+  registration/advertiser factory so the failure is injected without a LAN.
 - [ ] **M0.R4 Body rendering cost and strictness.** `indentJson` is O(n²)
   (`nextSignificant` copies the rest of the body per bracket); `render` is not
   memoized in `App.kt`; bare words nested in objects/arrays (`{"a": foo}`)

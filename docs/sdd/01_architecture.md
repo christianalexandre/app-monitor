@@ -49,6 +49,9 @@ emulator) / `localhost` (iOS simulator). See ADR-0002.
 `47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
 `_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
 address; TXT keys `v` (protocol version) and `path`. See ADR-0009.
+Advertising is all or nothing: if one address fails to register, the
+instances already created are closed and `start()` stops the HTTP server
+before rethrowing, so the port is free again.
 
 ```
 device                         AppMonitorServer
