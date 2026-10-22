@@ -310,7 +310,7 @@ Two became debts: DEBT-0015 (the 5 s stop bound may cut a slow sequential
 JmDNS close) and DEBT-0016 (a watchdog kill that does not exit 143 is not
 reported as a timeout).
 
-- [ ] **M0.R20 Stop during a failed start.** `start` clears `startup` before
+- [x] **M0.R20 Stop during a failed start.** `start` clears `startup` before
   `release`, so a `stop` that runs in between returns while the failed start
   still holds the port and mDNS; a second `stop` (the shutdown hook after
   `runServer` gave up) returns at once while the first release still runs;

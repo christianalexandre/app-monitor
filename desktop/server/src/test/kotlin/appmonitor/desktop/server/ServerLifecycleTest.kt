@@ -5,6 +5,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.server.engine.embeddedServer
 import io.ktor.websocket.CloseReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -28,6 +29,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import io.ktor.server.cio.CIO as ServerCIO
 
 class ServerLifecycleTest {
     @Test
@@ -187,6 +189,87 @@ class ServerLifecycleTest {
         }
 
     @Test
+    fun `stop while a failing start is releasing waits until the port is free`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val registering = CompletableDeferred<Unit>()
+            val proceed = CountDownLatch(1)
+            val closing = CompletableDeferred<Unit>()
+            val closeGate = CountDownLatch(1)
+            val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                        registering.complete(Unit)
+                        proceed.await()
+                    }
+                }
+            val starting = launch(Dispatchers.Default) { server.start() }
+            withTimeout(TIMEOUT_MS) { registering.await() }
+            starting.cancel()
+            proceed.countDown()
+            withTimeout(TIMEOUT_MS) { closing.await() }
+
+            val stopping = async(Dispatchers.Default) { server.stop() }
+            try {
+                delay(100)
+                assertFalse(stopping.isCompleted)
+            } finally {
+                closeGate.countDown()
+            }
+            withTimeout(TIMEOUT_MS) { stopping.await() }
+
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            withTimeout(TIMEOUT_MS) { starting.join() }
+        }
+
+    @Test
+    fun `second stop during a slow first release waits for it`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val closing = CompletableDeferred<Unit>()
+            val closeGate = CountDownLatch(1)
+            val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                }
+            server.start()
+            val first = async(Dispatchers.Default) { server.stop() }
+            withTimeout(TIMEOUT_MS) { closing.await() }
+
+            val second = async(Dispatchers.Default) { server.stop() }
+            try {
+                delay(100)
+                assertFalse(second.isCompleted)
+            } finally {
+                closeGate.countDown()
+            }
+            withTimeout(TIMEOUT_MS) { second.await() }
+
+            assertTrue(first.isCompleted)
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+        }
+
+    @Test
+    fun `start after stop fails without building an engine`() =
+        runBlocking<Unit> {
+            var built = 0
+            val server =
+                AppMonitorServer(
+                    ServerConfig(host = "127.0.0.1", port = 0, advertise = false),
+                    createEngine = { module ->
+                        built++
+                        embeddedServer(ServerCIO, host = "127.0.0.1", port = 0, module = module)
+                    },
+                ) { _, _ -> error("not advertising") }
+            server.stop()
+
+            assertFailsWith<IllegalStateException> { server.start() }
+            assertEquals(0, built)
+        }
+
+    @Test
     fun `client that never sends hello is closed after the handshake timeout`() =
         runBlocking {
             val server =
@@ -212,10 +295,12 @@ class ServerLifecycleTest {
 
     private class Registration(
         private val failOnClose: Boolean,
+        private val onClose: () -> Unit = {},
     ) : AutoCloseable {
         var closed = false
 
         override fun close() {
+            onClose()
             closed = true
             if (failOnClose) throw IOException("close failed")
         }

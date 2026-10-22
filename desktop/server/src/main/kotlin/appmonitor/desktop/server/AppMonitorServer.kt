@@ -4,6 +4,7 @@ import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
+import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
@@ -36,6 +37,9 @@ import kotlin.time.Duration.Companion.seconds
 class AppMonitorServer internal constructor(
     private val config: ServerConfig,
     private val handshakeTimeout: Duration = 10.seconds,
+    private val createEngine: (module: Application.() -> Unit) -> EmbeddedServer<*, *> = { module ->
+        embeddedServer(CIO, host = config.host, port = config.port, module = module)
+    },
     private val startEngine: suspend (EmbeddedServer<*, *>) -> Unit = { it.startSuspend(wait = false) },
     private val startAdvertiser: (serviceName: String, port: Int) -> MdnsAdvertiser,
 ) {
@@ -46,6 +50,8 @@ class AppMonitorServer internal constructor(
     private val lock = Any()
 
     private var startup: CompletableDeferred<Unit>? = null
+
+    private var stopping: CompletableDeferred<Unit>? = null
 
     @Volatile private var server: EmbeddedServer<*, *>? = null
 
@@ -61,24 +67,26 @@ class AppMonitorServer internal constructor(
 
     /** Starts listening and advertising; returns the bound port. On failure, cancellation or [stop], the port and mDNS are released. */
     suspend fun start(): Int {
-        val server =
-            embeddedServer(CIO, host = config.host, port = config.port) {
-                install(WebSockets)
-                routing {
-                    webSocket(Protocol.WEBSOCKET_PATH) { serve() }
-                }
-            }
         val startup = CompletableDeferred<Unit>()
         synchronized(lock) {
             check(!stopped) { "Server is single use: create a new instance" }
             check(this.startup == null) { "Server already started" }
             this.startup = startup
         }
+        var server: EmbeddedServer<*, *>? = null
         var advertiser: MdnsAdvertiser? = null
         try {
-            startEngine(server)
+            val engine =
+                createEngine {
+                    install(WebSockets)
+                    routing {
+                        webSocket(Protocol.WEBSOCKET_PATH) { serve() }
+                    }
+                }
+            server = engine
+            startEngine(engine)
             val port =
-                server.engine
+                engine.engine
                     .resolvedConnectors()
                     .first()
                     .port
@@ -88,12 +96,12 @@ class AppMonitorServer internal constructor(
             }
             synchronized(lock) {
                 check(!stopped) { "Server stopped while starting" }
-                this.server = server
+                this.server = engine
                 this.advertiser = advertiser
             }
             return port
         } catch (e: Throwable) {
-            synchronized(lock) { if (this.startup === startup) this.startup = null }
+            // Released before startup clears: a racing stop awaits startup to see the port free.
             withContext(NonCancellable) {
                 try {
                     release(advertiser, server)
@@ -101,27 +109,40 @@ class AppMonitorServer internal constructor(
                     e.addSuppressed(closeFailure)
                 }
             }
+            synchronized(lock) { if (this.startup === startup) this.startup = null }
             throw e
         } finally {
             startup.complete(Unit)
         }
     }
 
-    /** Waits for an in-flight [start], releases the port and completes [sessions] even if closing mDNS fails, then rethrows that failure. */
+    /**
+     * Waits for an in-flight [start], releases the port and completes [sessions] even if closing mDNS
+     * fails, then rethrows that failure. A later call waits for the first one to finish.
+     */
     suspend fun stop() {
-        val (startup, server, advertiser) =
+        val done = CompletableDeferred<Unit>()
+        var startup: CompletableDeferred<Unit>? = null
+        var server: EmbeddedServer<*, *>? = null
+        var advertiser: MdnsAdvertiser? = null
+        val previous =
             synchronized(lock) {
-                stopped = true
-                Triple(startup, server, advertiser).also {
-                    this.server = null
-                    this.advertiser = null
+                stopping ?: run {
+                    stopped = true
+                    stopping = done
+                    startup = this.startup
+                    server = this.server.also { this.server = null }
+                    advertiser = this.advertiser.also { this.advertiser = null }
+                    null
                 }
             }
+        if (previous != null) return previous.await()
         try {
             startup?.await()
             release(advertiser, server)
         } finally {
             newSessions.close()
+            done.complete(Unit)
         }
     }
 
