@@ -8,11 +8,15 @@ import kotlin.test.assertEquals
 
 // Regenerate after a deliberate contract change: ./gradlew :protocol:jvmTest -PupdateFixtures
 class FixtureTest {
-    private val dir = File(System.getProperty("appmonitor.fixtures"))
+    // Runs once per JVM: a per-instance init would rewrite the files before every test.
+    companion object {
+        private val dir = File(System.getProperty("appmonitor.fixtures"))
 
-    init {
-        if (System.getProperty("appmonitor.updateFixtures") == "true") {
-            Samples.envelopes.forEach { (name, envelope) -> File(dir, name).writeBytes(envelope.encode()) }
+        init {
+            if (System.getProperty("appmonitor.updateFixtures") == "true") {
+                dir.listFiles { file -> file.extension == "bin" }.orEmpty().forEach { it.delete() }
+                Samples.envelopes.forEach { (name, envelope) -> File(dir, name).writeBytes(envelope.encode()) }
+            }
         }
     }
 
