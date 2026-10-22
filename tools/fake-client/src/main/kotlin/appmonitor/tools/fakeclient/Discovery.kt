@@ -16,7 +16,8 @@ import javax.jmdns.ServiceListener
 
 /**
  * Browses [Protocol.MDNS_SERVICE_TYPE] on every address in [addresses] and returns the first
- * desktop resolved, or `null` after [timeoutMs]. [serviceName] restricts the match.
+ * desktop resolved, or `null` after [timeoutMs]. [serviceName] restricts the match. An address
+ * whose browser fails to open is skipped; discovery fails only when every address fails.
  */
 internal suspend fun discover(
     timeoutMs: Long,
@@ -44,7 +45,21 @@ internal suspend fun discover(
     val opening =
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                for (address in addresses()) if (!browsers.add(browse(address, listener))) break
+                val all = addresses()
+                val failures = mutableListOf<Exception>()
+                for (address in all) {
+                    val browser =
+                        try {
+                            browse(address, listener)
+                        } catch (e: Exception) {
+                            failures += e
+                            continue
+                        }
+                    if (!browsers.add(browser)) break
+                }
+                if (all.isNotEmpty() && failures.size == all.size) {
+                    found.completeExceptionally(failures.first().apply { failures.drop(1).forEach(::addSuppressed) })
+                }
             } catch (e: Throwable) {
                 found.completeExceptionally(e)
             }
