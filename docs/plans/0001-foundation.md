@@ -259,6 +259,38 @@ M1 roadmap hardening.
   (Compose 1.12.2 bytecode), so the app now uses `awaitApplication` with the
   server outside the composition and calls `exitProcess` itself.
 
+### Sixth milestone review
+
+Findings of the `code-review` of `d8fbae9..6fbbaed` (after M0.R15–M0.R16).
+One joined a debt: rows compare the selected exchange by data-class equality,
+deep-comparing bodies (DEBT-0004). Two were rejected: the body format keyed
+on the body alone cannot go stale, since a body and its headers arrive in the
+same event; the two port ranges differ on purpose (bind accepts 0, connect
+does not).
+
+- [ ] **M0.R17 Desktop app shutdown.** The app registers no shutdown hook, so
+  SIGINT or SIGTERM skips `stop`; `runServer` catches only `Exception` around
+  `stop`, so an `Error` escapes and masks the first failure; `stop` awaits an
+  in-flight `start` with no bound, so a `start` stuck in mDNS registration
+  hangs the headless hook and the app's exit.
+  Accept: `./gradlew :desktop:server:test :desktop:app:test` — a test shows the
+  app's shutdown hook stops the server; an `Error` from `stop` is reported
+  through `onStatus`; a hook whose `stop` never returns gives up within a
+  bounded time.
+- [ ] **M0.R18 Fake client ignores a close after HelloAck.** `replay` sends
+  every envelope and reports success even when the desktop closed the session
+  with `PROTOCOL_ERROR`, since buffered sends do not throw.
+  Accept: `./gradlew :tools:fake-client:test` — a test server that acks, then
+  closes with `PROTOCOL_ERROR` makes `replay` fail with the close reason, and
+  the CLI exits 1.
+- [ ] **M0.R19 Loop timeout marker.** `run_session` removes a stale `.done`
+  but not a stale `.timeout`, so a reused log path always returns 124; the
+  watchdog's `kill` succeeds on an exited, unreaped session, so a session that
+  ends at the deadline is reported as timed out.
+  Accept: `make scripts-test` — a run after a timed-out run on the same log
+  path returns the command's code; a session that exits by itself returns its
+  code even when the timeout marker appears.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
