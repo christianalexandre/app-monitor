@@ -19,6 +19,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -31,21 +33,38 @@ fun main() {
     var status by mutableStateOf("Starting server…")
     val server = AppMonitorServer()
     addStopHook(server)
-    runBlocking {
-        runUntilExit(serve = { runServer(server, store) { status = it } }) {
-            awaitApplication {
-                Window(
-                    onCloseRequest = ::exitApplication,
-                    title = "App Monitor",
-                    state = rememberWindowState(width = 1280.dp, height = 800.dp),
-                ) {
-                    val state by store.state.collectAsState()
-                    AppMonitorApp(state, status)
+    exitAfter {
+        runBlocking {
+            runUntilExit(serve = { runServer(server, store) { status = it } }) {
+                awaitApplication {
+                    Window(
+                        onCloseRequest = ::exitApplication,
+                        title = "App Monitor",
+                        state = rememberWindowState(width = 1280.dp, height = 800.dp),
+                    ) {
+                        val state by store.state.collectAsState()
+                        AppMonitorApp(state, status)
+                    }
                 }
             }
         }
     }
-    exitProcess(0)
+}
+
+/** Runs [block], then calls [exit] with 0, or with 1 after printing the failure when [block] throws. */
+internal fun exitAfter(
+    exit: (Int) -> Unit = ::exitProcess,
+    block: () -> Unit,
+) {
+    val code =
+        try {
+            block()
+            0
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            1
+        }
+    exit(code)
 }
 
 /** Runs [serve] while [ui] runs; once [ui] returns or fails, cancels [serve] and waits for it, its cleanup included. */
@@ -68,8 +87,9 @@ internal fun addStopHook(
 ) = addShutdownHook(shutdownHook { server.stop() })
 
 /**
- * Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure, [Error]s
- * included, is reported through [onStatus], as is a [stop] past [stopTimeout]. A [VirtualMachineError] is rethrown.
+ * Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure, [Error]s and
+ * foreign [CancellationException]s included, is reported through [onStatus], as is a [stop] past [stopTimeout].
+ * A [VirtualMachineError] is rethrown.
  */
 internal suspend fun runServer(
     server: AppMonitorServer,
@@ -84,7 +104,8 @@ internal suspend fun runServer(
         onStatus("Listening on port $port")
         store.collect(server.sessions)
     } catch (e: CancellationException) {
-        throw e
+        currentCoroutineContext().ensureActive()
+        onStatus("Server failed: ${e.message ?: e::class.simpleName}")
     } catch (e: Throwable) {
         onStatus("Server failed: ${e.message ?: e::class.simpleName}")
         if (e is VirtualMachineError) throw e

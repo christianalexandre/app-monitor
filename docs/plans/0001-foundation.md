@@ -319,7 +319,7 @@ reported as a timeout).
   failing `start` is releasing sees the port free when `stop` returns; a
   second `stop` during a slow first release waits for it; `start` after
   `stop` fails without building an engine.
-- [ ] **M0.R21 Desktop app exit paths.** `main` calls `exitProcess` only when
+- [x] **M0.R21 Desktop app exit paths.** `main` calls `exitProcess` only when
   `runBlocking` returns, so a UI failure leaves the JVM alive on AWT threads;
   `runServer` rethrows any `CancellationException` from `start` or the
   session collection, leaving "Starting server…" when its own coroutine is
@@ -327,6 +327,8 @@ reported as a timeout).
   Accept: `./gradlew :desktop:app:test` — a `CancellationException` thrown by
   `start` in an active coroutine is reported through `onStatus`; the exit
   path runs even when the UI throws.
+  Deviation: the exit path is `exitAfter`, which exits 1 after printing a UI
+  failure instead of 0.
 - [ ] **M0.R22 Fake client handshake diagnosis.** `fail` closes the session
   before throwing `HandshakeException`; on a dropped connection the close
   throws and `replay` reports "Connection to the desktop dropped" instead of
