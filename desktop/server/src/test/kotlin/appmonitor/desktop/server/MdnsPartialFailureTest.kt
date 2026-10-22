@@ -45,6 +45,18 @@ class MdnsPartialFailureTest {
     }
 
     @Test
+    fun `registration close error still closes the others`() {
+        val addresses = listOf("10.0.0.1", "10.0.0.2", "10.0.0.3").map { InetAddress.getByName(it) }
+        val registrations = List(3) { index -> Registration(errorOnClose = index == 0) }
+        val next = registrations.iterator()
+        val advertiser = MdnsAdvertiser.start("test", 1, addresses) { next.next() }
+
+        assertFailsWith<StackOverflowError> { advertiser.close() }
+
+        assertTrue(registrations.all { it.closed })
+    }
+
+    @Test
     fun `failed advertising releases the bound port`() =
         runBlocking {
             val port = ServerSocket(0).use { it.localPort }
@@ -59,11 +71,14 @@ class MdnsPartialFailureTest {
             assertTrue(server.advertisedAddresses.isEmpty())
         }
 
-    private class Registration : AutoCloseable {
+    private class Registration(
+        private val errorOnClose: Boolean = false,
+    ) : AutoCloseable {
         var closed = false
 
         override fun close() {
             closed = true
+            if (errorOnClose) throw StackOverflowError("close failed")
         }
     }
 }

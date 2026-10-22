@@ -122,14 +122,12 @@ class AppMonitorServer internal constructor(
 
     /**
      * Waits for an in-flight [start], releases the port and completes [sessions] even if closing mDNS
-     * fails, then rethrows that failure. A later call waits for the first one to finish.
+     * fails, then rethrows that failure. Every call, including a later one, waits for that release and rethrows it.
      */
     suspend fun stop() {
-        var first = false
         val releasing =
             synchronized(lock) {
                 stopping ?: run {
-                    first = true
                     stopped = true
                     val startup = this.startup
                     val server = this.server.also { this.server = null }
@@ -147,7 +145,7 @@ class AppMonitorServer internal constructor(
                 }
             }
         releasing.start()
-        if (first) releasing.await() else releasing.join()
+        releasing.await()
     }
 
     private suspend fun release(
@@ -182,12 +180,14 @@ class AppMonitorServer internal constructor(
                 hello = hello,
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
             )
-        send(Frame.Binary(true, helloAck(session).encode()))
+        // Under the lock stop takes: a handshake racing stop is either published or gets no HelloAck.
+        val published = synchronized(lock) { !stopped && newSessions.trySend(session).isSuccess }
+        if (!published) {
+            close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+            return
+        }
         try {
-            if (newSessions.trySend(session).isFailure) {
-                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
-                return
-            }
+            send(Frame.Binary(true, helloAck(session).encode()))
             for (frame in incoming) {
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
