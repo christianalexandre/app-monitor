@@ -16,7 +16,7 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`. Everything else is **(planned)**.
+Built: `protocol`, `desktop/server`. Everything else is **(planned)**.
 
 ## Protocol
 
@@ -34,7 +34,8 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 
 `Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`
 is when the event happened on the sender. Constants shared by both ends
-(`Protocol.VERSION`, channel names) live in `appmonitor.protocol.Protocol`.
+(`Protocol.VERSION`, channel names, default port, WebSocket path, mDNS
+service type) live in `appmonitor.protocol.Protocol`.
 Golden binary fixtures in `protocol/fixtures/` pin the encoding.
 
 ## Connection
@@ -42,6 +43,26 @@ Golden binary fixtures in `protocol/fixtures/` pin the encoding.
 The **desktop is the server**; devices are clients. Discovery order on the
 device: manual host → mDNS (`_appmonitor._tcp`) → `10.0.2.2` (Android
 emulator) / `localhost` (iOS simulator). See ADR-0002.
+
+`desktop/server` (`AppMonitorServer`) is a Ktor CIO WebSocket server on port
+`47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
+`_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
+address; TXT keys `v` (protocol version) and `path`. See ADR-0009.
+
+```
+device                         AppMonitorServer
+  │── Envelope(core, Hello) ──►│ version ≠ Protocol.VERSION, or not Hello
+  │                            │   → close 1002 (protocol error)
+  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
+  │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
+```
+
+- `sessions: Flow<DeviceSession>`: every handshaken connection, once, in order.
+- `DeviceSession.envelopes: Flow<Envelope>`: every envelope after `Hello`,
+  in order; completes when the socket closes. A non-binary or undecodable
+  frame closes the connection with 1002.
+- Both flows are bounded/single-collector: a lagging collector stops socket
+  reads (TCP back-pressure), nothing is dropped.
 
 ## SDKs
 

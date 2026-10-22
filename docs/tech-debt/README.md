@@ -18,3 +18,4 @@ Rules:
 
 | Debt | Title | Trigger | Status |
 | --- | --- | --- | --- |
+| [0001](0001-jmdns-pinned-to-3-6-3.md) | JmDNS pinned to 3.6.3 | A JmDNS release newer than 3.6.4, or a security advisory for 3.6.3 | Open |

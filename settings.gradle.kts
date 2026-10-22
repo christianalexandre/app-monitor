@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "app-monitor"
 
 include(":protocol")
+include(":desktop:server")

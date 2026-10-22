@@ -19,6 +19,7 @@ Where each part lives in the repository.
 | `protocol/proto/` | Protobuf schema `appmonitor.v1` (ADR-0008) |
 | `protocol/fixtures/` | Golden encoded envelopes, one per message |
 | `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants, round-trip and fixture tests |
+| `desktop/server/` | JVM module: Ktor WebSocket server, handshake, `DeviceSession` flows, mDNS advertiser (ADR-0009) |
 
 ## Planned layout
 
@@ -28,7 +29,6 @@ sdk/android-okhttp/  OkHttp interceptor
 sdk/ktor/            Ktor HttpClient plugin (KMP)
 sdk/no-op/           empty artifacts for release builds
 sdk/ios/             Swift package
-desktop/server/      Ktor server + mDNS
 desktop/storage/     SQLDelight
 desktop/mcp/         MCP server
 desktop/feature-*/   one module per debug tool (channel + UI)

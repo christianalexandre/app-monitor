@@ -101,6 +101,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
+| Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
 | Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change |
 | Branch name check | `make branch-check` | active |
 | Development loop, fresh session per iteration | `make loop` | active; logs in `.loop/` |
