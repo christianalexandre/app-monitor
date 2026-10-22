@@ -17,8 +17,12 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -51,7 +55,7 @@ class AppMonitorServer internal constructor(
 
     private var startup: CompletableDeferred<Unit>? = null
 
-    private var stopping: CompletableDeferred<Unit>? = null
+    private var stopping: Deferred<Unit>? = null
 
     @Volatile private var server: EmbeddedServer<*, *>? = null
 
@@ -121,29 +125,29 @@ class AppMonitorServer internal constructor(
      * fails, then rethrows that failure. A later call waits for the first one to finish.
      */
     suspend fun stop() {
-        val done = CompletableDeferred<Unit>()
-        var startup: CompletableDeferred<Unit>? = null
-        var server: EmbeddedServer<*, *>? = null
-        var advertiser: MdnsAdvertiser? = null
-        val previous =
+        var first = false
+        val releasing =
             synchronized(lock) {
                 stopping ?: run {
+                    first = true
                     stopped = true
-                    stopping = done
-                    startup = this.startup
-                    server = this.server.also { this.server = null }
-                    advertiser = this.advertiser.also { this.advertiser = null }
-                    null
+                    val startup = this.startup
+                    val server = this.server.also { this.server = null }
+                    val advertiser = this.advertiser.also { this.advertiser = null }
+                    // Outside the caller's job: a cancelled stop still frees the port and mDNS.
+                    CoroutineScope(Dispatchers.IO)
+                        .async(start = CoroutineStart.LAZY) {
+                            try {
+                                startup?.await()
+                                release(advertiser, server)
+                            } finally {
+                                newSessions.close()
+                            }
+                        }.also { stopping = it }
                 }
             }
-        if (previous != null) return previous.await()
-        try {
-            startup?.await()
-            release(advertiser, server)
-        } finally {
-            newSessions.close()
-            done.complete(Unit)
-        }
+        releasing.start()
+        if (first) releasing.await() else releasing.join()
     }
 
     private suspend fun release(

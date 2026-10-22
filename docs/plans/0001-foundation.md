@@ -354,7 +354,7 @@ One joined a debt: `TrafficState.received` decodes the payload inside the
 (DEBT-0006). One was rejected: the fake client's two identical catch branches
 for `HandshakeException` and `SessionClosedException` are a style choice.
 
-- [ ] **M0.R24 Server stop under cancellation.** `stop` runs `release` in the
+- [x] **M0.R24 Server stop under cancellation.** `stop` runs `release` in the
   caller's context, so when `runServer`'s `withTimeout` cancels it mid-close,
   `stopSuspend` throws at its first suspension, the engine keeps the port, and
   a later `stop` (the shutdown hook) returns at once; `MdnsAdvertiser.start`

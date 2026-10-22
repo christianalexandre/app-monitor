@@ -37,7 +37,7 @@ internal class MdnsAdvertiser private constructor(
             val registrations = mutableListOf<Pair<InetAddress, AutoCloseable>>()
             try {
                 addresses.forEach { registrations += it to register(it) }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 registrations.forEach { (_, registration) -> runCatching { registration.close() } }
                 throw e
             }

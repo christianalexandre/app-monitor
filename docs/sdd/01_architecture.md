@@ -49,9 +49,9 @@ emulator) / `localhost` (iOS simulator). See ADR-0002.
 `47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
 `_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
 address; TXT keys `v` (protocol version) and `path`. See ADR-0009.
-Advertising is all or nothing: if one address fails to register, the
-instances already created are closed and `start()` stops the HTTP server
-before rethrowing, so the port is free again.
+Advertising is all or nothing: if one address fails to register (an `Error`
+included), the instances already created are closed and `start()` stops the
+HTTP server before rethrowing, so the port is free again.
 
 ```
 device                         AppMonitorServer
@@ -83,6 +83,10 @@ device                         AppMonitorServer
   holds when `stop()` arrives while a failed `start()` is still releasing.
 - A second `stop()` (e.g. the shutdown hook after the app gave up) waits for
   the first one to finish releasing instead of returning at once.
+- The release runs on its own coroutine (`Dispatchers.IO`), not the caller's:
+  a `stop()` cancelled mid-close (the app's `withTimeout`) returns at once,
+  but the mDNS close and port release still finish, and a later `stop()`
+  waits for them.
 - A connection that finishes its handshake after `stop()` is closed with
   1001 (going away) instead of failing on the closed `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.

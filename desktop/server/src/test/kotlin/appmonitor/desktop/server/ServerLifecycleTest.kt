@@ -12,6 +12,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -249,6 +250,33 @@ class ServerLifecycleTest {
 
             assertTrue(first.isCompleted)
             ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+        }
+
+    @Test
+    fun `cancelled stop still frees the port once the advertiser close returns`() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val closing = CompletableDeferred<Unit>()
+            val closeGate = CountDownLatch(1)
+            val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val server =
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                }
+            server.start()
+            val stopping = launch(Dispatchers.Default) { server.stop() }
+            withTimeout(TIMEOUT_MS) { closing.await() }
+
+            try {
+                withTimeout(TIMEOUT_MS) { stopping.cancelAndJoin() }
+            } finally {
+                closeGate.countDown()
+            }
+            withTimeout(TIMEOUT_MS) { server.stop() }
+
+            assertTrue(registration.closed)
+            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            assertEquals(emptyList(), withTimeout(TIMEOUT_MS) { server.sessions.toList() })
         }
 
     @Test

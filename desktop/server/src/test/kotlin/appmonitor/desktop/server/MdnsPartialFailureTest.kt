@@ -29,6 +29,22 @@ class MdnsPartialFailureTest {
     }
 
     @Test
+    fun `registration error closes every instance already created`() {
+        val created = mutableListOf<Registration>()
+        val addresses = listOf("10.0.0.1", "10.0.0.2").map { InetAddress.getByName(it) }
+
+        assertFailsWith<StackOverflowError> {
+            MdnsAdvertiser.start("test", 1, addresses) { address ->
+                if (address == addresses[1]) throw StackOverflowError("register failed on $address")
+                Registration().also { created += it }
+            }
+        }
+
+        assertEquals(1, created.size)
+        assertTrue(created.all { it.closed })
+    }
+
+    @Test
     fun `failed advertising releases the bound port`() =
         runBlocking {
             val port = ServerSocket(0).use { it.localPort }
