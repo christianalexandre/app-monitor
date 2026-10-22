@@ -1,0 +1,23 @@
+# OS / IDE
+.DS_Store
+.idea/
+*.iml
+.vscode/
+*.xcuserstate
+xcuserdata/
+
+# Gradle / Kotlin
+.gradle/
+build/
+.kotlin/
+local.properties
+captures/
+
+# Xcode / SwiftPM
+DerivedData/
+.build/
+.swiftpm/
+*.xcworkspace/xcuserdata/
+
+# Claude Code (config local, não compartilhada)
+.claude/settings.local.json
