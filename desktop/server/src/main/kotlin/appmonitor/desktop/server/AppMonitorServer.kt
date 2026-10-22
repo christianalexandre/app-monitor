@@ -41,6 +41,8 @@ class AppMonitorServer internal constructor(
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
 
+    private val lock = Any()
+
     @Volatile private var server: EmbeddedServer<*, *>? = null
 
     @Volatile private var advertiser: MdnsAdvertiser? = null
@@ -53,10 +55,8 @@ class AppMonitorServer internal constructor(
     /** Addresses the mDNS service is published on; empty when not advertising. */
     val advertisedAddresses: List<InetAddress> get() = advertiser?.addresses.orEmpty()
 
-    /** Starts listening and advertising; returns the bound port. On failure or cancellation, the port and mDNS are released. */
+    /** Starts listening and advertising; returns the bound port. On failure, cancellation or [stop], the port and mDNS are released. */
     suspend fun start(): Int {
-        check(!stopped) { "Server is single use: create a new instance" }
-        check(server == null) { "Server already started" }
         val server =
             embeddedServer(CIO, host = config.host, port = config.port) {
                 install(WebSockets)
@@ -64,7 +64,12 @@ class AppMonitorServer internal constructor(
                     webSocket(Protocol.WEBSOCKET_PATH) { serve() }
                 }
             }
-        this.server = server
+        synchronized(lock) {
+            check(!stopped) { "Server is single use: create a new instance" }
+            check(this.server == null) { "Server already started" }
+            this.server = server
+        }
+        var advertiser: MdnsAdvertiser? = null
         try {
             server.startSuspend(wait = false)
             val port =
@@ -76,31 +81,49 @@ class AppMonitorServer internal constructor(
                 // Assigned inside the block: a cancelled withContext drops its result.
                 withContext(Dispatchers.IO) { advertiser = startAdvertiser(config.serviceName, port) }
             }
+            synchronized(lock) {
+                check(!stopped) { "Server stopped while starting" }
+                this.advertiser = advertiser
+            }
             return port
         } catch (e: Throwable) {
-            withContext(NonCancellable) { release() }
+            synchronized(lock) { if (this.server === server) this.server = null }
+            withContext(NonCancellable) {
+                try {
+                    release(advertiser, server)
+                } catch (closeFailure: Throwable) {
+                    e.addSuppressed(closeFailure)
+                }
+            }
             throw e
         }
     }
 
     /** Releases the port and completes [sessions] even if closing mDNS fails, then rethrows that failure. */
     suspend fun stop() {
-        stopped = true
+        val (server, advertiser) =
+            synchronized(lock) {
+                stopped = true
+                (this.server to this.advertiser).also {
+                    this.server = null
+                    this.advertiser = null
+                }
+            }
         try {
-            release()
+            release(advertiser, server)
         } finally {
             newSessions.close()
         }
     }
 
-    private suspend fun release() {
-        val advertiser = advertiser
-        this.advertiser = null
+    private suspend fun release(
+        advertiser: MdnsAdvertiser?,
+        server: EmbeddedServer<*, *>?,
+    ) {
         try {
             advertiser?.let { withContext(Dispatchers.IO) { it.close() } }
         } finally {
             server?.stopSuspend(gracePeriodMillis = 0, timeoutMillis = 1_000)
-            server = null
         }
     }
 

@@ -188,7 +188,7 @@ Findings of the `code-review` of `d8fbae9..c8b2074` (after M0.R10–M0.R11).
 One joined a debt: the body copied by `toByteArray` per decode and hex dump
 (DEBT-0006).
 
-- [ ] **M0.R12 Server start/stop races.** A failure in `release()` inside
+- [x] **M0.R12 Server start/stop races.** A failure in `release()` inside
   `start`'s catch replaces the original bind failure or cancellation; `stop`
   during an in-flight `start` lets `start` assign the advertiser after
   `release()` ran, so the mDNS registration leaks and `start` returns a port
@@ -197,6 +197,9 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   the advertiser close also throws sees the original failure (the close one
   suppressed); a test that calls `stop` while the advertiser is being created
   shows that advertiser closed and `start` failing.
+  Deviation: `start` releases its own server and advertiser (locals), not
+  the fields `stop` may have already taken; a lock orders `stopped` and the
+  advertiser hand-off. The first test fails `start` by cancellation.
 - [ ] **M0.R13 Loop verdict, watchdog and worktree.** `loop.sh` compares the
   verdict exactly, so `LOOP: CONTINUE` with a trailing space or CR stops the
   loop; a TERM that reaches the watchdog before `sleeper=$!` orphans the
