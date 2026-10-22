@@ -247,7 +247,7 @@ M1 roadmap hardening.
   Deviation: `stop` awaits the in-flight `start`, which releases its own
   engine; the engine start is an internal constructor parameter so the test
   holds `start` inside it. The advertiser-creation test now stops concurrently.
-- [ ] **M0.R16 Shutdown on exit.** The headless server adds its shutdown hook
+- [x] **M0.R16 Shutdown on exit.** The headless server adds its shutdown hook
   only after `start` returns, so a SIGINT during startup skips `stop`; the
   desktop app relies on cancelling the `LaunchedEffect`, and nothing waits for
   the `NonCancellable` `stop` before `application {}` returns, so mDNS goodbye
@@ -255,6 +255,9 @@ M1 roadmap hardening.
   Accept: `./gradlew :desktop:server:test :desktop:app:test` — tests show the
   headless server stops a server whose `start` is still running when the hook
   fires, and the app's exit path awaits `stop` before returning.
+  Deviation: `application {}` calls `System.exit` once its composition ends
+  (Compose 1.12.2 bytecode), so the app now uses `awaitApplication` with the
+  server outside the composition and calls `exitProcess` itself.
 
 ## Outcome
 

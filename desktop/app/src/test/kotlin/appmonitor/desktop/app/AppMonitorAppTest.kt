@@ -20,7 +20,10 @@ import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
 import appmonitor.v1.Platform
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -28,12 +31,14 @@ import kotlinx.coroutines.withTimeout
 import okio.ByteString.Companion.encodeUtf8
 import java.io.File
 import java.io.IOException
+import java.net.InetAddress
+import java.net.ServerSocket
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@OptIn(ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class AppMonitorAppTest {
     @Test
     fun `shows fake client traffic received by the server`() {
@@ -146,6 +151,34 @@ class AppMonitorAppTest {
             listOf("Server failed: Server is single use: create a new instance", "Server stop failed: stop failed"),
             statuses,
         )
+    }
+
+    @Test
+    fun `exit waits for the server stop before returning`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val listening = CompletableDeferred<Int>()
+        var stopped = false
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                runUntilExit(
+                    serve = {
+                        runServer(
+                            server,
+                            TrafficStore(),
+                            start = { server.start().also { listening.complete(it) } },
+                            stop = {
+                                delay(200)
+                                server.stop()
+                                stopped = true
+                            },
+                        ) {}
+                    },
+                ) { listening.await() }
+            }
+        }
+
+        assertTrue(stopped)
+        ServerSocket(listening.getCompleted(), 0, InetAddress.getByName("127.0.0.1")).close()
     }
 
     // Real server and fake client: the UI renders what actually crossed the wire.

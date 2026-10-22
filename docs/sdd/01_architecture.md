@@ -129,7 +129,12 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   or "Server failed" with any startup or session failure, `Error`s included
   (a `VirtualMachineError` is rethrown after it).
   A failing `stop()` shows "Server stop failed" instead of escaping the
-  effect or hiding the first failure.
+  server coroutine or hiding the first failure.
+- Exit: `runServer` runs beside `awaitApplication`, not inside the
+  composition; `runUntilExit` cancels it when the last window closes and
+  waits for its `stop()` (mDNS goodbye, port release) before `main` calls
+  `exitProcess`. The headless server (`make server`) registers its shutdown
+  hook before `start`, so a SIGINT during startup still stops the server.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
   duration is the difference of the envelopes' `timestamp_ms`. Other
