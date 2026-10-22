@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint build desktop server fake-traffic branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build desktop server fake-traffic branch-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -8,13 +8,16 @@ export ANDROID_HOME
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
 
-check: docs-check lint build ## All gates (grows as modules land)
+check: docs-check lint scripts-test build ## All gates (grows as modules land)
 
 docs-check: ## Docs frontmatter, indexes and ADR/DEBT references
 	@scripts/docs_check.sh
 
 lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 	@./gradlew spotlessCheck
+
+scripts-test: ## Bash tests of the loop scripts (ADR-0013)
+	@scripts/test_loop.sh
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
