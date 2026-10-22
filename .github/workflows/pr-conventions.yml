@@ -1,0 +1,40 @@
+name: PR conventions
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Branch name and base
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: scripts/branch_check.sh "$HEAD_REF" "$BASE_REF"
+      - name: Title follows Conventional Commits
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/pr_title_check.sh "$TITLE"
+      - name: No attribution trailers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags --depth=100 origin "$BASE_SHA" "$HEAD_SHA"
+          if git log --format=%B "$BASE_SHA..$HEAD_SHA" | grep -iE '^co-authored-by:|generated with'; then
+            echo "::error::Commits must not carry attribution trailers (guidelines 03)."
+            exit 1
+          fi
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make docs-check
