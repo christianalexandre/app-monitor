@@ -33,9 +33,11 @@ A desktop app that receives fake traffic over the real protocol.
   (`_appmonitor._tcp`) via JmDNS.
   Accept: integration test — a client connects, handshakes, sends 100
   envelopes, server emits 100 events; mDNS service resolves in test.
-- [ ] **M0.4 Fake client.** `tools/fake-client` (JVM CLI) that discovers the
+- [x] **M0.4 Fake client.** (#8) `tools/fake-client` (JVM CLI) that discovers the
   desktop and replays fixture traffic. `make fake-traffic`.
   Accept: running it against the server shows the requests in the server log.
+  Deviation: the "server log" needed a headless `main` in `desktop/server`
+  (`make server`), added here (ADR-0010).
 - [ ] **M0.5 Desktop app skeleton.** `desktop/app` in Compose: device list,
   request list (method, URL, status, duration), detail (headers, body as
   text/JSON/hex). In-memory store.

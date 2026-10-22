@@ -16,7 +16,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`, `desktop/server`. Everything else is **(planned)**.
+Built: `protocol`, `desktop/server`, `tools/fake-client`. Everything else is
+**(planned)**.
 
 ## Protocol
 
@@ -63,6 +64,15 @@ device                         AppMonitorServer
   frame closes the connection with 1002.
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
+
+### Without the desktop UI
+
+`desktop/server` has a headless `main` (`make server`) that prints one line
+per session connect/disconnect and per envelope, decoded for the `network`
+messages. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
+the desktop over mDNS (or `--host`), sends `protocol/fixtures/hello.bin`,
+waits for `HelloAck`, sends the four `network` fixtures stamped with the
+current time and closes. See ADR-0010.
 
 ## SDKs
 

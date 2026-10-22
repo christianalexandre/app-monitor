@@ -19,7 +19,8 @@ Where each part lives in the repository.
 | `protocol/proto/` | Protobuf schema `appmonitor.v1` (ADR-0008) |
 | `protocol/fixtures/` | Golden encoded envelopes, one per message |
 | `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants, round-trip and fixture tests |
-| `desktop/server/` | JVM module: Ktor WebSocket server, handshake, `DeviceSession` flows, mDNS advertiser (ADR-0009) |
+| `desktop/server/` | JVM module: Ktor WebSocket server, handshake, `DeviceSession` flows, mDNS advertiser (ADR-0009); headless `main` that logs to stdout (ADR-0010) |
+| `tools/fake-client/` | JVM CLI: discovers the desktop over mDNS and replays `protocol/fixtures` (ADR-0010) |
 
 ## Planned layout
 

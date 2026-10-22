@@ -1,5 +1,10 @@
 plugins {
     id("appmonitor.kotlin-jvm")
+    application
+}
+
+application {
+    mainClass = "appmonitor.desktop.server.MainKt"
 }
 
 dependencies {

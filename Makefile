@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint build branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint build server fake-traffic branch-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -18,6 +18,12 @@ lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
+
+server: ## Headless desktop server, logs every envelope (ARGS="--port N")
+	@./gradlew -q :desktop:server:run --args="$(ARGS)"
+
+fake-traffic: ## Replay protocol fixtures to a desktop (ARGS="--host H --port N --name S")
+	@./gradlew -q :tools:fake-client:run --args="$(ARGS)"
 
 branch-check: ## Current branch follows <type>/<kebab-slug>
 	@scripts/branch_check.sh
