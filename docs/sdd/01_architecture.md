@@ -68,7 +68,8 @@ device                         AppMonitorServer
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
 - `AppMonitorServer` is single use: `stop()` completes `sessions` for good,
-  and `start()` after `stop()` throws; create a new instance.
+  and `start()` after `stop()` throws before building an engine; create a
+  new instance.
 - `stop()` closes every mDNS registration, frees the port and completes
   `sessions` even when a registration fails to close; it then rethrows the
   first failure (the others suppressed).
@@ -78,7 +79,10 @@ device                         AppMonitorServer
 - `stop()` during an in-flight `start()` wins: `start()` closes the
   advertiser it was creating, frees the port and throws, and `stop()` waits
   for that before returning, so the port is free once `stop()` returns. The
-  engine and advertiser are published only when `start()` completes.
+  engine and advertiser are published only when `start()` completes. This
+  holds when `stop()` arrives while a failed `start()` is still releasing.
+- A second `stop()` (e.g. the shutdown hook after the app gave up) waits for
+  the first one to finish releasing instead of returning at once.
 - A connection that finishes its handshake after `stop()` is closed with
   1001 (going away) instead of failing on the closed `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
