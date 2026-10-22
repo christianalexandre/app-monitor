@@ -63,7 +63,8 @@ kill "$target" 2>/dev/null
 wait "$target" 2>/dev/null
 
 # A TERM-cancelled watchdog leaked a sleep or hung on ~3% of these (ADR-0014).
-poll_s=0.11
+# The PID in the interval keeps pgrep off other processes' sleeps.
+poll_s="0.11$$"
 for _ in $(seq 20); do run_session "$tmp/instant.jsonl" true; done
 check "instant sessions leave no sleep behind" test -z "$(pgrep -f "sleep $poll_s")"
 check "instant sessions leave no .timeout" test ! -e "$tmp/instant.jsonl.timeout"
@@ -134,17 +135,26 @@ unset -f git
 check "loop-worktree exits 0" test "$code" -eq 0
 check "loop-worktree honours LOOP_WORKTREE" test -e "$tmp/wt/.git"
 check "loop-worktree prints the worktree" grep -qx "worktree: $tmp/wt" "$tmp/wt.out"
+touch "$tmp/wt-file"
+LOOP_WORKTREE="$tmp/wt-file" "$tmp/clone/scripts/loop.sh" --worktree >"$tmp/wt-file.out" 2>&1
+code=$?
+check "unusable LOOP_WORKTREE exits non-zero" test "$code" -ne 0
+check "unusable LOOP_WORKTREE creates no worktree" not_grep "created worktree" "$tmp/wt-file.out"
+LOOP_WORKTREE="$tmp/wt-file" "$tmp/clone/scripts/loop.sh" >"$tmp/wt-loop.out" 2>&1
+code=$?
+check "loop with an unusable LOOP_WORKTREE exits non-zero" test "$code" -ne 0
+check "loop with an unusable LOOP_WORKTREE runs no iteration" not_grep "iteration 1" "$tmp/wt-loop.out"
 
 echo "test-loop: loop without a verdict"
 mkdir -p "$tmp/bin"
 printf '#!/bin/sh\ncat "$FAKE_SESSION"\n' >"$tmp/bin/claude"
-printf '#!/bin/sh\n' >"$tmp/bin/osascript"
+printf '#!/bin/sh\nfor a; do last="$a"; done\nprintf "%%s\\n" "$last" >>"$NOTIFIED"\n' >"$tmp/bin/osascript"
 chmod +x "$tmp/bin/claude" "$tmp/bin/osascript"
 session() { # status report
   printf '{"type":"rate_limit_event","rate_limit_info":{"status":"%s"}}\n{"type":"result","result":"%s"}\n' "$1" "$2"
 }
 fake_loop() { # session file
-  FAKE_SESSION="$1" PATH="$tmp/bin:$PATH" LOOP_WORKTREE="$tmp/wt" MAX_ITERATIONS=1 LIMIT_RETRIES=0 \
+  FAKE_SESSION="$1" NOTIFIED="$tmp/notified" PATH="$tmp/bin:$PATH" LOOP_WORKTREE="$tmp/wt" MAX_ITERATIONS=1 LIMIT_RETRIES=0 \
     "$tmp/clone/scripts/loop.sh" >"$1.out" 2>&1
 }
 session allowed "crashed while waiting on a rate limit" >"$tmp/crash.jsonl"
@@ -163,6 +173,10 @@ fake_loop "$tmp/trailing.jsonl"
 code=$?
 check "CONTINUE with trailing text exits 1" test "$code" -eq 1
 check "CONTINUE with trailing text stops with no verdict" grep -q "no verdict line" "$tmp/trailing.jsonl.out"
+session allowed 'LOOP: STOP waiting on \"owner\"' >"$tmp/quote.jsonl"
+fake_loop "$tmp/quote.jsonl"
+check "notification passes quotes through verbatim" \
+  test "$(tail -1 "$tmp/notified")" = 'stopped after 1 iteration(s): LOOP: STOP waiting on "owner"'
 
 rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }

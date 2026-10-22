@@ -472,7 +472,7 @@ shows as connected, then disconnected, which is what happened; the missing
 EXIT trap in `scripts/test_loop.sh` is deliberate (bash 5 runs it in the
 watchdog subshells).
 
-- [ ] **M0.R35 Loop worktree failure and notification quoting.**
+- [x] **M0.R35 Loop worktree failure and notification quoting.**
   `ensure_worktree` ends with an `echo`, so a failed `git fetch` or
   `git worktree add` returns 0 and `make loop-worktree` succeeds; `make loop`
   ignores its status. `notify` puts the message in an AppleScript literal
