@@ -11,6 +11,7 @@ check() { # name condition...
   shift
   if "$@"; then echo "  ok   $name"; else echo "  FAIL $name" >&2; failures=$((failures + 1)); fi
 }
+not_grep() { ! grep -q "$@"; }
 
 # shellcheck source=loop.sh
 source "$here/loop.sh"
@@ -125,6 +126,30 @@ unset -f git
 check "loop-worktree exits 0" test "$code" -eq 0
 check "loop-worktree honours LOOP_WORKTREE" test -e "$tmp/wt/.git"
 check "loop-worktree prints the worktree" grep -qx "worktree: $tmp/wt" "$tmp/wt.out"
+
+echo "test-loop: loop without a verdict"
+mkdir -p "$tmp/bin"
+printf '#!/bin/sh\ncat "$FAKE_SESSION"\n' >"$tmp/bin/claude"
+printf '#!/bin/sh\n' >"$tmp/bin/osascript"
+chmod +x "$tmp/bin/claude" "$tmp/bin/osascript"
+session() { # status report
+  printf '{"type":"rate_limit_event","rate_limit_info":{"status":"%s"}}\n{"type":"result","result":"%s"}\n' "$1" "$2"
+}
+fake_loop() { # session file
+  FAKE_SESSION="$1" PATH="$tmp/bin:$PATH" LOOP_WORKTREE="$tmp/wt" MAX_ITERATIONS=1 LIMIT_RETRIES=0 \
+    "$tmp/clone/scripts/loop.sh" >"$1.out" 2>&1
+}
+session allowed "crashed while waiting on a rate limit" >"$tmp/crash.jsonl"
+fake_loop "$tmp/crash.jsonl"
+code=$?
+check "report mentioning a rate limit exits 1" test "$code" -eq 1
+check "report mentioning a rate limit stops with no verdict" grep -q "no verdict line" "$tmp/crash.jsonl.out"
+check "report mentioning a rate limit does not wait" not_grep "usage limit" "$tmp/crash.jsonl.out"
+session rejected "out of usage" >"$tmp/limited.jsonl"
+fake_loop "$tmp/limited.jsonl"
+code=$?
+check "rejected limit event exits 1" test "$code" -eq 1
+check "rejected limit event waits for the limit" grep -q "usage limit: gave up after 0 waits" "$tmp/limited.jsonl.out"
 
 rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }

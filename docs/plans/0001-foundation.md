@@ -371,13 +371,15 @@ for `HandshakeException` and `SessionClosedException` are a style choice.
   Accept: `./gradlew :desktop:app:test` — a test where `sessions` completes
   reports a stopped status through `onStatus`; no comment block over 4 lines
   (grep in the PR).
-- [ ] **M0.R26 Loop usage-limit detection.** With no verdict line, `loop.sh`
+- [x] **M0.R26 Loop usage-limit detection.** With no verdict line, `loop.sh`
   also greps the free-text report for `usage limit|rate limit`, so a crashed
   session whose report only mentions rate limiting waits and retries up to
   `LIMIT_RETRIES` times instead of stopping.
   Accept: `make scripts-test` — a session with no verdict whose report
   mentions "rate limit" and whose `rate_limit_event` is `allowed` stops with
   "no verdict line"; a session with a non-`allowed` limit event still waits.
+  Deviation: the tests run `loop.sh` end to end with a stub `claude` on
+  `PATH` and `LIMIT_RETRIES=0`, so the wait branch exits without sleeping.
 
 ## Outcome
 
