@@ -21,7 +21,7 @@ Where each part lives in the repository.
 | `protocol/src/` | KMP module: Wire-generated code, `Protocol` constants; `commonTest` round-trip, `jvmTest` fixture check (ADR-0008) |
 | `desktop/server/` | JVM module: `AppMonitorServer` (Ktor WebSocket, handshake), `DeviceSession` flows, `MdnsAdvertiser`, `ServerConfig` (ADR-0009); headless `Main.kt` that logs to stdout (ADR-0010); `AppMonitorServerTest` |
 | `desktop/app/` | Compose desktop app: `Main.kt` (window + server), `store/` (`TrafficStore`, `TrafficState`), `ui/` (`App.kt` panes, `BodyFormat.kt`) (ADR-0011); tests for state, body formats and the offscreen UI |
-| `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest` |
+| `tools/fake-client/` | JVM CLI: `Discovery.kt` (mDNS), `Fixtures.kt`, `Replay.kt` (handshake + replay of `protocol/fixtures`) (ADR-0010); `FakeClientTest`, `HandshakeFailureTest` |
 | `.loop/` | `make loop` session logs (git-ignored) |
 
 ## Planned layout

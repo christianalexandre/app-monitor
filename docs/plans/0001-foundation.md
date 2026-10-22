@@ -70,12 +70,13 @@ LAN-interface filter).
   Deviation: `run_session` takes its command and the watchdog became its own
   function, so `scripts/test_loop.sh` can drive them; it runs in
   `make check` as `make scripts-test` (ADR-0013).
-- [ ] **M0.R2 Fake client handshake failure.** When the first reply is not a
+- [x] **M0.R2 Fake client handshake failure.** When the first reply is not a
   `HelloAck`, `Replay` awaits the close reason and hangs if the peer keeps the
   socket open; the `IllegalStateException` escapes `Main` as a stack trace.
   Accept: `./gradlew :tools:fake-client:test` — a test server that answers
   with a non-`HelloAck` frame and stays open makes `replay` fail within a
   bounded time with a clear error.
+  Deviation: also bounds a peer that never replies (10 s handshake timeout).
 - [ ] **M0.R3 mDNS partial failure.** `MdnsAdvertiser` leaks the JmDNS
   instances already created when a later interface throws, and
   `AppMonitorServer.start` leaves the HTTP server bound with no advertiser.

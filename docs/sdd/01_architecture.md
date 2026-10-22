@@ -72,7 +72,9 @@ per session connect/disconnect and per envelope, decoded for the `network`
 messages. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
 the desktop over mDNS (or `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
-current time and closes. See ADR-0010.
+current time and closes. Any other first reply, or none within 10 s, closes
+the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent. See
+ADR-0010.
 
 ## SDKs
 
