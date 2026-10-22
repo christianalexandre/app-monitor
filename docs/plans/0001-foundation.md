@@ -403,13 +403,15 @@ states the shipped behaviour.
   `stop` began gets no `HelloAck`.
   Deviation: every `stop` now awaits and rethrows the release failure; the
   session is published under the lock `stop` takes, before `HelloAck`.
-- [ ] **M0.R28 Loop verdict with trailing text.** `verdict_of` matches any
+- [x] **M0.R28 Loop verdict with trailing text.** `verdict_of` matches any
   line starting with `LOOP: CONTINUE`, but the loop compares it to the exact
   string, so `LOOP: CONTINUE — next task` stops the loop with exit 0 as if
   it were a deliberate stop.
   Accept: `make scripts-test` — a report ending in `LOOP: CONTINUE` followed
   by more text either continues or stops with "no verdict line"; it never
   exits 0 reporting a CONTINUE as a stop.
+  Deviation: such a line is no verdict (stops with "no verdict line"), and
+  so is `LOOP: STOP` glued to a word (`LOOP: STOPPED`).
 - [ ] **M0.R29 Fake client discovery timeout.** The `--timeout` budget starts
   only after every JmDNS instance is created, so `JmDNS.create` on each
   interface is outside the bound the CLI documents.

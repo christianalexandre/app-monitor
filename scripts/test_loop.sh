@@ -80,10 +80,14 @@ printf 'report\nLOOP: CONTINUE \n' >"$tmp/space.md"
 printf 'report\r\nLOOP: CONTINUE\r\n' >"$tmp/crlf.md"
 printf 'LOOP: CONTINUE\nLOOP: STOP checkpoint\t\n' >"$tmp/stop.md"
 printf 'no verdict here\n' >"$tmp/none.md"
+printf 'report\nLOOP: CONTINUE — next task\n' >"$tmp/trailing.md"
+printf 'report\nLOOP: STOPPED\n' >"$tmp/stopped.md"
 check "trailing space still continues" test "$(verdict_of "$tmp/space.md")" = "LOOP: CONTINUE"
 check "trailing CR still continues" test "$(verdict_of "$tmp/crlf.md")" = "LOOP: CONTINUE"
 check "last verdict wins, trimmed" test "$(verdict_of "$tmp/stop.md")" = "LOOP: STOP checkpoint"
 check "report without verdict gives nothing" test -z "$(verdict_of "$tmp/none.md")"
+check "CONTINUE with trailing text is no verdict" test -z "$(verdict_of "$tmp/trailing.md")"
+check "STOP glued to a word is no verdict" test -z "$(verdict_of "$tmp/stopped.md")"
 
 echo "test-loop: stderr stays out of the jsonl"
 run_session "$tmp/noisy.jsonl" sh -c 'echo "warning: not json" >&2; echo '"'"'{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}'"'"'; echo '"'"'{"type":"result","result":"LOOP: CONTINUE"}'"'"''
@@ -150,6 +154,11 @@ fake_loop "$tmp/limited.jsonl"
 code=$?
 check "rejected limit event exits 1" test "$code" -eq 1
 check "rejected limit event waits for the limit" grep -q "usage limit: gave up after 0 waits" "$tmp/limited.jsonl.out"
+session allowed 'done\nLOOP: CONTINUE — next task' >"$tmp/trailing.jsonl"
+fake_loop "$tmp/trailing.jsonl"
+code=$?
+check "CONTINUE with trailing text exits 1" test "$code" -eq 1
+check "CONTINUE with trailing text stops with no verdict" grep -q "no verdict line" "$tmp/trailing.jsonl.out"
 
 rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }
