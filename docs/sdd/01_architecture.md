@@ -73,7 +73,10 @@ device                         AppMonitorServer
   `sessions` even when a registration fails to close; it then rethrows the
   first failure (the others suppressed).
 - `start()` that fails or is cancelled (even mid-advertising) closes what it
-  already registered and frees the port before rethrowing.
+  already registered and frees the port before rethrowing; a failure while
+  releasing is suppressed on the original one.
+- `stop()` during an in-flight `start()` wins: `start()` closes the
+  advertiser it was creating, frees the port and throws.
 - A connection that finishes its handshake after `stop()` is closed with
   1001 (going away) instead of failing on the closed `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
