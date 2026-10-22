@@ -227,6 +227,32 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   deferred. A drop while sending leaked a `CancellationException`; `replay`
   now raises an `IOException`. `runServer` takes an internal `start`.
 
+### Fifth milestone review
+
+Findings of the `code-review` of `d8fbae9..248bcb1` (after M0.R12–M0.R14).
+Three became debts: DEBT-0011 (fake client discovery blocks the JmDNS
+listener and matches names case-sensitively), DEBT-0012 (per-address JmDNS
+instances share a host and service name) and DEBT-0013 (loop timeout leaves
+the session's children running). The O(n) rescan per recomposition is already
+DEBT-0004; the missing WebSocket ping and `maxFrameSize` are already in the
+M1 roadmap hardening.
+
+- [ ] **M0.R15 Stop during start.** `start` publishes `server` before
+  `startSuspend`, so a `stop` that runs while the engine is starting calls
+  `stopSuspend` on it and returns while `startSuspend` may still bind; the
+  port is freed only when `start` reaches its `stopped` check.
+  Accept: `./gradlew :desktop:server:test` — a test that calls `stop` while
+  `start` is inside `startSuspend` sees the port free when `stop` returns and
+  `start` failing.
+- [ ] **M0.R16 Shutdown on exit.** The headless server adds its shutdown hook
+  only after `start` returns, so a SIGINT during startup skips `stop`; the
+  desktop app relies on cancelling the `LaunchedEffect`, and nothing waits for
+  the `NonCancellable` `stop` before `application {}` returns, so mDNS goodbye
+  and port release can be cut off.
+  Accept: `./gradlew :desktop:server:test :desktop:app:test` — tests show the
+  headless server stops a server whose `start` is still running when the hook
+  fires, and the app's exit path awaits `stop` before returning.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
