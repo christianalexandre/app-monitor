@@ -99,6 +99,46 @@ LAN-interface filter).
   Deviation: one more block found, in `tools/fake-client` `Replay.kt`. The
   server's single-use rule moved to the SDD.
 
+### Second milestone review
+
+Findings of the `code-review` of `d8fbae9..a3046dd` (after M0.R1–M0.R5).
+One became a debt: DEBT-0007 (mDNS failure on one interface stops the whole
+server).
+
+- [ ] **M0.R6 Server lifecycle.** `AppMonitorServer.stop` closes the advertiser
+  outside a `try`/`finally`, and `MdnsAdvertiser.close` stops at the first
+  failing registration, leaving the port bound and `sessions` open; `start`
+  after `stop` passes its check although `newSessions` is closed; the
+  handshake waits for the first frame with no timeout.
+  Accept: `./gradlew :desktop:server:test` — a test where one registration
+  close throws shows every registration closed, the port free and `sessions`
+  completed; `start` after `stop` fails; a client that connects and never
+  sends `Hello` is closed within a bounded time.
+- [ ] **M0.R7 Fake client errors and discovery leak.** `discover` leaks the
+  JmDNS browsers already created when a later `JmDNS.create` throws; `Main`
+  only catches `IOException`/`HandshakeException`, so an unresolvable host or
+  a non-WebSocket endpoint crashes with a stack trace, and a malformed
+  `HelloAck` payload is reported as an unreachable desktop.
+  Accept: `./gradlew :tools:fake-client:test` — tests for an unresolvable
+  host and an HTTP 404 endpoint exit with a one-line error (no stack trace),
+  a malformed `HelloAck` raises `HandshakeException`, and a failing browser
+  creation closes the ones already created.
+- [ ] **M0.R8 Desktop app startup errors and body decoding cost.** The app's
+  `LaunchedEffect` only catches `IOException`, so other startup failures skip
+  the "Server failed" status; `BodyFormat` decodes and parses a JSON body
+  twice per render, and `hexDump` boxes every byte and calls `String.format`
+  per byte.
+  Accept: `./gradlew :desktop:app:test` — a test where the server start
+  throws a non-IO exception shows the failed status; a multi-MB hex dump
+  formats in linear time within the existing bound.
+- [ ] **M0.R9 Loop log and CI cancellation.** `run_session` writes stderr into
+  the `.jsonl` that `jq` parses, so one non-JSON line hides the result and the
+  rate-limit events; the CI concurrency group cancels in-progress `dev` push
+  runs, which ADR-0012 relies on to seed the Gradle cache.
+  Accept: `make scripts-test` — a session that prints a non-JSON stderr line
+  still yields its verdict; `ci.yml` cancels in progress only for
+  `pull_request` events.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
