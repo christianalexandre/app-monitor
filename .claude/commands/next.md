@@ -68,8 +68,8 @@ file only sequences it. Task override: **$ARGUMENTS** (empty = next in plan).
 
 ## 8. Report and continue
 
-Report in Portuguese, in at most ten lines: task, PR link, **what actually ran
-and what did not**, ADRs/DEBTs created, next task.
+Report in **English**, in at most ten lines: task, PR link, **what actually
+ran and what did not**, ADRs/DEBTs created, next task.
 
 Then:
 
@@ -77,3 +77,7 @@ Then:
 - **Stop** on: plan checkpoint, `Proposed` ADR, `[!]` task, missing
   tool/credential, or an empty roadmap. When running under `/loop`, end the
   loop instead of scheduling another wakeup.
+
+The **last line** of the report is exactly `LOOP: CONTINUE` or
+`LOOP: STOP <reason>` — `scripts/loop.sh` reads it to decide whether to start
+the next session.

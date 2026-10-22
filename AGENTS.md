@@ -63,7 +63,10 @@ iteration) only when the decision touches:
 `/next` runs one iteration: pick the next task of the active plan in
 `docs/plans/`, implement it on a semantic branch, run the gates, update docs,
 commit, open the PR to `dev`.
-`/loop /next` repeats it. Stop conditions are in `.claude/commands/next.md`.
+`make loop` repeats it, each iteration in a **fresh session** (the docs are the
+memory); `/loop /next` repeats it inside one session. Stop conditions are in
+`.claude/commands/next.md`. Everything the loop writes — reports included —
+is in English.
 
 ## Code comments
 
@@ -96,6 +99,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | All gates | `make check` | active: `docs-check` (lint/build/test join as modules land) |
 | Docs consistency | `make docs-check` | active |
 | Branch name check | `make branch-check` | active |
+| Development loop, fresh session per iteration | `make loop` | active; logs in `.loop/` |
 
 Commands are added here **in the same PR** that creates them.
 
