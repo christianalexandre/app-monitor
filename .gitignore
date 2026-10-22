@@ -21,3 +21,6 @@ DerivedData/
 
 # Claude Code (config local, não compartilhada)
 .claude/settings.local.json
+
+# Loop logs (scripts/loop.sh)
+.loop/
