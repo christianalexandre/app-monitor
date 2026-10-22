@@ -7,10 +7,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
- * One connected device, created after a successful handshake.
- *
- * [envelopes] emits every envelope the device sends after `Hello`, in order, and
- * completes when the connection closes. It is meant for a single collector.
+ * One handshaken device. [envelopes] emits everything sent after `Hello`, in order,
+ * to a single collector, and completes when the connection closes.
  */
 class DeviceSession internal constructor(
     val id: String,

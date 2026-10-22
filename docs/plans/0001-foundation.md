@@ -92,10 +92,12 @@ LAN-interface filter).
   (not JSON) and for a multi-MB JSON body formatted in linear time.
   Deviation: numbers with leading zeros are rejected too. Rendering stays on
   the UI thread with no size cap (DEBT-0006).
-- [ ] **M0.R5 Comment length.** KDoc blocks over 4 lines in `desktop/server`
+- [x] **M0.R5 Comment length.** KDoc blocks over 4 lines in `desktop/server`
   (`DeviceSession.kt`, `AppMonitorServer.kt`, `ServerConfig.kt`) and any other
   source block breaking `docs/guidelines/02_comments.md`.
   Accept: no comment block over 4 lines outside public SDK API (grep in the PR).
+  Deviation: one more block found, in `tools/fake-client` `Replay.kt`. The
+  server's single-use rule moved to the SDD.
 
 ## Outcome
 
