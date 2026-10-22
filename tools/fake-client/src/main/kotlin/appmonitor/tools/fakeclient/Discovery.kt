@@ -2,8 +2,10 @@ package appmonitor.tools.fakeclient
 
 import appmonitor.protocol.Protocol
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Inet4Address
@@ -37,12 +39,44 @@ internal suspend fun discover(
                 found.complete(Target(host, info.port, info.getPropertyString("path") ?: Protocol.WEBSOCKET_PATH))
             }
         }
-    val browsers = mutableListOf<AutoCloseable>()
+    val browsers = Browsers()
+    // Opened off the timeout: JmDNS.create blocks and ignores cancellation.
+    val opening =
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                for (address in addresses()) if (!browsers.add(browse(address, listener))) break
+            } catch (e: Throwable) {
+                found.completeExceptionally(e)
+            }
+        }
     try {
-        withContext(Dispatchers.IO) { addresses().forEach { browsers += browse(it, listener) } }
         return withTimeoutOrNull(timeoutMs) { found.await() }
     } finally {
-        withContext(NonCancellable + Dispatchers.IO) { browsers.forEach { runCatching { it.close() } } }
+        opening.cancel()
+        withContext(NonCancellable + Dispatchers.IO) { browsers.closeAll() }
+    }
+}
+
+/** Browsers opened so far; one added after [closeAll] is closed on arrival. */
+private class Browsers {
+    private val open = mutableListOf<AutoCloseable>()
+    private var closed = false
+
+    fun add(browser: AutoCloseable): Boolean {
+        synchronized(this) {
+            if (!closed) return open.add(browser)
+        }
+        runCatching { browser.close() }
+        return false
+    }
+
+    fun closeAll() {
+        val toClose =
+            synchronized(this) {
+                closed = true
+                open.toList()
+            }
+        toClose.forEach { runCatching { it.close() } }
     }
 }
 
