@@ -5,6 +5,10 @@ import appmonitor.protocol.Protocol
 /**
  * How [AppMonitor] runs (ADR-0017). [host] set: the only desktop tried, on [port]; null: discovered
  * over mDNS, then `10.0.2.2` on the emulator. [enabled] false: `start()` does nothing.
+ *
+ * Capture (ADR-0018): `Authorization`, `Proxy-Authorization`, `Cookie` and `Set-Cookie` are always
+ * masked; [maskedHeaders] and [maskedQueryParameters] add names, compared case-insensitively. Each
+ * body is captured up to [maxBodyBytes], at most [Protocol.MAX_BODY_BYTES] (ADR-0025).
  */
 public class AppMonitorOptions
     @JvmOverloads
@@ -13,8 +17,14 @@ public class AppMonitorOptions
         public val host: String? = null,
         public val port: Int = Protocol.DEFAULT_PORT,
         public val appName: String? = null,
+        public val maskedHeaders: Set<String> = emptySet(),
+        public val maskedQueryParameters: Set<String> = emptySet(),
+        public val maxBodyBytes: Int = Protocol.MAX_BODY_BYTES,
     ) {
         init {
             require(port in 1..65535) { "port must be in 1..65535, was $port" }
+            require(maxBodyBytes in 0..Protocol.MAX_BODY_BYTES) {
+                "maxBodyBytes must be in 0..${Protocol.MAX_BODY_BYTES}, was $maxBodyBytes"
+            }
         }
     }

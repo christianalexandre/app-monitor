@@ -5,9 +5,17 @@ package appmonitor.sdk.core
  * `start()` ignored while a client runs, a new client after `stop()`.
  */
 internal class MonitorHolder {
-    private var current: MonitorClient? = null
+    private class Running(
+        val options: AppMonitorOptions,
+        val client: MonitorClient,
+    )
 
-    val client: MonitorClient? get() = synchronized(this) { current }
+    private var current: Running? = null
+
+    val client: MonitorClient? get() = synchronized(this) { current?.client }
+
+    /** The options of the running client; null when idle or stopped. */
+    val options: AppMonitorOptions? get() = synchronized(this) { current?.options }
 
     fun start(
         options: AppMonitorOptions,
@@ -15,12 +23,15 @@ internal class MonitorHolder {
     ) {
         synchronized(this) {
             if (!options.enabled || current != null) return
-            current = newClient(options).also { it.start() }
+            current = Running(options, newClient(options).also { it.start() })
         }
     }
 
     fun stop() {
         val stopping = synchronized(this) { current.also { current = null } }
-        stopping?.stop()
+        stopping?.client?.stop()
     }
 }
+
+/** The process-wide monitor behind `AppMonitor` and [MonitorBridge]. */
+internal val monitor: MonitorHolder = MonitorHolder()

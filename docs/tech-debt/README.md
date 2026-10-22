@@ -38,7 +38,8 @@ Rules:
 | [0018](0018-empty-request-id-merges-exchanges.md) | Network events without a request id merge into one exchange | The M1 SDK starts sending network envelopes to the desktop | Paid |
 | [0019](0019-sdk-bodies-not-masked.md) | The SDK masks headers and query parameters, never bodies | The first request to mask a field inside a request or response body | Open |
 | [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
-| [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Open |
+| [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Paid |
 | [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | Desktop ingest writes to SQLite (M5), or a session closed with 1011 "Ping timeout" while the device was reachable | Open |
 | [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible on the desktop | A developer reports an event missing from the desktop, or the protocol gains per-envelope sequence numbers | Open |
 | [0024](0024-app-name-not-sent.md) | `AppMonitorOptions.appName` is accepted but never sent | The desktop shows an app by name (M1.9 approval dialog or later), or `Hello` gains an app name field | Open |
+| [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Open |

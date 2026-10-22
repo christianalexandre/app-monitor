@@ -1,10 +1,10 @@
 ---
 id: DEBT-0021
 title: An SDK frame over the desktop's limit ends the session
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp`
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0021 — An SDK frame over the desktop's limit ends the session
@@ -28,4 +28,8 @@ M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp`.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+`AppMonitorOptions` rejects `maxBodyBytes` above `Protocol.MAX_BODY_BYTES`
+(ADR-0025), so a captured body always fits a frame. What is left: a request
+whose URL and headers exceed 256 KiB still makes an oversized envelope,
+which `MonitorClient.send` drops before the buffer; the session survives,
+the event is lost silently (DEBT-0023).

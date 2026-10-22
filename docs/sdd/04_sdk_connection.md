@@ -109,8 +109,9 @@ cancels the scope.
 
 - Dropped envelopes (full buffer, oversized, in flight when the socket
   died) are invisible on the desktop (DEBT-0023).
-- An oversized envelope is lost rather than cut where it is built
-  (DEBT-0021).
+- An oversized envelope is lost rather than cut where it is built; bodies
+  fit since `maxBodyBytes` is capped (ADR-0025), so only URL and headers
+  over 256 KiB get there.
 - The device connects to any desktop that advertises the service
   (DEBT-0020).
 - `AppMonitorOptions.appName` is not sent: `Hello` has no field for it

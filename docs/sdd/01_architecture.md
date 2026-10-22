@@ -146,9 +146,10 @@ a stack trace (DEBT-0010). See ADR-0010.
 ## SDKs
 
 - **iOS**: native Swift package, no Kotlin runtime. See ADR-0003.
-- **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); adapters
-  for OkHttp and Ktor **(planned)**. Connection states, offline buffer and
-  `stop()`: SDD 04 (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
+- **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); the
+  OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor adapter
+  **(planned)**. Connection states, offline buffer and `stop()`: SDD 04
+  (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 
