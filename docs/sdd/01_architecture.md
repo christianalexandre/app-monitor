@@ -135,14 +135,17 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 - `main` starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
   or "Server failed" with any startup or session failure, `Error`s included
-  (a `VirtualMachineError` is rethrown after it).
+  (a `VirtualMachineError` is rethrown after it). A `CancellationException`
+  is rethrown only when the server coroutine itself is cancelled; one from
+  another scope while it is still active shows "Server failed" too.
   A failing `stop()`, `Error`s included, shows "Server stop failed" instead
   of escaping the server coroutine or hiding the first failure; a `stop()`
   still running after `STOP_TIMEOUT` (5 s) shows "Server stop timed out".
 - Exit: `runServer` runs beside `awaitApplication`, not inside the
   composition; `runUntilExit` cancels it when the last window closes and
   waits for its `stop()` (mDNS goodbye, port release) before `main` calls
-  `exitProcess`. The headless server (`make server`) registers its shutdown
+  `exitProcess` through `exitAfter`: code 0, or 1 after printing the
+  failure when the UI throws, so AWT threads cannot keep the JVM alive. The headless server (`make server`) registers its shutdown
   hook before `start`, so a SIGINT during startup still stops the server; the
   app registers one before the window opens, so SIGINT or SIGTERM stops it
   too. Both use `shutdownHook`: `stop()` runs on a daemon thread and the hook

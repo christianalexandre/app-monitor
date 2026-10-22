@@ -20,10 +20,12 @@ import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
 import appmonitor.v1.Platform
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -138,6 +140,59 @@ class AppMonitorAppTest {
 
         assertEquals(listOf("Server failed: javax/jmdns/JmDNS"), statuses)
         assertTrue(stopped)
+    }
+
+    @Test
+    fun `reports a CancellationException thrown by the server start in an active coroutine`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        var stopped = false
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                runServer(
+                    server,
+                    TrafficStore(),
+                    start = { throw CancellationException("foreign scope cancelled") },
+                    stop = { stopped = true },
+                ) { statuses += it }
+            }
+        }
+
+        assertEquals(listOf("Server failed: foreign scope cancelled"), statuses)
+        assertTrue(stopped)
+    }
+
+    @Test
+    fun `a cancelled server coroutine stays cancelled`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = CopyOnWriteArrayList<String>()
+        val started = CompletableDeferred<Unit>()
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                val serving =
+                    launch {
+                        runServer(server, TrafficStore(), start = {
+                            started.complete(Unit)
+                            awaitCancellation()
+                        }, stop = {}) { statuses += it }
+                    }
+                started.await()
+                serving.cancelAndJoin()
+                assertTrue(serving.isCancelled)
+            }
+        }
+
+        assertEquals(emptyList(), statuses)
+    }
+
+    @Test
+    fun `the exit path runs with 1 when the UI throws`() {
+        val codes = mutableListOf<Int>()
+
+        exitAfter(exit = { codes += it }) { throw IllegalStateException("window failed") }
+        exitAfter(exit = { codes += it }) {}
+
+        assertEquals(listOf(1, 0), codes)
     }
 
     @Test
