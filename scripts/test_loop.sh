@@ -94,6 +94,17 @@ check "STOP glued to a word is no verdict" test -z "$(verdict_of "$tmp/stopped.m
 check "verdict followed by text is no verdict" test -z "$(verdict_of "$tmp/quoted.md")"
 check "trailing blank lines after the verdict are accepted" test "$(verdict_of "$tmp/blank.md")" = "LOOP: STOP checkpoint"
 
+echo "test-loop: active_plan"
+mkdir -p "$tmp/docs/plans"
+check "no plan gives nothing" test -z "$(active_plan)"
+printf -- '---\nstatus: Done\n---\n' >"$tmp/docs/plans/0001-a.md"
+printf -- '---\nstatus: Active\n---\n' >"$tmp/docs/plans/0002-b.md"
+printf -- '---\nstatus: Active\n---\n' >"$tmp/docs/plans/_template.md"
+check "active plan is found, template ignored" test "$(active_plan)" = 0002-b.md
+printf -- '---\nstatus: Done\n---\n' >"$tmp/docs/plans/0002-b.md"
+check "all plans done gives nothing" test -z "$(active_plan)"
+rm -rf "$tmp/docs"
+
 echo "test-loop: stderr stays out of the jsonl"
 run_session "$tmp/noisy.jsonl" sh -c 'echo "warning: not json" >&2; echo '"'"'{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}'"'"'; echo '"'"'{"type":"result","result":"LOOP: CONTINUE"}'"'"''
 check "non-JSON stderr does not hide the verdict" test "$(result_of "$tmp/noisy.jsonl")" = "LOOP: CONTINUE"

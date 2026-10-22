@@ -41,9 +41,13 @@ always work from `origin/dev`, never `git switch dev`.
      and continue with them — the plan is not done yet.
   4. No correctness finding, or three rounds done → fill *Outcome* (review
      findings included, open ones as DEBTs), set `status: Done` and
-     `finished`, update the index, open a `docs/close-plan-<slug>` PR and
-     **do not merge it**: the owner merging it is the checkpoint approval.
-     **Stop: checkpoint.**
+     `finished`, update the index, open a `docs/close-plan-<slug>` PR
+     (ADR-0019):
+     - *Outcome* lists a correctness finding left open, or
+       `echo "${PLAN_CHECKPOINT:-}"` prints `1` → **do not merge it**: the
+       owner merging it is the approval. **Stop: checkpoint.**
+     - Otherwise merge it as in 7 and **continue**: the next iteration
+       writes the next plan.
 - **No active plan**:
   - Close-plan PR still open → **stop**: waiting for the owner.
   - Last plan `Done` on `origin/dev` (the owner merged it) → write the next
@@ -110,7 +114,8 @@ created, next task.
 
 Then:
 
-- **Continue** (next iteration) if the active plan still has open tasks.
+- **Continue** (next iteration) if the active plan still has open tasks, or
+  the plan was just closed and merged, or the next plan was just written.
 - **Stop** on: plan checkpoint, waiting for the owner, `Proposed` ADR, `[!]`
   task, missing tool/credential, or an empty roadmap. When running under
   `/loop`, end the loop instead of scheduling another wakeup.

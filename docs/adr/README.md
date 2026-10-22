@@ -36,3 +36,4 @@ Rules:
 | [0016](0016-bounded-milestone-review.md) | Milestone review is incremental, keeps only correctness findings and stops after three rounds | Accepted |
 | [0017](0017-android-sdk-public-api.md) | Android SDK public API and minSdk | Accepted |
 | [0018](0018-capture-masking-and-device-approval.md) | What the Android SDK captures and masks, and device approval | Accepted |
+| [0019](0019-loop-merges-the-close-plan-pr.md) | The loop merges the close-plan PR and moves on to the next plan | Accepted |
