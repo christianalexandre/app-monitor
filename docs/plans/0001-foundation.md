@@ -283,12 +283,15 @@ does not).
   (`stop` dispatched after `start` finished); `stop` now starts undispatched.
   `MainTest`'s hook test no longer asserts `start` fails: the hook's worker
   thread may stop after `start` returns; it still asserts the port is freed.
-- [ ] **M0.R18 Fake client ignores a close after HelloAck.** `replay` sends
+- [x] **M0.R18 Fake client ignores a close after HelloAck.** `replay` sends
   every envelope and reports success even when the desktop closed the session
   with `PROTOCOL_ERROR`, since buffered sends do not throw.
   Accept: `./gradlew :tools:fake-client:test` — a test server that acks, then
   closes with `PROTOCOL_ERROR` makes `replay` fail with the close reason, and
   the CLI exits 1.
+  Deviation: `replay` now uses Ktor's raw CIO session (`webSocketRawSession`),
+  since the default session completes `closeReason` with its own close; it
+  sends a normal close after the traffic and fails on any non-`NORMAL` reply.
 - [ ] **M0.R19 Loop timeout marker.** `run_session` removes a stale `.done`
   but not a stale `.timeout`, so a reused log path always returns 124; the
   watchdog's `kill` succeeds on an exited, unreaped session, so a session that

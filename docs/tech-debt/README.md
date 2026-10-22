@@ -31,3 +31,4 @@ Rules:
 | [0011](0011-fake-client-discovery-listener.md) | Fake client discovery blocks the JmDNS listener and matches names by case | More than one `_appmonitor._tcp` service is seen on one LAN, or M1 `sdk/core` implements discovery | Open |
 | [0012](0012-mdns-instances-share-names.md) | Per-address mDNS instances share a host and service name | A desktop with two addresses on one LAN is seen renamed or flapping, or M1 SDK discovery filters by service name | Open |
 | [0013](0013-loop-timeout-leaves-children.md) | Loop timeout kills only the session process | An iteration after a timeout fails on a held port or a Gradle lock | Open |
+| [0014](0014-late-frame-rejection-reported-normal.md) | A rejection of a late frame reaches the client as a normal close | An SDK or a test needs to know the desktop rejected one of the last frames it sent | Open |

@@ -40,6 +40,8 @@ internal suspend fun run(
             replay(target)
         } catch (e: HandshakeException) {
             return err.fail(e.message.orEmpty(), 1)
+        } catch (e: SessionClosedException) {
+            return err.fail(e.message.orEmpty(), 1)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
