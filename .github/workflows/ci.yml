@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  # ADR-0012: dev push runs must finish to seed the cache.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:

@@ -36,11 +36,12 @@ watchdog() {
   kill -TERM "$1" 2>/dev/null && touch "$2"
 }
 
-# Runs "${@:2}" in the worktree, output into $1. Exit 124 means it timed out.
+# Runs "${@:2}" in the worktree, stdout into $1, stderr into $1.err (jq reads
+# $1 and stops at the first non-JSON line). Exit 124 means it timed out.
 run_session() {
   local log="$1"
   shift
-  (cd "$worktree" && exec "$@") >"$log" 2>&1 &
+  (cd "$worktree" && exec "$@") >"$log" 2>"$log.err" &
   local pid=$!
   watchdog "$pid" "$log.timeout" &
   local watchdog_pid=$!
@@ -101,7 +102,7 @@ while ((i <= max)); do
       sleep "$wait_s"
       continue
     fi
-    notify "stopped after $i iteration(s): no verdict line (exit $code) — see $base.jsonl"
+    notify "stopped after $i iteration(s): no verdict line (exit $code) — see $base.jsonl{,.err}"
     exit 1
   fi
 
