@@ -17,13 +17,15 @@ export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 
 notify() {
   echo "loop: $1"
-  command -v osascript >/dev/null && osascript -e "display notification \"$1\" with title \"app-monitor loop\"" || true
+  command -v osascript >/dev/null || return 0
+  osascript -e 'on run argv' -e 'display notification (item 1 of argv) with title "app-monitor loop"' \
+    -e 'end run' "$1" >/dev/null || true
 }
 
 ensure_worktree() {
-  git -C "$repo" fetch -q origin --prune
-  [[ -d "$worktree" ]] && return
-  git -C "$repo" worktree add -q --detach "$worktree" origin/dev
+  git -C "$repo" fetch -q origin --prune || return
+  [[ -d "$worktree" ]] && return 0
+  git -C "$repo" worktree add -q --detach "$worktree" origin/dev || return
   echo "loop: created worktree $worktree"
 }
 
@@ -76,7 +78,7 @@ if [[ "${1:-}" == --worktree ]]; then
 fi
 mkdir -p "$logs"
 command -v jq >/dev/null || { echo "loop: jq is required" >&2; exit 1; }
-ensure_worktree
+ensure_worktree || exit 1
 retries=0
 i=1
 while ((i <= max)); do
