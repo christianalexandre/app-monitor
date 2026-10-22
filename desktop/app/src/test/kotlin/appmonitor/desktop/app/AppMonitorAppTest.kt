@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import appmonitor.desktop.app.store.Device
+import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
@@ -16,16 +18,20 @@ import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
+import appmonitor.v1.Header
+import appmonitor.v1.Platform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.ByteString.Companion.encodeUtf8
 import java.io.File
 import java.io.IOException
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class AppMonitorAppTest {
@@ -55,6 +61,39 @@ class AppMonitorAppTest {
     }
 
     @Test
+    fun `two exchanges with the same body open in their own default format`() {
+        val body = "{\"a\":1}".encodeUtf8()
+        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
+        val state =
+            TrafficState(
+                devices = listOf(device),
+                exchanges =
+                    listOf(
+                        HttpExchange(
+                            "s1",
+                            "r1",
+                            "POST",
+                            "https://a.example/json",
+                            listOf(Header("Content-Type", "application/json")),
+                            body,
+                        ),
+                        HttpExchange("s1", "r2", "POST", "https://a.example/text", listOf(Header("Content-Type", "text/plain")), body),
+                    ),
+            )
+
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(state, "Listening") }
+
+            onNodeWithText("https://a.example/json").performClick()
+            onNodeWithText("{\n    \"a\": 1\n}").assertExists()
+
+            onNodeWithText("https://a.example/text").performClick()
+            onNodeWithText("{\"a\":1}").assertExists()
+            onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+        }
+    }
+
+    @Test
     fun `shows the failed status when the server start throws a non-IO exception`() {
         // A stopped server is single use: start throws IllegalStateException.
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
@@ -70,6 +109,26 @@ class AppMonitorAppTest {
 
             onNodeWithText(statuses.last()).assertExists()
         }
+    }
+
+    @Test
+    fun `reports an Error thrown by the server start`() {
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+        val statuses = mutableListOf<String>()
+        var stopped = false
+        runBlocking {
+            withTimeout(TIMEOUT_MS) {
+                runServer(
+                    server,
+                    TrafficStore(),
+                    start = { throw NoClassDefFoundError("javax/jmdns/JmDNS") },
+                    stop = { stopped = true },
+                ) { statuses += it }
+            }
+        }
+
+        assertEquals(listOf("Server failed: javax/jmdns/JmDNS"), statuses)
+        assertTrue(stopped)
     }
 
     @Test

@@ -28,21 +28,26 @@ fun main() =
         }
     }
 
-/** Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure is reported through [onStatus]. */
+/**
+ * Starts [server] and feeds [store] until cancelled; any startup, session or [stop] failure, [Error]s
+ * included, is reported through [onStatus]. A [VirtualMachineError] is rethrown after it.
+ */
 internal suspend fun runServer(
     server: AppMonitorServer,
     store: TrafficStore,
+    start: suspend () -> Int = server::start,
     stop: suspend () -> Unit = server::stop,
     onStatus: (String) -> Unit,
 ) {
     try {
-        val port = server.start()
+        val port = start()
         onStatus("Listening on port $port")
         store.collect(server.sessions)
     } catch (e: CancellationException) {
         throw e
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         onStatus("Server failed: ${e.message ?: e::class.simpleName}")
+        if (e is VirtualMachineError) throw e
     } finally {
         withContext(NonCancellable) {
             try {

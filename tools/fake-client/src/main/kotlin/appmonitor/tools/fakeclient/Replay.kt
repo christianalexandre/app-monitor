@@ -12,7 +12,13 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
+import kotlin.time.TimeSource
 
 /** Where a desktop listens. */
 data class Target(
@@ -37,21 +43,32 @@ suspend fun replay(
     handshakeTimeoutMs: Long = HANDSHAKE_TIMEOUT_MS,
 ): HelloAck {
     var ack: HelloAck? = null
-    HttpClient(CIO) { install(WebSockets) }.use { client ->
-        client.webSocket(host = target.host, port = target.port, path = target.path) {
-            send(Frame.Binary(true, hello.encode()))
-            ack = awaitHelloAck(handshakeTimeoutMs)
-            traffic.forEach { send(Frame.Binary(true, it.copy(timestamp_ms = System.currentTimeMillis()).encode())) }
+    try {
+        HttpClient(CIO) { install(WebSockets) }.use { client ->
+            client.webSocket(host = target.host, port = target.port, path = target.path) {
+                send(Frame.Binary(true, hello.encode()))
+                ack = awaitHelloAck(handshakeTimeoutMs)
+                traffic.forEach { send(Frame.Binary(true, it.copy(timestamp_ms = System.currentTimeMillis()).encode())) }
+            }
         }
+    } catch (e: CancellationException) {
+        // Ktor cancels the outgoing channel when the connection drops mid-send.
+        currentCoroutineContext().ensureActive()
+        throw IOException("Connection to the desktop dropped", e)
     }
     return checkNotNull(ack)
 }
 
 private suspend fun DefaultClientWebSocketSession.awaitHelloAck(timeoutMs: Long): HelloAck {
+    val started = TimeSource.Monotonic.markNow()
     val reply =
         withTimeoutOrNull(timeoutMs) { incoming.receiveCatching() }
             ?: fail("no reply within $timeoutMs ms")
-    val frame = reply.getOrNull() ?: throw HandshakeException("Desktop closed before HelloAck: ${closeReason.await()}")
+    val frame =
+        reply.getOrNull()
+            ?: throw HandshakeException(
+                "Desktop closed before HelloAck: ${closeReason.awaitWithin(timeoutMs - started.elapsedNow().inWholeMilliseconds)}",
+            )
     if (frame !is Frame.Binary) fail("got a ${frame.frameType} frame")
     val envelope = runCatching { Envelope.ADAPTER.decode(frame.readBytes()) }.getOrNull() ?: fail("got a frame that is not an Envelope")
     if (envelope.channel != Protocol.CHANNEL_CORE || envelope.type != "HelloAck") fail("got ${envelope.channel}/${envelope.type}")
@@ -63,6 +80,10 @@ private suspend fun DefaultClientWebSocketSession.fail(reply: String): Nothing {
     close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, message.truncateUtf8(MAX_CLOSE_REASON)))
     throw HandshakeException(message)
 }
+
+/** The close reason, or why there is none; Ktor never completes it if the connection drops while sending. */
+internal suspend fun Deferred<CloseReason?>.awaitWithin(timeoutMs: Long): String =
+    withTimeoutOrNull(timeoutMs.coerceAtLeast(1)) { await() }?.toString() ?: "no close reason in time"
 
 /** The longest prefix that fits in [maxBytes] of UTF-8, never splitting a surrogate pair. */
 internal fun String.truncateUtf8(maxBytes: Int): String {

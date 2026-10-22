@@ -10,6 +10,7 @@ import java.io.PrintStream
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class MainTest {
@@ -50,6 +51,27 @@ class MainTest {
                 assertEquals(2, status, args.joinToString(" "))
                 assertTrue(err.startsWith("Usage: fake-client"), err)
             }
+        }
+
+    @Test
+    fun `a connection dropped right after the upgrade exits with a one-line error`() =
+        runBlocking {
+            val peer = DroppingPeer(readHello = false)
+
+            val (status, err) = run("--host", "127.0.0.1", "--port", "${peer.port}")
+            peer.join()
+
+            assertEquals(1, status)
+            assertEquals(1, err.trimEnd().lines().size, err)
+        }
+
+    @Test
+    fun `--help as the value of another option is not a usage request`() =
+        runBlocking {
+            val (status, err) = run("--name", "--help", "--timeout", "1")
+
+            assertEquals(1, status)
+            assertFalse(err.startsWith("Usage"), err)
         }
 
     // Outside runBlocking: CoroutineScope.embeddedServer would make the server its child.

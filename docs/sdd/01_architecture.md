@@ -90,12 +90,15 @@ the desktop over mDNS (or `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
 current time and closes. Any other first reply, or none within 10 s, closes
 the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
-`HelloAck` whose payload does not decode counts as another reply. Any other
-failure (unresolvable host, non-WebSocket endpoint, mDNS bind) exits 1 with
-one line on stderr, never a stack trace. The close reason is cut to the 123
+`HelloAck` whose payload does not decode counts as another reply. A desktop
+that closes or drops before `HelloAck` fails within the same 10 s, even if
+Ktor never completes the close reason. Any other failure (unresolvable host,
+non-WebSocket endpoint, mDNS bind, connection dropped while sending) exits 1
+with one line on stderr, never a stack trace. The close reason is cut to the 123
 UTF-8 bytes RFC 6455 allows. Bad arguments (`--timeout` of 0 or less, a
 `--port` out of range: 1–65535 for the fake client, 0–65535 for the server)
-print the usage line and exit 2. A server port that cannot be bound is still
+print the usage line and exit 2; `--help` is only an option, never the value
+of one (`--name --help` names a service). A server port that cannot be bound is still
 a stack trace (DEBT-0010). See ADR-0010.
 
 ## SDKs
@@ -121,7 +124,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 
 - `main` starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
-  or "Server failed" with any startup or session exception (not only I/O).
+  or "Server failed" with any startup or session failure, `Error`s included
+  (a `VirtualMachineError` is rethrown after it).
   A failing `stop()` shows "Server stop failed" instead of escaping the
   effect or hiding the first failure.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
@@ -132,7 +136,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 - UI: three panes (devices, requests of the selected device, detail). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
-  user can switch. JSON is re-indented from the original text in one linear
+  user can switch. The chosen format belongs to the exchange: another
+  exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
   pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
   body is rendered once per format. The hex dump is one linear pass.
