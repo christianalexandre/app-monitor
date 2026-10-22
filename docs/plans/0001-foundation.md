@@ -421,6 +421,46 @@ states the shipped behaviour.
   Deviation: browsers open in a detached IO coroutine; one that finishes
   opening after `discover` returned is closed on arrival.
 
+### Tenth milestone review
+
+Findings of the `code-review` of `d8fbae9..45a7700` (after M0.R27–M0.R29).
+One was already tracked: `utf8OrNull` and `hexDump` copy the whole body
+(DEBT-0006). One was rejected: `scripts/test_loop.sh` does remove its temp
+directory, with an explicit `rm -rf` before the final exit.
+
+- [ ] **M0.R30 Fake client discovery skips a failing address.** The first
+  `browse` failure fails the whole discovery, so one interface where JmDNS
+  cannot open (VPN, bridge) hides a desktop advertised on another.
+  Accept: `./gradlew :tools:fake-client:test` — with a browser factory that
+  throws for the first address, `discover` still finds the service on the
+  second; it fails only when every address fails.
+- [ ] **M0.R31 Desktop app single stop timeout on exit.** When `stop` hangs,
+  `runServer` waits `STOP_TIMEOUT`, then `exitProcess` runs the shutdown hook,
+  which waits the same release another `STOP_TIMEOUT` and reports the failure
+  a second time.
+  Accept: `./gradlew :desktop:app:test` — with a `stop` that never returns,
+  closing the window exits after one `STOP_TIMEOUT` (plus a small margin) and
+  reports the timeout once.
+- [ ] **M0.R32 Server stop sees a release failure in start.** When `stop`
+  runs during `start`, `start` releases the advertiser itself and a failing
+  mDNS close reaches only `start`'s caller; `stop` returns normally, against
+  its KDoc.
+  Accept: `./gradlew :desktop:server:test` — `stop` racing `start`, with an
+  advertiser whose close throws, rethrows that failure from `stop`.
+- [ ] **M0.R33 Loop verdict on the last line only.** `verdict_of` takes the
+  last matching line anywhere in the report, so a report that quotes
+  `LOOP: CONTINUE` mid-text and ends without a verdict continues the loop.
+  Accept: `make scripts-test` — a report with `LOOP: CONTINUE` followed by
+  non-verdict lines stops with "no verdict line"; trailing blank lines after
+  the verdict are still accepted.
+- [ ] **M0.R34 Fixture regeneration only when asked.** Any value of the
+  `updateFixtures` Gradle property, `false` included, regenerates the golden
+  fixtures.
+  Accept: with one fixture edited by hand,
+  `./gradlew :protocol:jvmTest -PupdateFixtures=false` fails the contract
+  test and leaves the edit in place; `-PupdateFixtures` alone still
+  regenerates it.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`).
