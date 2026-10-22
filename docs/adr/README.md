@@ -24,3 +24,5 @@ Rules:
 | [0004](0004-layered-ios-capture.md) | Layered capture coverage on iOS | Accepted |
 | [0005](0005-desktop-storage-and-mcp.md) | SQLite storage and in-process MCP server | Accepted |
 | [0006](0006-gradle-build-and-lint.md) | Gradle build with convention plugins, Spotless and ktlint | Accepted |
+| [0007](0007-android-kmp-target.md) | Android target through the Android KMP library plugin | Accepted |
+| [0008](0008-protocol-schema-and-fixtures.md) | Protocol schema layout and golden fixtures | Accepted |

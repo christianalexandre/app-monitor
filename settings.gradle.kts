@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "app-monitor"
+
+include(":protocol")
