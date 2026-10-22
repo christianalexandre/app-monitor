@@ -21,8 +21,8 @@ internal suspend fun run(
     out: PrintStream,
     err: PrintStream,
 ): Int {
-    if ("--help" in args) return err.fail(USAGE, 0)
     val options = parse(args) ?: return err.fail(USAGE, 2)
+    if (options.help) return err.fail(USAGE, 0)
     val target =
         try {
             options.host?.let { Target(it, options.port ?: Protocol.DEFAULT_PORT) }
@@ -54,6 +54,7 @@ private class Options(
     val port: Int?,
     val serviceName: String?,
     val timeoutMs: Long,
+    val help: Boolean = false,
 )
 
 private fun parse(args: Array<String>): Options? {
@@ -61,6 +62,7 @@ private fun parse(args: Array<String>): Options? {
     var i = 0
     while (i < args.size) {
         val key = args[i]
+        if (key == "--help") return Options(null, null, null, 0, help = true)
         if (key !in setOf("--host", "--port", "--name", "--timeout") || i + 1 >= args.size) return null
         values[key] = args[i + 1]
         i += 2

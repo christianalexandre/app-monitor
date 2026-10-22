@@ -110,6 +110,28 @@ class HandshakeFailureTest {
             assertContains(error.message.orEmpty(), "got a malformed HelloAck")
         }
 
+    @Test
+    fun `fails when the connection drops without a close frame`() =
+        runBlocking {
+            val peer = DroppingPeer(readHello = true)
+
+            val error =
+                withTimeout(TIMEOUT_MS) {
+                    assertFailsWith<HandshakeException> { replay(Target("127.0.0.1", peer.port), handshakeTimeoutMs = 500) }
+                }
+            peer.join()
+
+            assertContains(error.message.orEmpty(), "Desktop closed before HelloAck")
+        }
+
+    @Test
+    fun `a close reason that never completes is bounded`() =
+        runBlocking {
+            val reason = withTimeout(TIMEOUT_MS) { CompletableDeferred<CloseReason?>().awaitWithin(200) }
+
+            assertEquals("no close reason in time", reason)
+        }
+
     private suspend fun serve(handler: suspend DefaultWebSocketServerSession.() -> Unit): Int {
         val server =
             embeddedServer(CIO, host = "127.0.0.1", port = 0) {

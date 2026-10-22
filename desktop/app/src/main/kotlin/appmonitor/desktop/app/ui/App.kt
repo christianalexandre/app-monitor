@@ -26,6 +26,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,7 +66,12 @@ internal fun AppMonitorApp(
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    if (exchange == null) Placeholder("Select a request") else RequestDetail(exchange)
+                    if (exchange == null) {
+                        Placeholder("Select a request")
+                    } else {
+                        // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
+                        key(exchange.sessionId, exchange.requestId) { RequestDetail(exchange) }
+                    }
                 }
             }
         }

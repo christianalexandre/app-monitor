@@ -212,7 +212,7 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   watchdog polls a `.done` marker (ADR-0014); the test runs instant sessions
   instead of sending `TERM`. Verdicts go through a new `verdict_of`;
   `make loop-worktree` calls `loop.sh --worktree`.
-- [ ] **M0.R14 Client and app edge cases.** `Replay` awaits `closeReason`
+- [x] **M0.R14 Client and app edge cases.** `Replay` awaits `closeReason`
   with no bound after the channel closes; `runServer` misses an `Error` at
   startup, leaving "Starting server…"; the body format state is keyed on the
   body bytes only, so an exchange with the same bytes keeps the previous
@@ -222,6 +222,10 @@ One joined a debt: the body copied by `toByteArray` per decode and hex dump
   `start` reported through `onStatus`, two exchanges with the same body and
   different `Content-Type` opening in their own default format, and
   `--name --help` not printing usage.
+  Deviation: a real drop completes Ktor's close reason, so the unbounded
+  await is pinned by a unit test of `awaitWithin` with a never-completing
+  deferred. A drop while sending leaked a `CancellationException`; `replay`
+  now raises an `IOException`. `runServer` takes an internal `start`.
 
 ## Outcome
 
