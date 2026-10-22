@@ -53,7 +53,8 @@ class AppMonitorServer internal constructor(
 
     private val lock = Any()
 
-    private var startup: CompletableDeferred<Unit>? = null
+    // Completes with start's own release failure, if any, for a racing stop to rethrow.
+    private var startup: CompletableDeferred<Throwable?>? = null
 
     private var stopping: Deferred<Unit>? = null
 
@@ -71,7 +72,7 @@ class AppMonitorServer internal constructor(
 
     /** Starts listening and advertising; returns the bound port. On failure, cancellation or [stop], the port and mDNS are released. */
     suspend fun start(): Int {
-        val startup = CompletableDeferred<Unit>()
+        val startup = CompletableDeferred<Throwable?>()
         synchronized(lock) {
             check(!stopped) { "Server is single use: create a new instance" }
             check(this.startup == null) { "Server already started" }
@@ -79,6 +80,7 @@ class AppMonitorServer internal constructor(
         }
         var server: EmbeddedServer<*, *>? = null
         var advertiser: MdnsAdvertiser? = null
+        var releaseFailure: Throwable? = null
         try {
             val engine =
                 createEngine {
@@ -110,13 +112,14 @@ class AppMonitorServer internal constructor(
                 try {
                     release(advertiser, server)
                 } catch (closeFailure: Throwable) {
+                    releaseFailure = closeFailure
                     e.addSuppressed(closeFailure)
                 }
             }
             synchronized(lock) { if (this.startup === startup) this.startup = null }
             throw e
         } finally {
-            startup.complete(Unit)
+            startup.complete(releaseFailure)
         }
     }
 
@@ -136,8 +139,9 @@ class AppMonitorServer internal constructor(
                     CoroutineScope(Dispatchers.IO)
                         .async(start = CoroutineStart.LAZY) {
                             try {
-                                startup?.await()
+                                val startReleaseFailure = startup?.await()
                                 release(advertiser, server)
+                                if (startReleaseFailure != null) throw startReleaseFailure
                             } finally {
                                 newSessions.close()
                             }
