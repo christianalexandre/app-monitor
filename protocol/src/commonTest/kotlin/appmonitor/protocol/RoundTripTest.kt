@@ -7,8 +7,11 @@ import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
+import okio.ByteString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 
 class RoundTripTest {
     @Test
@@ -40,6 +43,20 @@ class RoundTripTest {
     fun envelopePayloadDecodesToItsMessage() {
         val envelope = Samples.envelopes.getValue("hello.bin")
         assertEquals(Samples.hello, Hello.ADAPTER.decode(envelope.payload))
+    }
+
+    @Test
+    fun bodyFromAnOlderPeerIsWholeWithUnknownSize() {
+        val older = Samples.responseReceived.copy(body_truncated = false, body_size = null).encode()
+        val decoded = ResponseReceived.ADAPTER.decode(older)
+        assertFalse(decoded.body_truncated)
+        assertNull(decoded.body_size)
+    }
+
+    @Test
+    fun zeroBodySizeIsKeptApartFromUnknown() {
+        val empty = Samples.requestStarted.copy(body = ByteString.EMPTY, body_size = 0)
+        assertEquals(0L, RequestStarted.ADAPTER.decode(empty.encode()).body_size)
     }
 
     @Test

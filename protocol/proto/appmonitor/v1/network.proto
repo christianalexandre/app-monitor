@@ -15,14 +15,22 @@ message RequestStarted {
   string method = 2;
   string url = 3;
   repeated Header headers = 4;
+  // At most the sender's body limit; see body_truncated (ADR-0020).
   bytes body = 5;
+  // body holds less than the original, or nothing when it could not be read.
+  bool body_truncated = 6;
+  // Original body size in bytes; absent when unknown.
+  optional int64 body_size = 7;
 }
 
 message ResponseReceived {
   string request_id = 1;
   int32 status_code = 2;
   repeated Header headers = 3;
+  // Same rules as RequestStarted.body (ADR-0020).
   bytes body = 4;
+  bool body_truncated = 5;
+  optional int64 body_size = 6;
 }
 
 message RequestFailed {

@@ -36,11 +36,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.v1.Header
-import okio.ByteString
 
 /** Devices, then the selected device's requests, then the selected request. */
 @Composable
@@ -165,10 +165,12 @@ private fun Headers(headers: List<Header>) {
 @Composable
 private fun Body(
     headers: List<Header>,
-    body: ByteString,
+    captured: CapturedBody,
 ) {
+    val body = captured.bytes
+    if (captured.truncated) Text(truncationNote(captured), style = MaterialTheme.typography.caption)
     if (body.size == 0) {
-        Text("None", style = MaterialTheme.typography.caption)
+        if (!captured.truncated) Text("None", style = MaterialTheme.typography.caption)
         return
     }
     val decoded = remember(body) { DecodedBody(body) }
@@ -201,6 +203,12 @@ private fun PaneTitle(title: String) {
 private fun Placeholder(text: String) {
     Text(text, Modifier.padding(12.dp), style = MaterialTheme.typography.caption)
 }
+
+private fun truncationNote(captured: CapturedBody): String =
+    when (val size = captured.originalSize) {
+        null -> "Truncated: ${captured.bytes.size} bytes shown, original size unknown"
+        else -> "Truncated: ${captured.bytes.size} of $size bytes shown"
+    }
 
 private fun statusOf(exchange: HttpExchange): String =
     when {

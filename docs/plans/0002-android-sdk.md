@@ -29,7 +29,7 @@ written down as states and transitions (SDD) before their code.
   (on the device, before the wire), and the device approval flow (when
   `HelloAck` is sent, what is remembered and where until M5).
   Accept: both ADRs merged by the owner with `status: Accepted`.
-- [ ] **M1.2 Protocol: bodies bounded.** `body_truncated` and original body
+- [x] **M1.2 Protocol: bodies bounded.** (ADR-0020; an unread body is `body_truncated` with an empty body, no separate marker) `body_truncated` and original body
   size on `RequestStarted` / `ResponseReceived` (new field numbers, none
   renumbered); fixtures regenerated; the desktop shows "truncated, N bytes".
   Accept: `./gradlew :protocol:allTests :desktop:app:test` — fixture and

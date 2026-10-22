@@ -37,6 +37,9 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 is when the event happened on the sender. Constants shared by both ends
 (`Protocol.VERSION`, channel names, default port, WebSocket path, mDNS
 service type) live in `appmonitor.protocol.Protocol`.
+`RequestStarted` and `ResponseReceived` bodies hold at most the sender's
+body limit: `body_truncated` marks a cut or unread body, `body_size` (absent
+when unknown) is the original size (ADR-0020).
 Golden binary fixtures in `protocol/fixtures/` pin the encoding.
 
 ## Connection
@@ -178,6 +181,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
   body is rendered once per format. The hex dump is one linear pass.
+  A truncated body shows "Truncated: N of M bytes shown" (or "original size
+  unknown") above it; an unread one shows only that note.
 
 ## Limits
 

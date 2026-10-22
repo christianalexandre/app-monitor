@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
@@ -64,6 +65,7 @@ class AppMonitorAppTest {
             onNodeWithText("Content-Type: application/json").assertExists()
             onNodeWithText("{\n    \"name\": \"café\"\n}").assertExists()
             onNodeWithText("00000000  00 7f 80 ff", substring = true).assertExists()
+            onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
 
             val screenshot = File(System.getProperty("screenshotDir"), "app.png")
             screenshot.parentFile.mkdirs()
@@ -73,7 +75,7 @@ class AppMonitorAppTest {
 
     @Test
     fun `two exchanges with the same body open in their own default format`() {
-        val body = "{\"a\":1}".encodeUtf8()
+        val body = CapturedBody("{\"a\":1}".encodeUtf8())
         val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
         val state =
             TrafficState(
@@ -101,6 +103,29 @@ class AppMonitorAppTest {
             onNodeWithText("https://a.example/text").performClick()
             onNodeWithText("{\"a\":1}").assertExists()
             onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun `an unread body shows its truncation note and a whole one none`() {
+        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
+        val exchange =
+            HttpExchange(
+                "s1",
+                "r1",
+                "POST",
+                "https://a.example/upload",
+                requestBody = CapturedBody(truncated = true),
+                statusCode = 204,
+            )
+
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
+
+            onNodeWithText("https://a.example/upload").performClick()
+            onNodeWithText("Truncated: 0 bytes shown, original size unknown").assertExists()
+            onAllNodesWithText("Truncated", substring = true).assertCountEquals(1)
+            onAllNodesWithText("None").assertCountEquals(3)
         }
     }
 

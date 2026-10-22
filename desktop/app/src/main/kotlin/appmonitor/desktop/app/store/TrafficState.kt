@@ -21,6 +21,13 @@ internal data class Device(
     val connected: Boolean = true,
 )
 
+/** A body as the device sent it: [bytes] may hold fewer than [originalSize] bytes (ADR-0020). */
+internal data class CapturedBody(
+    val bytes: ByteString = ByteString.EMPTY,
+    val truncated: Boolean = false,
+    val originalSize: Long? = null,
+)
+
 /** One HTTP request and its outcome. Fields stay null until the matching event arrives. */
 internal data class HttpExchange(
     val sessionId: String,
@@ -28,11 +35,11 @@ internal data class HttpExchange(
     val method: String? = null,
     val url: String? = null,
     val requestHeaders: List<Header> = emptyList(),
-    val requestBody: ByteString = ByteString.EMPTY,
+    val requestBody: CapturedBody = CapturedBody(),
     val startedAtMs: Long? = null,
     val statusCode: Int? = null,
     val responseHeaders: List<Header> = emptyList(),
-    val responseBody: ByteString = ByteString.EMPTY,
+    val responseBody: CapturedBody = CapturedBody(),
     val error: String? = null,
     val endedAtMs: Long? = null,
 ) {
@@ -83,7 +90,7 @@ internal data class TrafficState(
                                 method = event.method,
                                 url = event.url,
                                 requestHeaders = event.headers,
-                                requestBody = event.body,
+                                requestBody = CapturedBody(event.body, event.body_truncated, event.body_size),
                                 startedAtMs = at,
                             )
                         }
@@ -96,7 +103,7 @@ internal data class TrafficState(
                             it.copy(
                                 statusCode = event.status_code,
                                 responseHeaders = event.headers,
-                                responseBody = event.body,
+                                responseBody = CapturedBody(event.body, event.body_truncated, event.body_size),
                                 endedAtMs = at,
                             )
                         }

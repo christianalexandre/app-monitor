@@ -49,6 +49,7 @@ object Samples {
                     Header("Accept", "application/json"),
                 ),
             body = """{"name":"café"}""".encodeUtf8(),
+            body_size = 16,
         )
 
     val responseReceived =
@@ -57,6 +58,8 @@ object Samples {
             status_code = 201,
             headers = listOf(Header("Content-Type", "application/octet-stream")),
             body = byteArrayOf(0x00, 0x7F, 0x80.toByte(), 0xFF.toByte()).toByteString(),
+            body_truncated = true,
+            body_size = 2_097_152,
         )
 
     val requestFailed =
