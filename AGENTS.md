@@ -128,8 +128,9 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Android sample APKs (debug with the SDK, release with `sdk/no-op`) | `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease` | active; `:samples:android:checkReleaseHasNoSdk` in `check`, ADR-0030 |
 | Sample host tests (WebSocket echo listener) | `./gradlew :samples:android:testDebugUnitTest` | active; JVM, no device |
 | Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
-| Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, ADR-0013 |
+| Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh` and `scripts/test_debt_check.sh`, ADR-0013 |
 | Branch name check | `make branch-check` | active |
+| Open DEBTs whose trigger names a file the branch changes | `make debt-check` | active; `BASE=<ref>` (default `origin/dev`), committed and uncommitted changes, always exits 0; `/next` self-check, ADR-0051 |
 | Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019) |
 | Follow the running loop live | `make loop-watch` | active |
 | Create the loop worktree | `make loop-worktree` | active; honours `LOOP_WORKTREE`; open `claude` there once to accept the trust dialog |

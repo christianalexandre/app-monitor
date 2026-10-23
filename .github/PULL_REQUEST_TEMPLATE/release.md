@@ -12,6 +12,10 @@ Version: <!-- x.y.z -->
 - [ ] No `Proposed` ADR and no `[!]` task in the released milestones
 - [ ] Tech-debt with trigger "before release" paid or consciously re-triggered
 
+## DEBT triggers
+
+<!-- Each DEBT `make debt-check` lists: paid, re-triggered, or not fired and why. "None fired" otherwise. -->
+
 ## After merge
 
 - [ ] Tag `vX.Y.Z` on `main`

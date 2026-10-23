@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample swift-proto desktop server fake-traffic branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -18,6 +18,7 @@ lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 
 scripts-test: ## Bash tests of the loop scripts (ADR-0013)
 	@scripts/test_loop.sh
+	@scripts/test_debt_check.sh
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
@@ -45,6 +46,9 @@ fake-traffic: ## Replay protocol fixtures to a desktop (ARGS="--host H --port N 
 
 branch-check: ## Current branch follows <type>/<kebab-slug>
 	@scripts/branch_check.sh
+
+debt-check: ## Open DEBTs whose trigger names a file this branch changes (BASE=origin/dev, ADR-0051)
+	@scripts/debt_check.sh $(or $(BASE),origin/dev)
 
 loop: ## Run /next in fresh sessions in ../app-monitor-loop until it stops
 	@scripts/loop.sh

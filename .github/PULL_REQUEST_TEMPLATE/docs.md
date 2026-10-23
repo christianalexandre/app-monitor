@@ -13,3 +13,7 @@ Task: <!-- id or N/A -->
 | Command | Result |
 | --- | --- |
 | `make docs-check` | |
+
+## DEBT triggers
+
+<!-- Each DEBT `make debt-check` lists: paid, re-triggered, or not fired and why. "None fired" otherwise. -->

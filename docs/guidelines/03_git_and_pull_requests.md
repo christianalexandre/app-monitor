@@ -41,6 +41,8 @@ How work leaves and comes back to `dev`.
 - **Body** from the template for the branch type:
   `.github/PULL_REQUEST_TEMPLATE/<type>.md`. `/pr` picks it automatically.
 - Every PR states **what was actually run** and what was not.
+- Every PR answers the open DEBTs whose trigger names a file it changes
+  (`make debt-check`, ADR-0051): paid, re-triggered, or not fired and why.
 - **Squash merge** into `dev`. **Merge commit** for `dev → main`, so release
   history keeps every change.
 - Delete the work branch after merge.
