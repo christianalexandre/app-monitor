@@ -88,7 +88,7 @@ written down as states and transitions (SDD) before their code.
   Accept: `./gradlew :desktop:app:test` — a UI test shows frames of a
   WebSocket exchange; a body at the protocol limit renders without blocking
   the UI thread (bounded time).
-- [ ] **M1.11 Android sample app.** `samples/android`: a Compose app with a
+- [x] **M1.11 Android sample app.** (ADR-0030; Compose BOM held at 1.11 for `compileSdk` 36; the Android 17 emulator gave no implicit local network grant, so the debug sample asks for it, DEBT-0030; `make server` / `make fake-traffic` failed without `ARGS` on Gradle 9.7, fixed) `samples/android`: a Compose app with a
   few buttons (GET JSON, POST, 404, timeout, WebSocket echo) using OkHttp
   with the interceptor; debug uses `sdk/android-okhttp`, release `sdk/no-op`.
   Accept: `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease`;

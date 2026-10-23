@@ -114,6 +114,8 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Headless desktop server, logs envelopes to stdout | `make server` | active; `ARGS="--port N"` |
 | Replay fixture traffic to a desktop | `make fake-traffic` | active; mDNS discovery, or `ARGS="--host H [--port N]"`; `--name S` picks a service, `--timeout MS` bounds discovery |
 | Fake client tests (replay + mDNS discovery) | `./gradlew :tools:fake-client:test` | active; needs a multicast-capable LAN interface |
+| Android sample APKs (debug with the SDK, release with `sdk/no-op`) | `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease` | active; `:samples:android:checkReleaseHasNoSdk` in `check`, ADR-0030 |
+| Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
 | Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, ADR-0013 |
 | Branch name check | `make branch-check` | active |
 | Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019) |
