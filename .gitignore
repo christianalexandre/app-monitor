@@ -19,6 +19,7 @@ DerivedData/
 .swiftpm/
 *.xcworkspace/xcuserdata/
 sdk/ios/TestHost/TestHost.xcodeproj/
+samples/ios/Sample.xcodeproj/
 
 # Claude Code (config local, não compartilhada)
 .claude/settings.local.json

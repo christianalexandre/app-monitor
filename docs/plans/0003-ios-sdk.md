@@ -98,7 +98,7 @@ Pulse (ADR-0003).
   M2.1 (b) decides to debug builds only.
   Accept: a debug build of the sample has the keys, a release build has
   none (`plutil` output in the PR).
-- [ ] **M2.12 SwiftUI sample app.** `samples/ios`: GET JSON, POST, 404,
+- [x] **M2.12 SwiftUI sample app.** (ADR-0050: XcodeGen spec, `make ios-sample` in `make swift` scans the release binary for SDK names; `-runAll YES` launch argument runs every button) `samples/ios`: GET JSON, POST, 404,
   timeout, upload, WebSocket echo, background download; debug uses the SDK,
   release gets the stubs of the same product; its Run Script phase runs
   M2.11's script.

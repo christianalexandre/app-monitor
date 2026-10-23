@@ -8,7 +8,7 @@ What a machine needs to build and test the whole repository.
 | --- | --- | --- |
 | JDK | 21 | Gradle, desktop app |
 | Xcode | 26.x | iOS SDK, iOS samples, simulator tests (macOS only) |
-| XcodeGen | 2.46.0 tested, `brew install xcodegen` | `make swift-sim`: the iOS test host project (ADR-0047) |
+| XcodeGen | 2.46.0 tested, `brew install xcodegen` | `make swift-sim`, `make ios-sample`: the iOS test host and sample projects (ADR-0047, ADR-0050) |
 | Android SDK | `ANDROID_HOME` (the `Makefile` defaults it to `~/Library/Android/sdk`), `platform-tools` and `emulator` on `PATH` | Android targets, emulator tests |
 | GitHub CLI | authenticated | PRs from `/pr` and `/next` |
 | GNU Make | any | command façade |
@@ -21,7 +21,8 @@ swift-protobuf for `sdk/ios` (ADR-0039). `make check` runs the Swift gates
 (`make swift`) only on macOS with `swift` on the `PATH`; elsewhere it prints
 `swift: SKIPPED` (ADR-0037). Inside `make swift`, the simulator tests
 (`make swift-sim`) need XcodeGen and an iPhone simulator; without XcodeGen
-they print `swift-sim: SKIPPED` (ADR-0047).
+they print `swift-sim: SKIPPED` (ADR-0047), and the sample build
+(`make ios-sample`) `ios-sample: SKIPPED` (ADR-0050).
 The Android SDK must provide platform `android-36` and build tools 36.0.0
 (AGP 9.3, ADR-0007).
 
@@ -66,6 +67,18 @@ JSON and the WebSocket exchanges into `docs/screenshots/<liveName>-*.png`.
 Properties: `liveName`, `liveExchanges` (5), `liveTimeoutMs` (300000),
 `liveAdvertise` (true). The buttons call public services, so the machine and
 the device need internet.
+
+### The iOS sample against a desktop
+
+`make ios-sample` builds `samples/ios` into `build/ios-sample/`. With
+`make server` or `make desktop` running, install the Debug app on a booted
+simulator and launch it with `-runAll YES`, which runs every button in turn;
+the simulator finds the desktop on its host's loopback:
+
+```sh
+xcrun simctl install booted build/ios-sample/Build/Products/Debug-iphonesimulator/Sample.app
+xcrun simctl launch booted dev.appmonitor.sample -runAll YES
+```
 
 ## CI
 
