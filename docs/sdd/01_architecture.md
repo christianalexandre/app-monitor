@@ -17,7 +17,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
 ```
 
 Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
-`tools/fake-client`. Everything else is **(planned)**.
+`tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`,
+`sdk/no-op`) and `samples/android`. Everything else is **(planned)**.
 
 ## Protocol
 
@@ -161,6 +162,17 @@ a stack trace (DEBT-0010). See ADR-0010.
   OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor adapter
   **(planned)**. Connection states, offline buffer and `stop()`: SDD 04
   (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
+- **Android entry point** (ADR-0017): `AppMonitor.start(context, options)` /
+  `stop()`; `AppMonitorOptions` holds the enabled flag, manual host and port,
+  app name, masked headers and query parameters, and `maxBodyBytes`. Masking
+  and the body limit run on the device, before the wire (ADR-0018). Capture:
+  `AppMonitorInterceptor` and `AppMonitorWebSocketFactory`.
+- **Release builds** depend on `sdk/no-op`: the same public types doing
+  nothing, kept identical by comparing the committed ABI dumps (ADR-0026).
+- `samples/android` uses the SDK in debug and `sdk/no-op` in release, and
+  `checkReleaseHasNoSdk` proves the release APK has no SDK classes
+  (ADR-0030). It is the device side of the end-to-end run (SDD 02,
+  ADR-0031).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 

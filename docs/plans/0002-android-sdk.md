@@ -102,7 +102,7 @@ written down as states and transitions (SDD) before their code.
   Accept: screenshots in `docs/screenshots/` of the desktop showing the
   sample's traffic from each; if no physical device is available, stop and
   say so.
-- [ ] **M1.13 Docs sync.** SDD architecture and code map, `AGENTS.md`
+- [x] **M1.13 Docs sync.** (`docs/m1-docs-sync`; README status, platforms and usage, SDD 01 built modules and SDKs, SDD 02 `appmonitor.kmp-sdk`; `AGENTS.md` and SDD 03 already current) SDD architecture and code map, `AGENTS.md`
   commands, README status rows reflect M1.
   Accept: `make docs-check`.
 

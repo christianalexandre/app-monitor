@@ -11,9 +11,10 @@ the same network. The desktop keeps a searchable history and exposes a local
 checkout fail in the last run?"* straight from the captured traffic.
 
 > [!NOTE]
-> **Status: pre-alpha.** The architecture and workflow are defined; code lands
-> milestone by milestone. Everything below marked *planned* does not exist
-> yet. Current milestone: [M0 — Foundation](docs/plans/0001-foundation.md).
+> **Status: pre-alpha.** Code lands milestone by milestone. Android apps
+> using OkHttp already show their traffic in the desktop, on the emulator and
+> on a device; everything below marked *planned* does not exist yet. Current
+> milestone: [M1 — Android SDK](docs/plans/0002-android-sdk.md).
 
 ## Why
 
@@ -62,6 +63,8 @@ flowchart LR
    message inside a channel envelope — the same transport will carry logs,
    analytics and storage inspection later.
 
+![The desktop showing a physical Android device's traffic](docs/screenshots/device-traffic.png)
+
 Design details: [architecture](docs/sdd/01_architecture.md) and the
 [decision records](docs/adr/README.md).
 
@@ -69,18 +72,18 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 
 | Platform | SDK | Captures | Status |
 | --- | --- | --- | --- |
-| Android | `sdk-android` | OkHttp (Retrofit, Apollo, …) | planned — M1 |
+| Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
 | iOS | `sdk-ios` (Swift Package) | All `URLSession` traffic, incl. background sessions | planned — M2 |
 | iOS | `sdk-ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
-| Desktop | macOS · Linux · Windows | — | skeleton, in-memory — M0 |
+| Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
 
 ## Roadmap
 
 | Milestone | Delivers |
 | --- | --- |
 | [M0 — Foundation](docs/plans/0001-foundation.md) | Protocol, desktop server and UI, fake traffic end to end |
-| M1 — Android SDK | Real Android apps on emulator and device |
+| [M1 — Android SDK](docs/plans/0002-android-sdk.md) | Real Android apps on emulator and device |
 | M2 — iOS SDK | Real iOS apps, full `URLSession` coverage |
 | M3 — Release gate | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
 | M4 — KMP SDK | Ktor plugin for every KMP target |
@@ -93,20 +96,29 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
-## Planned usage
+## Usage
 
 > [!IMPORTANT]
-> Illustrative only — the public API is defined in M1 and M2 and may change.
+> Not published yet (M10); the API may change before then. The Android API
+> is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md); iOS is
+> illustrative until M2.
 
 ```kotlin
-// Android — debug builds only
+// Android — Application.onCreate
+AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+
 val client = OkHttpClient.Builder()
     .addInterceptor(AppMonitorInterceptor())
     .build()
+val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
 ```
 
+Debug builds depend on `sdk/android-okhttp`, release builds on `sdk/no-op`
+(same API, does nothing). A working app is in
+[`samples/android`](samples/android).
+
 ```swift
-// iOS
+// iOS (planned)
 #if DEBUG
 AppMonitor.start()
 #endif
