@@ -1,7 +1,7 @@
 ---
 id: ADR-0044
 title: Whether a custom-scheme Location gets the URL masking rule
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -90,7 +90,9 @@ code in clear one character away (`myapp:oauth` vs `myapp:/oauth`).
 
 ## Decision
 
-Empty while `Proposed`.
+Option 1, taken by the owner: every absolute URI in `Location` or
+`Content-Location` gets the URL rule by RFC 3986 generic syntax, in both
+SDKs. Whoever wants the value in clear has `masking = false` (ADR-0034).
 
 ## Consequences
 
