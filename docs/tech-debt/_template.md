@@ -23,7 +23,8 @@ where.
 
 ## Trigger
 
-Same as the frontmatter, with context. Must be an **event**:
+Same as the frontmatter, with context. Must be an **event**. Put file
+names in backticks so `make debt-check` sees them (ADR-0051):
 
 | Not a trigger | A trigger |
 | --- | --- |
