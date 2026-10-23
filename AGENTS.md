@@ -98,7 +98,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | What | Command | State |
 | --- | --- | --- |
 | List make targets | `make help` | active; default goal |
-| All gates | `make check` | active: `docs-check` + `lint` + `scripts-test` + `build` |
+| All gates | `make check` | active: `docs-check` + `lint` + `scripts-test` + `build` + `swift` |
 | Docs consistency | `make docs-check` | active |
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
@@ -108,7 +108,10 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | No-op SDK check (API matches the real SDK, defaults) | `./gradlew :sdk:no-op:check` | active; compares `sdk/*/api/` dumps, ADR-0026 |
 | Update SDK public API dumps | `./gradlew updateKotlinAbi` | active; after a deliberate public API change, then align `sdk/no-op` |
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
-| Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change |
+| Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change; mirror the change in `sdk/ios/Tests/AppMonitorTests/Samples.swift` |
+| iOS SDK gates (proto freshness, swift-format, `swift test`) | `make swift` | active; macOS with `swift` only, prints `swift: SKIPPED` elsewhere; ADR-0037, ADR-0039 |
+| iOS SDK contract tests (fixtures decode and re-encode) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host |
+| Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |
 | Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
 | Desktop app tests (store, body formats, offscreen UI) | `./gradlew :desktop:app:test` | active; screenshots in `desktop/app/build/screenshots/` (`app.png`, `approval.png`, `frames.png`) |
 | End to end screenshots from a real device or emulator | `./gradlew :desktop:app:liveScreenshots -PliveName=device` | active; real server on 47474, approves the first device, writes `docs/screenshots/<name>-*.png`; `-PliveAdvertise=false` forces the emulator's `10.0.2.2`; drive the sample by hand, SDD 02, ADR-0031 |

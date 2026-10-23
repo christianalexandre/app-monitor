@@ -14,7 +14,11 @@ What a machine needs to build and test the whole repository.
 | jq | any | `make loop`, `make loop-watch` |
 | Claude Code CLI | logged in | `make loop` |
 
-No `protoc` is needed: Wire generates Kotlin without it (ADR-0001).
+No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
+`make swift-proto` builds `protoc` and `protoc-gen-swift` from the pinned
+swift-protobuf for `sdk/ios` (ADR-0039). `make check` runs the Swift gates
+(`make swift`) only on macOS with `swift` on the `PATH`; elsewhere it prints
+`swift: SKIPPED` (ADR-0037).
 The Android SDK must provide platform `android-36` and build tools 36.0.0
 (AGP 9.3, ADR-0007).
 
@@ -67,7 +71,8 @@ the device need internet.
 Gradle cache PRs read). It uses the runner's preinstalled Android SDK
 (`ANDROID_HOME` from the environment wins over the `Makefile` default) and
 `setup-gradle` with `cache-provider: basic`. iOS tasks are skipped on Linux,
-so iOS simulator tests run only locally until the release gate (M3). See
+so iOS simulator tests and `make swift` run only locally until the release
+gate (M3). See
 ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
 trailers and `make docs-check`.
 
