@@ -51,4 +51,5 @@ Rules:
 | [0031](0031-m1-review-round-1-cleanups.md) | Non-correctness findings of the first M1 milestone review | The next PR that touches one of the files listed | Open |
 | [0032](0032-fake-client-close-test-flaky-in-ci.md) | The fake client's "desktop closes with an error" test failed once in CI | The second CI failure of `MainTest > a desktop that closes the session with an error exits 1`, or any failure of it on a developer machine | Open |
 | [0033](0033-m1-review-round-2-cleanups.md) | Non-correctness findings of the second M1 milestone review | The next PR that touches one of the files listed | Open |
-| [0034](0034-m1-review-round-3-cleanups.md) | Non-correctness findings of the third M1 milestone review | The next PR that touches one of the files listed | Open |
+| [0034](0034-m1-review-round-3-cleanups.md) | Non-correctness findings of the third M1 milestone review | The next PR that touches one of the files listed | Paid |
+| [0035](0035-non-http-location-not-masked.md) | A Location that is not an http or https URL is sent as received | The iOS SDK (M2) implements the URL masking rule, or a developer reports a secret seen in a custom-scheme redirect | Open |

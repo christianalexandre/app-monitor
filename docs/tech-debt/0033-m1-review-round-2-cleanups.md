@@ -14,12 +14,6 @@ paid_date:
 Findings of the `code-review` of `1896eb4..f90e316` that are not wrong
 results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
 
-- `sdk/android-okhttp/.../Capture.kt`: `HttpUrl.Builder` percent-encodes the
-  mask, so a masked URL password or query parameter reaches the desktop as
-  `%E2%96%88%E2%96%88`, not the `██` SDD 05 describes. The secret is still
-  hidden; only the shown value differs from the doc.
-- `sdk/android-okhttp/.../Capture.kt`: `Masking.url` has three exit paths
-  where one builder pass would do.
 - `desktop/app/.../ui/BodyFormat.kt`: since M1.R1 a chunk is cut only at a
   line break, so it may reach about twice `CHUNK_CHARS`, and a long line
   after short ones is cut with them in one item of up to ~16 K characters.
@@ -38,4 +32,7 @@ items.
 
 ## How it was paid
 
-> Filled when closing.
+Partly. The `Capture.kt` items were paid by PLAN-0002 M1.R5
+(`fix/mask-urls-in-response-headers`): a masked URL reaches the desktop with
+`██`, not its percent-encoding, user name included, and `Masking.url` makes
+one builder pass. The `BodyFormat.kt` item is open.

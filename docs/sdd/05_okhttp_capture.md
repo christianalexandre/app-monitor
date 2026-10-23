@@ -18,8 +18,12 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 - **Masking**, on the device before the envelope is built:
   `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` plus
   `maskedHeaders` keep their name and get the value `██`;
-  `maskedQueryParameters` do the same in the URL, and a non-empty URL user
-  name and password are always `██` (ADR-0032). Names compare
+  `maskedQueryParameters` do the same in the URL's query and in a
+  `name=value&…` fragment (ADR-0033), and a non-empty URL user name and
+  password are always `██` (ADR-0032). `██` is sent as is, not
+  percent-encoded. A response's `Location` and `Content-Location` are
+  resolved against the request URL and get the same URL rule; a value that
+  is not an `http` or `https` URL is sent as received (DEBT-0035). Names compare
   case-insensitively, as in OkHttp's `HttpLoggingInterceptor`. Bodies are
   never masked (DEBT-0019).
 - **Body limit**: `maxBodyBytes`, 1 MiB by default and at most

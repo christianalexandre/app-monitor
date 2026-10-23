@@ -163,15 +163,7 @@ class AppMonitorInterceptorTest {
         assertEquals("Bearer abc", sent.headers["Authorization"])
         assertEquals("abc", sent.url.queryParameter("token"))
         val started = sink.started()
-        assertEquals(
-            server
-                .url("/me")
-                .newBuilder()
-                .addQueryParameter("token", MASK)
-                .addQueryParameter("page", "1")
-                .toString(),
-            started.url,
-        )
+        assertEquals("http://${server.hostName}:${server.port}/me?token=██&page=1", started.url)
         assertContains(started.headers, Header("Authorization", MASK))
         assertContains(started.headers, Header("X-Api-Key", MASK))
         assertContains(started.headers, Header("Accept", "text/plain"))
@@ -193,14 +185,7 @@ class AppMonitorInterceptorTest {
         client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
 
         val started = sink.started()
-        assertEquals(
-            url
-                .newBuilder()
-                .username(MASK)
-                .password(MASK)
-                .toString(),
-            started.url,
-        )
+        assertEquals("http://██:██@${server.hostName}:${server.port}/me?page=1", started.url)
         assertFalse("s3cret" in started.url)
         assertFalse("user" in started.url)
         val captured = started.url.toHttpUrl()
@@ -227,6 +212,122 @@ class AppMonitorInterceptorTest {
         val captured = started.url.toHttpUrl()
         assertEquals(MASK, captured.username)
         assertEquals("", captured.password)
+    }
+
+    @Test
+    fun aUrlPasswordWithoutUserNameIsMasked() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val url =
+            server
+                .url("/repo")
+                .newBuilder()
+                .password("s3cret")
+                .build()
+
+        client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
+
+        val captured = sink.started().url.toHttpUrl()
+        assertEquals("", captured.username)
+        assertEquals(MASK, captured.password)
+    }
+
+    @Test
+    fun aFormEncodedFragmentGetsTheQueryRule() {
+        val sink = RecordingSink(AppMonitorOptions(maskedQueryParameters = setOf("access_token")))
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val url = server.url("/cb#access_token=abc&state=xyz")
+
+        client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
+
+        assertEquals("access_token=██&state=xyz", sink.started().url.substringAfter('#'))
+    }
+
+    @Test
+    fun aFragmentThatIsNotFormEncodedIsKept() {
+        val sink = RecordingSink(AppMonitorOptions(maskedQueryParameters = setOf("access_token")))
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val url = server.url("/docs#access_token")
+
+        client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
+
+        assertEquals(url.toString(), sink.started().url)
+    }
+
+    @Test
+    fun aRedirectLocationGetsTheUrlRule() {
+        val sink = RecordingSink(AppMonitorOptions(maskedQueryParameters = setOf("code", "access_token")))
+        val location = "https://user:s3cret@client.example.com/cb?code=abc&state=1#access_token=tok&token_type=bearer"
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .code(302)
+                .setHeader("Location", location)
+                .setHeader("Content-Location", "/landing?code=def")
+                .build(),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .followRedirects(false)
+                .addInterceptor(AppMonitorInterceptor(sink))
+                .build()
+
+        client.newCall(Request.Builder().url(server.url("/authorize")).build()).execute().close()
+
+        sink.started()
+        val headers = sink.received().headers
+        assertContains(
+            headers,
+            Header("Location", "https://██:██@client.example.com/cb?code=██&state=1#access_token=██&token_type=bearer"),
+        )
+        assertContains(headers, Header("Content-Location", server.url("/landing").toString() + "?code=██"))
+    }
+
+    @Test
+    fun aLocationNamedInMaskedHeadersIsMaskedWhole() {
+        val sink = RecordingSink(AppMonitorOptions(maskedHeaders = setOf("location")))
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .code(302)
+                .setHeader("Location", "/next")
+                .build(),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .followRedirects(false)
+                .addInterceptor(AppMonitorInterceptor(sink))
+                .build()
+
+        client.newCall(Request.Builder().url(server.url("/")).build()).execute().close()
+
+        sink.started()
+        assertContains(sink.received().headers, Header("Location", MASK))
+    }
+
+    @Test
+    fun aLocationThatIsNotAnHttpUrlIsSentAsReceived() {
+        val sink = RecordingSink(AppMonitorOptions(maskedQueryParameters = setOf("code")))
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .code(302)
+                .setHeader("Location", "com.example.app:/oauth?code=abc")
+                .build(),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .followRedirects(false)
+                .addInterceptor(AppMonitorInterceptor(sink))
+                .build()
+
+        client.newCall(Request.Builder().url(server.url("/")).build()).execute().close()
+
+        sink.started()
+        assertContains(sink.received().headers, Header("Location", "com.example.app:/oauth?code=abc"))
     }
 
     @Test

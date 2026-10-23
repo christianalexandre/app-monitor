@@ -133,6 +133,35 @@ class AppMonitorWebSocketFactoryTest {
         }
     }
 
+    @Test
+    fun theUpgradeUrlUserInfoIsMasked() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(Echo()).build())
+        val opened = CountDownLatch(1)
+        val listener =
+            object : WebSocketListener() {
+                override fun onOpen(
+                    webSocket: WebSocket,
+                    response: Response,
+                ) {
+                    opened.countDown()
+                    webSocket.cancel()
+                }
+            }
+        val url =
+            server
+                .url("/ws")
+                .newBuilder()
+                .username("user")
+                .password("s3cret")
+                .build()
+
+        AppMonitorWebSocketFactory(OkHttpClient(), sink).newWebSocket(Request.Builder().url(url).build(), listener)
+
+        assertTrue(opened.await(5, TimeUnit.SECONDS))
+        assertEquals("http://██:██@${server.hostName}:${server.port}/ws", sink.started().url)
+    }
+
     private fun closePayload(
         code: Int,
         reason: String,
