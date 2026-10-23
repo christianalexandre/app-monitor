@@ -106,6 +106,43 @@ written down as states and transitions (SDD) before their code.
   commands, README status rows reflect M1.
   Accept: `make docs-check`.
 
+### First milestone review
+
+Findings of the `code-review` of `03a2474..1896eb4`. Three are correctness
+findings and became tasks. Three went to DEBT-0031 (gzip bytes under
+`addNetworkInterceptor`, quadratic frame ingestion, the connect-failure log
+not re-armed after a session). Four were rejected: a request body that is not
+`isOneShot()` may be written more than once by OkHttp's own contract (it
+retransmits on stale connections, 408, 401/407, `RequestBody.kt` KDoc), so
+reading it is allowed; a response never read nor closed sends no
+`ResponseReceived` by design (ADR-0025, SDD 05 limits); an envelope in flight
+when the socket dies is lost as documented (SDD 04, DEBT-0023); a rejected
+device stays rejected until the desktop quits by the owner's decision
+(ADR-0018 E).
+
+- [ ] **M1.R1 Body chunks cut inside short lines.** `chunked` measures the
+  long-line bound from the start of the chunk, not of the line, so a chunk of
+  fewer than 100 lines that passes 8192 characters (a pretty-printed body of
+  ~90-character lines) is cut mid-line and the line shows on two rows.
+  Accept: `./gradlew :desktop:app:test` — a test with 100 lines of 90
+  characters gets every line whole, and a single line over the bound is
+  still cut.
+- [ ] **M1.R2 Sample WebSocket echo resumes twice.** `webSocketEcho` resumes
+  its continuation in `onClosing` and again in `onFailure`, which OkHttp can
+  call after `onClosing` (a reset after the close frame, the close timeout),
+  so `resume` throws `IllegalStateException` on OkHttp's thread and the
+  sample crashes.
+  Accept: `./gradlew :samples:android:testDebugUnitTest` (or the build, if
+  the sample has no host tests) — the continuation is resumed at most once
+  when both callbacks run.
+- [ ] **M1.R3 URL password sent in clear.** `Masking.url` masks only query
+  parameters; `https://user:pass@host/x` reaches the desktop with the
+  password, although credentials in headers are masked by default
+  (ADR-0018 B). The password is masked with `██`, the user name kept, as for
+  a header.
+  Accept: `./gradlew :sdk:android-okhttp:allTests` — a request to a URL with
+  user info arrives with the password masked and the user name kept.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
