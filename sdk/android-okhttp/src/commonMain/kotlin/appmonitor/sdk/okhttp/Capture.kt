@@ -16,9 +16,11 @@ import okhttp3.RequestBody
 import okhttp3.Response
 import okio.Buffer
 import okio.ByteString
+import okio.ByteString.Companion.encodeUtf8
 import okio.Sink
 import okio.Timeout
 import okio.buffer
+import java.net.URLDecoder
 import java.util.TreeSet
 import java.util.UUID
 
@@ -36,10 +38,22 @@ internal object MonitorSink : CaptureSink {
     override fun send(envelope: Envelope) = MonitorBridge.send(envelope)
 }
 
-/** The value a masked header, query parameter or URL password is sent with (ADR-0018). */
+/** The value a masked header, query or fragment parameter, URL user name or password is sent with (ADR-0018). */
 internal const val MASK: String = "██"
 
+/** [MASK] as `HttpUrl` percent-encodes it; turned back into [MASK] in a masked URL. */
+private val ENCODED_MASK: String =
+    MASK
+        .encodeUtf8()
+        .hex()
+        .uppercase()
+        .chunked(2)
+        .joinToString("") { "%$it" }
+
 internal val DEFAULT_MASKED_HEADERS: Set<String> = setOf("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie")
+
+/** Response headers whose value is a URL, masked as one (ADR-0033). */
+internal val URL_RESPONSE_HEADERS: Set<String> = setOf("Location", "Content-Location")
 
 /** ADR-0018 B: names compared case-insensitively, the name kept and the value replaced by [MASK]. */
 internal class Masking(
@@ -47,23 +61,55 @@ internal class Masking(
 ) {
     private val headerNames = caseInsensitive(DEFAULT_MASKED_HEADERS + options.maskedHeaders)
     private val queryNames = caseInsensitive(options.maskedQueryParameters)
+    private val urlHeaderNames = caseInsensitive(URL_RESPONSE_HEADERS)
 
-    fun headers(headers: Headers): List<Header> = headers.map { (name, value) -> Header(name, if (name in headerNames) MASK else value) }
+    /** With [base], a [URL_RESPONSE_HEADERS] value is resolved against it and masked by [url]. */
+    fun headers(
+        headers: Headers,
+        base: HttpUrl? = null,
+    ): List<Header> =
+        headers.map { (name, value) ->
+            val masked =
+                when {
+                    name in headerNames -> MASK
+                    base != null && name in urlHeaderNames -> base.resolve(value)?.let(::url) ?: value
+                    else -> value
+                }
+            Header(name, masked)
+        }
 
     fun url(url: HttpUrl): String {
-        val maskQuery = queryNames.isNotEmpty() && url.querySize > 0
-        if (!maskQuery && url.username.isEmpty() && url.password.isEmpty()) return url.toString()
-        val masked = url.newBuilder()
+        val maskQuery = (0 until url.querySize).any { url.queryParameterName(it) in queryNames }
+        val fragment = url.encodedFragment?.let(::fragment)
+        if (url.username.isEmpty() && url.password.isEmpty() && !maskQuery && fragment == url.encodedFragment) return url.toString()
+        val masked = url.newBuilder().encodedFragment(fragment)
         if (url.username.isNotEmpty()) masked.username(MASK)
         if (url.password.isNotEmpty()) masked.password(MASK)
-        if (!maskQuery) return masked.build().toString()
-        masked.query(null)
-        for (i in 0 until url.querySize) {
-            val name = url.queryParameterName(i)
-            masked.addQueryParameter(name, if (name in queryNames) MASK else url.queryParameterValue(i))
+        if (maskQuery) {
+            masked.query(null)
+            for (i in 0 until url.querySize) {
+                val name = url.queryParameterName(i)
+                masked.addQueryParameter(name, if (name in queryNames) MASK else url.queryParameterValue(i))
+            }
         }
-        return masked.build().toString()
+        return masked.build().toString().replace(ENCODED_MASK, MASK)
     }
+
+    /** ADR-0033: each `name=value` field of an encoded fragment gets the query rule; other fields stay. */
+    private fun fragment(encoded: String): String {
+        if (queryNames.isEmpty()) return encoded
+        return encoded.split('&').joinToString("&") { field ->
+            val name = field.substringBefore('=', missingDelimiterValue = "")
+            if (field.contains('=') && formDecoded(name) in queryNames) "$name=$MASK" else field
+        }
+    }
+
+    private fun formDecoded(name: String): String =
+        try {
+            URLDecoder.decode(name, "UTF-8")
+        } catch (e: IllegalArgumentException) {
+            name
+        }
 
     private fun caseInsensitive(names: Set<String>) = TreeSet(String.CASE_INSENSITIVE_ORDER).apply { addAll(names) }
 }
@@ -156,7 +202,7 @@ internal fun responseReceived(
     ResponseReceived(
         request_id = id,
         status_code = response.code,
-        headers = masking.headers(response.headers),
+        headers = masking.headers(response.headers, base = response.request.url),
         body = body.bytes,
         body_truncated = body.truncated,
         body_size = body.size,

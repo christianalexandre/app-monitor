@@ -1,10 +1,10 @@
 ---
 id: DEBT-0034
 title: Non-correctness findings of the third M1 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR that touches one of the files listed below
-paid_date:
+paid_date: 2026-10-23
 ---
 
 # DEBT-0034 — Non-correctness findings of the third M1 milestone review
@@ -37,4 +37,6 @@ DEBT-0033 pays that file's items.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0002 M1.R5 (`fix/mask-urls-in-response-headers`): `MASK`'s KDoc names
+the user name; DEBT-0033's encoded-mask item was paid, so it is gone; tests
+cover a WebSocket upgrade URL's user info and `https://:pw@host/`.
