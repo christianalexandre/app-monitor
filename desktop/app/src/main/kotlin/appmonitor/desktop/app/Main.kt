@@ -11,6 +11,7 @@ import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
@@ -33,7 +34,8 @@ import kotlin.time.Duration
 fun main() {
     val store = TrafficStore()
     var status by mutableStateOf("Starting server…")
-    val server = AppMonitorServer()
+    val approvals = DeviceApprovals()
+    val server = AppMonitorServer(approval = approvals)
     val stop = once(server::stop)
     addStopHook(stop)
     exitAfter {
@@ -46,7 +48,8 @@ fun main() {
                         state = rememberWindowState(width = 1280.dp, height = 800.dp),
                     ) {
                         val state by store.state.collectAsState()
-                        AppMonitorApp(state, status)
+                        val pending by approvals.pending.collectAsState()
+                        AppMonitorApp(state, status, pending, approvals::decide)
                     }
                 }
             }

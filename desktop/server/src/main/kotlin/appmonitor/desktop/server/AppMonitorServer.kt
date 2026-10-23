@@ -24,8 +24,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
@@ -35,7 +37,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * WebSocket server devices connect to (ADR-0002); each handshaken connection is a
+ * WebSocket server devices connect to (ADR-0002); each handshaken connection [approval] admits is a
  * [DeviceSession] on [sessions]. Single use: [sessions] completes on [stop] for good.
  */
 class AppMonitorServer internal constructor(
@@ -47,9 +49,13 @@ class AppMonitorServer internal constructor(
         embeddedServer(CIO, host = config.host, port = config.port, module = module)
     },
     private val startEngine: suspend (EmbeddedServer<*, *>) -> Unit = { it.startSuspend(wait = false) },
+    private val approval: DeviceApproval = DeviceApproval.ApproveAll,
     private val startAdvertiser: (serviceName: String, port: Int) -> MdnsAdvertiser,
 ) {
-    constructor(config: ServerConfig = ServerConfig()) : this(config, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
+    constructor(
+        config: ServerConfig = ServerConfig(),
+        approval: DeviceApproval = DeviceApproval.ApproveAll,
+    ) : this(config, approval = approval, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
 
@@ -184,6 +190,11 @@ class AppMonitorServer internal constructor(
             close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
             return
         }
+        val approved = awaitApproval(hello) ?: return
+        if (!approved) {
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
+            return
+        }
         val session =
             DeviceSession(
                 id = UUID.randomUUID().toString(),
@@ -215,6 +226,20 @@ class AppMonitorServer internal constructor(
             session.close()
         }
     }
+
+    // No timeout: the user may take minutes. The device leaving, or sending before HelloAck, withdraws the request.
+    private suspend fun DefaultWebSocketServerSession.awaitApproval(hello: Hello): Boolean? =
+        coroutineScope {
+            val decision = async { approval.approve(hello) }
+            select {
+                decision.onAwait { it }
+                incoming.onReceiveCatching { frame ->
+                    decision.cancel()
+                    if (frame.isSuccess) close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Envelope before HelloAck"))
+                    null
+                }
+            }
+        }
 
     private fun helloAck(session: DeviceSession): Envelope =
         Envelope(

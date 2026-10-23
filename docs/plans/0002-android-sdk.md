@@ -76,7 +76,7 @@ written down as states and transitions (SDD) before their code.
   network; a check that its API matches the real SDK's.
   Accept: `./gradlew :sdk:no-op:check` — the API comparison passes and fails
   when one side gains a public member.
-- [ ] **M1.9 Desktop device approval.** Approval dialog per M1.1: a new device
+- [x] **M1.9 Desktop device approval.** (ADR-0027; a `DeviceApproval` hook on `AppMonitorServer`, `DeviceApprovals` in memory, an in-window panel; a frame before `HelloAck` closes 1002; DEBT-0028 opened, DEBT-0024 not triggered: the dialog shows `app_id`) Approval dialog per M1.1: a new device
   waits; approve or reject; approved devices stay approved for the app's
   lifetime (persisted in M5, DEBT if needed).
   Accept: `./gradlew :desktop:server:test :desktop:app:test` — a pending

@@ -1,5 +1,7 @@
 package appmonitor.desktop.app
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -16,15 +18,20 @@ import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.DeviceApprovals
+import appmonitor.desktop.server.DeviceKey
+import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
+import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -71,6 +78,66 @@ class AppMonitorAppTest {
             screenshot.parentFile.mkdirs()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", screenshot)
         }
+    }
+
+    @Test
+    fun `a pending device is admitted by clicking Approve in the dialog`() {
+        val approvals = DeviceApprovals()
+        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false), approvals)
+        val store = TrafficStore()
+        runBlocking {
+            val port = server.start()
+            val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }
+            val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
+            try {
+                runDesktopComposeUiTest(width = 1280, height = 800) {
+                    setContent {
+                        val state by store.state.collectAsState()
+                        val pending by approvals.pending.collectAsState()
+                        AppMonitorApp(state, "Listening", pending, approvals::decide)
+                    }
+
+                    waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
+                    onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
+                    onNodeWithText("Pixel 9 (emulator)").assertDoesNotExist()
+
+                    onNodeWithText("Approve").performClick()
+                    waitUntil(timeoutMillis = TIMEOUT_MS) {
+                        store.state.value.devices
+                            .run { isNotEmpty() && none { it.connected } }
+                    }
+                    onNodeWithText("Approve").assertDoesNotExist()
+                    onNodeWithText("Pixel 9 (emulator)").assertExists()
+                    onNodeWithText("201").assertExists()
+                }
+                assertTrue(withTimeout(TIMEOUT_MS) { replaying.await() }.isSuccess)
+            } finally {
+                collecting.cancel()
+                server.stop()
+            }
+        }
+    }
+
+    @Test
+    fun `Reject in the dialog decides the first pending device and shows the rest waiting`() {
+        val pending =
+            listOf("app.a", "app.b").map {
+                PendingDevice(DeviceKey("d1", it), Hello(device_name = "Pixel", device_id = "d1", app_id = it, os_version = "Android 16"))
+            }
+        val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
+
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(), "Listening", pending) { key, approved -> decisions += key to approved } }
+
+            onNodeWithText("Pixel — app.a wants to connect").assertExists()
+            onNodeWithText("1 more waiting").assertExists()
+            val screenshot = File(System.getProperty("screenshotDir"), "approval.png")
+            screenshot.parentFile.mkdirs()
+            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", screenshot)
+            onNodeWithText("Reject").performClick()
+        }
+
+        assertEquals(listOf(DeviceKey("d1", "app.a") to false), decisions)
     }
 
     @Test

@@ -3,6 +3,7 @@ package appmonitor.desktop.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -30,6 +32,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -40,13 +43,17 @@ import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
+import appmonitor.desktop.server.DeviceKey
+import appmonitor.desktop.server.PendingDevice
 import appmonitor.v1.Header
 
-/** Devices, then the selected device's requests, then the selected request. */
+/** Devices, then the selected device's requests, then the selected request; above them, the first device to approve. */
 @Composable
 internal fun AppMonitorApp(
     state: TrafficState,
     status: String,
+    pending: List<PendingDevice> = emptyList(),
+    onDecide: (DeviceKey, approved: Boolean) -> Unit = { _, _ -> },
 ) {
     var selectedDevice by remember { mutableStateOf<String?>(null) }
     var selectedRequest by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -72,6 +79,39 @@ internal fun AppMonitorApp(
                         // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
                         key(exchange.sessionId, exchange.requestId) { RequestDetail(exchange) }
                     }
+                }
+            }
+            pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
+        }
+    }
+}
+
+@Composable
+private fun ApprovalDialog(
+    device: PendingDevice,
+    waiting: Int,
+    onDecide: (DeviceKey, approved: Boolean) -> Unit,
+) {
+    Box(
+        Modifier.fillMaxSize().background(SCRIM).clickable(remember { MutableInteractionSource() }, indication = null) {},
+        contentAlignment = Alignment.Center,
+    ) {
+        Card(Modifier.width(420.dp), elevation = 8.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.key.appId} wants to connect",
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    listOf(device.hello.os_version, device.hello.app_version, "device ${device.key.deviceId}")
+                        .filter { it.isNotEmpty() }
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.caption,
+                )
+                if (waiting > 0) Text("$waiting more waiting", style = MaterialTheme.typography.caption)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { onDecide(device.key, false) }) { Text("Reject") }
+                    TextButton(onClick = { onDecide(device.key, true) }) { Text("Approve") }
                 }
             }
         }
@@ -223,3 +263,5 @@ private fun Modifier.selectable(
 ): Modifier = clickable(onClick = onClick).then(if (selected) Modifier.background(SELECTED) else Modifier)
 
 private val SELECTED = Color(0x1F2196F3)
+
+private val SCRIM = Color(0x66000000)
