@@ -238,8 +238,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   unknown") above it; an unread one shows only that note.
 - Rendering (ADR-0029): the detail pane is a `LazyColumn`. Each body is
   rendered by `renderBody` on `Dispatchers.Default` ("Rendering…" until then)
-  and split into chunks of at most 100 lines or 8 192 characters, one item
-  each, so the UI thread lays out only visible chunks. Indented JSON stops at
+  and split into chunks, one item each, so the UI thread lays out only
+  visible chunks. A chunk ends at the line break after 100 lines or
+  8 192 characters; only a line longer than 8 192 characters is cut inside. Indented JSON stops at
   `MAX_RENDERED_CHARS` (16 Mi) with a "… stopped at" line.
 - Frames: under "WebSocket frames (N)", one row per frame: direction (↑ sent,
   ↓ received), opcode, size ("N of M B" when cut, ADR-0028), time since the
