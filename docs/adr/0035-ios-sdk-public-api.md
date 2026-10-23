@@ -1,7 +1,7 @@
 ---
 id: ADR-0035
 title: iOS SDK public API, package products and minimum iOS
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -152,7 +152,11 @@ Recommended: 1. The sample app (M2.12) may target newer.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (`enum AppMonitor`, static
+`start`/`stop`), B.1 (`struct` with `var` members, Android's names, defaults
+and limits), C.1 (every `URLSession` captured at `start()`), D.1 (one
+`AppMonitor` product, implementation under `#if DEBUG`, empty stubs in
+release) and E.1 (iOS 15, `swift-tools-version: 6.2`).
 
 ## Consequences
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-0037
 title: Where the Swift tests run
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -56,7 +56,9 @@ option 2 is the trigger to revisit.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted option 1: the Swift gates run in local `make check` when
+`swift` is on the PATH, and in M3's release gate on macOS; CI stays on
+ubuntu.
 
 ## Consequences
 

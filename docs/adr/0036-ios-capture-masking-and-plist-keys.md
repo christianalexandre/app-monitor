@@ -1,7 +1,7 @@
 ---
 id: ADR-0036
 title: What the iOS SDK captures and masks, and the Info.plist keys it needs
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -136,7 +136,11 @@ one line naming them and uses the manual host (ADR-0017 E's pattern).
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (the Android rule, member for
+member, pinned by a shared test vector), B.1 (`masking = true` by default),
+C.1 (Android's body limit and markers, streams sent empty), D.1 (random UUID
+excluded from backup, model identifier as `device_name`) and E.1 (plist keys
+added to debug builds only by the M2.11 script).
 
 ## Consequences
 

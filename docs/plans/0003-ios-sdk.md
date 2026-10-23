@@ -26,7 +26,7 @@ its code. The previous tool's source is
 `github.com/christianalexandre/app-network-monitor` (public), ported without
 Pulse (ADR-0003).
 
-- [!] **M2.1 iOS SDK API, privacy and CI decisions.** (`docs/ios-sdk-decisions`; ADR-0035, ADR-0036, ADR-0037 `Proposed`, waiting for the owner) `Proposed` ADRs, one
+- [x] **M2.1 iOS SDK API, privacy and CI decisions.** (ADR-0035, ADR-0036, ADR-0037 `Accepted`: the owner took every recommendation) `Proposed` ADRs, one
   stop: (a) the public API an app developer touches — `AppMonitor.start(...)`
   and its options (mirroring ADR-0017 where Swift allows), how capture is
   turned on (automatic `URLSessionConfiguration` coverage vs an explicit
@@ -81,8 +81,9 @@ Pulse (ADR-0003).
   delegate proxying (ADR-0004 layer 1).
   Accept: an `xcodebuild test` on the iPhone simulator — a background
   download is captured and the app's delegate still gets every callback.
-- [ ] **M2.10 No-op product.** Same public API as M2.1, no network code; a
-  check that fails when one side gains a public symbol.
+- [ ] **M2.10 Release stubs.** The release build of the `AppMonitor` product
+  (ADR-0035 D.1): same public API as debug, no network code; a check that
+  fails when one build gains a public symbol.
   Accept: the check passes, and fails on a public member added to one side.
 - [ ] **M2.11 Info.plist build-phase script.** Adds the local network keys
   M2.1 (b) decides to debug builds only.
@@ -90,10 +91,11 @@ Pulse (ADR-0003).
   none (`plutil` output in the PR).
 - [ ] **M2.12 SwiftUI sample app.** `samples/ios`: GET JSON, POST, 404,
   timeout, upload, WebSocket echo, background download; debug uses the SDK,
-  release the no-op product.
+  release gets the stubs of the same product.
   Accept: `xcodebuild build` for the simulator in both configurations; with
   `make server` running, each button shows up in the server log (log in the
-  PR); the release app contains no SDK symbols.
+  PR); the release app contains no SDK symbols
+  other than the stubs.
 - [ ] **M2.13 End to end on simulator and device.** Sample app → desktop app
   with approval, on the simulator and on a physical iPhone (mDNS).
   Accept: screenshots in `docs/screenshots/` of the desktop showing the
