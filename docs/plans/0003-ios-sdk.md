@@ -55,7 +55,7 @@ Pulse (ADR-0003).
   Network.framework or `URLSessionWebSocketTask`, threading (actors, queues),
   who owns each resource, what `stop()` does in each state.
   Accept: `make docs-check`; every SDD 04 state has its Swift exits.
-- [ ] **M2.5 Swift transport.** Handshake, ring buffer that drops the oldest,
+- [x] **M2.5 Swift transport.** (ADR-0041: `.waiting` with ECONNREFUSED ends connecting; `AppMonitor.start` and the device id moved to M2.6) Handshake, ring buffer that drops the oldest,
   reconnection with backoff, all per M2.4. Connects to an explicit host only.
   Accept: `swift test --package-path sdk/ios` — against an in-process
   WebSocket server: handshake, 1000 events in order, events queued while the
@@ -63,7 +63,9 @@ Pulse (ADR-0003).
   everything; one run against `make server` logged in the PR.
 - [ ] **M2.6 Swift discovery.** Manual host → `NWBrowser` → the simulator's
   host loopback, per the discovery contract (ADR-0024: late TXT, two
-  services, selector rules).
+  services, selector rules); `AppMonitor.start` / `stop` and
+  `AppMonitorOptions` (ADR-0035 A, B) build the client, with the device id
+  file and `Hello` of ADR-0036 D.
   Accept: `swift test --package-path sdk/ios` — order of fallbacks and the
   ADR-0024 cases with fake browsers.
 - [ ] **M2.7 `URLSession` capture.** Request, response and failure events

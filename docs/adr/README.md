@@ -58,3 +58,4 @@ Rules:
 | [0038](0038-capture-layer-field.md) | Exchanges carry the capture layer that produced them | Accepted |
 | [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Accepted |
 | [0040](0040-swift-transport-network-framework.md) | Swift transport on Network.framework, confined to one serial queue | Accepted |
+| [0041](0041-connection-refused-ends-connecting.md) | A refused connection ends connecting, other waits do not | Accepted |
