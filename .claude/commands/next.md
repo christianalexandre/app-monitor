@@ -104,6 +104,12 @@ always work from `origin/dev`, never `git switch dev`.
   --delete-branch`, then `git fetch origin --prune && git switch --detach
   origin/dev` and delete the local branch. Red → back to 6 on the same
   branch.
+- Run the merge as **its own command**: nothing chained with `;`, `&&` or
+  `|`. A denial is evaluated on the whole command line, so a cleanup step
+  glued to it (e.g. `rm -rf /tmp/…` hits the `rm -rf /*` deny rule) blocks
+  the merge too. Denied anyway → retry the bare merge once before stopping.
+- Scratch files go under `build/` in the worktree, never `/tmp`, so cleaning
+  them up never needs `rm -rf /…`.
 - Never merge into `main`, never force-push, never skip hooks or checks.
 
 ## 8. Report and continue
