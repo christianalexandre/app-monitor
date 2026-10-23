@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import ObjectiveC
 import os
@@ -362,3 +363,4 @@ final class UploadBox: @unchecked Sendable {
     let body: UploadBody
     init(_ body: UploadBody) { self.body = body }
 }
+#endif

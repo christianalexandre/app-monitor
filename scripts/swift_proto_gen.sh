@@ -19,5 +19,11 @@ rm -f "$out"/*.pb.swift
   --swift_opt=Visibility=Internal \
   --swift_opt=FileNaming=PathToUnderscores \
   protocol/proto/appmonitor/v1/*.proto
+# ADR-0048: no generated code, and no SwiftProtobuf import, in a release build;
+# swift-format reads its ignore marker only before the first directive.
+for f in "$out"/*.pb.swift; do
+  { echo "// swift-format-ignore-file"; echo "#if DEBUG"; cat "$f"; echo "#endif"; } > "$f.tmp"
+  mv "$f.tmp" "$f"
+done
 scripts/swift_proto_hash.sh > "$out/proto.sha256"
 echo "swift-proto: regenerated $(ls "$out"/*.pb.swift | wc -l | tr -d ' ') files in $out"

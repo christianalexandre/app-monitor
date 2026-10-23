@@ -1,3 +1,5 @@
+// swift-format-ignore-file
+#if DEBUG
 // DO NOT EDIT.
 // swift-format-ignore-file
 // swiftlint:disable all
@@ -577,3 +579,4 @@ nonisolated extension Appmonitor_V1_WebSocketFrame.Direction: SwiftProtobuf._Pro
 nonisolated extension Appmonitor_V1_WebSocketFrame.Opcode: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0OPCODE_UNSPECIFIED\0\u{1}OPCODE_TEXT\0\u{1}OPCODE_BINARY\0\u{1}OPCODE_PING\0\u{1}OPCODE_PONG\0\u{1}OPCODE_CLOSE\0")
 }
+#endif

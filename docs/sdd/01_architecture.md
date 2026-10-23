@@ -177,6 +177,12 @@ a stack trace (DEBT-0010). See ADR-0010.
   `checkReleaseHasNoSdk` proves the release APK has no SDK classes
   (ADR-0030). It is the device side of the end-to-end run (SDD 02,
   ADR-0031).
+- **iOS release builds** compile the same `AppMonitor` product to stubs:
+  every implementation file and the generated code sit under `#if DEBUG`,
+  and both builds must match `sdk/ios/api/AppMonitor.swiftinterface`
+  (ADR-0048). The package gets `DEBUG` only in an app configuration whose
+  name contains `Debug`. SwiftProtobuf is still linked in release
+  (DEBT-0040).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 

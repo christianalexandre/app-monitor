@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -178,3 +179,4 @@ enum WebSocketHooks {
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
+#endif
