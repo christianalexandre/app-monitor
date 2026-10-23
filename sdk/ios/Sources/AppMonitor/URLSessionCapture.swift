@@ -88,7 +88,7 @@ final class TaskCapture: @unchecked Sendable {
         }
         guard let (response, body, received) = state else { return }
         if let response = response as? HTTPURLResponse {
-            emit("ResponseReceived") {
+            emit(sink, "ResponseReceived") {
                 var event = Appmonitor_V1_ResponseReceived()
                 event.requestID = id
                 event.statusCode = Int32(clamping: response.statusCode)
@@ -102,7 +102,7 @@ final class TaskCapture: @unchecked Sendable {
                 return try event.serializedBytes()
             }
         } else {
-            emit("RequestFailed") {
+            emit(sink, "RequestFailed") {
                 var event = Appmonitor_V1_RequestFailed()
                 event.requestID = id
                 event.error = error.map(describe) ?? "no HTTP response"
@@ -111,16 +111,17 @@ final class TaskCapture: @unchecked Sendable {
         }
     }
 
-    /// Wraps the event for the `network` channel; a failure drops it and never reaches the app's call.
-    func emit(_ type: String, _ payload: () throws -> Data) {
-        guard let payload = try? payload() else { return }
-        var envelope = Appmonitor_V1_Envelope()
-        envelope.channel = ProtocolConstants.channelNetwork
-        envelope.type = type
-        envelope.payload = payload
-        envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
-        sink.send(envelope)
-    }
+}
+
+/// Wraps the event for the `network` channel; a failure drops it and never reaches the app's call.
+func emit(_ sink: CaptureSink, _ type: String, _ payload: () throws -> Data) {
+    guard let payload = try? payload() else { return }
+    var envelope = Appmonitor_V1_Envelope()
+    envelope.channel = ProtocolConstants.channelNetwork
+    envelope.type = type
+    envelope.payload = payload
+    envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
+    sink.send(envelope)
 }
 
 /// Domain, code and description only: `NSError`'s `userInfo` holds the URL unmasked. The connection
@@ -213,11 +214,15 @@ enum Hooks {
         ] {
             if let method = own(session, selector) { hookUpload(method) }
         }
+        if !WebSocketHooks.install() {
+            Logger(subsystem: "AppMonitor", category: "capture").error(
+                "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
+        }
         return true
     }
 
     /// The method `cls` itself defines, never an inherited one: replacing that would hook the superclass.
-    private static func own(_ cls: AnyClass?, _ name: String) -> Method? {
+    static func own(_ cls: AnyClass?, _ name: String) -> Method? {
         guard let cls else { return nil }
         var count: UInt32 = 0
         guard let methods = class_copyMethodList(cls, &count) else { return nil }
@@ -237,17 +242,18 @@ enum Hooks {
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
-    /// The first resume of an HTTP task while the monitor runs; WebSocket and stream tasks are M2.8's.
+    /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks are never captured.
     private static func started(_ task: URLSessionTask) {
-        guard capture(of: task) == nil, let options = URLSessionCapture.sink.options,
-            !(task is URLSessionWebSocketTask), !(task is URLSessionStreamTask)
+        guard capture(of: task) == nil, WebSocketHooks.capture(of: task) == nil,
+            let options = URLSessionCapture.sink.options, !(task is URLSessionStreamTask)
         else { return }
         let request = task.currentRequest ?? task.originalRequest
         guard let scheme = request?.url?.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return }
+        if let task = task as? URLSessionWebSocketTask { return WebSocketHooks.started(task, options: options) }
         let capture = TaskCapture(sink: URLSessionCapture.sink, options: options, requestURL: request?.url)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
-        capture.emit("RequestStarted") { try requestStarted(task, capture: capture, upload: upload?.body) }
+        emit(capture.sink, "RequestStarted") { try requestStarted(task, capture: capture, upload: upload?.body) }
     }
 
     private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {

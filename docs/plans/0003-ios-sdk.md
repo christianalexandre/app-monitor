@@ -82,7 +82,7 @@ Pulse (ADR-0003).
   one stop.
   Accept: the ADR merged by the owner; if accepted, a case in
   `protocol/fixtures/masking.json` and both SDKs pass it.
-- [ ] **M2.8 WebSocket tasks.** Frames of `URLSessionWebSocketTask` sent and
+- [x] **M2.8 WebSocket tasks.** (ADR-0045: hooks on the WebSocket task's own methods, captured URL is `http` as on Android; close frames both ways too; DEBT-0038) Frames of `URLSessionWebSocketTask` sent and
   received, bounded as `WebSocketFrame` (ADR-0028).
   Accept: `swift test --package-path sdk/ios` — text and binary frames both
   ways and a frame over the limit, against a local echo server.

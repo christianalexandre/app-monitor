@@ -21,7 +21,8 @@ OkHttp 5.3.2 answers pings and sends its own inside `RealWebSocket`;
 `WebSocketListener` has only `onOpen`, `onMessage` (text, bytes),
 `onClosing`, `onClosed` and `onFailure` (`javap okhttp3.WebSocketListener`).
 Seeing them would need OkHttp internals or a network-level hook. Split from
-DEBT-0025, whose truncation half was paid by ADR-0028.
+DEBT-0025, whose truncation half was paid by ADR-0028. The iOS SDK has the
+same gap: `URLSessionWebSocketTask` answers pings itself (ADR-0045).
 
 ## Trigger
 
