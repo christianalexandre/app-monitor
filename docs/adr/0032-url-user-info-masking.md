@@ -1,7 +1,7 @@
 ---
 id: ADR-0032
 title: What the SDK masks in a URL's user info
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -66,8 +66,9 @@ follow if a developer asks for it.
 
 ## Decision
 
-Empty while `Proposed`. The owner picks an option; M1.R4 then applies it in
-`Masking.url`, SDD 05 and the `:sdk:android-okhttp` tests.
+The owner accepted option 1: a non-empty user name and a non-empty password
+in a URL's user info are both sent as `██`; an empty one stays empty. M1.R4
+applies it in `Masking.url`, SDD 05 and the `:sdk:android-okhttp` tests.
 
 ## Consequences
 
