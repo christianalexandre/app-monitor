@@ -161,6 +161,33 @@ None was rejected.
   and no password arrives as the accepted ADR says, and the M1.R3 test still
   passes.
 
+### Third milestone review
+
+Findings of the `code-review` of `f90e316..c7da3cb`. One is a correctness
+finding and became a task; it also pays DEBT-0033's `Capture.kt` items, whose
+trigger fired with M1.R4 (#86) without paying them. Three went to DEBT-0034
+(`MASK`'s KDoc omits the user name, DEBT-0033's encoded-mask item omits it
+too, no WebSocket or `:pw@host` user info test). Two were rejected:
+ADR-0032's Consequences still list the rejected options, but an accepted ADR
+is immutable and its Decision names option 1 alone; `RequestFailed.error`
+is `error.toString()` unmasked, but OkHttp's own messages redact the URL
+(`okhttp-jvm` 5.5.1 `Http1ExchangeCodec` and `RealCall` call
+`HttpUrl.redact`), and an app's own exception text is app content, like a
+body, which the SDK does not mask (SDD 05).
+
+- [ ] **M1.R5 URLs in response headers sent in clear.** `responseReceived`
+  masks response headers by name only, so a URL in `Location` or
+  `Content-Location` (a redirect seen by a network interceptor or with
+  `followRedirects(false)`) reaches the desktop with its user info and with
+  the query parameters named in `maskedQueryParameters` (an OAuth redirect's
+  `access_token`), both of which ADR-0018 B and ADR-0032 mask in the request
+  URL. Which headers are parsed as URLs is a privacy decision: an ADR
+  `Proposed`, then the owner's choice applied; the PR that applies it pays
+  DEBT-0033's `Capture.kt` items.
+  Accept: `./gradlew :sdk:android-okhttp:allTests` — a response with a
+  `Location` URL carrying user info and a masked query parameter arrives as
+  the accepted ADR says.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):

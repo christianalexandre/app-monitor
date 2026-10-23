@@ -51,3 +51,4 @@ Rules:
 | [0031](0031-m1-review-round-1-cleanups.md) | Non-correctness findings of the first M1 milestone review | The next PR that touches one of the files listed | Open |
 | [0032](0032-fake-client-close-test-flaky-in-ci.md) | The fake client's "desktop closes with an error" test failed once in CI | The second CI failure of `MainTest > a desktop that closes the session with an error exits 1`, or any failure of it on a developer machine | Open |
 | [0033](0033-m1-review-round-2-cleanups.md) | Non-correctness findings of the second M1 milestone review | The next PR that touches one of the files listed | Open |
+| [0034](0034-m1-review-round-3-cleanups.md) | Non-correctness findings of the third M1 milestone review | The next PR that touches one of the files listed | Open |
