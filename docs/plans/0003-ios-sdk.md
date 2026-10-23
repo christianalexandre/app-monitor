@@ -132,7 +132,7 @@ wraps the TXT grace), and the next round finds it again; a probe left in
 `.waiting` blocks that name for one round only, since `BonjourBrowser`
 opens a new `BonjourSession` every round.
 
-- [ ] **M2.R1 Unparseable `Location` sent in clear on iOS.** When
+- [x] **M2.R1 Unparseable `Location` sent in clear on iOS.** (OkHttp's `uri` ported to `Masking.swift`, every non-`http` or unparsed value goes through it; vector case `location no url parser accepts`, Kotlin unchanged) When
   `URL(string:relativeTo:)` returns nil, `Masking.headers` keeps a
   `Location` or `Content-Location` value as received, while OkHttp's
   `Capture.kt` falls back to `uri(value)` and masks it (ADR-0044). On the

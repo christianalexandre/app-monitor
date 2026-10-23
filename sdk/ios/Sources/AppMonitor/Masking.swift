@@ -23,8 +23,8 @@ struct Masking: Sendable {
         queryNames = Set(options.maskedQueryParameters.map { $0.lowercased() })
     }
 
-    /// With `base`, a `urlResponseHeaders` value is resolved against it and masked by `url(_:)`; a value
-    /// with another scheme is masked as written (ADR-0044).
+    /// With `base`, a `urlResponseHeaders` value is resolved against it and masked by `url(_:)`, or by
+    /// `uri(_:)` when it is not an `http` URL or Foundation does not parse it (ADR-0044).
     func headers(_ headers: [(name: String, value: String)], base: URL? = nil) -> [Appmonitor_V1_Header] {
         headers.map { name, value in
             var header = Appmonitor_V1_Header()
@@ -33,11 +33,14 @@ struct Masking: Sendable {
             guard enabled else { return header }
             if headerNames.contains(name.lowercased()) {
                 header.value = mask
-            } else if let base, urlHeaderNames.contains(name.lowercased()),
-                let resolved = URL(string: value, relativeTo: base)?.absoluteURL
-            {
-                let http = ["http", "https"].contains(resolved.scheme?.lowercased())
-                header.value = url(http ? resolved.absoluteString : value)
+            } else if let base, urlHeaderNames.contains(name.lowercased()) {
+                if let resolved = URL(string: value, relativeTo: base)?.absoluteURL,
+                    ["http", "https"].contains(resolved.scheme?.lowercased())
+                {
+                    header.value = url(resolved.absoluteString)
+                } else {
+                    header.value = uri(value)
+                }
             }
             return header
         }
@@ -61,6 +64,40 @@ struct Masking: Sendable {
             masked.replaceSubrange(range, with: value)
         }
         return masked
+    }
+
+    /// The URL rule by RFC 3986 generic syntax, only the masked spans changed, as OkHttp's `uri`; a value
+    /// without a scheme gets it too.
+    private func uri(_ value: String) -> String {
+        let fragmentAt = value.firstIndex(of: "#") ?? value.endIndex
+        let queryAt = value[..<fragmentAt].firstIndex(of: "?") ?? fragmentAt
+        var masked = userInfo(value[..<queryAt])
+        if queryAt < fragmentAt {
+            masked += "?" + fields(String(value[value.index(after: queryAt)..<fragmentAt]), maskBare: true)
+        }
+        if fragmentAt < value.endIndex {
+            masked += "#" + fields(String(value[value.index(after: fragmentAt)...]), maskBare: false)
+        }
+        return masked
+    }
+
+    /// `scheme://user:password@…` or `//user:password@…` with a non-empty user name and password replaced
+    /// by `mask`.
+    private func userInfo(_ hierarchy: Substring) -> String {
+        var start = hierarchy.startIndex
+        if let colon = hierarchy.firstIndex(of: ":"), hierarchy.first?.isASCII == true,
+            hierarchy.first?.isLetter == true,
+            hierarchy[..<colon].allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "+.-".contains($0)) })
+        {
+            start = hierarchy.index(after: colon)
+        }
+        guard hierarchy[start...].hasPrefix("//") else { return String(hierarchy) }
+        let authority = hierarchy.index(start, offsetBy: 2)
+        let end = hierarchy[authority...].firstIndex(of: "/") ?? hierarchy.endIndex
+        guard let at = hierarchy[authority..<end].firstIndex(of: "@") else { return String(hierarchy) }
+        let user = hierarchy[authority..<at].split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        return String(hierarchy[..<authority]) + user.map { $0.isEmpty ? "" : mask }.joined(separator: ":")
+            + String(hierarchy[at...])
     }
 
     /// `&`-separated fields whose form-decoded name is masked become `name=██`; a query field without `=`
