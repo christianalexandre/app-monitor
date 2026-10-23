@@ -52,8 +52,9 @@ internal class Masking(
 
     fun url(url: HttpUrl): String {
         val maskQuery = queryNames.isNotEmpty() && url.querySize > 0
-        if (!maskQuery && url.password.isEmpty()) return url.toString()
+        if (!maskQuery && url.username.isEmpty() && url.password.isEmpty()) return url.toString()
         val masked = url.newBuilder()
+        if (url.username.isNotEmpty()) masked.username(MASK)
         if (url.password.isNotEmpty()) masked.password(MASK)
         if (!maskQuery) return masked.build().toString()
         masked.query(null)
