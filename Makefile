@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build desktop server fake-traffic branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-proto desktop server fake-traffic branch-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -8,7 +8,7 @@ export ANDROID_HOME
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
 
-check: docs-check lint scripts-test build ## All gates (grows as modules land)
+check: docs-check lint scripts-test build swift ## All gates (grows as modules land)
 
 docs-check: ## Docs frontmatter, indexes and ADR/DEBT references
 	@scripts/docs_check.sh
@@ -21,6 +21,12 @@ scripts-test: ## Bash tests of the loop scripts (ADR-0013)
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
+
+swift: ## iOS SDK gates: generated code fresh, swift-format, swift test (macOS only, ADR-0037)
+	@scripts/swift_check.sh
+
+swift-proto: ## Regenerate sdk/ios swift-protobuf code from protocol/proto (ADR-0039)
+	@scripts/swift_proto_gen.sh
 
 desktop: ## Run the desktop app (listens for devices on port 47474)
 	@./gradlew -q :desktop:app:run

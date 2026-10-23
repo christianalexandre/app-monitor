@@ -44,7 +44,7 @@ Pulse (ADR-0003).
   shows it.
   Accept: `./gradlew :protocol:allTests :desktop:app:test` — fixture and
   round-trip tests for the field; a UI test shows the layer.
-- [ ] **M2.3 Swift package and contract tests.** `sdk/ios` SwiftPM package,
+- [x] **M2.3 Swift package and contract tests.** (ADR-0039; generated code committed, `make swift` in `make check` on macOS only) `sdk/ios` SwiftPM package,
   swift-protobuf code generated from `protocol/proto`, a `make` target for
   the Swift gates wired as M2.1 (c) decides.
   Accept: `swift test --package-path sdk/ios` — every file in

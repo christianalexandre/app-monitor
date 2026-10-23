@@ -56,3 +56,4 @@ Rules:
 | [0036](0036-ios-capture-masking-and-plist-keys.md) | What the iOS SDK captures and masks, and the Info.plist keys it needs | Accepted |
 | [0037](0037-where-swift-tests-run.md) | Where the Swift tests run | Accepted |
 | [0038](0038-capture-layer-field.md) | Exchanges carry the capture layer that produced them | Accepted |
+| [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Accepted |
