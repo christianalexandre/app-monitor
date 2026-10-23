@@ -34,7 +34,7 @@ record of how the milestone was actually built once it is done.
 | Plan | Milestone | Title | Status |
 | --- | --- | --- | --- |
 | [0001](0001-foundation.md) | M0 | Foundation | Done |
-| [0002](0002-android-sdk.md) | M1 | Android SDK | Active |
+| [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
 
 ## Roadmap
 
