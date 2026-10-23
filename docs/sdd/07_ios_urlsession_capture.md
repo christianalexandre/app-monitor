@@ -32,8 +32,8 @@ app ── any URLSession ── task.resume() ──────────►
   `maskedHeaders` → `██`; `maskedQueryParameters` in the query (a field
   without `=` included) and in `name=value` fragment fields; a non-empty URL
   user name and password → `██`; `Location` and `Content-Location` resolved
-  against the response URL and masked as URLs when `http` or `https`, else
-  sent as received (DEBT-0035). Unlike OkHttp, the fields that are not
+  against the response URL and masked as URLs; a value with another scheme
+  is masked as written (ADR-0044). Unlike OkHttp, the fields that are not
   masked keep the app's encoding. `masking = false` turns every rule off.
   `protocol/fixtures/masking.json` is read by both SDKs' tests.
 - **Headers**: Foundation keeps them in dictionaries; they are sent sorted

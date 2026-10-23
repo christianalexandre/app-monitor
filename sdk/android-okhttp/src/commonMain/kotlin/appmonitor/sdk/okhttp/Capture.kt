@@ -56,6 +56,9 @@ internal val DEFAULT_MASKED_HEADERS: Set<String> = setOf("Authorization", "Proxy
 /** Response headers whose value is a URL, masked as one (ADR-0033). */
 internal val URL_RESPONSE_HEADERS: Set<String> = setOf("Location", "Content-Location")
 
+/** An RFC 3986 scheme at the start of a URI reference. */
+private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
+
 /** ADR-0018 B: names compared case-insensitively, the name kept and the value replaced by [MASK]. */
 internal class Masking(
     options: AppMonitorOptions,
@@ -65,7 +68,7 @@ internal class Masking(
     private val queryNames = caseInsensitive(options.maskedQueryParameters)
     private val urlHeaderNames = caseInsensitive(URL_RESPONSE_HEADERS)
 
-    /** With [base], a [URL_RESPONSE_HEADERS] value is resolved against it and masked by [url]. */
+    /** With [base], a [URL_RESPONSE_HEADERS] value is resolved against it and masked by [url], or by [uri]. */
     fun headers(
         headers: Headers,
         base: HttpUrl? = null,
@@ -75,7 +78,7 @@ internal class Masking(
                 when {
                     !enabled -> value
                     name in headerNames -> MASK
-                    base != null && name in urlHeaderNames -> base.resolve(value)?.let(::url) ?: value
+                    base != null && name in urlHeaderNames -> base.resolve(value)?.let(::url) ?: uri(value)
                     else -> value
                 }
             Header(name, masked)
@@ -84,7 +87,7 @@ internal class Masking(
     fun url(url: HttpUrl): String {
         if (!enabled) return url.toString()
         val maskQuery = (0 until url.querySize).any { url.queryParameterName(it) in queryNames }
-        val fragment = url.encodedFragment?.let(::fragment)
+        val fragment = url.encodedFragment?.let { fields(it, maskBare = false) }
         if (url.username.isEmpty() && url.password.isEmpty() && !maskQuery && fragment == url.encodedFragment) return url.toString()
         val masked = url.newBuilder().encodedFragment(fragment)
         if (url.username.isNotEmpty()) masked.username(MASK)
@@ -99,12 +102,39 @@ internal class Masking(
         return masked.build().toString().replace(ENCODED_MASK, MASK)
     }
 
-    /** ADR-0033: each `name=value` field of an encoded fragment gets the query rule; other fields stay. */
-    private fun fragment(encoded: String): String {
+    /** ADR-0044: a value with a scheme `HttpUrl` does not parse gets the URL rule by RFC 3986, as written. */
+    private fun uri(value: String): String {
+        if (!SCHEME.containsMatchIn(value)) return value
+        val fragmentAt = value.indexOf('#').takeIf { it >= 0 } ?: value.length
+        val queryAt = value.indexOf('?').takeIf { it in 0 until fragmentAt } ?: fragmentAt
+        val query = if (queryAt < fragmentAt) "?" + fields(value.substring(queryAt + 1, fragmentAt), maskBare = true) else ""
+        val fragment = if (fragmentAt < value.length) "#" + fields(value.substring(fragmentAt + 1), maskBare = false) else ""
+        return userInfo(value.substring(0, queryAt)) + query + fragment
+    }
+
+    /** `scheme://user:password@…` with a non-empty user name and password replaced by [MASK]. */
+    private fun userInfo(hierarchy: String): String {
+        val start = hierarchy.indexOf(':') + 1
+        if (!hierarchy.startsWith("//", start)) return hierarchy
+        val end = hierarchy.indexOf('/', start + 2).takeIf { it >= 0 } ?: hierarchy.length
+        val at = hierarchy.indexOf('@', start + 2).takeIf { it in 0 until end } ?: return hierarchy
+        val masked =
+            hierarchy.substring(start + 2, at).split(':', limit = 2).joinToString(":") { if (it.isEmpty()) it else MASK }
+        return hierarchy.substring(0, start + 2) + masked + hierarchy.substring(at)
+    }
+
+    /**
+     * ADR-0033: each `name=value` field whose name is masked becomes `name=`[MASK]; a field without `=`
+     * too when [maskBare], as the rebuilt query of [url] does; other fields stay as written.
+     */
+    private fun fields(
+        encoded: String,
+        maskBare: Boolean,
+    ): String {
         if (queryNames.isEmpty()) return encoded
         return encoded.split('&').joinToString("&") { field ->
-            val name = field.substringBefore('=', missingDelimiterValue = "")
-            if (field.contains('=') && formDecoded(name) in queryNames) "$name=$MASK" else field
+            val name = field.substringBefore('=')
+            if ((maskBare || '=' in field) && formDecoded(name) in queryNames) "$name=$MASK" else field
         }
     }
 
