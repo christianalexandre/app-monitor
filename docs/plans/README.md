@@ -36,26 +36,12 @@ record of how the milestone was actually built once it is done.
 | [0001](0001-foundation.md) | M0 | Foundation | Done |
 | [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
 | [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
+| [0004](0004-release-gate.md) | M3 | Release gate | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M3 — Release gate
-
-Nothing reaches `main` without proving the whole system still works.
-`.github/workflows/release-gate.yml` on PRs to `main` (only from `dev`):
-
-- desktop build and tests on ubuntu, macOS and windows;
-- protocol contract tests Kotlin ↔ Swift;
-- Android e2e: sample app on an emulator talking to a headless desktop server;
-- iOS e2e: sample app on a simulator talking to a headless desktop server;
-- packaging dry-run (`.dmg`, `.msi`, `.deb`) and SDK publication dry-run.
-
-Branch protection/rulesets on `main` requiring the gate, if the plan allows
-(otherwise a DEBT with trigger). macOS runners cost 10× minutes on private
-repos: iOS and macOS jobs run only in the release gate, not on every PR.
 
 ### M4 — KMP SDK
 

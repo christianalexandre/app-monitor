@@ -86,7 +86,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M0 — Foundation](docs/plans/0001-foundation.md) | Protocol, desktop server and UI, fake traffic end to end |
 | [M1 — Android SDK](docs/plans/0002-android-sdk.md) | Real Android apps on emulator and device |
 | [M2 — iOS SDK](docs/plans/0003-ios-sdk.md) | Real iOS apps, full `URLSession` coverage |
-| M3 — Release gate | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
+| [M3 — Release gate](docs/plans/0004-release-gate.md) | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
 | M4 — KMP SDK | Ktor plugin for every KMP target |
 | M5 — Persistence | Runs, search, filters, retention |
 | M6 — MCP server | Traffic, runs and stats queryable by AI agents |
