@@ -50,7 +50,7 @@ Pulse (ADR-0003).
   Accept: `swift test --package-path sdk/ios` — every file in
   `protocol/fixtures/` decodes to the expected values and re-encodes byte for
   byte.
-- [ ] **M2.4 Swift connection lifecycle on paper.** SDD 04 (or a new
+- [x] **M2.4 Swift connection lifecycle on paper.** (SDD 06, ADR-0040: Network.framework, one serial queue; `.waiting` is not a connect failure) SDD 04 (or a new
   chapter) states where the Swift transport differs from `sdk/core`:
   Network.framework or `URLSessionWebSocketTask`, threading (actors, queues),
   who owns each resource, what `stop()` does in each state.

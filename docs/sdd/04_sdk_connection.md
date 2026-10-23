@@ -5,7 +5,8 @@ events while it cannot send them, and lets go of everything on `stop()`.
 The transport is `internal` `MonitorClient` in `sdk/core` (ADR-0023), which
 connects to the endpoint its `discover` function returns; discovery and the
 Android `AppMonitor.start` / `stop` entry point are ADR-0024. Decisions in
-ADR-0022; public API in ADR-0017; approval and masking in ADR-0018.
+ADR-0022; public API in ADR-0017; approval and masking in ADR-0018. The
+Swift SDK runs the same states; its differences are SDD 06.
 
 ## How it works
 
