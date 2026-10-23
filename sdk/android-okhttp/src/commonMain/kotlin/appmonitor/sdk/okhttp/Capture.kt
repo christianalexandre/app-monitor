@@ -102,9 +102,8 @@ internal class Masking(
         return masked.build().toString().replace(ENCODED_MASK, MASK)
     }
 
-    /** ADR-0044: a value with a scheme `HttpUrl` does not parse gets the URL rule by RFC 3986, as written. */
+    /** ADR-0044: a value `HttpUrl` does not parse gets the URL rule by RFC 3986, as written, scheme or not. */
     private fun uri(value: String): String {
-        if (!SCHEME.containsMatchIn(value)) return value
         val fragmentAt = value.indexOf('#').takeIf { it >= 0 } ?: value.length
         val queryAt = value.indexOf('?').takeIf { it in 0 until fragmentAt } ?: fragmentAt
         val query = if (queryAt < fragmentAt) "?" + fields(value.substring(queryAt + 1, fragmentAt), maskBare = true) else ""
@@ -112,9 +111,9 @@ internal class Masking(
         return userInfo(value.substring(0, queryAt)) + query + fragment
     }
 
-    /** `scheme://user:password@…` with a non-empty user name and password replaced by [MASK]. */
+    /** `scheme://user:password@…` or `//user:password@…` with a non-empty user name and password replaced by [MASK]. */
     private fun userInfo(hierarchy: String): String {
-        val start = hierarchy.indexOf(':') + 1
+        val start = SCHEME.find(hierarchy)?.value?.length ?: 0
         if (!hierarchy.startsWith("//", start)) return hierarchy
         val end = hierarchy.indexOf('/', start + 2).takeIf { it >= 0 } ?: hierarchy.length
         val at = hierarchy.lastIndexOf('@', end - 1).takeIf { it >= start + 2 } ?: return hierarchy

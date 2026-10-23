@@ -165,8 +165,8 @@ so a value without a scheme splits at `user:`.
   Accept: `swift test --package-path sdk/ios` and
   `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
   case with that `Location` arrives as `http://██:██@h:p/x` in both.
-- [ ] **M2.R3 Unparseable `Location` without a scheme sent in clear on
-  Android.** Kotlin's `uri` returns a value with no scheme unchanged, while
+- [x] **M2.R3 Unparseable `Location` without a scheme sent in clear on
+  Android.** (Kotlin's `uri` drops the scheme guard, `userInfo` starts after the `SCHEME` match or at 0; vector case `location no url parser accepts without a scheme`, Swift unchanged) Kotlin's `uri` returns a value with no scheme unchanged, while
   Swift's masks it (M2.R1). `Location: //user:pw@h:p/x?code=1`: `HttpUrl`'s
   `resolve` returns null (bad port), so user, password and `code` reach the
   desktop from Android only. Kotlin's `uri` and `userInfo` handle a value

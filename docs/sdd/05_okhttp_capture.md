@@ -24,7 +24,8 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   percent-encoded. A response's `Location` and `Content-Location` are
   resolved against the request URL and get the same URL rule; a value with
   another scheme (`com.example.app:/oauth?code=…`) gets it by RFC 3986
-  generic syntax, only the masked spans changed (ADR-0044). Names compare
+  generic syntax, only the masked spans changed (ADR-0044), and so is a
+  value `HttpUrl` does not resolve, with or without a scheme. Names compare
   case-insensitively, as in OkHttp's `HttpLoggingInterceptor`. Bodies are
   never masked (DEBT-0019).
   `masking = false` skips every rule above and sends each value as OkHttp
