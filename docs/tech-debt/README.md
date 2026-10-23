@@ -48,3 +48,4 @@ Rules:
 | [0028](0028-fake-client-handshake-timeout-vs-approval.md) | The fake client gives up on HelloAck after 10 s, approval included | The first `make fake-traffic` against the desktop app that fails because the approval took longer than 10 s, or a script runs the fake client against the app unattended | Open |
 | [0029](0029-websocket-pings-not-captured.md) | WebSocket ping and pong frames are not captured | OkHttp exposes ping or pong frames to a listener, or a developer asks to see WebSocket keep-alive traffic | Open |
 | [0030](0030-android-17-local-network-silent.md) | The SDK trusts the implicit local network grant and fails silently without it | PLAN-0002 M1.12 starts, or a developer reports an app that never reaches the desktop | Paid |
+| [0031](0031-m1-review-round-1-cleanups.md) | Non-correctness findings of the first M1 milestone review | The next PR that touches one of the files listed | Open |
