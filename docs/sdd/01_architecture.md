@@ -60,6 +60,8 @@ HTTP server before rethrowing, so the port is free again.
 device                         AppMonitorServer
   │── Envelope(core, Hello) ──►│ version ≠ Protocol.VERSION, not Hello, or none in 10 s
   │                            │   → close 1002 (protocol error)
+  │                            │ pending: DeviceApproval.approve(hello), no timeout
+  │                            │   rejected → close 1008; any frame → close 1002
   │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
   │                            │ channel not accepted, or a known network event
@@ -102,6 +104,15 @@ device                         AppMonitorServer
   before `HelloAck` is sent, under the lock `stop()` takes, so a device that
   got `HelloAck` is always on `sessions`.
 - A connection that sends no frame within 10 s of opening is closed with 1002.
+- Approval (ADR-0018 E, ADR-0027): after a valid `Hello` the server asks its
+  `DeviceApproval` and waits without a timeout; pings keep running. Approved
+  → the session is published and gets `HelloAck`; rejected → close 1008. A
+  frame sent while pending closes with 1002; a device that closes or misses
+  its ping while pending is withdrawn. The default approves every device
+  (headless server, tests); the desktop app passes `DeviceApprovals`, which
+  asks once per (`device_id`, `app_id`), shares one pending entry between
+  connections of the same pair, and remembers each answer until the app
+  quits (persisted in M5).
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty
@@ -195,6 +206,12 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   duration is the difference of the envelopes' `timestamp_ms`. Other
   channels, other types and undecodable payloads leave the state unchanged.
 - A device stays in the list after it disconnects, with its traffic.
+- Approval: `DeviceApprovals.pending` drives a panel over the three panes,
+  one device at a time ("<device_name> — <app_id> wants to connect", OS, app
+  version, device id, "N more waiting"); Approve / Reject call
+  `DeviceApprovals.decide`. A pending device is not in the device list until
+  approved. `make fake-traffic` against the app must be approved within its
+  10 s handshake wait (DEBT-0028).
 - UI: three panes (devices, requests of the selected device, detail). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
