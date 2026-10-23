@@ -1,0 +1,31 @@
+name: TestHost
+options:
+  bundleIdPrefix: dev.appmonitor
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  AppMonitor:
+    path: ..
+targets:
+  TestHost:
+    type: application
+    platform: iOS
+    sources: [Host]
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      SWIFT_VERSION: "6.0"
+  BackgroundTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - ../Tests/AppMonitorTests/TestHTTPServer.swift
+    dependencies:
+      - target: TestHost
+      - package: AppMonitor
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_VERSION: "6.0"
+      TEST_HOST: $(BUILT_PRODUCTS_DIR)/TestHost.app/TestHost
+      BUNDLE_LOADER: $(TEST_HOST)
