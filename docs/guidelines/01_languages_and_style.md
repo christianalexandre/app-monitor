@@ -15,7 +15,8 @@ How code is written in each language of the repository.
 - **Public SDK API is small.** One entry point per SDK (`AppMonitor.start()`
   and options). Anything else public needs a reason in the PR.
 - **Debug only.** SDK code must compile to nothing in release: every SDK ships a
-  no-op artifact with the same public API.
+  no-op artifact with the same public API. A public API change updates the
+  dumps (`./gradlew updateKotlinAbi`) and `sdk/no-op` in the same PR.
 - **No secrets in the repo.** Local values go in `local.properties` or env vars.
 - **Formatting via `.editorconfig`**: 4 spaces, LF, final newline.
 

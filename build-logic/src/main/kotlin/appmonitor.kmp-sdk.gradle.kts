@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+
 plugins {
     kotlin("multiplatform")
     id("com.android.kotlin.multiplatform.library")
@@ -22,6 +24,16 @@ kotlin {
         compileSdk = catalogVersion("android-compileSdk")
         minSdk = catalogVersion("android-sdk-minSdk")
         withHostTestBuilder {}
+    }
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        filters {
+            exclude {
+                byNames.add("appmonitor.sdk.core.InternalAppMonitorApi")
+                annotatedWith.add("appmonitor.sdk.core.InternalAppMonitorApi")
+            }
+        }
     }
 }
 
