@@ -40,7 +40,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 | `ResponseReceived` | When the app reaches the end of the body or closes it; at once for `Content-Length: 0` and `101` | Copied as the app reads it, never read ahead: the app's call is not delayed. `body_size` is the bytes read when the end was reached, else `Content-Length` when known. |
 | `RequestFailed` | `chain.proceed` throws | `error` is the exception's `toString()`; the exception is rethrown unchanged. |
 
-A request id is a random UUID shared by the call's events. Building an event
+A request id is a random UUID shared by the call's events. Every
+`RequestStarted`, WebSocket upgrades included, has `capture_layer = ADAPTER`
+(ADR-0038). Building an event
 never throws into the app's call: a failure drops that event.
 
 ### One WebSocket

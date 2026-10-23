@@ -47,6 +47,7 @@ import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.Dispatchers
@@ -194,6 +195,7 @@ private fun RequestDetail(exchange: HttpExchange) {
                     listOfNotNull(
                         "Status ${statusOf(exchange)}",
                         exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
+                        layerOf(exchange.captureLayer),
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.caption,
                 )
@@ -352,6 +354,15 @@ private fun framePreview(frame: CapturedFrame): String? {
 }
 
 private const val PREVIEW_BYTES = 512
+
+private fun layerOf(layer: CaptureLayer): String =
+    when (layer) {
+        CaptureLayer.CAPTURE_LAYER_PLATFORM -> "Platform layer"
+        CaptureLayer.CAPTURE_LAYER_ADAPTER -> "Adapter layer"
+        CaptureLayer.CAPTURE_LAYER_CONNECTION -> "Connection layer"
+        CaptureLayer.CAPTURE_LAYER_PROXY -> "Proxy layer"
+        CaptureLayer.CAPTURE_LAYER_UNSPECIFIED -> "Unknown layer"
+    }
 
 private fun statusOf(exchange: HttpExchange): String =
     when {

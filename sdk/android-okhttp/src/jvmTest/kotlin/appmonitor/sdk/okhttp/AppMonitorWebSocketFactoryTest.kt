@@ -1,6 +1,7 @@
 package appmonitor.sdk.okhttp
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame.Direction
 import appmonitor.v1.WebSocketFrame.Opcode
@@ -80,6 +81,7 @@ class AppMonitorWebSocketFactoryTest {
         assertSame(socket, openedWith)
         val started = sink.started()
         assertContains(started.headers, Header("Authorization", MASK))
+        assertEquals(CaptureLayer.CAPTURE_LAYER_ADAPTER, started.capture_layer)
         val opened = sink.received()
         assertEquals(started.request_id, opened.request_id)
         assertEquals(101, opened.status_code)

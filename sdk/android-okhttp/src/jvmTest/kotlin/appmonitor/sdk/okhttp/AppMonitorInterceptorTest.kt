@@ -1,6 +1,7 @@
 package appmonitor.sdk.okhttp
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -57,6 +58,7 @@ class AppMonitorInterceptorTest {
         val started = sink.started()
         assertEquals("GET", started.method)
         assertEquals(server.url("/items?page=2").toString(), started.url)
+        assertEquals(CaptureLayer.CAPTURE_LAYER_ADAPTER, started.capture_layer)
         assertFalse(started.body_truncated)
         val received = sink.received()
         assertEquals(started.request_id, received.request_id)

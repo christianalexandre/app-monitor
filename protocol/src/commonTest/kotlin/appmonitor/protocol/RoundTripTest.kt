@@ -1,5 +1,6 @@
 package appmonitor.protocol
 
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -57,6 +58,29 @@ class RoundTripTest {
     fun zeroBodySizeIsKeptApartFromUnknown() {
         val empty = Samples.requestStarted.copy(body = ByteString.EMPTY, body_size = 0)
         assertEquals(0L, RequestStarted.ADAPTER.decode(empty.encode()).body_size)
+    }
+
+    @Test
+    fun captureLayerFromAnOlderPeerIsUnspecified() {
+        val older = Samples.requestStarted.copy(capture_layer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED).encode()
+        assertEquals(CaptureLayer.CAPTURE_LAYER_UNSPECIFIED, RequestStarted.ADAPTER.decode(older).capture_layer)
+    }
+
+    @Test
+    fun everyCaptureLayerRoundTrips() {
+        CaptureLayer.entries.forEach { layer ->
+            val started = Samples.requestStarted.copy(capture_layer = layer)
+            assertEquals(layer, RequestStarted.ADAPTER.decode(started.encode()).capture_layer)
+        }
+    }
+
+    @Test
+    fun captureLayerFromANewerPeerIsUnspecified() {
+        // Field 8, varint 9: a layer this schema does not know.
+        val newer = Samples.requestStarted.copy(capture_layer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED).encode() + byteArrayOf(0x40, 0x09)
+        val decoded = RequestStarted.ADAPTER.decode(newer)
+        assertEquals(CaptureLayer.CAPTURE_LAYER_UNSPECIFIED, decoded.capture_layer)
+        assertEquals(Samples.requestStarted.url, decoded.url)
     }
 
     @Test

@@ -38,7 +38,7 @@ Pulse (ADR-0003).
   tests run: PR CI on a macOS runner (10× minutes, ADR-0012) or locally plus
   M3's release gate.
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M2.2 Protocol: capture layer.** A field telling which capture layer
+- [x] **M2.2 Protocol: capture layer.** (ADR-0038; field on `RequestStarted` only, later events inherit it) A field telling which capture layer
   produced an entry (ADR-0004 requires the UI to show it), new field numbers,
   none renumbered; Kotlin SDKs set it; fixtures regenerated; the desktop
   shows it.

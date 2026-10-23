@@ -78,6 +78,7 @@ class AppMonitorAppTest {
             onNodeWithText(URL).performClick()
             onAllNodesWithText(URL, substring = true).assertCountEquals(2)
             onNodeWithText("Content-Type: application/json").assertExists()
+            onNodeWithText("Adapter layer", substring = true).assertExists()
             awaitText("{\n    \"name\": \"café\"\n}")
             awaitText("00000000  00 7f 80 ff", substring = true)
             onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
@@ -85,6 +86,7 @@ class AppMonitorAppTest {
 
             onNodeWithText("req-0003").performClick()
             onNodeWithText("WebSocket frames (1)").assertExists()
+            onNodeWithText("Unknown layer", substring = true).assertExists()
             onNodeWithText("↓ received · TEXT · 4 B").assertExists()
             onNodeWithText("ping").performClick()
             waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("ping").fetchSemanticsNodes().size == 2 }

@@ -41,6 +41,10 @@ service type) live in `appmonitor.protocol.Protocol`.
 `RequestStarted` and `ResponseReceived` bodies hold at most the sender's
 body limit: `body_truncated` marks a cut or unread body, `body_size` (absent
 when unknown) is the original size (ADR-0020).
+`RequestStarted.capture_layer` names the ADR-0004 layer that produced the
+exchange (`PLATFORM` URLSession, `ADAPTER` OkHttp/Ktor/grpc-swift,
+`CONNECTION`, `PROXY`); every later event of the `request_id` inherits it,
+and an older or unknown value reads as `UNSPECIFIED` (ADR-0038).
 Golden binary fixtures in `protocol/fixtures/` pin the encoding.
 
 ## Connection
@@ -226,7 +230,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   `DeviceApprovals.decide`. A pending device is not in the device list until
   approved. `make fake-traffic` against the app must be approved within its
   10 s handshake wait (DEBT-0028).
-- UI: three panes (devices, requests of the selected device, detail). Bodies
+- UI: three panes (devices, requests of the selected device, detail). The
+  detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
+  when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
   user can switch. The chosen format belongs to the exchange: another

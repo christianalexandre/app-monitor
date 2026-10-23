@@ -1,5 +1,6 @@
 package appmonitor.protocol
 
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
@@ -50,6 +51,7 @@ object Samples {
                 ),
             body = """{"name":"café"}""".encodeUtf8(),
             body_size = 16,
+            capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
         )
 
     val responseReceived =

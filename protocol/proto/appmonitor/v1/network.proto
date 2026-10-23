@@ -9,6 +9,19 @@ message Header {
   string value = 2;
 }
 
+// Which capture layer produced an exchange (ADR-0004, ADR-0038).
+enum CaptureLayer {
+  CAPTURE_LAYER_UNSPECIFIED = 0;
+  // The platform HTTP stack, full content: URLSession.
+  CAPTURE_LAYER_PLATFORM = 1;
+  // An interceptor in a library the app owns: OkHttp, Ktor, grpc-swift.
+  CAPTURE_LAYER_ADAPTER = 2;
+  // Connection metadata only, no content.
+  CAPTURE_LAYER_CONNECTION = 3;
+  // The desktop proxy.
+  CAPTURE_LAYER_PROXY = 4;
+}
+
 message RequestStarted {
   // Unique per device; links the events of one request.
   string request_id = 1;
@@ -21,6 +34,8 @@ message RequestStarted {
   bool body_truncated = 6;
   // Original body size in bytes; absent when unknown.
   optional int64 body_size = 7;
+  // Holds for every event of this request_id, WebSocket frames included.
+  CaptureLayer capture_layer = 8;
 }
 
 message ResponseReceived {
