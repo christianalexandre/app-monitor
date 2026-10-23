@@ -1,0 +1,61 @@
+# 07 — iOS URLSession capture
+
+How `sdk/ios` turns every `URLSession` task of the app into `network`
+envelopes for the running monitor of SDD 06. Code in
+`sdk/ios/Sources/AppMonitor/URLSessionCapture.swift` and `Masking.swift`;
+the mechanism is ADR-0043, what is masked and bounded ADR-0036.
+
+## How it works
+
+```
+app ── any URLSession ── task.resume() ──────────► RequestStarted ─┐
+                         CFNetwork connection ───► ResponseReceived ├─► sink.send ──► MonitorClient buffer (SDD 06)
+                           response, data, finish   or RequestFailed ┘   (MonitorHolder, or a test double)
+```
+
+- **Installed once, at the first `AppMonitor.start` with `enabled`.** The
+  hooks stay for the life of the process. Each task reads `sink.options`
+  when it first resumes: nil (not started, stopped) → the task is never
+  captured, even if the monitor starts before it ends. Hence a session
+  created before `start()` is captured, a task resumed before it is not.
+- **Hooks** (ADR-0043): `NSURLSessionTask.resume`; on
+  `__NSCFURLLocalSessionConnection`, `_didReceiveResponse:sniff:`,
+  `_didReceiveData:` and `_didFinishWithError:`, which find their task
+  through the `_task` ivar; on `NSURLSession`, the six upload constructors
+  (data and file, plain, completion handler, `async`). Each records, then
+  calls the original with the same arguments. A missing `resume` or
+  connection method turns the whole capture off with one log line.
+- **What is captured**: `http` and `https` data, upload and download tasks
+  of local sessions. WebSocket and stream tasks are skipped (M2.8).
+- **Masking**: Android's rule (SDD 05), member for member (ADR-0036 A):
+  `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` plus
+  `maskedHeaders` → `██`; `maskedQueryParameters` in the query (a field
+  without `=` included) and in `name=value` fragment fields; a non-empty URL
+  user name and password → `██`; `Location` and `Content-Location` resolved
+  against the response URL and masked as URLs when `http` or `https`, else
+  sent as received (DEBT-0035). Unlike OkHttp, the fields that are not
+  masked keep the app's encoding. `masking = false` turns every rule off.
+  `protocol/fixtures/masking.json` is read by both SDKs' tests.
+- **Headers**: Foundation keeps them in dictionaries; they are sent sorted
+  by name, case-insensitively.
+
+### One task
+
+| Event | Sent when | Body |
+| --- | --- | --- |
+| `RequestStarted` | The task's first `resume()`, before the original runs, on the caller's thread | `httpBody` or the upload data: the first `maxBodyBytes`, `body_size` the whole. An upload file: its first `maxBodyBytes` read on the caller's thread, `body_size` the file size. `httpBodyStream` or `uploadTask(withStreamedRequest:)`: empty, `body_truncated`, no size; the stream is never read. No body: empty, no size. `capture_layer = PLATFORM`. |
+| `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. |
+| `RequestFailed` | `_didFinishWithError:` without a response, a cancelled task included | `error` is `NSURLErrorDomain <code>: <description>`, never the error's `userInfo`. |
+
+A request id is a random UUID kept on the task with its body and masking
+(an associated object), so it lives as long as the task.
+
+## Limits
+
+- Headers CFNetwork adds at send time, `Cookie` from the cookie storage
+  among them, are not captured (DEBT-0037).
+- Background sessions run out of process and are not captured (M2.9).
+- The hooks are private CFNetwork names, proven by `swift test` on the
+  macOS host; on iOS by M2.12 and M2.13.
+- An event whose URL and headers exceed 256 KiB is dropped whole by
+  `MonitorClient` (DEBT-0023).

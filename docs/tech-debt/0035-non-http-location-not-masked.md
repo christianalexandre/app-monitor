@@ -34,6 +34,15 @@ The iOS SDK (M2) implements the URL masking rule, which has to decide what
 `URLComponents` does with any scheme, or a developer reports a secret seen in
 a custom-scheme redirect.
 
+## Trigger fired
+
+2026-10-23, PLAN-0003 M2.7: the iOS SDK implements the URL masking rule.
+`URLComponents` parses `com.example.app:/oauth?code=abc` (scheme, path,
+query), so iOS could mask it; OkHttp's `HttpUrl` cannot. iOS ships the
+Android behaviour, as ADR-0036 A.1 requires and `protocol/fixtures/masking.json`
+pins. Masking it changes what both SDKs mask, a "stop and ask" area:
+PLAN-0003 M2.7a asks the owner through a `Proposed` ADR.
+
 ## How it was paid
 
 > Filled when closing.

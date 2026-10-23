@@ -68,13 +68,20 @@ Pulse (ADR-0003).
   file and `Hello` of ADR-0036 D.
   Accept: `swift test --package-path sdk/ios` — order of fallbacks and the
   ADR-0024 cases with fake browsers.
-- [ ] **M2.7 `URLSession` capture.** Request, response and failure events
+- [x] **M2.7 `URLSession` capture.** (ADR-0043: hooks on task `resume` and CFNetwork's connection callbacks, not `URLProtocol`; shared masking vector `protocol/fixtures/masking.json` read by both SDKs; DEBT-0037; DEBT-0035's trigger fired, M2.7a added) Request, response and failure events
   from every `URLSession`, sessions created before `start()` included,
   uploads (data, file, stream), with M2.1's masking and body limit; never
   alters the app's call beyond reading the bounded body.
   Accept: `swift test --package-path sdk/ios` — against a local HTTP server:
   2xx, 5xx, a failure, a body over the limit, a masked header, a session
   created before `start()`, each upload kind.
+- [ ] **M2.7a Non-`http` `Location` masking decision.** (added by M2.7:
+  DEBT-0035's trigger fired) A `Proposed` ADR asking whether both SDKs mask
+  `maskedQueryParameters` in a custom-scheme `Location` and
+  `Content-Location` (RFC 8252 redirects), with how each SDK parses them;
+  one stop.
+  Accept: the ADR merged by the owner; if accepted, a case in
+  `protocol/fixtures/masking.json` and both SDKs pass it.
 - [ ] **M2.8 WebSocket tasks.** Frames of `URLSessionWebSocketTask` sent and
   received, bounded as `WebSocketFrame` (ADR-0028).
   Accept: `swift test --package-path sdk/ios` — text and binary frames both

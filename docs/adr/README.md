@@ -60,3 +60,4 @@ Rules:
 | [0040](0040-swift-transport-network-framework.md) | Swift transport on Network.framework, confined to one serial queue | Accepted |
 | [0041](0041-connection-refused-ends-connecting.md) | A refused connection ends connecting, other waits do not | Accepted |
 | [0042](0042-bonjour-address-by-tcp-probe.md) | A Bonjour result's address comes from a TCP probe to its service | Accepted |
+| [0043](0043-urlsession-capture-by-cfnetwork-hooks.md) | URLSession capture hooks task resume and CFNetwork's connection callbacks | Accepted |
