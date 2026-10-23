@@ -1,10 +1,10 @@
 ---
 id: PLAN-0002
 title: Android SDK
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M1
 started: 2026-10-22
-finished:
+finished: 2026-10-23
 ---
 
 # PLAN-0002 — Android SDK (M1)
@@ -198,10 +198,33 @@ body, which the SDK does not mask (SDD 05).
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#65); M1.1 API and privacy decisions (#66); loop merges
+  the close-plan PR (#67); M1.2 bounded bodies in the protocol (#68); M1.3
+  server hardening (#69); M1.4 SDK lifecycle in SDD 04 (#70); M1.5
+  `sdk/core` transport (#71); M1.6 discovery and `AppMonitor` (#72); M1.7
+  OkHttp and WebSocket capture (#73); M1.8 `sdk/no-op` (#74); M1.9 device
+  approval (#75); M1.10 frames and bounded bodies in the UI (#76); M1.11
+  sample app (#77); M1.12 end to end on emulator and SM-G975F (#78); M1.13
+  docs sync (#79). Three review rounds: plan updates #80, #84, #87; fixes
+  M1.R1–M1.R5 in #81–#83, #85–#86, #88–#89; M1.R6 masking switch (#90).
+- **Decisions**: ADR-0017 to ADR-0034.
+- **Debt**: DEBT-0019 to DEBT-0035 created; DEBT-0003, 0006, 0008, 0009,
+  0011, 0018, 0021, 0025, 0030 and 0034 paid, DEBT-0033's `Capture.kt`
+  items too. Review findings left open are only non-correctness ones, in
+  DEBT-0031 and DEBT-0033; DEBT-0035 (non-`http` `Location`) is open. No
+  correctness finding is left open.
+- **Deviations**: M1.5 left `AppMonitor` to M1.6, which needs the
+  `Context`; M1.7 also captures WebSocket frames and took the masking
+  options from M1.6; M1.12 added `liveScreenshots` (ADR-0031) since the
+  agent has no Screen Recording permission. The review added M1.R1–M1.R5;
+  M1.R4 and M1.R5 each stopped for an owner privacy decision. M1.R6 was
+  asked by the owner after the third round, so #88–#90 were not reviewed
+  by a milestone round (ADR-0016 cap).
+- **Lessons**: writing the lifecycle down first (M1.4) held: no transport
+  race became a review task, against eight server lifecycle tasks in M0.
+  Masking rules grew finding by
+  finding (password, user name, response headers); the next SDK plan
+  should list every place a secret can sit in the captured data up front.
+  The privacy defaults turned out stricter than the owner wants for a
+  debug-only tool (ADR-0034); ask which side to err on before the M2
+  masking rules.
