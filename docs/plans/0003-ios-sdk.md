@@ -1,10 +1,10 @@
 ---
 id: PLAN-0003
 title: iOS SDK
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M2
 started: 2026-10-23
-finished:
+finished: 2026-10-23
 ---
 
 # PLAN-0003 — iOS SDK (M2)
@@ -176,12 +176,50 @@ so a value without a scheme splits at `user:`.
   case with that `Location` arrives with user, password and `code` as `██`
   in both.
 
+### Third milestone review
+
+Findings of the `code-review` of `7b9d596..70c7f57`. None is a correctness
+finding, so no task was added. Four went to DEBT-0044 (Kotlin's `uri`
+rewriting values with neither scheme nor authority, no vector case for an
+`@` in the path or a value with no path, the two `userInfo` finding the
+scheme differently, the fallback being two hand-written parsers). One was
+a broken rule: #114 touched `Masking.swift` and left DEBT-0043 unpaid; its
+trigger now names the next such PR after #114. Two were rejected: a raw
+`/`, `?` or `#` in a password (`http://user:p/ss@h:p/x`) is not user info
+for RFC 3986 or WHATWG parsers, which end the authority there, and
+`URLComponents` rejects all four values probed on the macOS 26 host, so the
+SDKs mask what every parser would call user info and query.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#92); M2.1 API, privacy and CI decisions (#93); M2.2
+  capture layer in the protocol (#94); M2.3 Swift package and contract tests
+  (#95); M2.4 Swift lifecycle in SDD 06 (#96); M2.5 transport (#97); M2.6
+  discovery and `AppMonitor` (#98); M2.7 `URLSession` capture (#99); loop
+  runs the merge as its own command (#100); M2.7a custom-scheme `Location`
+  decision and masking (#101, #102); M2.8 WebSocket tasks (#103); M2.9
+  background sessions (#104); M2.10 release stubs (#105); M2.11 Info.plist
+  keys script (#106); M2.12 SwiftUI sample (#107); M2.13 end to end on the
+  simulator (#108, #109); M2.14 docs sync (#110). Three review rounds: plan
+  updates #111, #113 and this PR; fixes M2.R1 (#112), M2.R2 (#114), M2.R3
+  (#115).
+- **Decisions**: ADR-0035 to ADR-0050.
+- **Debt**: DEBT-0036 to DEBT-0044 created; DEBT-0035 paid. Review
+  findings left open are only non-correctness ones, in DEBT-0042, DEBT-0043
+  and DEBT-0044. DEBT-0040 moved to M3's publication dry-run, and
+  DEBT-0043's trigger fired with #114 unpaid (third review). No correctness
+  finding is left open.
+- **Deviations**: M2.5 left `AppMonitor.start` and the device id to M2.6;
+  M2.7 found DEBT-0035's trigger fired and added M2.7a, a decision taken
+  before the WebSocket code; M2.13 was changed by the owner to the
+  simulator only, no physical iPhone being available (DEBT-0041). The
+  review added M2.R1–M2.R3, all in the `uri` fallback for a `Location` no
+  URL parser accepts.
+- **Lessons**: writing the Swift lifecycle first (M2.4) held again: no
+  transport or discovery race became a review task. Every review task was
+  in one hand-written fallback parser duplicated in two languages, one
+  delimiter per round; the next plan that touches masking should write the
+  fallback rule once in SDD 05 and pin its edge cases in the shared vector
+  before code (DEBT-0044). A DEBT trigger of "the next PR that touches X"
+  was missed by the very next fix PR; `/next` should check open DEBT
+  triggers against the files a PR changes.
