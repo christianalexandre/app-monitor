@@ -117,7 +117,7 @@ internal class Masking(
         val start = hierarchy.indexOf(':') + 1
         if (!hierarchy.startsWith("//", start)) return hierarchy
         val end = hierarchy.indexOf('/', start + 2).takeIf { it >= 0 } ?: hierarchy.length
-        val at = hierarchy.indexOf('@', start + 2).takeIf { it in 0 until end } ?: return hierarchy
+        val at = hierarchy.lastIndexOf('@', end - 1).takeIf { it >= start + 2 } ?: return hierarchy
         val masked =
             hierarchy.substring(start + 2, at).split(':', limit = 2).joinToString(":") { if (it.isEmpty()) it else MASK }
         return hierarchy.substring(0, start + 2) + masked + hierarchy.substring(at)
