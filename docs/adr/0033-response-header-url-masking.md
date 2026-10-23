@@ -1,7 +1,7 @@
 ---
 id: ADR-0033
 title: Which response headers the SDK masks as URLs
-status: Proposed
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -75,7 +75,10 @@ grant; the fragment rule is a few lines and closes it everywhere at once.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted option 2: `Location` and `Content-Location` get the
+request URL rule, and a form-encoded fragment gets the
+`maskedQueryParameters` rule, in these headers and in the request URL. The
+owner also asked for a switch that turns every masking rule off (ADR-0034).
 
 ## Consequences
 
