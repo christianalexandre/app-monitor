@@ -113,7 +113,7 @@ Pulse (ADR-0003).
   desktop app with approval, on the iPhone simulator.
   Accept: screenshots in `docs/screenshots/` of the desktop showing the
   sample's traffic from the simulator.
-- [ ] **M2.14 Docs sync.** SDD architecture and code map, `AGENTS.md`
+- [x] **M2.14 Docs sync.** (README status, platforms and Swift usage; SDD 01 iOS SDK and entry point; SDD 03 and `AGENTS.md` already current) SDD architecture and code map, `AGENTS.md`
   commands, README status rows reflect M2.
   Accept: `make docs-check`.
 
