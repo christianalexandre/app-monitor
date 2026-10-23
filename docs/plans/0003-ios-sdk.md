@@ -94,13 +94,14 @@ Pulse (ADR-0003).
   (ADR-0035 D.1): same public API as debug, no network code; a check that
   fails when one build gains a public symbol.
   Accept: the check passes, and fails on a public member added to one side.
-- [ ] **M2.11 Info.plist build-phase script.** Adds the local network keys
+- [x] **M2.11 Info.plist build-phase script.** (ADR-0049: keys when the configuration name contains `Debug`, as the SDK; app's own keys kept; proven on `TestHost` by `make swift-sim`, the sample being M2.12) Adds the local network keys
   M2.1 (b) decides to debug builds only.
   Accept: a debug build of the sample has the keys, a release build has
   none (`plutil` output in the PR).
 - [ ] **M2.12 SwiftUI sample app.** `samples/ios`: GET JSON, POST, 404,
   timeout, upload, WebSocket echo, background download; debug uses the SDK,
-  release gets the stubs of the same product.
+  release gets the stubs of the same product; its Run Script phase runs
+  M2.11's script.
   Accept: `xcodebuild build` for the simulator in both configurations; with
   `make server` running, each button shows up in the server log (log in the
   PR); the release app contains no SDK symbols

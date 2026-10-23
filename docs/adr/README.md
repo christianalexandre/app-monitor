@@ -66,3 +66,4 @@ Rules:
 | [0046](0046-background-session-capture-by-hooks.md) | Background URLSession capture hooks the session's callbacks from nsurlsessiond | Accepted |
 | [0047](0047-ios-simulator-tests-hosted-by-xcodegen-app.md) | iOS simulator tests run in an XcodeGen test host app | Accepted |
 | [0048](0048-ios-release-stubs-and-api-dump.md) | iOS release stubs under #if DEBUG, checked against a committed interface dump | Accepted |
+| [0049](0049-local-network-keys-script.md) | Local network keys added to the built Info.plist by a Run Script phase | Accepted |
