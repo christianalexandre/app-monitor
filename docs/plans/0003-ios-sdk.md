@@ -106,11 +106,11 @@ Pulse (ADR-0003).
   `make server` running, each button shows up in the server log (log in the
   PR); the release app contains no SDK symbols
   other than the stubs.
-- [ ] **M2.13 End to end on simulator and device.** Sample app → desktop app
-  with approval, on the simulator and on a physical iPhone (mDNS).
+- [ ] **M2.13 End to end on the simulator.** (changed by the owner: no
+  physical iPhone available, the device half is DEBT-0041) Sample app →
+  desktop app with approval, on the iPhone simulator.
   Accept: screenshots in `docs/screenshots/` of the desktop showing the
-  sample's traffic from each; if no physical device is available, stop and
-  say so.
+  sample's traffic from the simulator.
 - [ ] **M2.14 Docs sync.** SDD architecture and code map, `AGENTS.md`
   commands, README status rows reflect M2.
   Accept: `make docs-check`.
