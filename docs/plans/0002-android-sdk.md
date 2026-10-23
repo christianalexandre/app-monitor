@@ -151,7 +151,7 @@ is masked without an ADR. Three went to DEBT-0033 (the mask percent-encoded
 in the URL, `Masking.url`'s exit paths, body chunks up to twice the bound).
 None was rejected.
 
-- [ ] **M1.R4 URL user name sent in clear.** `Masking.url` masks only the
+- [!] **M1.R4 URL user name sent in clear.** (`docs/adr-url-user-info-masking`; ADR-0032 `Proposed`, waiting for the owner's choice) `Masking.url` masks only the
   password, so a URL that carries a token as its user name with no password
   (`https://ghp_TOKEN@github.com/...`, `https://sk_live_x:@api.stripe.com/`)
   reaches the desktop with the secret. What the URL user info masks is a
