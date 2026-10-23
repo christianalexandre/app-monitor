@@ -156,7 +156,7 @@ One was paid here: the DEBT-0042 index row now names its files. One was
 folded into M2.R3: Kotlin's `userInfo` finds the scheme at the first `:`,
 so a value without a scheme splits at `user:`.
 
-- [ ] **M2.R2 Password with a raw `@` partly sent in clear.** Both SDKs'
+- [x] **M2.R2 Password with a raw `@` partly sent in clear.** (both `userInfo` end the user info at the last `@` before the path; vector case `location no url parser accepts with an at sign in the password`) Both SDKs'
   `uri` fallback ends the user info at the first `@`, while Foundation
   (`URLComponents("http://user:p@ss@h/x")` gives password `p@ss`) and
   RFC 3986 parsers end it at the last `@` before the path. For

@@ -94,7 +94,7 @@ struct Masking: Sendable {
         guard hierarchy[start...].hasPrefix("//") else { return String(hierarchy) }
         let authority = hierarchy.index(start, offsetBy: 2)
         let end = hierarchy[authority...].firstIndex(of: "/") ?? hierarchy.endIndex
-        guard let at = hierarchy[authority..<end].firstIndex(of: "@") else { return String(hierarchy) }
+        guard let at = hierarchy[authority..<end].lastIndex(of: "@") else { return String(hierarchy) }
         let user = hierarchy[authority..<at].split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
         return String(hierarchy[..<authority]) + user.map { $0.isEmpty ? "" : mask }.joined(separator: ":")
             + String(hierarchy[at...])

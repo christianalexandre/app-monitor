@@ -113,6 +113,13 @@
       "maskedResponseHeaders": [["Location", "http://██:██@h:p/x?code=██#code=██"]]
     },
     {
+      "name": "location no url parser accepts with an at sign in the password",
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://user:p@ss@h:p/x"]],
+      "maskedResponseHeaders": [["Location", "http://██:██@h:p/x"]]
+    },
+    {
       "name": "masking off",
       "masking": false,
       "maskedHeaders": ["x-api-key"],
