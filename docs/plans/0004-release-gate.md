@@ -28,7 +28,7 @@ DEBTs whose trigger is in this milestone (DEBT-0002, DEBT-0040, DEBT-0041)
 are paid or re-triggered by the task that fires them. The loop never merges
 into `main`: the last task opens the release PR, the owner merges it.
 
-- [x] **M3.1 Loop checks DEBT triggers.** PLAN-0003's lesson: before
+- [x] **M3.1 Loop checks DEBT triggers.** (ADR-0051; `make debt-check`, matches backticked trigger names only) PLAN-0003's lesson: before
   committing, `/next` lists the open DEBTs whose trigger names a file the
   branch changes, and the PR body says how each was handled (paid,
   re-triggered, or not fired and why). `.claude/commands/next.md`, the PR
