@@ -75,7 +75,7 @@ Pulse (ADR-0003).
   Accept: `swift test --package-path sdk/ios` — against a local HTTP server:
   2xx, 5xx, a failure, a body over the limit, a masked header, a session
   created before `start()`, each upload kind.
-- [ ] **M2.7a Non-`http` `Location` masking decision.** (ADR-0044 `Accepted`: option 1, every absolute URI; added by M2.7:
+- [x] **M2.7a Non-`http` `Location` masking decision.** (ADR-0044 `Accepted`: option 1, every absolute URI; three vector cases, DEBT-0035 paid; added by M2.7:
   DEBT-0035's trigger fired) A `Proposed` ADR asking whether both SDKs mask
   `maskedQueryParameters` in a custom-scheme `Location` and
   `Content-Location` (RFC 8252 redirects), with how each SDK parses them;

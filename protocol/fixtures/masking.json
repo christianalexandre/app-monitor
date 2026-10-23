@@ -74,7 +74,35 @@
       "url": "https://auth.example.com/authorize",
       "maskedUrl": "https://auth.example.com/authorize",
       "responseHeaders": [["Location", "com.example.app:/oauth?code=abc"]],
-      "maskedResponseHeaders": [["Location", "com.example.app:/oauth?code=abc"]]
+      "maskedResponseHeaders": [["Location", "com.example.app:/oauth?code=██"]]
+    },
+    {
+      "name": "location with a custom scheme and an authority",
+      "maskedQueryParameters": ["code", "access_token"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [
+        ["Location", "com.example.app://user:s3cret@oauth/cb?code=abc&state=1#access_token=tok&token_type=bearer"],
+        ["Content-Location", "com.example.app://@oauth?code&state=%20x"]
+      ],
+      "maskedResponseHeaders": [
+        ["Location", "com.example.app://██:██@oauth/cb?code=██&state=1#access_token=██&token_type=bearer"],
+        ["Content-Location", "com.example.app://@oauth?code=██&state=%20x"]
+      ]
+    },
+    {
+      "name": "opaque locations",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [
+        ["Location", "myapp:oauth?code=abc#code"],
+        ["Content-Location", "urn:ietf:wg:oauth:2.0:oob?CODE=x"]
+      ],
+      "maskedResponseHeaders": [
+        ["Location", "myapp:oauth?code=██#code"],
+        ["Content-Location", "urn:ietf:wg:oauth:2.0:oob?CODE=██"]
+      ]
     },
     {
       "name": "masking off",

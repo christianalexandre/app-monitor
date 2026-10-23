@@ -22,7 +22,8 @@ struct Masking: Sendable {
         queryNames = Set(options.maskedQueryParameters.map { $0.lowercased() })
     }
 
-    /// With `base`, a `urlResponseHeaders` value is resolved against it and masked by `url(_:)`.
+    /// With `base`, a `urlResponseHeaders` value is resolved against it and masked by `url(_:)`; a value
+    /// with another scheme is masked as written (ADR-0044).
     func headers(_ headers: [(name: String, value: String)], base: URL? = nil) -> [Appmonitor_V1_Header] {
         headers.map { name, value in
             var header = Appmonitor_V1_Header()
@@ -32,10 +33,10 @@ struct Masking: Sendable {
             if headerNames.contains(name.lowercased()) {
                 header.value = mask
             } else if let base, urlHeaderNames.contains(name.lowercased()),
-                let resolved = URL(string: value, relativeTo: base)?.absoluteURL,
-                ["http", "https"].contains(resolved.scheme?.lowercased())
+                let resolved = URL(string: value, relativeTo: base)?.absoluteURL
             {
-                header.value = url(resolved.absoluteString)
+                let http = ["http", "https"].contains(resolved.scheme?.lowercased())
+                header.value = url(http ? resolved.absoluteString : value)
             }
             return header
         }

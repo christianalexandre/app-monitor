@@ -310,7 +310,7 @@ class AppMonitorInterceptorTest {
     }
 
     @Test
-    fun aLocationThatIsNotAnHttpUrlIsSentAsReceived() {
+    fun aCustomSchemeLocationIsMasked() {
         val sink = RecordingSink(AppMonitorOptions(maskedQueryParameters = setOf("code")))
         server.enqueue(
             MockResponse
@@ -329,7 +329,7 @@ class AppMonitorInterceptorTest {
         client.newCall(Request.Builder().url(server.url("/")).build()).execute().close()
 
         sink.started()
-        assertContains(sink.received().headers, Header("Location", "com.example.app:/oauth?code=abc"))
+        assertContains(sink.received().headers, Header("Location", "com.example.app:/oauth?code=$MASK"))
     }
 
     @Test

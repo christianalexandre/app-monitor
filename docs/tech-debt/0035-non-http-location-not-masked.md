@@ -1,10 +1,10 @@
 ---
 id: DEBT-0035
 title: A Location that is not an http or https URL is sent as received
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The iOS SDK (M2) implements the URL masking rule, or a developer reports a secret seen in a custom-scheme redirect
-paid_date:
+paid_date: 2026-10-23
 ---
 
 # DEBT-0035 — A Location that is not an http or https URL is sent as received
@@ -45,4 +45,10 @@ PLAN-0003 M2.7a asks the owner through a `Proposed` ADR.
 
 ## How it was paid
 
-> Filled when closing.
+2026-10-23, PLAN-0003 M2.7a: the owner accepted ADR-0044 option 1. Both
+SDKs mask every absolute URI in `Location` and `Content-Location` by RFC
+3986 generic syntax: iOS drops its `http`/`https` guard and keeps the value
+as written; OkHttp's `Masking.uri` splits what `HttpUrl.resolve` rejects.
+Three cases in `protocol/fixtures/masking.json` pin it (scheme with a path,
+with an authority, opaque); the OkHttp test is now
+`aCustomSchemeLocationIsMasked`.
