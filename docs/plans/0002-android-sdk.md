@@ -175,7 +175,7 @@ is `error.toString()` unmasked, but OkHttp's own messages redact the URL
 `HttpUrl.redact`), and an app's own exception text is app content, like a
 body, which the SDK does not mask (SDD 05).
 
-- [ ] **M1.R5 URLs in response headers sent in clear.** `responseReceived`
+- [ ] **M1.R5 URLs in response headers sent in clear.** (ADR-0033 `Accepted`: option 2, the two headers and a form-encoded fragment) `responseReceived`
   masks response headers by name only, so a URL in `Location` or
   `Content-Location` (a redirect seen by a network interceptor or with
   `followRedirects(false)`) reaches the desktop with its user info and with
@@ -187,6 +187,14 @@ body, which the SDK does not mask (SDD 05).
   Accept: `./gradlew :sdk:android-okhttp:allTests` — a response with a
   `Location` URL carrying user info and a masked query parameter arrives as
   the accepted ADR says.
+- [ ] **M1.R6 Masking off switch.** (ADR-0034 `Accepted`, asked by the owner)
+  `AppMonitorOptions` gains `masking: Boolean = true`; `false` skips every
+  masking rule (headers, URL user info, query parameters, fragment, URL
+  response headers) and sends what OkHttp saw. `sdk/no-op` mirrors the
+  member; SDD 05 documents it.
+  Accept: `./gradlew :sdk:android-okhttp:allTests` — with `masking = false`,
+  an `Authorization` header, a URL user info and a `maskedQueryParameters`
+  value arrive in clear; with the default they arrive as `██`.
 
 ## Outcome
 

@@ -50,3 +50,5 @@ Rules:
 | [0030](0030-android-sample-app.md) | Android sample app, its variants and the release classpath check | Accepted |
 | [0031](0031-live-device-screenshots.md) | End to end evidence from an offscreen render fed by a real device, by hand until M3 | Accepted |
 | [0032](0032-url-user-info-masking.md) | What the SDK masks in a URL's user info | Accepted |
+| [0033](0033-response-header-url-masking.md) | Which response headers the SDK masks as URLs | Accepted |
+| [0034](0034-masking-off-switch.md) | A switch that turns every masking rule off | Accepted |
