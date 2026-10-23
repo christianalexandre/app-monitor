@@ -175,7 +175,7 @@ is `error.toString()` unmasked, but OkHttp's own messages redact the URL
 `HttpUrl.redact`), and an app's own exception text is app content, like a
 body, which the SDK does not mask (SDD 05).
 
-- [ ] **M1.R5 URLs in response headers sent in clear.** `responseReceived`
+- [!] **M1.R5 URLs in response headers sent in clear.** (`docs/propose-response-header-url-masking`; ADR-0033 `Proposed`, waiting for the owner's choice) `responseReceived`
   masks response headers by name only, so a URL in `Location` or
   `Content-Location` (a redirect seen by a network interceptor or with
   `followRedirects(false)`) reaches the desktop with its user info and with
