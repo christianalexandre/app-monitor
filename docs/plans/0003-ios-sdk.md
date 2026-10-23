@@ -145,6 +145,37 @@ opens a new `BonjourSession` every round.
   case with a `Location` neither SDK's URL parser accepts arrives with its
   masked query parameter as `██` in both.
 
+### Second milestone review
+
+Findings of the `code-review` of `9dee53b..7b9d596`. Two are correctness
+findings and became tasks. Three went to DEBT-0043 (`url(_:)` keeping a value
+`URLComponents` rejects, with no such value found on the macOS 26 host and
+iOS 15–16 not probed; `uri(_:)` not returning early without masked query
+names; Foundation-parsed custom schemes pinned only by the ADR-0044 cases).
+One was paid here: the DEBT-0042 index row now names its files. One was
+folded into M2.R3: Kotlin's `userInfo` finds the scheme at the first `:`,
+so a value without a scheme splits at `user:`.
+
+- [ ] **M2.R2 Password with a raw `@` partly sent in clear.** Both SDKs'
+  `uri` fallback ends the user info at the first `@`, while Foundation
+  (`URLComponents("http://user:p@ss@h/x")` gives password `p@ss`) and
+  RFC 3986 parsers end it at the last `@` before the path. For
+  `Location: http://user:p@ss@h:p/x` (a bad port, so `uri`) both SDKs send
+  `http://██:██@ss@h:p/x`.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with that `Location` arrives as `http://██:██@h:p/x` in both.
+- [ ] **M2.R3 Unparseable `Location` without a scheme sent in clear on
+  Android.** Kotlin's `uri` returns a value with no scheme unchanged, while
+  Swift's masks it (M2.R1). `Location: //user:pw@h:p/x?code=1`: `HttpUrl`'s
+  `resolve` returns null (bad port), so user, password and `code` reach the
+  desktop from Android only. Kotlin's `uri` and `userInfo` handle a value
+  without a scheme as Swift's do.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with that `Location` arrives with user, password and `code` as `██`
+  in both.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
