@@ -53,3 +53,4 @@ Rules:
 | [0033](0033-m1-review-round-2-cleanups.md) | Non-correctness findings of the second M1 milestone review | The next PR that touches one of the files listed | Open |
 | [0034](0034-m1-review-round-3-cleanups.md) | Non-correctness findings of the third M1 milestone review | The next PR that touches one of the files listed | Paid |
 | [0035](0035-non-http-location-not-masked.md) | A Location that is not an http or https URL is sent as received | The iOS SDK (M2) implements the URL masking rule, or a developer reports a secret seen in a custom-scheme redirect | Open |
+| [0036](0036-mdns-test-fails-with-a-vpn-up.md) | The desktop's mDNS test fails while a VPN interface is up | The next PR that changes either LAN interface filter (DEBT-0005), or a device fails to find the desktop while the Mac has a VPN up | Open |

@@ -61,7 +61,7 @@ Pulse (ADR-0003).
   WebSocket server: handshake, 1000 events in order, events queued while the
   desktop is down arrive after it returns, `stop()` in each state releases
   everything; one run against `make server` logged in the PR.
-- [ ] **M2.6 Swift discovery.** Manual host → `NWBrowser` → the simulator's
+- [x] **M2.6 Swift discovery.** (ADR-0042: a Bonjour result's IPv4 address from a TCP probe to its service) Manual host → `NWBrowser` → the simulator's
   host loopback, per the discovery contract (ADR-0024: late TXT, two
   services, selector rules); `AppMonitor.start` / `stop` and
   `AppMonitorOptions` (ADR-0035 A, B) build the client, with the device id

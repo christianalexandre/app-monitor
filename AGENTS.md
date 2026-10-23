@@ -110,8 +110,9 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
 | Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change; mirror the change in `sdk/ios/Tests/AppMonitorTests/Samples.swift` |
 | iOS SDK gates (proto freshness, swift-format, `swift test`) | `make swift` | active; macOS with `swift` only, prints `swift: SKIPPED` elsewhere; ADR-0037, ADR-0039 |
-| iOS SDK tests (fixtures decode and re-encode, transport against an in-process desktop) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host |
+| iOS SDK tests (fixtures decode and re-encode, transport against an in-process desktop, discovery with fake browsers and one real Bonjour round) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host; the Bonjour round needs a multicast-capable interface |
 | iOS transport against a running desktop | `APPMONITOR_LIVE_HOST=127.0.0.1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running; skipped without the variable |
+| iOS Bonjour discovery against a running desktop | `APPMONITOR_LIVE_DISCOVERY=1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running on the LAN; skipped without the variable |
 | Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |
 | Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
 | Desktop app tests (store, body formats, offscreen UI) | `./gradlew :desktop:app:test` | active; screenshots in `desktop/app/build/screenshots/` (`app.png`, `approval.png`, `frames.png`) |
