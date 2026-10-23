@@ -116,6 +116,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Replay fixture traffic to a desktop | `make fake-traffic` | active; mDNS discovery, or `ARGS="--host H [--port N]"`; `--name S` picks a service, `--timeout MS` bounds discovery |
 | Fake client tests (replay + mDNS discovery) | `./gradlew :tools:fake-client:test` | active; needs a multicast-capable LAN interface |
 | Android sample APKs (debug with the SDK, release with `sdk/no-op`) | `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease` | active; `:samples:android:checkReleaseHasNoSdk` in `check`, ADR-0030 |
+| Sample host tests (WebSocket echo listener) | `./gradlew :samples:android:testDebugUnitTest` | active; JVM, no device |
 | Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
 | Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, ADR-0013 |
 | Branch name check | `make branch-check` | active |
