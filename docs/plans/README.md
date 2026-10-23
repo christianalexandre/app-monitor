@@ -35,21 +35,12 @@ record of how the milestone was actually built once it is done.
 | --- | --- | --- | --- |
 | [0001](0001-foundation.md) | M0 | Foundation | Done |
 | [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
+| [0003](0003-ios-sdk.md) | M2 | iOS SDK | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M2 — iOS SDK (capture layer 1)
-
-A real iOS app (simulator and device) shows all its URLSession traffic. Swift
-package `sdk/ios` (Network.framework transport, NWBrowser, swift-protobuf),
-URLSession capture ported from `app-network-monitor` without Pulse, sessions
-created before `start()`, uploads, WebSocket tasks, background sessions
-(ADR-0004 layer 1). Contract tests against `protocol/fixtures/`. SwiftUI sample
-app. Info.plist build-phase script. Protocol field telling which capture
-layer produced an entry (ADR-0004 requires the UI to show it).
 
 ### M3 — Release gate
 
