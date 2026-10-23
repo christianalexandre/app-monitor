@@ -14,7 +14,7 @@ paid_date:
 `TrafficState` keeps exchanges in one list: every network event runs
 `indexOfFirst` over all exchanges and copies the list, and `exchangesOf`
 re-filters it on each recomposition, and each row compares itself with the
-selected exchange by data-class equality, deep-comparing headers and bodies. Ingest is O(n) per event, so a long
+selected exchange by data-class equality, deep-comparing headers and bodies. A WebSocket frame also copies its exchange's frame list (ADR-0029). Ingest is O(n) per event, so a long
 session is quadratic overall and the UI slows as traffic accumulates.
 
 The payload is decoded inside the `MutableStateFlow.update` lambda, so

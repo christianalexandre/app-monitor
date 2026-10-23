@@ -1,10 +1,10 @@
 ---
 id: DEBT-0003
 title: Desktop app ignores WebSocket frames
-status: Open
+status: Paid
 date: 2026-10-21
 trigger: The first SDK that emits WebSocketFrame lands (M1 sdk/android-okhttp or M2 iOS WebSocket tasks)
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0003 — Desktop app ignores WebSocket frames
@@ -30,4 +30,8 @@ M2 iOS WebSocket tasks). Then frames attach to the exchange of their
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0002 M1.10 (ADR-0029): `TrafficState` appends each `WebSocketFrame` to
+the exchange of its `request_id`, and the detail pane lists them under
+"WebSocket frames (N)" with direction, opcode, size, time and a preview; one
+opens at a time with the body formats. A frame for an unknown request still
+creates its exchange, as other events do.

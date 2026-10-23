@@ -1,10 +1,10 @@
 ---
 id: DEBT-0025
 title: WebSocket frame payloads are cut without a marker, pings unseen
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0025 — WebSocket frame payloads are cut without a marker, pings unseen
@@ -29,4 +29,6 @@ The desktop renders WebSocket frames (M1.10), or a frame over
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0002 M1.10: `WebSocketFrame` gained `payload_truncated` and
+`payload_size` (ADR-0028), set by `AppMonitorWebSocketFactory` and shown by
+the desktop. Ping and pong remain unseen: moved to DEBT-0029.

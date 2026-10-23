@@ -74,6 +74,7 @@ object Samples {
             direction = WebSocketFrame.Direction.DIRECTION_RECEIVED,
             opcode = WebSocketFrame.Opcode.OPCODE_TEXT,
             payload = "ping".encodeUtf8(),
+            payload_size = 4,
         )
 
     /** Fixture file name to the envelope it holds. */

@@ -1,10 +1,16 @@
 package appmonitor.desktop.app
 
 import appmonitor.desktop.app.ui.BodyFormat
+import appmonitor.desktop.app.ui.CHUNK_CHARS
+import appmonitor.desktop.app.ui.CHUNK_LINES
 import appmonitor.desktop.app.ui.DecodedBody
+import appmonitor.desktop.app.ui.MAX_RENDERED_CHARS
+import appmonitor.desktop.app.ui.chunked
 import appmonitor.desktop.app.ui.defaultFormat
 import appmonitor.desktop.app.ui.formatDuration
 import appmonitor.desktop.app.ui.render
+import appmonitor.desktop.app.ui.renderBody
+import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
 import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
@@ -57,14 +63,14 @@ class BodyFormatTest {
     }
 
     @Test
-    fun `formats a multi-megabyte body in linear time`() {
+    fun `formats a body at the protocol limit in linear time`() {
         val element = """{"k":[1,2,{"a":"v"}]}"""
-        val body = List(200_000) { element }.joinToString(",", "[", "]").encodeUtf8()
+        val count = Protocol.MAX_BODY_BYTES / (element.length + 1)
+        val body = List(count) { element }.joinToString(",", "[", "]").encodeUtf8()
 
         val (rendered, elapsed) = measureTimedValue { render(decoded(body), BodyFormat.Json) }
 
-        assertTrue(body.size > 4_000_000, "body is ${body.size} bytes")
-        assertEquals(1 + 200_000 * 9 + 1, rendered.lines().size)
+        assertEquals(1 + count * 9 + 1, rendered.lines().size)
         assertTrue(elapsed < 5.seconds, "took $elapsed")
     }
 
@@ -98,6 +104,32 @@ class BodyFormatTest {
                 "00000010  58 59                                            |XY|",
             render(decoded(body), BodyFormat.Hex),
         )
+    }
+
+    @Test
+    fun `chunks a rendering by lines and inside long lines`() {
+        val lines = List(CHUNK_LINES * 2 + 1) { "line $it" }.joinToString("\n")
+        val long = "x".repeat(CHUNK_CHARS * 2 + 1)
+
+        assertEquals(listOf(""), chunked(""))
+        assertEquals(lines, chunked(lines).joinToString("\n"))
+        assertEquals(3, chunked(lines).size)
+        assertEquals(listOf(CHUNK_CHARS, CHUNK_CHARS, 1), chunked(long).map { it.length })
+        assertTrue(chunked("😀".repeat(CHUNK_CHARS)).none { it.first().isLowSurrogate() })
+    }
+
+    @Test
+    fun `deeply nested json stops at the rendering cap`() {
+        val depth = 400
+        val body = List(Protocol.MAX_BODY_BYTES / 2) { "1" }.joinToString(",", "[".repeat(depth), "]".repeat(depth)).encodeUtf8()
+
+        val (rendered, elapsed) = measureTimedValue { renderBody(listOf(json), decoded(body), null) }
+
+        assertEquals(BodyFormat.Json, rendered.format)
+        val text = rendered.chunks.joinToString("\n")
+        assertTrue(text.length < MAX_RENDERED_CHARS + 10_000, "rendered ${text.length} characters")
+        assertTrue(text.endsWith("… stopped at $MAX_RENDERED_CHARS characters"))
+        assertTrue(elapsed < 10.seconds, "took $elapsed")
     }
 
     @Test

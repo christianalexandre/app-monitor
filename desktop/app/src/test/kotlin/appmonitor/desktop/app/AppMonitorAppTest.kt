@@ -3,6 +3,7 @@ package appmonitor.desktop.app
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.CapturedBody
+import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
@@ -22,11 +24,14 @@ import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
+import appmonitor.v1.WebSocketFrame.Direction
+import appmonitor.v1.WebSocketFrame.Opcode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.Buffer
 import okio.ByteString.Companion.encodeUtf8
 import java.io.File
 import java.io.IOException
@@ -51,6 +57,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
 
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class AppMonitorAppTest {
@@ -70,13 +78,79 @@ class AppMonitorAppTest {
             onNodeWithText(URL).performClick()
             onAllNodesWithText(URL, substring = true).assertCountEquals(2)
             onNodeWithText("Content-Type: application/json").assertExists()
-            onNodeWithText("{\n    \"name\": \"café\"\n}").assertExists()
-            onNodeWithText("00000000  00 7f 80 ff", substring = true).assertExists()
+            awaitText("{\n    \"name\": \"café\"\n}")
+            awaitText("00000000  00 7f 80 ff", substring = true)
             onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
+            screenshot("app.png")
 
-            val screenshot = File(System.getProperty("screenshotDir"), "app.png")
-            screenshot.parentFile.mkdirs()
-            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", screenshot)
+            onNodeWithText("req-0003").performClick()
+            onNodeWithText("WebSocket frames (1)").assertExists()
+            onNodeWithText("↓ received · TEXT · 4 B").assertExists()
+            onNodeWithText("ping").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("ping").fetchSemanticsNodes().size == 2 }
+            screenshot("frames.png")
+        }
+    }
+
+    @Test
+    fun `frames of a websocket exchange show in order with their truncation`() {
+        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
+        val frames =
+            listOf(
+                CapturedFrame(Direction.DIRECTION_SENT, Opcode.OPCODE_TEXT, CapturedBody("hello".encodeUtf8(), originalSize = 5), 1_010),
+                CapturedFrame(Direction.DIRECTION_RECEIVED, Opcode.OPCODE_TEXT, CapturedBody("hell".encodeUtf8(), true, 11), 1_250),
+                CapturedFrame(
+                    Direction.DIRECTION_SENT,
+                    Opcode.OPCODE_CLOSE,
+                    CapturedBody(Buffer().writeShort(1000).writeUtf8("bye").readByteString()),
+                    1_500,
+                ),
+            )
+        val exchange = HttpExchange("s1", "r1", "GET", "wss://a.example/ws", startedAtMs = 1_000, statusCode = 101, frames = frames)
+
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
+
+            onNodeWithText("wss://a.example/ws").performClick()
+            onNodeWithText("WebSocket frames (3)").assertExists()
+            onNodeWithText("↑ sent · TEXT · 5 B · +10 ms").assertExists()
+            onNodeWithText("↓ received · TEXT · 4 of 11 B · +250 ms").assertExists()
+            onNodeWithText("↑ sent · CLOSE · 5 B · +500 ms").assertExists()
+            onNodeWithText("1000 bye").assertExists()
+
+            onNodeWithText("hell").performClick()
+            onNodeWithText("Truncated: 4 of 11 bytes shown").assertExists()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("hell").fetchSemanticsNodes().size == 2 }
+        }
+    }
+
+    @Test
+    fun `a body at the protocol limit renders off the UI thread`() {
+        val element = """{"id":12345,"name":"item","tags":["a","b"]}"""
+        val json = List(Protocol.MAX_BODY_BYTES / (element.length + 1)) { element }.joinToString(",", "[", "]").encodeUtf8()
+        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
+        val exchange =
+            HttpExchange(
+                "s1",
+                "r1",
+                "GET",
+                "https://a.example/big",
+                statusCode = 200,
+                responseHeaders = listOf(Header("Content-Type", "application/json")),
+                responseBody = CapturedBody(json, originalSize = json.size.toLong()),
+            )
+
+        runDesktopComposeUiTest(width = 1280, height = 800) {
+            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
+
+            val opened =
+                measureTime {
+                    onNodeWithText("https://a.example/big").performClick()
+                    waitForIdle()
+                }
+            assertTrue(json.size in Protocol.MAX_BODY_BYTES - element.length..Protocol.MAX_BODY_BYTES, "body is ${json.size} bytes")
+            assertTrue(opened < 2.seconds, "opening the exchange blocked the UI thread for $opened")
+            awaitText("[\n    {\n        \"id\": 12345,", substring = true)
         }
     }
 
@@ -131,9 +205,7 @@ class AppMonitorAppTest {
 
             onNodeWithText("Pixel — app.a wants to connect").assertExists()
             onNodeWithText("1 more waiting").assertExists()
-            val screenshot = File(System.getProperty("screenshotDir"), "approval.png")
-            screenshot.parentFile.mkdirs()
-            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", screenshot)
+            screenshot("approval.png")
             onNodeWithText("Reject").performClick()
         }
 
@@ -165,10 +237,10 @@ class AppMonitorAppTest {
             setContent { AppMonitorApp(state, "Listening") }
 
             onNodeWithText("https://a.example/json").performClick()
-            onNodeWithText("{\n    \"a\": 1\n}").assertExists()
+            awaitText("{\n    \"a\": 1\n}")
 
             onNodeWithText("https://a.example/text").performClick()
-            onNodeWithText("{\"a\":1}").assertExists()
+            awaitText("{\"a\":1}")
             onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
         }
     }
@@ -426,6 +498,17 @@ class AppMonitorAppTest {
 
         assertTrue(stopped)
         ServerSocket(listening.getCompleted(), 0, InetAddress.getByName("127.0.0.1")).close()
+    }
+
+    private fun ComposeUiTest.awaitText(
+        text: String,
+        substring: Boolean = false,
+    ) = waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
+
+    private fun ComposeUiTest.screenshot(name: String) {
+        val file = File(System.getProperty("screenshotDir"), name)
+        file.parentFile.mkdirs()
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", file)
     }
 
     // Real server and fake client: the UI renders what actually crossed the wire.

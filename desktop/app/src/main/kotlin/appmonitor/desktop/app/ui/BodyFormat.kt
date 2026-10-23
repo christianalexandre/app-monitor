@@ -66,6 +66,7 @@ private fun indentJson(text: String): String {
 
     fun newline() = out.append('\n').append("    ".repeat(depth))
     for ((index, c) in text.withIndex()) {
+        if (out.length > MAX_RENDERED_CHARS) return out.append("\n… stopped at $MAX_RENDERED_CHARS characters").toString()
         when {
             inString -> {
                 out.append(c)
@@ -110,6 +111,9 @@ private fun indentJson(text: String): String {
     return out.toString()
 }
 
+/** Most characters of indented JSON; deep nesting would otherwise grow the output with depth × lines. */
+internal const val MAX_RENDERED_CHARS = 16 shl 20
+
 private fun closing(open: Char) = if (open == '{') '}' else ']'
 
 private fun String.nextSignificant(from: Int): Char? {
@@ -151,9 +155,50 @@ private fun StringBuilder.appendHex(
 internal class DecodedBody(
     val bytes: ByteString,
 ) {
-    val text: String? by lazy(LazyThreadSafetyMode.NONE) { utf8OrNull(bytes) }
-    val prettyJson: String? by lazy(LazyThreadSafetyMode.NONE) { text?.let(::prettyJsonOrNull) }
+    // Renderings of two formats may run at once off the UI thread.
+    val text: String? by lazy { utf8OrNull(bytes) }
+    val prettyJson: String? by lazy { text?.let(::prettyJsonOrNull) }
 }
+
+/** A body rendered as [format], split into [chunks] so the UI lays out only the visible ones. */
+internal data class RenderedBody(
+    val format: BodyFormat,
+    val chunks: List<String>,
+)
+
+/** Renders [body] as [format], or as its [defaultFormat] when null; slow on large bodies, so off the UI thread. */
+internal fun renderBody(
+    headers: List<Header>,
+    body: DecodedBody,
+    format: BodyFormat?,
+): RenderedBody {
+    val chosen = format ?: defaultFormat(headers, body)
+    return RenderedBody(chosen, chunked(render(body, chosen)))
+}
+
+/** [rendered] cut after every [CHUNK_LINES] lines, and inside a line longer than [CHUNK_CHARS]. */
+internal fun chunked(rendered: String): List<String> {
+    val chunks = ArrayList<String>()
+    var start = 0
+    var lines = 0
+    for (index in rendered.indices) {
+        if (rendered[index] == '\n') {
+            if (++lines < CHUNK_LINES) continue
+            chunks += rendered.substring(start, index)
+            start = index + 1
+            lines = 0
+        } else if (index - start >= CHUNK_CHARS && !rendered[index].isLowSurrogate()) {
+            chunks += rendered.substring(start, index)
+            start = index
+            lines = 0
+        }
+    }
+    chunks += rendered.substring(start)
+    return chunks
+}
+
+internal const val CHUNK_LINES = 100
+internal const val CHUNK_CHARS = 8_192
 
 /** JSON when the content type says so and it parses, text when it is UTF-8, hex otherwise. */
 internal fun defaultFormat(

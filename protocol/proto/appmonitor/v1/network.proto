@@ -59,5 +59,8 @@ message WebSocketFrame {
   string request_id = 1;
   Direction direction = 2;
   Opcode opcode = 3;
+  // At most the sender's body limit; same rules as RequestStarted.body (ADR-0028).
   bytes payload = 4;
+  bool payload_truncated = 5;
+  optional int64 payload_size = 6;
 }

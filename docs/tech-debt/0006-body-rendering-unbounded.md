@@ -1,10 +1,10 @@
 ---
 id: DEBT-0006
 title: Body rendering is synchronous and unbounded
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane
-paid_date:
+paid_date: 2026-10-22
 ---
 
 # DEBT-0006 — Body rendering is synchronous and unbounded
@@ -31,4 +31,10 @@ freezing the detail pane.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0002 M1.10 (ADR-0029): bodies render on `Dispatchers.Default` and come
+back as chunks of at most 100 lines or 8 192 characters, each an item of the
+detail pane's `LazyColumn`, so the UI thread lays out only what is visible.
+Indented JSON stops at 16 Mi characters; kotlinx-serialization already
+refuses nesting past a few hundred levels. A UI test opens a body at the
+protocol limit and fails if the click blocks for 2 s. Left: `toByteArray`
+copies remain, off the UI thread now.

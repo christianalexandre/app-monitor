@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,12 +41,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.CapturedBody
+import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.v1.Header
+import appmonitor.v1.WebSocketFrame
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Devices, then the selected device's requests, then the selected request; above them, the first device to approve. */
 @Composable
@@ -177,21 +182,40 @@ private fun RequestList(
 
 @Composable
 private fun RequestDetail(exchange: HttpExchange) {
+    val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
+    val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
+    var openFrame by remember { mutableStateOf<Int?>(null) }
+    val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     SelectionContainer {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-            Text("${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}", fontWeight = FontWeight.Medium)
-            Text(
-                listOfNotNull(
-                    "Status ${statusOf(exchange)}",
-                    exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.caption,
-            )
-            exchange.error?.let { Text(it, color = MaterialTheme.colors.error) }
-            Section("Request headers") { Headers(exchange.requestHeaders) }
-            Section("Request body") { Body(exchange.requestHeaders, exchange.requestBody) }
-            Section("Response headers") { Headers(exchange.responseHeaders) }
-            Section("Response body") { Body(exchange.responseHeaders, exchange.responseBody) }
+        LazyColumn(Modifier.fillMaxSize().padding(12.dp)) {
+            item {
+                Text("${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}", fontWeight = FontWeight.Medium)
+                Text(
+                    listOfNotNull(
+                        "Status ${statusOf(exchange)}",
+                        exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.caption,
+                )
+                exchange.error?.let { Text(it, color = MaterialTheme.colors.error) }
+            }
+            item { Section("Request headers") { Headers(exchange.requestHeaders) } }
+            item { Section("Request body") {} }
+            body(requestBody)
+            item { Section("Response headers") { Headers(exchange.responseHeaders) } }
+            item { Section("Response body") {} }
+            body(responseBody)
+            if (exchange.frames.isNotEmpty()) {
+                item { Section("WebSocket frames (${exchange.frames.size})") {} }
+                exchange.frames.forEachIndexed { index, frame ->
+                    item {
+                        FrameRow(frame, exchange.startedAtMs, open = index == openFrame) {
+                            openFrame = if (index == openFrame) null else index
+                        }
+                    }
+                    if (index == openFrame && frameBody != null) body(frameBody)
+                }
+            }
         }
     }
 }
@@ -202,26 +226,68 @@ private fun Headers(headers: List<Header>) {
     headers.forEach { Text("${it.name}: ${it.value_}", fontFamily = FontFamily.Monospace) }
 }
 
+/** One captured body and its rendering, which is null while it runs off the UI thread (ADR-0029). */
+private class BodyView(
+    val captured: CapturedBody,
+    val rendered: RenderedBody?,
+    val choose: (BodyFormat) -> Unit,
+)
+
 @Composable
-private fun Body(
+private fun rememberBodyView(
     headers: List<Header>,
     captured: CapturedBody,
-) {
-    val body = captured.bytes
-    if (captured.truncated) Text(truncationNote(captured), style = MaterialTheme.typography.caption)
-    if (body.size == 0) {
-        if (!captured.truncated) Text("None", style = MaterialTheme.typography.caption)
-        return
+): BodyView {
+    val decoded = remember(captured.bytes) { DecodedBody(captured.bytes) }
+    var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
+    val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
+        value = null
+        if (decoded.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
     }
-    val decoded = remember(body) { DecodedBody(body) }
-    var format by remember(decoded) { mutableStateOf(defaultFormat(headers, decoded)) }
-    Row {
-        BodyFormat.entries.forEach { option ->
-            TextButton(onClick = { format = option }, enabled = option != format) { Text(option.label) }
+    return BodyView(captured, rendered) { chosen = it }
+}
+
+private fun LazyListScope.body(view: BodyView) {
+    val captured = view.captured
+    item {
+        if (captured.truncated) Text(truncationNote(captured), style = MaterialTheme.typography.caption)
+        if (captured.bytes.size == 0 && !captured.truncated) Text("None", style = MaterialTheme.typography.caption)
+        if (captured.bytes.size > 0) {
+            Row {
+                BodyFormat.entries.forEach { option ->
+                    TextButton(onClick = { view.choose(option) }, enabled = option != view.rendered?.format) { Text(option.label) }
+                }
+            }
         }
     }
-    val rendered = remember(decoded, format) { render(decoded, format) }
-    Text(rendered, Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false)
+    if (captured.bytes.size == 0) return
+    val chunks = view.rendered?.chunks
+    if (chunks == null) {
+        item { Placeholder("Rendering…") }
+    } else {
+        items(chunks) { Text(it, Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false) }
+    }
+}
+
+@Composable
+private fun FrameRow(
+    frame: CapturedFrame,
+    startedAtMs: Long?,
+    open: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().selectable(open, onClick).padding(vertical = 4.dp)) {
+        Text(
+            listOfNotNull(
+                directionOf(frame.direction),
+                frame.opcode.name.removePrefix("OPCODE_"),
+                sizeOf(frame.payload),
+                startedAtMs?.let { "+${formatDuration(frame.atMs - it)}" },
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.caption,
+        )
+        framePreview(frame)?.let { Text(it, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
 }
 
 @Composable
@@ -249,6 +315,43 @@ private fun truncationNote(captured: CapturedBody): String =
         null -> "Truncated: ${captured.bytes.size} bytes shown, original size unknown"
         else -> "Truncated: ${captured.bytes.size} of $size bytes shown"
     }
+
+private fun directionOf(direction: WebSocketFrame.Direction): String =
+    when (direction) {
+        WebSocketFrame.Direction.DIRECTION_SENT -> "↑ sent"
+        WebSocketFrame.Direction.DIRECTION_RECEIVED -> "↓ received"
+        else -> "? direction"
+    }
+
+private fun sizeOf(payload: CapturedBody): String =
+    when {
+        !payload.truncated -> "${payload.bytes.size} B"
+        else -> "${payload.bytes.size} of ${payload.originalSize ?: "?"} B"
+    }
+
+// A close payload is a 2-byte code and a UTF-8 reason (RFC 6455); the preview decodes a bounded prefix.
+private fun framePreview(frame: CapturedFrame): String? {
+    val bytes = frame.payload.bytes
+    return when {
+        frame.opcode == WebSocketFrame.Opcode.OPCODE_CLOSE && bytes.size >= 2 -> {
+            "${((bytes[0].toInt() and 0xFF) shl 8) or (bytes[1].toInt() and 0xFF)} ${bytes.substring(2).utf8()}"
+        }
+
+        frame.opcode == WebSocketFrame.Opcode.OPCODE_TEXT -> {
+            bytes
+                .substring(0, minOf(bytes.size, PREVIEW_BYTES))
+                .utf8()
+                .lineSequence()
+                .first()
+        }
+
+        else -> {
+            null
+        }
+    }
+}
+
+private const val PREVIEW_BYTES = 512
 
 private fun statusOf(exchange: HttpExchange): String =
     when {

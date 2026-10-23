@@ -82,7 +82,7 @@ written down as states and transitions (SDD) before their code.
   Accept: `./gradlew :desktop:server:test :desktop:app:test` — a pending
   device gets no `HelloAck` until approved; a rejected one is closed; a UI
   test drives the dialog.
-- [ ] **M1.10 WebSocket frames and bounded bodies in the UI.** Pays DEBT-0003
+- [x] **M1.10 WebSocket frames and bounded bodies in the UI.** (ADR-0028, ADR-0029; DEBT-0003, DEBT-0006 paid; DEBT-0025 paid too, its trigger was this task: `WebSocketFrame` gained `payload_truncated` / `payload_size`; pings split to DEBT-0029) Pays DEBT-0003
   (frames shown under their exchange) and DEBT-0006 (rendering off the UI
   thread, capped).
   Accept: `./gradlew :desktop:app:test` — a UI test shows frames of a

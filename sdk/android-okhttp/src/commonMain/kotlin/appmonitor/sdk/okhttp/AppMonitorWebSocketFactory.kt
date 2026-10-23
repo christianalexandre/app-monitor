@@ -46,7 +46,6 @@ internal class WebSocketCapture(
     // A reply must not be recorded before the frame it answers.
     fun <T> sent(write: WebSocketCapture.() -> T): T = synchronized(this) { write() }
 
-    // DEBT-0025
     fun frame(
         direction: Direction,
         opcode: Opcode,
@@ -58,6 +57,8 @@ internal class WebSocketCapture(
                 direction = direction,
                 opcode = opcode,
                 payload = payload.substring(0, minOf(payload.size, limit)),
+                payload_truncated = payload.size > limit,
+                payload_size = payload.size.toLong(),
             )
         }
     }
