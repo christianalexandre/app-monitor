@@ -179,7 +179,7 @@ class AppMonitorInterceptorTest {
     }
 
     @Test
-    fun aUrlPasswordIsMaskedAndTheUserNameKept() {
+    fun aUrlUserNameAndPasswordAreMasked() {
         val sink = RecordingSink()
         server.enqueue(MockResponse.Builder().body("ok").build())
         val url =
@@ -193,12 +193,40 @@ class AppMonitorInterceptorTest {
         client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
 
         val started = sink.started()
-        assertEquals(url.newBuilder().password(MASK).toString(), started.url)
+        assertEquals(
+            url
+                .newBuilder()
+                .username(MASK)
+                .password(MASK)
+                .toString(),
+            started.url,
+        )
         assertFalse("s3cret" in started.url)
+        assertFalse("user" in started.url)
         val captured = started.url.toHttpUrl()
-        assertEquals("user", captured.username)
+        assertEquals(MASK, captured.username)
         assertEquals(MASK, captured.password)
         assertEquals("1", captured.queryParameter("page"))
+    }
+
+    @Test
+    fun aUrlUserNameWithoutPasswordIsMasked() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val url =
+            server
+                .url("/repo")
+                .newBuilder()
+                .username("ghp_TOKEN")
+                .build()
+
+        client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
+
+        val started = sink.started()
+        assertFalse("ghp_TOKEN" in started.url)
+        val captured = started.url.toHttpUrl()
+        assertEquals(MASK, captured.username)
+        assertEquals("", captured.password)
     }
 
     @Test
