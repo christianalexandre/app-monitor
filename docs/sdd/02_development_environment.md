@@ -80,6 +80,13 @@ xcrun simctl install booted build/ios-sample/Build/Products/Debug-iphonesimulato
 xcrun simctl launch booted dev.appmonitor.sample -runAll YES
 ```
 
+For the screenshots, run
+`./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=7`
+in the background instead of the server (the seven buttons, one exchange
+each), wait for "waiting for a device", then install and launch as above.
+Calls made before the approval wait in the SDK's buffer, so `-runAll` can
+start before the click.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin

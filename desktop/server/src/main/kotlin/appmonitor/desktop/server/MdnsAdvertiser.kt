@@ -76,7 +76,7 @@ internal class MdnsAdvertiser private constructor(
             NetworkInterface
                 .networkInterfaces()
                 .toList()
-                .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.supportsMulticast() }
+                .filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint && it.supportsMulticast() }
                 .flatMap { it.inetAddresses.toList() }
                 .filterIsInstance<Inet4Address>()
     }

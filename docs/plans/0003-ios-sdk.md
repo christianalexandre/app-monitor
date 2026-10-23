@@ -106,8 +106,10 @@ Pulse (ADR-0003).
   `make server` running, each button shows up in the server log (log in the
   PR); the release app contains no SDK symbols
   other than the stubs.
-- [ ] **M2.13 End to end on the simulator.** (changed by the owner: no
-  physical iPhone available, the device half is DEBT-0041) Sample app →
+- [x] **M2.13 End to end on the simulator.** (changed by the owner: no
+  physical iPhone available, the device half is DEBT-0041; `simulator-*.png`,
+  all seven buttons, by `liveScreenshots`; the desktop no longer advertises
+  mDNS on point-to-point interfaces, a VPN tunnel broke its mDNS test) Sample app →
   desktop app with approval, on the iPhone simulator.
   Accept: screenshots in `docs/screenshots/` of the desktop showing the
   sample's traffic from the simulator.
