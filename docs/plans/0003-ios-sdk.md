@@ -86,7 +86,7 @@ Pulse (ADR-0003).
   received, bounded as `WebSocketFrame` (ADR-0028).
   Accept: `swift test --package-path sdk/ios` — text and binary frames both
   ways and a frame over the limit, against a local echo server.
-- [ ] **M2.9 Background sessions.** Background `URLSession` traffic through
+- [x] **M2.9 Background sessions.** (ADR-0046: hooks on the background session's callbacks, not delegate proxying; ADR-0047: XcodeGen test host, `make swift-sim` in `make swift`; DEBT-0039) Background `URLSession` traffic through
   delegate proxying (ADR-0004 layer 1).
   Accept: an `xcodebuild test` on the iPhone simulator — a background
   download is captured and the app's delegate still gets every callback.

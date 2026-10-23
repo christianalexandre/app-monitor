@@ -79,6 +79,19 @@ final class TaskCapture: @unchecked Sendable {
         }
     }
 
+    /// A background download's body: the file `nsurlsessiond` wrote, read up to the limit.
+    func didDownload(_ file: URL) {
+        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { $0 }
+        let head = (try? FileHandle(forReadingFrom: file)).flatMap { handle in
+            defer { try? handle.close() }
+            return try? handle.read(upToCount: limit)
+        }
+        lock.withLock {
+            body = head ?? Data()
+            received = Int64(size ?? body.count)
+        }
+    }
+
     /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body (SDD 05's rule).
     func didFinish(_ error: NSError?) {
         let state: (URLResponse?, Data, Int64)? = lock.withLock {
@@ -214,6 +227,10 @@ enum Hooks {
         ] {
             if let method = own(session, selector) { hookUpload(method) }
         }
+        if !BackgroundHooks.install() {
+            Logger(subsystem: "AppMonitor", category: "capture").error(
+                "Background session capture is off: this OS lacks the hooks of ADR-0046")
+        }
         if !WebSocketHooks.install() {
             Logger(subsystem: "AppMonitor", category: "capture").error(
                 "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
@@ -252,6 +269,7 @@ enum Hooks {
         if let task = task as? URLSessionWebSocketTask { return WebSocketHooks.started(task, options: options) }
         let capture = TaskCapture(sink: URLSessionCapture.sink, options: options, requestURL: request?.url)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
+        BackgroundHooks.started(task, capture)
         let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
         emit(capture.sink, "RequestStarted") { try requestStarted(task, capture: capture, upload: upload?.body) }
     }

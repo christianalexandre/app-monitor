@@ -8,6 +8,7 @@ What a machine needs to build and test the whole repository.
 | --- | --- | --- |
 | JDK | 21 | Gradle, desktop app |
 | Xcode | 26.x | iOS SDK, iOS samples, simulator tests (macOS only) |
+| XcodeGen | 2.46.0 tested, `brew install xcodegen` | `make swift-sim`: the iOS test host project (ADR-0047) |
 | Android SDK | `ANDROID_HOME` (the `Makefile` defaults it to `~/Library/Android/sdk`), `platform-tools` and `emulator` on `PATH` | Android targets, emulator tests |
 | GitHub CLI | authenticated | PRs from `/pr` and `/next` |
 | GNU Make | any | command façade |
@@ -18,7 +19,9 @@ No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
 `make swift-proto` builds `protoc` and `protoc-gen-swift` from the pinned
 swift-protobuf for `sdk/ios` (ADR-0039). `make check` runs the Swift gates
 (`make swift`) only on macOS with `swift` on the `PATH`; elsewhere it prints
-`swift: SKIPPED` (ADR-0037).
+`swift: SKIPPED` (ADR-0037). Inside `make swift`, the simulator tests
+(`make swift-sim`) need XcodeGen and an iPhone simulator; without XcodeGen
+they print `swift-sim: SKIPPED` (ADR-0047).
 The Android SDK must provide platform `android-36` and build tools 36.0.0
 (AGP 9.3, ADR-0007).
 
