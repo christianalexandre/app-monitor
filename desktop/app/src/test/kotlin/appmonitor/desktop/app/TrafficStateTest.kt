@@ -1,10 +1,12 @@
 package appmonitor.desktop.app
 
 import appmonitor.desktop.app.store.CapturedBody
+import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
+import appmonitor.v1.WebSocketFrame
 import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,6 +37,27 @@ class TrafficStateTest {
         assertEquals("req-0002", timeout.requestId)
         assertNull(timeout.method, "RequestFailed without RequestStarted still shows up")
         assertEquals("java.net.SocketTimeoutException: timeout", timeout.error)
+    }
+
+    @Test
+    fun `attaches websocket frames to their exchange in order`() {
+        val frame = Fixtures.traffic.last()
+        val decoded = WebSocketFrame.ADAPTER.decode(frame.payload)
+        val cut = decoded.copy(payload = "pi".encodeUtf8(), payload_truncated = true)
+        val state =
+            connected
+                .received(SESSION, frame.copy(timestamp_ms = 1_000))
+                .received(SESSION, frame.copy(payload = cut.encodeByteString(), timestamp_ms = 1_100))
+
+        val exchange = state.exchangesOf(SESSION).single()
+        assertEquals("req-0003", exchange.requestId)
+        assertEquals(
+            listOf(
+                CapturedFrame(decoded.direction, decoded.opcode, CapturedBody("ping".encodeUtf8(), originalSize = 4), 1_000),
+                CapturedFrame(decoded.direction, decoded.opcode, CapturedBody("pi".encodeUtf8(), true, 4), 1_100),
+            ),
+            exchange.frames,
+        )
     }
 
     @Test

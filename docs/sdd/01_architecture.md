@@ -203,7 +203,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   `stop()` delays the exit by one `STOP_TIMEOUT` and is reported once.
 - `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
   `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
-  duration is the difference of the envelopes' `timestamp_ms`. Other
+  duration is the difference of the envelopes' `timestamp_ms`. Each
+  `WebSocketFrame` is appended, in arrival order, to the `frames` of the
+  exchange of its `request_id` (the upgrade request). Other
   channels, other types and undecodable payloads leave the state unchanged.
 - A device stays in the list after it disconnects, with its traffic.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
@@ -222,13 +224,24 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   body is rendered once per format. The hex dump is one linear pass.
   A truncated body shows "Truncated: N of M bytes shown" (or "original size
   unknown") above it; an unread one shows only that note.
+- Rendering (ADR-0029): the detail pane is a `LazyColumn`. Each body is
+  rendered by `renderBody` on `Dispatchers.Default` ("Rendering…" until then)
+  and split into chunks of at most 100 lines or 8 192 characters, one item
+  each, so the UI thread lays out only visible chunks. Indented JSON stops at
+  `MAX_RENDERED_CHARS` (16 Mi) with a "… stopped at" line.
+- Frames: under "WebSocket frames (N)", one row per frame: direction (↑ sent,
+  ↓ received), opcode, size ("N of M B" when cut, ADR-0028), time since the
+  request started, and a one-line preview (text: first 512 bytes; close: code
+  and reason). Clicking a row opens its payload with the body view and format
+  buttons; one frame is open at a time.
 
 ## Limits
 
 - The desktop store is in memory and unbounded; it lives until the app
   closes (SQLDelight in M5).
-- WebSocket frames are received but not shown (DEBT-0003).
-- Bodies render on the UI thread, whole and unbounded (DEBT-0006).
+- WebSocket ping and pong frames are not captured (DEBT-0029).
+- Selecting text across body chunks that scrolled out of view is lost
+  (ADR-0029).
 
 Debug builds only; release builds use no-op artifacts. Device and desktop must
 share a network (or USB/emulator loopback).

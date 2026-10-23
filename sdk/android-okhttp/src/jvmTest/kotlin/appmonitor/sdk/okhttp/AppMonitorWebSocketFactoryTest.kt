@@ -1,5 +1,6 @@
 package appmonitor.sdk.okhttp
 
+import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame.Direction
 import appmonitor.v1.WebSocketFrame.Opcode
@@ -94,6 +95,42 @@ class AppMonitorWebSocketFactoryTest {
             frames.map { Triple(it.direction, it.opcode, it.payload.utf8()) },
         )
         assertEquals(0, sink.pending)
+    }
+
+    @Test
+    fun aFrameOverTheLimitIsMarkedTruncatedWithItsSize() {
+        val sink = RecordingSink(AppMonitorOptions(maxBodyBytes = 4))
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(Echo()).build())
+        val received = CountDownLatch(1)
+        val listener =
+            object : WebSocketListener() {
+                override fun onOpen(
+                    webSocket: WebSocket,
+                    response: Response,
+                ) {
+                    webSocket.send("hello world")
+                }
+
+                override fun onMessage(
+                    webSocket: WebSocket,
+                    text: String,
+                ) {
+                    received.countDown()
+                    webSocket.cancel()
+                }
+            }
+
+        AppMonitorWebSocketFactory(OkHttpClient(), sink).newWebSocket(Request.Builder().url(server.url("/ws")).build(), listener)
+
+        assertTrue(received.await(5, TimeUnit.SECONDS))
+        sink.started()
+        sink.received()
+        val (sent, echoed) = List(2) { sink.frame() }
+        listOf(sent, echoed).forEach {
+            assertEquals("hell", it.payload.utf8())
+            assertTrue(it.payload_truncated)
+            assertEquals(11L, it.payload_size)
+        }
     }
 
     private fun closePayload(

@@ -8,6 +8,7 @@ import appmonitor.v1.Platform
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
 import okio.ByteString
 import java.io.IOException
 
@@ -28,6 +29,14 @@ internal data class CapturedBody(
     val originalSize: Long? = null,
 )
 
+/** One WebSocket frame, in the order the device sent it. */
+internal data class CapturedFrame(
+    val direction: WebSocketFrame.Direction,
+    val opcode: WebSocketFrame.Opcode,
+    val payload: CapturedBody,
+    val atMs: Long,
+)
+
 /** One HTTP request and its outcome. Fields stay null until the matching event arrives. */
 internal data class HttpExchange(
     val sessionId: String,
@@ -42,6 +51,7 @@ internal data class HttpExchange(
     val responseBody: CapturedBody = CapturedBody(),
     val error: String? = null,
     val endedAtMs: Long? = null,
+    val frames: List<CapturedFrame> = emptyList(),
 ) {
     val durationMs: Long?
         get() = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
@@ -116,7 +126,15 @@ internal data class TrafficState(
                     }
                 }
 
-                // DEBT-0003
+                "WebSocketFrame" -> {
+                    WebSocketFrame.ADAPTER.decode(envelope.payload).let { event ->
+                        val payload = CapturedBody(event.payload, event.payload_truncated, event.payload_size)
+                        update(sessionId, event.request_id) {
+                            it.copy(frames = it.frames + CapturedFrame(event.direction, event.opcode, payload, at))
+                        }
+                    }
+                }
+
                 else -> {
                     this
                 }

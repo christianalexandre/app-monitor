@@ -44,7 +44,8 @@ never throws into the app's call: a failure drops that event.
   `101` at `onOpen`; `RequestFailed` at `onFailure`. The request carries a
   tag so `AppMonitorInterceptor` on the same client skips the upgrade.
 - `WebSocketFrame` for each text, binary and close frame, sent or received,
-  payload cut at `maxBodyBytes`. A close payload is the 2-byte code and the
+  payload cut at `maxBodyBytes`, with `payload_truncated` and the original
+  `payload_size` (ADR-0028). A close payload is the 2-byte code and the
   UTF-8 reason (RFC 6455).
 - The app's listener receives the wrapping `WebSocket`, so replies sent from
   callbacks are captured. A sent frame is recorded under the same lock as
@@ -56,7 +57,6 @@ never throws into the app's call: a failure drops that event.
   `ResponseReceived`.
 - A failure while reading the body ends as a truncated `ResponseReceived`,
   without the error.
-- WebSocket payloads are cut without a marker; ping and pong are not seen
-  (DEBT-0025).
+- Ping and pong frames are handled inside OkHttp and not seen (DEBT-0029).
 - An event whose URL and headers exceed 256 KiB is dropped whole by
   `MonitorClient` (DEBT-0023).

@@ -20,10 +20,10 @@ Rules:
 | --- | --- | --- | --- |
 | [0001](0001-jmdns-pinned-to-3-6-3.md) | JmDNS pinned to 3.6.3 | A JmDNS release newer than 3.6.4, or a security advisory for 3.6.3 | Open |
 | [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or the first emulator/simulator e2e suite lands | Open |
-| [0003](0003-websocket-frames-not-shown.md) | Desktop app ignores WebSocket frames | The first SDK that emits `WebSocketFrame` lands | Open |
+| [0003](0003-websocket-frames-not-shown.md) | Desktop app ignores WebSocket frames | The first SDK that emits `WebSocketFrame` lands | Paid |
 | [0004](0004-traffic-state-quadratic-ingest.md) | TrafficState ingest is linear per event | M5 replaces the in-memory store, or a session over 10k requests lags the UI | Open |
 | [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or a JVM client of `sdk/core` needs mDNS | Open |
-| [0006](0006-body-rendering-unbounded.md) | Body rendering is synchronous and unbounded | The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane | Open |
+| [0006](0006-body-rendering-unbounded.md) | Body rendering is synchronous and unbounded | The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane | Paid |
 | [0007](0007-mdns-failure-stops-server.md) | mDNS failure on one interface stops the whole server | A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host | Open |
 | [0008](0008-accepted-channels-not-enforced.md) | Accepted channels are not enforced after the handshake | The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes | Paid |
 | [0009](0009-discovery-ignores-late-txt.md) | Fake client discovery keeps the resolve before the TXT record | The advertised path can differ from `Protocol.WEBSOCKET_PATH`, or M1 `sdk/core` implements discovery | Paid |
@@ -42,7 +42,8 @@ Rules:
 | [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | Desktop ingest writes to SQLite (M5), or a session closed with 1011 "Ping timeout" while the device was reachable | Open |
 | [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible on the desktop | A developer reports an event missing from the desktop, or the protocol gains per-envelope sequence numbers | Open |
 | [0024](0024-app-name-not-sent.md) | `AppMonitorOptions.appName` is accepted but never sent | The desktop shows an app by name (M1.9 approval dialog or later), or `Hello` gains an app name field | Open |
-| [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Open |
+| [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Paid |
 | [0026](0026-abi-dump-misses-secondary-constructor.md) | The ABI dump can miss a public no-arg secondary constructor | The Kotlin version in `gradle/libs.versions.toml` changes, or a public SDK class gets a non-public primary constructor | Open |
 | [0027](0027-stop-while-connecting-test-flaky.md) | `stopWhileConnectingClosesTheHalfOpenSocket` fails intermittently | CI fails on `MonitorClientTest`, or the next PR that touches `MonitorClient` or its stop path | Open |
 | [0028](0028-fake-client-handshake-timeout-vs-approval.md) | The fake client gives up on HelloAck after 10 s, approval included | The first `make fake-traffic` against the desktop app that fails because the approval took longer than 10 s, or a script runs the fake client against the app unattended | Open |
+| [0029](0029-websocket-pings-not-captured.md) | WebSocket ping and pong frames are not captured | OkHttp exposes ping or pong frames to a listener, or a developer asks to see WebSocket keep-alive traffic | Open |
