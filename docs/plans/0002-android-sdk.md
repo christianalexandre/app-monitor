@@ -143,6 +143,24 @@ device stays rejected until the desktop quits by the owner's decision
   Accept: `./gradlew :sdk:android-okhttp:allTests` — a request to a URL with
   user info arrives with the password masked and the user name kept.
 
+### Second milestone review
+
+Findings of the `code-review` of `1896eb4..f90e316`. One is a correctness
+finding and became a task; it also covers the finding that M1.R3 changed what
+is masked without an ADR. Three went to DEBT-0033 (the mask percent-encoded
+in the URL, `Masking.url`'s exit paths, body chunks up to twice the bound).
+None was rejected.
+
+- [ ] **M1.R4 URL user name sent in clear.** `Masking.url` masks only the
+  password, so a URL that carries a token as its user name with no password
+  (`https://ghp_TOKEN@github.com/...`, `https://sk_live_x:@api.stripe.com/`)
+  reaches the desktop with the secret. What the URL user info masks is a
+  privacy decision: an ADR `Proposed` (user name masked, kept, or masked only
+  without a password), then the owner's choice applied.
+  Accept: `./gradlew :sdk:android-okhttp:allTests` — a URL with a user name
+  and no password arrives as the accepted ADR says, and the M1.R3 test still
+  passes.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
