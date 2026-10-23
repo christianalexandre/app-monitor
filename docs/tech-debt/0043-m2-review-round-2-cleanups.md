@@ -3,7 +3,7 @@ id: DEBT-0043
 title: Non-correctness findings of the second M2 milestone review
 status: Open
 date: 2026-10-23
-trigger: The next PR that touches Masking.swift, or a run of the iOS SDK tests on an iOS 15 or 16 simulator
+trigger: The next PR after #114 that touches Masking.swift, or a run of the iOS SDK tests on an iOS 15 or 16 simulator
 paid_date:
 ---
 
@@ -37,7 +37,9 @@ first is a guard for a parser not available on this machine.
 
 The next PR that touches `Masking.swift` pays the items, or a run of
 `swift test`'s masking vector on an iOS 15 or 16 simulator, which settles
-the first.
+the first. #114 (M2.R2) touched `Masking.swift` and left them unpaid; the
+third milestone review found it, and the next such PR after #114 pays them
+together with DEBT-0044.
 
 ## How it was paid
 
