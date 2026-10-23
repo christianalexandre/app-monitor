@@ -135,7 +135,7 @@ device stays rejected until the desktop quits by the owner's decision
   Accept: `./gradlew :samples:android:testDebugUnitTest` (or the build, if
   the sample has no host tests) — the continuation is resumed at most once
   when both callbacks run.
-- [ ] **M1.R3 URL password sent in clear.** `Masking.url` masks only query
+- [x] **M1.R3 URL password sent in clear.** (`fix/mask-url-password`; always masked, not an option, as the default headers; SDD 05 updated) `Masking.url` masks only query
   parameters; `https://user:pass@host/x` reaches the desktop with the
   password, although credentials in headers are masked by default
   (ADR-0018 B). The password is masked with `██`, the user name kept, as for

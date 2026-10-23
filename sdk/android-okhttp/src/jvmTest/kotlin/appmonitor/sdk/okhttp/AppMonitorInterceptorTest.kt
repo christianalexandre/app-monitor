@@ -4,6 +4,7 @@ import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.v1.Header
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -175,6 +176,29 @@ class AppMonitorInterceptorTest {
         assertContains(started.headers, Header("X-Api-Key", MASK))
         assertContains(started.headers, Header("Accept", "text/plain"))
         assertContains(sink.received().headers, Header("Set-Cookie", MASK))
+    }
+
+    @Test
+    fun aUrlPasswordIsMaskedAndTheUserNameKept() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val url =
+            server
+                .url("/me?page=1")
+                .newBuilder()
+                .username("user")
+                .password("s3cret")
+                .build()
+
+        client(sink).newCall(Request.Builder().url(url).build()).execute().use { it.body.string() }
+
+        val started = sink.started()
+        assertEquals(url.newBuilder().password(MASK).toString(), started.url)
+        assertFalse("s3cret" in started.url)
+        val captured = started.url.toHttpUrl()
+        assertEquals("user", captured.username)
+        assertEquals(MASK, captured.password)
+        assertEquals("1", captured.queryParameter("page"))
     }
 
     @Test
