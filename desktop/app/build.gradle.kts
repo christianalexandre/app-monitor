@@ -25,3 +25,26 @@ tasks.test {
     outputs.dir(screenshots)
     systemProperty("screenshotDir", screenshots.get().asFile.absolutePath)
 }
+
+tasks.test {
+    exclude("**/LiveDeviceScreenshots*")
+}
+
+// Needs a device running the sample (ADR-0031).
+tasks.register<Test>("liveScreenshots") {
+    description = "Approves a real device and screenshots its traffic in the desktop UI."
+    group = "verification"
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter.includeTestsMatching("appmonitor.desktop.app.LiveDeviceScreenshots")
+    outputs.upToDateWhen { false }
+    testLogging.showStandardStreams = true
+    systemProperty("liveScreenshotDir", rootProject.file("docs/screenshots").absolutePath)
+    listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise").forEach { key ->
+        providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
+    }
+}

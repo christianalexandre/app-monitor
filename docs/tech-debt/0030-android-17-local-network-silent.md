@@ -1,10 +1,10 @@
 ---
 id: DEBT-0030
 title: The SDK trusts the implicit local network grant and fails silently without it
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: PLAN-0002 M1.12 starts (end to end on emulator and device), or a developer reports an app that never reaches the desktop
-paid_date:
+paid_date: 2026-10-23
 ---
 
 # DEBT-0030 — The SDK trusts the implicit local network grant and fails silently without it
@@ -33,4 +33,12 @@ log the first connect failure per client.
 
 ## How it was paid
 
-> Filled when closing.
+Paid in PLAN-0002 M1.12. `localNetworkGranted` asks for the permission on
+every Android 17+ device, whatever the app targets, and `MonitorClient` logs
+its first connect failure (endpoint, cause, `ACCESS_LOCAL_NETWORK` hint) once
+per client; `anUnreachableDesktopIsLoggedOncePerClient` covers the latter. On
+the Android 17 emulator, sample (target 36) with the permission revoked and
+no desktop running, logcat showed both lines: `mDNS skipped: …` and `cannot
+reach the desktop at 10.0.2.2:47474 (Connect timeout has expired …)`.
+ADR-0030 had recorded none in the same setup. Left: the SDK still does not request the permission;
+that stays the app's job (ADR-0017 E).

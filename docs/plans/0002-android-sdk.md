@@ -95,7 +95,7 @@ written down as states and transitions (SDD) before their code.
   on the `Medium_Phone` emulator with `make server` running, each button
   shows up in the server log (log in the PR); release APK contains no
   `sdk/core` classes.
-- [ ] **M1.12 End to end on emulator and device.** Sample app → desktop app
+- [x] **M1.12 End to end on emulator and device.** (`fix/e2e-emulator-and-device`; ADR-0031; `liveScreenshots` renders the window's composable offscreen, since the agent has no macOS Screen Recording permission; SM-G975F via mDNS, emulator via `10.0.2.2` with advertising off; `make` target left to M3's Android e2e, DEBT-0002 not triggered; DEBT-0030 paid, its trigger was this task) Sample app → desktop app
   with approval, on the emulator (`10.0.2.2`) and on a physical device (mDNS).
   Decide whether the emulator run becomes a `make` target now or in M3
   (DEBT-0002's trigger).

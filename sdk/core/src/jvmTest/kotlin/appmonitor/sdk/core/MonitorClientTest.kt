@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.net.ServerSocket
 import java.net.SocketTimeoutException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -130,6 +131,22 @@ class MonitorClientTest {
             assertTrue("debug-overrides" in lines.single())
             server.stop()
             assertEquals(emptyList(), server.sessions.toList())
+        }
+
+    @Test
+    fun anUnreachableDesktopIsLoggedOncePerClient() =
+        runBlocking {
+            val port = ServerSocket(0).use { it.localPort }
+            val attempts = AtomicInteger()
+            val lines = CopyOnWriteArrayList<String>()
+            val discover = {
+                attempts.incrementAndGet()
+                Endpoint("127.0.0.1", port)
+            }
+            client(discover = discover, log = { lines += it })
+            withTimeout(5.seconds) { while (attempts.get() < 3) delay(10) }
+            assertEquals(1, lines.size)
+            assertTrue("127.0.0.1:$port" in lines.single())
         }
 
     @Test

@@ -48,3 +48,4 @@ Rules:
 | [0028](0028-websocket-frame-truncation-fields.md) | WebSocket frames carry a truncation flag and their original size | Accepted |
 | [0029](0029-desktop-renders-bodies-off-the-ui-thread.md) | The detail pane is a lazy list; bodies render off the UI thread in chunks | Accepted |
 | [0030](0030-android-sample-app.md) | Android sample app, its variants and the release classpath check | Accepted |
+| [0031](0031-live-device-screenshots.md) | End to end evidence from an offscreen render fed by a real device, by hand until M3 | Accepted |
