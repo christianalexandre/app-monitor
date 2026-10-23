@@ -62,3 +62,4 @@ Rules:
 | [0042](0042-bonjour-address-by-tcp-probe.md) | A Bonjour result's address comes from a TCP probe to its service | Accepted |
 | [0043](0043-urlsession-capture-by-cfnetwork-hooks.md) | URLSession capture hooks task resume and CFNetwork's connection callbacks | Accepted |
 | [0044](0044-non-http-location-masking.md) | Whether a custom-scheme Location gets the URL masking rule | Accepted |
+| [0045](0045-urlsession-websocket-capture.md) | URLSession WebSocket tasks are captured by hooks on the task's own methods | Accepted |
