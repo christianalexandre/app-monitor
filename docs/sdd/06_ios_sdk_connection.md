@@ -56,6 +56,21 @@ sees that probe as one empty TCP connection.
 The device id file (ADR-0036 D) is read or created on the client's queue,
 not on the thread that called `start()`.
 
+### Info.plist keys
+
+On a device both the TCP connection and `NWBrowser` need
+`NSLocalNetworkUsageDescription` and `NSBonjourServices` containing
+`_appmonitor._tcp` (ADR-0036 E). `sdk/ios/scripts/add_local_network_keys.sh`,
+run by an app's Run Script phase after its other phases, adds them to the
+built `Info.plist` when the configuration name contains `Debug`, the same
+configurations that compile the SDK (ADR-0048), and leaves other builds
+untouched (ADR-0049). It adds the usage text only when absent
+(`APPMONITOR_LOCAL_NETWORK_USAGE` overrides the default) and appends the
+service only when missing. With `ENABLE_USER_SCRIPT_SANDBOXING`, the phase
+declares the script and `$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)` as inputs,
+and that path plus `$(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp`
+as outputs; `sdk/ios/TestHost/project.yml` is the reference.
+
 ### Resources and their owners
 
 | Resource | Owner | Lives |

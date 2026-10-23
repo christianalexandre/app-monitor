@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# iOS simulator tests of sdk/ios (ADR-0047): generates sdk/ios/TestHost with
-# XcodeGen and runs its hosted tests with xcodebuild on an iPhone simulator.
-# SIM_DEVICE picks the simulator by name; default the first available iPhone.
+# iOS simulator tests of sdk/ios (ADR-0047): generates sdk/ios/TestHost, runs its
+# hosted tests on an iPhone simulator (SIM_DEVICE, default the first available),
+# then checks the local network keys are in the Debug app only (ADR-0049).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,3 +32,26 @@ else
   echo "swift-sim: failed on $device, full log in $log" >&2
   exit 1
 fi
+
+products=build/ios-simulator/Build/Products
+if ! xcodebuild build \
+  -project sdk/ios/TestHost/TestHost.xcodeproj -scheme TestHost -configuration Release \
+  -destination "platform=iOS Simulator,name=$device" \
+  -derivedDataPath build/ios-simulator >>"$log" 2>&1; then
+  grep -E 'error:' "$log" >&2 || true
+  echo "swift-sim: Release build failed, full log in $log" >&2
+  exit 1
+fi
+for config in Debug Release; do
+  plist="$products/$config-iphonesimulator/TestHost.app/Info.plist"
+  keys=0
+  for key in NSLocalNetworkUsageDescription NSBonjourServices; do
+    if plutil -extract "$key" raw -o /dev/null "$plist" 2>/dev/null; then keys=$((keys + 1)); fi
+  done
+  if [[ "$config" == Debug && $keys -ne 2 ]] || [[ "$config" == Release && $keys -ne 0 ]]; then
+    plutil -p "$plist" >&2
+    echo "swift-sim: $config TestHost.app has $keys of the 2 local network keys (ADR-0049)" >&2
+    exit 1
+  fi
+done
+echo "swift-sim: local network keys in the Debug app only"
