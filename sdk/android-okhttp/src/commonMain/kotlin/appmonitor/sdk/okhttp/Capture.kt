@@ -36,7 +36,7 @@ internal object MonitorSink : CaptureSink {
     override fun send(envelope: Envelope) = MonitorBridge.send(envelope)
 }
 
-/** The value a masked header or query parameter is sent with (ADR-0018). */
+/** The value a masked header, query parameter or URL password is sent with (ADR-0018). */
 internal const val MASK: String = "██"
 
 internal val DEFAULT_MASKED_HEADERS: Set<String> = setOf("Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie")
@@ -51,8 +51,12 @@ internal class Masking(
     fun headers(headers: Headers): List<Header> = headers.map { (name, value) -> Header(name, if (name in headerNames) MASK else value) }
 
     fun url(url: HttpUrl): String {
-        if (queryNames.isEmpty() || url.querySize == 0) return url.toString()
-        val masked = url.newBuilder().query(null)
+        val maskQuery = queryNames.isNotEmpty() && url.querySize > 0
+        if (!maskQuery && url.password.isEmpty()) return url.toString()
+        val masked = url.newBuilder()
+        if (url.password.isNotEmpty()) masked.password(MASK)
+        if (!maskQuery) return masked.build().toString()
+        masked.query(null)
         for (i in 0 until url.querySize) {
             val name = url.queryParameterName(i)
             masked.addQueryParameter(name, if (name in queryNames) MASK else url.queryParameterValue(i))
