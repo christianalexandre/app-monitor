@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import Network
 
@@ -114,3 +115,4 @@ private final class BonjourSession: @unchecked Sendable {
         probe.start(queue: queue)
     }
 }
+#endif

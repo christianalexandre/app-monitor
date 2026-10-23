@@ -90,7 +90,7 @@ Pulse (ADR-0003).
   delegate proxying (ADR-0004 layer 1).
   Accept: an `xcodebuild test` on the iPhone simulator — a background
   download is captured and the app's delegate still gets every callback.
-- [ ] **M2.10 Release stubs.** The release build of the `AppMonitor` product
+- [x] **M2.10 Release stubs.** (ADR-0048: bodies and sources under `#if DEBUG`, both builds vs a committed `.swiftinterface` dump; an app config gets `DEBUG` only if its name contains `Debug`; SwiftProtobuf still linked in release, DEBT-0040) The release build of the `AppMonitor` product
   (ADR-0035 D.1): same public API as debug, no network code; a check that
   fails when one build gains a public symbol.
   Accept: the check passes, and fails on a public member added to one side.

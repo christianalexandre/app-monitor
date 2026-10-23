@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -116,3 +117,4 @@ enum BackgroundHooks {
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 /// One encoded envelope waiting to be written, with its channel for the `HelloAck` filter.
@@ -84,3 +85,4 @@ final class EventBuffer: @unchecked Sendable {
         return frame
     }
 }
+#endif

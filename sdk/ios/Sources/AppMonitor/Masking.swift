@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 /// The value a masked header, query or fragment parameter, URL user name or password is sent with (ADR-0018).
@@ -74,3 +75,4 @@ struct Masking: Sendable {
         }.joined(separator: "&")
     }
 }
+#endif

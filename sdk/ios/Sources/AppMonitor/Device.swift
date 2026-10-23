@@ -1,11 +1,12 @@
+#if DEBUG
 import Foundation
 
 let sdkVersion = "0.1.0-dev"
 
 #if targetEnvironment(simulator)
-    let isSimulator = true
+let isSimulator = true
 #else
-    let isSimulator = false
+let isSimulator = false
 #endif
 
 /// The install's device id kept in `file`, excluded from backup; a missing or unreadable one is
@@ -52,9 +53,9 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.deviceID = deviceID(file: deviceIDFile)
     hello.deviceName = deviceName()
     #if os(iOS)
-        hello.osVersion = "iOS \(os.majorVersion).\(os.minorVersion)"
+    hello.osVersion = "iOS \(os.majorVersion).\(os.minorVersion)"
     #else
-        hello.osVersion = "macOS \(os.majorVersion).\(os.minorVersion)"
+    hello.osVersion = "macOS \(os.majorVersion).\(os.minorVersion)"
     #endif
     if os.patchVersion != 0 { hello.osVersion += ".\(os.patchVersion)" }
     hello.appID = bundle.bundleIdentifier ?? ProcessInfo.processInfo.processName
@@ -63,3 +64,4 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
     return hello
 }
+#endif

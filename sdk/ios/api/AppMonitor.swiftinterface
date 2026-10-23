@@ -1,0 +1,15 @@
+public enum AppMonitor {
+  public static func start(_ options: AppMonitor.AppMonitorOptions = AppMonitorOptions())
+  public static func stop()
+}
+public struct AppMonitorOptions : Swift.Sendable {
+  public var enabled: Swift.Bool
+  public var host: Swift.String?
+  public var port: Swift.Int
+  public var appName: Swift.String?
+  public var maskedHeaders: Swift.Set<Swift.String>
+  public var maskedQueryParameters: Swift.Set<Swift.String>
+  public var maxBodyBytes: Swift.Int
+  public var masking: Swift.Bool
+  public init(enabled: Swift.Bool = true, host: Swift.String? = nil, port: Swift.Int = 47474, appName: Swift.String? = nil, maskedHeaders: Swift.Set<Swift.String> = [], maskedQueryParameters: Swift.Set<Swift.String> = [], maxBodyBytes: Swift.Int = 1_048_576, masking: Swift.Bool = true)
+}
