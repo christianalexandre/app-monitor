@@ -1,0 +1,31 @@
+name: Sample
+options:
+  bundleIdPrefix: dev.appmonitor
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  AppMonitor:
+    path: ../../sdk/ios
+targets:
+  Sample:
+    type: application
+    platform: iOS
+    sources: [Sample]
+    dependencies:
+      - package: AppMonitor
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: dev.appmonitor.sample
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_CFBundleDisplayName: AppMonitor Sample
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      SWIFT_VERSION: "6.0"
+      ENABLE_USER_SCRIPT_SANDBOXING: YES
+    postBuildScripts:
+      - name: AppMonitor local network keys
+        script: '"$SRCROOT/../../sdk/ios/scripts/add_local_network_keys.sh"'
+        inputFiles:
+          - $(SRCROOT)/../../sdk/ios/scripts/add_local_network_keys.sh
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+          - $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp

@@ -18,7 +18,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
 
 Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
 `tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`,
-`sdk/no-op`) and `samples/android`. Everything else is **(planned)**.
+`sdk/no-op`), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
+Everything else is **(planned)**.
 
 ## Protocol
 
@@ -183,6 +184,9 @@ a stack trace (DEBT-0010). See ADR-0010.
   (ADR-0048). The package gets `DEBUG` only in an app configuration whose
   name contains `Debug`. SwiftProtobuf is still linked in release
   (DEBT-0040).
+- `samples/ios` uses the same product in both configurations; its Release
+  app names nothing of the `AppMonitor` module but the two stubs, and only
+  its Debug app has the local network keys (`make ios-sample`, ADR-0050).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 

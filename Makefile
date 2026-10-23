@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim swift-proto desktop server fake-traffic branch-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample swift-proto desktop server fake-traffic branch-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -27,6 +27,9 @@ swift: ## iOS SDK gates: generated code fresh, swift-format, swift test, simulat
 
 swift-sim: ## iOS SDK tests hosted in an app on an iPhone simulator (SIM_DEVICE="iPhone 17", ADR-0047)
 	@scripts/swift_sim_check.sh
+
+ios-sample: ## Build samples/ios in Debug and Release, keys and SDK in Debug only (ADR-0050)
+	@scripts/ios_sample_check.sh
 
 swift-proto: ## Regenerate sdk/ios swift-protobuf code from protocol/proto (ADR-0039)
 	@scripts/swift_proto_gen.sh
