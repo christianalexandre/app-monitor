@@ -187,7 +187,7 @@ body, which the SDK does not mask (SDD 05).
   Accept: `./gradlew :sdk:android-okhttp:allTests` — a response with a
   `Location` URL carrying user info and a masked query parameter arrives as
   the accepted ADR says.
-- [ ] **M1.R6 Masking off switch.** (ADR-0034 `Accepted`, asked by the owner)
+- [x] **M1.R6 Masking off switch.** (ADR-0034 `Accepted`, asked by the owner; `feat/masking-off-switch`; `masking` appended last so the existing `@JvmOverloads` constructors keep their signatures; SDD 05 updated)
   `AppMonitorOptions` gains `masking: Boolean = true`; `false` skips every
   masking rule (headers, URL user info, query parameters, fragment, URL
   response headers) and sends what OkHttp saw. `sdk/no-op` mirrors the

@@ -331,6 +331,52 @@ class AppMonitorInterceptorTest {
     }
 
     @Test
+    fun maskingOffSendsEveryValueInClear() {
+        val sink =
+            RecordingSink(
+                AppMonitorOptions(maskedHeaders = setOf("x-api-key"), maskedQueryParameters = setOf("token"), masking = false),
+            )
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .code(302)
+                .setHeader("Set-Cookie", "session=s3cret")
+                .setHeader("Location", "https://a:b@example.com/cb?token=abc#token=def")
+                .build(),
+        )
+        val url =
+            server
+                .url("/me?token=abc&page=1#token=def")
+                .newBuilder()
+                .username("user")
+                .password("s3cret")
+                .build()
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .header("Authorization", "Bearer abc")
+                .header("X-Api-Key", "key")
+                .build()
+        val client =
+            OkHttpClient
+                .Builder()
+                .followRedirects(false)
+                .addInterceptor(AppMonitorInterceptor(sink))
+                .build()
+
+        client.newCall(request).execute().close()
+
+        val started = sink.started()
+        assertEquals(url.toString(), started.url)
+        assertContains(started.headers, Header("Authorization", "Bearer abc"))
+        assertContains(started.headers, Header("X-Api-Key", "key"))
+        val received = sink.received()
+        assertContains(received.headers, Header("Set-Cookie", "session=s3cret"))
+        assertContains(received.headers, Header("Location", "https://a:b@example.com/cb?token=abc#token=def"))
+    }
+
+    @Test
     fun aStreamedBodyIsCopiedAsTheAppReadsIt() {
         val sink = RecordingSink(AppMonitorOptions(maxBodyBytes = 1024))
         val streamed = "0123456789".repeat(20_000)

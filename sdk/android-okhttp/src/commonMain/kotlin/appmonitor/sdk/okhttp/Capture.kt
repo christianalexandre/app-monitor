@@ -59,6 +59,7 @@ internal val URL_RESPONSE_HEADERS: Set<String> = setOf("Location", "Content-Loca
 internal class Masking(
     options: AppMonitorOptions,
 ) {
+    private val enabled = options.masking // ADR-0034
     private val headerNames = caseInsensitive(DEFAULT_MASKED_HEADERS + options.maskedHeaders)
     private val queryNames = caseInsensitive(options.maskedQueryParameters)
     private val urlHeaderNames = caseInsensitive(URL_RESPONSE_HEADERS)
@@ -71,6 +72,7 @@ internal class Masking(
         headers.map { (name, value) ->
             val masked =
                 when {
+                    !enabled -> value
                     name in headerNames -> MASK
                     base != null && name in urlHeaderNames -> base.resolve(value)?.let(::url) ?: value
                     else -> value
@@ -79,6 +81,7 @@ internal class Masking(
         }
 
     fun url(url: HttpUrl): String {
+        if (!enabled) return url.toString()
         val maskQuery = (0 until url.querySize).any { url.queryParameterName(it) in queryNames }
         val fragment = url.encodedFragment?.let(::fragment)
         if (url.username.isEmpty() && url.password.isEmpty() && !maskQuery && fragment == url.encodedFragment) return url.toString()

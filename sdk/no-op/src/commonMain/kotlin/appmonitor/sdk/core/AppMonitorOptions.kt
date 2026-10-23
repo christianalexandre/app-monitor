@@ -11,6 +11,7 @@ public class AppMonitorOptions
         public val maskedHeaders: Set<String> = emptySet(),
         public val maskedQueryParameters: Set<String> = emptySet(),
         public val maxBodyBytes: Int = MAX_BODY_BYTES,
+        public val masking: Boolean = true,
     ) {
         init {
             require(port in 1..65535) { "port must be in 1..65535, was $port" }

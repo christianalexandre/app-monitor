@@ -15,6 +15,7 @@ class OptionsDefaultsTest {
         assertEquals(Protocol.MAX_BODY_BYTES, options.maxBodyBytes)
         assertEquals(true, options.enabled)
         assertEquals(null, options.host)
+        assertEquals(true, options.masking)
         assertFailsWith<IllegalArgumentException> { AppMonitorOptions(maxBodyBytes = Protocol.MAX_BODY_BYTES + 1) }
         assertFailsWith<IllegalArgumentException> { AppMonitorOptions(port = 0) }
     }
