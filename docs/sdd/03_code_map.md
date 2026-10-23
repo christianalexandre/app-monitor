@@ -25,6 +25,7 @@ Where each part lives in the repository.
 | `sdk/core/` | KMP (JVM + Android) SDK core, convention `appmonitor.kmp-sdk` (ADR-0023): `MonitorClient` (states of SDD 04 over a Ktor CIO WebSocket), `EventBuffer` (offline ring buffer), `Backoff`, `Discovery` (sources and mDNS selection, ADR-0024), `MonitorHolder` (start/stop, the process-wide `monitor`), `MonitorBridge` (opt-in `InternalAppMonitorApi` for capture modules, ADR-0025), `AppMonitorOptions` (masking and `maxBodyBytes` included), `DeviceId`, `Platform` (cleartext policy, log); `androidMain` `AppMonitor` (public entry point), `NsdBrowser`, `AndroidDevice` (`Hello`, permission, emulator), manifest declaring `ACCESS_LOCAL_NETWORK`; `commonTest` buffer, backoff, discovery, device id; `jvmTest` `MonitorClientTest` against an in-process `AppMonitorServer`, `MonitorHolderTest` |
 | `sdk/android-okhttp/` | KMP (JVM + Android) OkHttp capture, convention `appmonitor.kmp-sdk` (SDD 05, ADR-0025): `AppMonitorInterceptor`, `AppMonitorWebSocketFactory`, `Capture.kt` (sink, masking, bounded request body, event builders); `jvmTest` against `mockwebserver3` |
 | `sdk/no-op/` | KMP (JVM + Android) release artifact (ADR-0026): the public types of `sdk/core` and `sdk/android-okhttp`, same names, doing nothing; depends on OkHttp only; `jvmTest` `ApiMatchTest` (dumps per target), `OptionsDefaultsTest` |
+| `samples/android/` | Compose sample app, convention `appmonitor.android-app` (ADR-0030): `SampleApplication` (starts the monitor), `MainActivity` (buttons), `SampleCalls` (OkHttp calls to `httpbin.org` and `echo.websocket.org`); `src/debug` depends on `sdk/android-okhttp`, asks for `ACCESS_LOCAL_NETWORK` on Android 17+, allows cleartext; `src/release` depends on `sdk/no-op`; `checkReleaseHasNoSdk` in `check` |
 | `sdk/*/api/` | Committed ABI dumps per target (`android`, `jvm`) of every SDK module, checked by `checkKotlinAbi` in `check`; `InternalAppMonitorApi` excluded (ADR-0026) |
 | `.loop/` | `make loop` session logs (git-ignored): `.jsonl` stream, `.jsonl.err` stderr, `.md` report; a transient `.jsonl.done` while a session ends |
 
@@ -36,7 +37,7 @@ sdk/ios/             Swift package
 desktop/storage/     SQLDelight
 desktop/mcp/         MCP server
 desktop/feature-*/   one module per debug tool (channel + UI)
-samples/             Android, iOS and KMP sample apps
+samples/             iOS and KMP sample apps
 ```
 
 This table moves to "Today" as modules land.
