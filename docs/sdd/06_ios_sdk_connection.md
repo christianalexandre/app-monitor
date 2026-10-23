@@ -5,8 +5,8 @@ events and lets go of everything on `stop()`. It runs SDD 04's state
 machine — same states, bounds, backoff and buffer policy (ADR-0022,
 ADR-0024) — on Network.framework and one serial queue (ADR-0040). This
 chapter lists only where it differs from `sdk/core`. The transport is
-`internal` `MonitorClient` in `sdk/ios` (M2.5); discovery beyond a manual
-host is M2.6.
+`internal` `MonitorClient` in `sdk/ios`, fed by `discovery(...)` and held
+by `MonitorHolder` behind the public `AppMonitor`.
 
 ## How it works
 
@@ -43,8 +43,15 @@ first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
 `/v1/ws`. A browser in `.waiting` with `kDNSServiceErr_PolicyDenied`, or
 `.failed`, logs one line per client naming `NSLocalNetworkUsageDescription`
-and `NSBonjourServices`, and counts as found nothing. How a result's
-address is resolved is M2.6.
+and `NSBonjourServices`, and counts as found nothing.
+
+`NWBrowser` gives a name and a TXT record, no address. `BonjourBrowser`
+opens one IPv4-only `NWConnection` to each new name's `.service` endpoint,
+reads `currentPath.remoteEndpoint` at `.ready` and cancels it (ADR-0042);
+the answer goes to the selector with that address and the latest TXT
+`path`, and again on every later TXT change. A probe that fails is retried
+on the name's next result; every probe ends with the round. The desktop
+sees that probe as one empty TCP connection.
 
 The device id file (ADR-0036 D) is read or created on the client's queue,
 not on the thread that called `start()`.
@@ -56,7 +63,7 @@ not on the thread that called `start()`.
 | Serial `DispatchQueue` | client | `start()` → `stop()`; every resource below delivers on it |
 | Ring buffer (`NSLock`) | client | `start()` → `stop()`; survives reconnects |
 | Device id, `Hello` | client | built once, on the queue, at the first handshake |
-| `NWBrowser`, 500 ms TXT timer, 3 s / 5 s bound | discovering | cancelled on every exit of discovering |
+| `NWBrowser`, its probe `NWConnection`s, 500 ms TXT timer, 3 s / 5 s bound | discovering | cancelled on every exit of discovering |
 | `NWConnection` | connecting | handed to handshaking, then connected; cancelled on any exit to backing off or stopped |
 | 10 s connect timer | connecting | cancelled on exit |
 | Ping timer (15 s) and pong deadline (30 s) | handshaking | handed to connected; cancelled with the connection |
