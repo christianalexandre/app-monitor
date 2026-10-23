@@ -11,6 +11,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -48,41 +49,9 @@ class SampleCalls {
 
     suspend fun webSocketEcho(): String =
         suspendCoroutine { continuation ->
-            val message = "hello from the sample"
             webSockets.newWebSocket(
                 Request.Builder().url(ECHO).build(),
-                object : WebSocketListener() {
-                    override fun onOpen(
-                        webSocket: WebSocket,
-                        response: Response,
-                    ) {
-                        webSocket.send(message)
-                    }
-
-                    override fun onMessage(
-                        webSocket: WebSocket,
-                        text: String,
-                    ) {
-                        if (text == message) webSocket.close(1000, "done")
-                    }
-
-                    override fun onClosing(
-                        webSocket: WebSocket,
-                        code: Int,
-                        reason: String,
-                    ) {
-                        webSocket.close(code, null)
-                        continuation.resume("WebSocket closed $code")
-                    }
-
-                    override fun onFailure(
-                        webSocket: WebSocket,
-                        t: Throwable,
-                        response: Response?,
-                    ) {
-                        continuation.resume("WebSocket failed: $t")
-                    }
-                },
+                EchoListener("hello from the sample") { continuation.resume(it) },
             )
         }
 
@@ -95,4 +64,47 @@ class SampleCalls {
         } catch (e: IOException) {
             "failed: $e"
         }
+}
+
+/** Sends [message], closes on its echo; [done] runs once, though OkHttp may call `onFailure` after `onClosing`. */
+internal class EchoListener(
+    private val message: String,
+    private val done: (String) -> Unit,
+) : WebSocketListener() {
+    private val finished = AtomicBoolean(false)
+
+    override fun onOpen(
+        webSocket: WebSocket,
+        response: Response,
+    ) {
+        webSocket.send(message)
+    }
+
+    override fun onMessage(
+        webSocket: WebSocket,
+        text: String,
+    ) {
+        if (text == message) webSocket.close(1000, "done")
+    }
+
+    override fun onClosing(
+        webSocket: WebSocket,
+        code: Int,
+        reason: String,
+    ) {
+        webSocket.close(code, null)
+        finish("WebSocket closed $code")
+    }
+
+    override fun onFailure(
+        webSocket: WebSocket,
+        t: Throwable,
+        response: Response?,
+    ) {
+        finish("WebSocket failed: $t")
+    }
+
+    private fun finish(result: String) {
+        if (finished.compareAndSet(false, true)) done(result)
+    }
 }

@@ -127,7 +127,7 @@ device stays rejected until the desktop quits by the owner's decision
   Accept: `./gradlew :desktop:app:test` — a test with 100 lines of 90
   characters gets every line whole, and a single line over the bound is
   still cut.
-- [ ] **M1.R2 Sample WebSocket echo resumes twice.** `webSocketEcho` resumes
+- [x] **M1.R2 Sample WebSocket echo resumes twice.** (`fix/sample-websocket-echo-resume-once`; listener extracted to `EchoListener` with a once-only guard; the sample's first host test) `webSocketEcho` resumes
   its continuation in `onClosing` and again in `onFailure`, which OkHttp can
   call after `onClosing` (a reset after the close frame, the close timeout),
   so `resume` throws `IllegalStateException` on OkHttp's thread and the

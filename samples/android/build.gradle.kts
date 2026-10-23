@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.okhttp)
     debugImplementation(project(":sdk:android-okhttp"))
     releaseImplementation(project(":sdk:no-op"))
+    testImplementation(kotlin("test-junit"))
 }
 
 fun projectPaths(root: ResolvedComponentResult): Set<String> {
