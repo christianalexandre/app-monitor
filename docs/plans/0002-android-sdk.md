@@ -120,7 +120,7 @@ when the socket dies is lost as documented (SDD 04, DEBT-0023); a rejected
 device stays rejected until the desktop quits by the owner's decision
 (ADR-0018 E).
 
-- [ ] **M1.R1 Body chunks cut inside short lines.** `chunked` measures the
+- [x] **M1.R1 Body chunks cut inside short lines.** (`fix/body-chunks-whole-lines`; a chunk now ends at a line break, so it may reach about twice 8 192 characters; SDD 01 updated) `chunked` measures the
   long-line bound from the start of the chunk, not of the line, so a chunk of
   fewer than 100 lines that passes 8192 characters (a pretty-printed body of
   ~90-character lines) is cut mid-line and the line shows on two rows.

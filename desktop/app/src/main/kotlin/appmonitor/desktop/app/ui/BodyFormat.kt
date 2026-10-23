@@ -176,20 +176,23 @@ internal fun renderBody(
     return RenderedBody(chosen, chunked(render(body, chosen)))
 }
 
-/** [rendered] cut after every [CHUNK_LINES] lines, and inside a line longer than [CHUNK_CHARS]. */
+/** [rendered] cut at a line break after [CHUNK_LINES] lines or [CHUNK_CHARS] characters, inside a line only past [CHUNK_CHARS]. */
 internal fun chunked(rendered: String): List<String> {
     val chunks = ArrayList<String>()
     var start = 0
+    var lineStart = 0
     var lines = 0
     for (index in rendered.indices) {
         if (rendered[index] == '\n') {
-            if (++lines < CHUNK_LINES) continue
+            lineStart = index + 1
+            if (++lines < CHUNK_LINES && index - start < CHUNK_CHARS) continue
             chunks += rendered.substring(start, index)
             start = index + 1
             lines = 0
-        } else if (index - start >= CHUNK_CHARS && !rendered[index].isLowSurrogate()) {
+        } else if (index - lineStart >= CHUNK_CHARS && !rendered[index].isLowSurrogate()) {
             chunks += rendered.substring(start, index)
             start = index
+            lineStart = index
             lines = 0
         }
     }

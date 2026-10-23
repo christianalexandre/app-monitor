@@ -119,6 +119,23 @@ class BodyFormatTest {
     }
 
     @Test
+    fun `keeps short lines whole when a chunk passes the character bound`() {
+        val lines = List(CHUNK_LINES) { "$it".padEnd(90, 'x') }
+
+        val chunks = chunked(lines.joinToString("\n"))
+
+        assertTrue(chunks.size > 1)
+        assertEquals(lines, chunks.flatMap { it.split("\n") })
+    }
+
+    @Test
+    fun `cuts a long line after short ones at the character bound`() {
+        val chunks = chunked("short\n" + "x".repeat(CHUNK_CHARS + 1))
+
+        assertEquals(listOf("short\n" + "x".repeat(CHUNK_CHARS), "x"), chunks)
+    }
+
+    @Test
     fun `deeply nested json stops at the rendering cap`() {
         val depth = 400
         val body = List(Protocol.MAX_BODY_BYTES / 2) { "1" }.joinToString(",", "[".repeat(depth), "]".repeat(depth)).encodeUtf8()
