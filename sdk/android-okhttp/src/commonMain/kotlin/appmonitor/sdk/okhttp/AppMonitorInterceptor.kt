@@ -15,10 +15,17 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Add it with `addInterceptor` (one event set per call) or `addNetworkInterceptor` (one per network
  * hop); it captures nothing until `AppMonitor.start` runs.
  */
-public class AppMonitorInterceptor internal constructor(
-    private val sink: CaptureSink,
-) : Interceptor {
-    public constructor() : this(MonitorSink)
+public class AppMonitorInterceptor : Interceptor {
+    private val sink: CaptureSink
+
+    // ADR-0026: beside an internal primary constructor, this one would be missing from the ABI dump.
+    public constructor() {
+        sink = MonitorSink
+    }
+
+    internal constructor(sink: CaptureSink) {
+        this.sink = sink
+    }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()

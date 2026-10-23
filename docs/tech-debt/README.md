@@ -43,3 +43,5 @@ Rules:
 | [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible on the desktop | A developer reports an event missing from the desktop, or the protocol gains per-envelope sequence numbers | Open |
 | [0024](0024-app-name-not-sent.md) | `AppMonitorOptions.appName` is accepted but never sent | The desktop shows an app by name (M1.9 approval dialog or later), or `Hello` gains an app name field | Open |
 | [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Open |
+| [0026](0026-abi-dump-misses-secondary-constructor.md) | The ABI dump can miss a public no-arg secondary constructor | The Kotlin version in `gradle/libs.versions.toml` changes, or a public SDK class gets a non-public primary constructor | Open |
+| [0027](0027-stop-while-connecting-test-flaky.md) | `stopWhileConnectingClosesTheHalfOpenSocket` fails intermittently | CI fails on `MonitorClientTest`, or the next PR that touches `MonitorClient` or its stop path | Open |

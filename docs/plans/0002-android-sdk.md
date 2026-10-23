@@ -72,7 +72,7 @@ written down as states and transitions (SDD) before their code.
   host test task) — with OkHttp `MockWebServer`: events for 2xx, 5xx, a
   failure, a body over the limit, a masked header, a streamed body the app
   still reads whole.
-- [ ] **M1.8 `sdk/no-op`.** Same public API as M1.1, no code that touches the
+- [x] **M1.8 `sdk/no-op`.** (ADR-0026; one artifact for `sdk/core` + `sdk/android-okhttp`; the check compares the Kotlin plugin's committed ABI dumps, `checkKotlinAbi` now in every SDK module's `check`; `AppMonitorInterceptor` constructors reshaped for the dumper, DEBT-0026) Same public API as M1.1, no code that touches the
   network; a check that its API matches the real SDK's.
   Accept: `./gradlew :sdk:no-op:check` — the API comparison passes and fails
   when one side gains a public member.
