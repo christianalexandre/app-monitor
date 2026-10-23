@@ -19,3 +19,4 @@ Rules:
 | 03 | [Code map](03_code_map.md) |
 | 04 | [SDK connection lifecycle](04_sdk_connection.md) |
 | 05 | [OkHttp capture](05_okhttp_capture.md) |
+| 06 | [iOS SDK connection lifecycle](06_ios_sdk_connection.md) |
