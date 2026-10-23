@@ -35,7 +35,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   template and, if scripted, `scripts/` with a bash test.
   Accept: `make scripts-test` (if scripted) and `make docs-check`; the PR of
   this task lists its own DEBT check.
-- [ ] **M3.2 Release gate decisions.** `Proposed` ADRs, one stop:
+- [!] **M3.2 Release gate decisions.** (`docs/release-gate-decisions`; ADR-0052 to ADR-0055 `Proposed`, waiting for the owner) `Proposed` ADRs, one stop:
   (a) cost — runner minutes per gate run (macOS 10×, windows 2× on a private
   repo, ADR-0012), measured or estimated per job, and which jobs run on
   which runner; (b) branch protection or a ruleset on `main` requiring the
