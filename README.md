@@ -12,9 +12,10 @@ checkout fail in the last run?"* straight from the captured traffic.
 
 > [!NOTE]
 > **Status: pre-alpha.** Code lands milestone by milestone. Android apps
-> using OkHttp already show their traffic in the desktop, on the emulator and
-> on a device; everything below marked *planned* does not exist yet. Current
-> milestone: [M1 — Android SDK](docs/plans/0002-android-sdk.md).
+> using OkHttp show their traffic in the desktop, on the emulator and on a
+> device; iOS apps show all their `URLSession` traffic, proven on the
+> simulator so far (DEBT-0041). Everything below marked *planned* does not
+> exist yet. Current milestone: [M2 — iOS SDK](docs/plans/0003-ios-sdk.md).
 
 ## Why
 
@@ -58,7 +59,7 @@ flowchart LR
 1. The desktop app starts a server and announces itself on the local network
    (mDNS, `_appmonitor._tcp`).
 2. The SDK finds it automatically: mDNS on physical devices, `10.0.2.2` on the
-   Android emulator, `localhost` on the iOS simulator.
+   Android emulator, `127.0.0.1` on the iOS simulator.
 3. Every request, response, error and WebSocket frame is sent as a Protobuf
    message inside a channel envelope — the same transport will carry logs,
    analytics and storage inspection later.
@@ -73,8 +74,8 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | Platform | SDK | Captures | Status |
 | --- | --- | --- | --- |
 | Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
-| iOS | `sdk-ios` (Swift Package) | All `URLSession` traffic, incl. background sessions | planned — M2 |
-| iOS | `sdk-ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
+| iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
+| iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
 | Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
 
@@ -100,8 +101,8 @@ Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
 > [!IMPORTANT]
 > Not published yet (M10); the API may change before then. The Android API
-> is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md); iOS is
-> illustrative until M2.
+> is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md), the iOS one in
+> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md).
 
 ```kotlin
 // Android — Application.onCreate
@@ -118,11 +119,17 @@ Debug builds depend on `sdk/android-okhttp`, release builds on `sdk/no-op`
 [`samples/android`](samples/android).
 
 ```swift
-// iOS (planned)
-#if DEBUG
-AppMonitor.start()
-#endif
+// iOS — App.init or application(_:didFinishLaunchingWithOptions:)
+import AppMonitor
+
+AppMonitor.start(AppMonitorOptions(appName: "My App"))
 ```
+
+Every `URLSession` is captured without further code. The same `AppMonitor`
+product compiles to stubs in configurations whose name lacks `Debug`, and
+the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
+local network keys to debug builds only. A working app is in
+[`samples/ios`](samples/ios).
 
 ## How this project is built
 
