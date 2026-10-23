@@ -105,6 +105,14 @@
       ]
     },
     {
+      "name": "location no url parser accepts",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://user:s3cret@h:p/x?code=1#code=2"]],
+      "maskedResponseHeaders": [["Location", "http://██:██@h:p/x?code=██#code=██"]]
+    },
+    {
       "name": "masking off",
       "masking": false,
       "maskedHeaders": ["x-api-key"],

@@ -36,7 +36,8 @@ app ── any URLSession ── task.resume() ──────────►
   without `=` included) and in `name=value` fragment fields; a non-empty URL
   user name and password → `██`; `Location` and `Content-Location` resolved
   against the response URL and masked as URLs; a value with another scheme
-  is masked as written (ADR-0044). Unlike OkHttp, the fields that are not
+  is masked as written by RFC 3986 generic syntax (ADR-0044), and so is a
+  value Foundation's `URL` does not parse, relative ones included. Unlike OkHttp, the fields that are not
   masked keep the app's encoding. `masking = false` turns every rule off.
   `protocol/fixtures/masking.json` is read by both SDKs' tests.
 - **Headers**: Foundation keeps them in dictionaries; they are sent sorted
