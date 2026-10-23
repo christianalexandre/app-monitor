@@ -96,6 +96,8 @@ internal class MonitorClient(
 
     private val oversized = AtomicLong()
 
+    private var connectFailureLogged = false
+
     fun start() {
         synchronized(lock) {
             check(running == null && !stopRequested.isCompleted) { "MonitorClient is single use" }
@@ -171,9 +173,9 @@ internal class MonitorClient(
     private suspend fun connect(endpoint: Endpoint): Outcome {
         mutableState.value = ClientState.Connecting
         val http = checkNotNull(client)
+        val upgraded = CompletableDeferred<Unit>()
         return try {
             coroutineScope {
-                val upgraded = CompletableDeferred<Unit>()
                 val watchdog =
                     launch {
                         withTimeoutOrNull(config.connectTimeout) { upgraded.await() }
@@ -192,6 +194,13 @@ internal class MonitorClient(
             currentCoroutineContext().ensureActive()
             Outcome.Lost
         } catch (e: Exception) {
+            if (!upgraded.isCompleted && !connectFailureLogged) {
+                connectFailureLogged = true
+                log(
+                    "cannot reach the desktop at ${endpoint.host}:${endpoint.port} (${e.message ?: e::class.simpleName}); " +
+                        "retrying with backoff. On Android 17+ check ACCESS_LOCAL_NETWORK",
+                )
+            }
             Outcome.Lost
         }
     }

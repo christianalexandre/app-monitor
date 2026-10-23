@@ -15,10 +15,9 @@ private const val ANDROID_17 = 37
 /** `Build.HARDWARE` of the Android emulator: `ranchu`, or `goldfish` on older images (ADR-0024). */
 internal fun isEmulator(): Boolean = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish"
 
-/** False when the device and the app are on Android 17+ and `ACCESS_LOCAL_NETWORK` is not granted (ADR-0017 E). */
+/** False on Android 17+ without `ACCESS_LOCAL_NETWORK`, whatever the app targets (ADR-0017 E, ADR-0030). */
 internal fun localNetworkGranted(context: Context): Boolean =
     Build.VERSION.SDK_INT < ANDROID_17 ||
-        context.applicationInfo.targetSdkVersion < ANDROID_17 ||
         context.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
 
 /** The mDNS source of SDD 04: skipped, with one log line per client, without the local network permission. */

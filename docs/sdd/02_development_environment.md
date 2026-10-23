@@ -37,6 +37,29 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
+## End to end with a real device
+
+`./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
+`AppMonitorServer` on port 47474 with the desktop window's composable rendered
+offscreen. It waits up to 5 minutes for a device, screenshots the approval
+panel, approves it, waits for 5 finished exchanges, then screenshots the GET
+JSON and the WebSocket exchanges into `docs/screenshots/<liveName>-*.png`.
+`make desktop` must not be running (same port). The sample is driven by hand:
+
+1. `./gradlew :samples:android:assembleDebug`, then
+   `adb -s <serial> install -r samples/android/build/outputs/apk/debug/android-debug.apk`.
+2. Start the task in the background: `-PliveName=device` for a phone on the
+   same Wi-Fi (mDNS); `-PliveName=emulator -PliveAdvertise=false` so the
+   emulator has to fall back to `10.0.2.2`.
+3. `adb shell am start -n appmonitor.sample/.MainActivity`; on Android 17+
+   allow the local network prompt.
+4. Tap the five buttons (`adb shell input tap`, coordinates from
+   `adb shell uiautomator dump`); the task ends by itself.
+
+Properties: `liveName`, `liveExchanges` (5), `liveTimeoutMs` (300000),
+`liveAdvertise` (true). The buttons call public services, so the machine and
+the device need internet.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin
