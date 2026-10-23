@@ -1,6 +1,7 @@
 package appmonitor.desktop.app.store
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
@@ -52,6 +53,7 @@ internal data class HttpExchange(
     val error: String? = null,
     val endedAtMs: Long? = null,
     val frames: List<CapturedFrame> = emptyList(),
+    val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
 ) {
     val durationMs: Long?
         get() = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
@@ -102,6 +104,7 @@ internal data class TrafficState(
                                 requestHeaders = event.headers,
                                 requestBody = CapturedBody(event.body, event.body_truncated, event.body_size),
                                 startedAtMs = at,
+                                captureLayer = event.capture_layer,
                             )
                         }
                     }

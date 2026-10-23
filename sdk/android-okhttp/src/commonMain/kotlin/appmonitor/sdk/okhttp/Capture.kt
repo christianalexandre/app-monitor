@@ -3,6 +3,7 @@ package appmonitor.sdk.okhttp
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.sdk.core.MonitorBridge
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
@@ -193,6 +194,7 @@ internal fun requestStarted(
         body = body.bytes,
         body_truncated = body.truncated,
         body_size = body.size,
+        capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
     )
 }
 

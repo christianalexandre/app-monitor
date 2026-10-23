@@ -4,6 +4,7 @@ import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.TrafficState
 import appmonitor.tools.fakeclient.Fixtures
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.WebSocketFrame
@@ -32,10 +33,12 @@ class TrafficStateTest {
         assertEquals("https://api.example.com/v1/items?page=2", post.url)
         assertEquals(201, post.statusCode)
         assertEquals(250, post.durationMs)
+        assertEquals(CaptureLayer.CAPTURE_LAYER_ADAPTER, post.captureLayer)
         assertEquals(CapturedBody("""{"name":"café"}""".encodeUtf8(), originalSize = 16), post.requestBody)
         assertEquals(CapturedBody(post.responseBody.bytes, truncated = true, originalSize = 2_097_152), post.responseBody)
         assertEquals("req-0002", timeout.requestId)
         assertNull(timeout.method, "RequestFailed without RequestStarted still shows up")
+        assertEquals(CaptureLayer.CAPTURE_LAYER_UNSPECIFIED, timeout.captureLayer)
         assertEquals("java.net.SocketTimeoutException: timeout", timeout.error)
     }
 

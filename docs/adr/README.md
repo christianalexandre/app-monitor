@@ -55,3 +55,4 @@ Rules:
 | [0035](0035-ios-sdk-public-api.md) | iOS SDK public API, package products and minimum iOS | Accepted |
 | [0036](0036-ios-capture-masking-and-plist-keys.md) | What the iOS SDK captures and masks, and the Info.plist keys it needs | Accepted |
 | [0037](0037-where-swift-tests-run.md) | Where the Swift tests run | Accepted |
+| [0038](0038-capture-layer-field.md) | Exchanges carry the capture layer that produced them | Accepted |
