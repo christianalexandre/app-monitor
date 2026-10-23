@@ -104,13 +104,13 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
 | SDK core tests (buffer, backoff, transport, discovery) | `./gradlew :sdk:core:allTests` | active; JVM and Android host; transport against an in-process desktop, discovery with fake browsers |
-| OkHttp capture tests (interceptor + WebSocket factory) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3`, Android host has no tests |
+| OkHttp capture tests (interceptor + WebSocket factory + masking vector) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3` and `protocol/fixtures/masking.json`, Android host has no tests |
 | No-op SDK check (API matches the real SDK, defaults) | `./gradlew :sdk:no-op:check` | active; compares `sdk/*/api/` dumps, ADR-0026 |
 | Update SDK public API dumps | `./gradlew updateKotlinAbi` | active; after a deliberate public API change, then align `sdk/no-op` |
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
 | Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change; mirror the change in `sdk/ios/Tests/AppMonitorTests/Samples.swift` |
 | iOS SDK gates (proto freshness, swift-format, `swift test`) | `make swift` | active; macOS with `swift` only, prints `swift: SKIPPED` elsewhere; ADR-0037, ADR-0039 |
-| iOS SDK tests (fixtures decode and re-encode, transport against an in-process desktop, discovery with fake browsers and one real Bonjour round) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host; the Bonjour round needs a multicast-capable interface |
+| iOS SDK tests (fixtures decode and re-encode, transport against an in-process desktop, discovery with fake browsers and one real Bonjour round, `URLSession` capture against an in-process HTTP server, masking vector) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host; the Bonjour round needs a multicast-capable interface |
 | iOS transport against a running desktop | `APPMONITOR_LIVE_HOST=127.0.0.1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running; skipped without the variable |
 | iOS Bonjour discovery against a running desktop | `APPMONITOR_LIVE_DISCOVERY=1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running on the LAN; skipped without the variable |
 | Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |

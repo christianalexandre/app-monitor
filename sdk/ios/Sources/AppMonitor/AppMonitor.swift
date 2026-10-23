@@ -7,6 +7,7 @@ public enum AppMonitor {
     /// Starts the monitor; ignored while it runs or when `AppMonitorOptions.enabled` is false. Any thread.
     public static func start(_ options: AppMonitorOptions = AppMonitorOptions()) {
         options.check()
+        if options.enabled { _ = URLSessionCapture.install() }
         monitor.start(options) { options in
             let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").info("\($0)") }
             return MonitorClient(

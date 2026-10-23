@@ -28,7 +28,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   never masked (DEBT-0019).
   `masking = false` skips every rule above and sends each value as OkHttp
   saw it; `maskedHeaders` and `maskedQueryParameters` are then ignored
-  (ADR-0034). A new masking rule honours the switch, with a test.
+  (ADR-0034). A new masking rule honours the switch, with a test, and a
+  case in `protocol/fixtures/masking.json`, which the iOS SDK reads too
+  (SDD 07).
 - **Body limit**: `maxBodyBytes`, 1 MiB by default and at most
   `Protocol.MAX_BODY_BYTES` (`AppMonitorOptions` rejects more, ADR-0025).
 
