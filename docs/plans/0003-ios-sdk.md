@@ -117,6 +117,34 @@ Pulse (ADR-0003).
   commands, README status rows reflect M2.
   Accept: `make docs-check`.
 
+### First milestone review
+
+Findings of the `code-review` of `2d0f0ca..9dee53b`. One is a correctness
+finding and became a task. Five went to DEBT-0042 (an IPv6 zone id in a
+manual host, the sink read twice and the `ws`/`wss` guard in
+`URLSessionCapture.started`, `RequestStarted` built twice, the sample's
+background download size kept between runs, the simulator selection copied
+between scripts). DEBT-0040's trigger had fired with M2.12 (#107) unpaid; it
+moved to M3's publication dry-run. Two were rejected: on the simulator the
+3 s bound drops a desktop still waiting for its TXT record and tries
+`127.0.0.1`, as `sdk/core` does (`withTimeoutOrNull(mdnsBeforeEmulator)`
+wraps the TXT grace), and the next round finds it again; a probe left in
+`.waiting` blocks that name for one round only, since `BonjourBrowser`
+opens a new `BonjourSession` every round.
+
+- [ ] **M2.R1 Unparseable `Location` sent in clear on iOS.** When
+  `URL(string:relativeTo:)` returns nil, `Masking.headers` keeps a
+  `Location` or `Content-Location` value as received, while OkHttp's
+  `Capture.kt` falls back to `uri(value)` and masks it (ADR-0044). On the
+  macOS 26 host `Location: http://h:p/x?code=1` (a bad port) fails both
+  `URL` and `URLComponents`, so `code` reaches the desktop; on iOS 15–16,
+  the deployment target, any value with a space does too. The Swift SDK
+  gets the same RFC 3986 fallback as the Kotlin one.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with a `Location` neither SDK's URL parser accepts arrives with its
+  masked query parameter as `██` in both.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
