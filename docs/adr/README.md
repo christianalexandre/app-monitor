@@ -52,3 +52,6 @@ Rules:
 | [0032](0032-url-user-info-masking.md) | What the SDK masks in a URL's user info | Accepted |
 | [0033](0033-response-header-url-masking.md) | Which response headers the SDK masks as URLs | Accepted |
 | [0034](0034-masking-off-switch.md) | A switch that turns every masking rule off | Accepted |
+| [0035](0035-ios-sdk-public-api.md) | iOS SDK public API, package products and minimum iOS | Proposed |
+| [0036](0036-ios-capture-masking-and-plist-keys.md) | What the iOS SDK captures and masks, and the Info.plist keys it needs | Proposed |
+| [0037](0037-where-swift-tests-run.md) | Where the Swift tests run | Proposed |

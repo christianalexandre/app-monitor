@@ -26,7 +26,7 @@ its code. The previous tool's source is
 `github.com/christianalexandre/app-network-monitor` (public), ported without
 Pulse (ADR-0003).
 
-- [ ] **M2.1 iOS SDK API, privacy and CI decisions.** `Proposed` ADRs, one
+- [!] **M2.1 iOS SDK API, privacy and CI decisions.** (`docs/ios-sdk-decisions`; ADR-0035, ADR-0036, ADR-0037 `Proposed`, waiting for the owner) `Proposed` ADRs, one
   stop: (a) the public API an app developer touches — `AppMonitor.start(...)`
   and its options (mirroring ADR-0017 where Swift allows), how capture is
   turned on (automatic `URLSessionConfiguration` coverage vs an explicit
