@@ -19,7 +19,7 @@ Rules:
 | Debt | Title | Trigger | Status |
 | --- | --- | --- | --- |
 | [0001](0001-jmdns-pinned-to-3-6-3.md) | JmDNS pinned to 3.6.3 | A JmDNS release newer than 3.6.4, or a security advisory for 3.6.3 | Open |
-| [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or the first emulator/simulator e2e suite lands | Open |
+| [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check` | Open |
 | [0003](0003-websocket-frames-not-shown.md) | Desktop app ignores WebSocket frames | The first SDK that emits `WebSocketFrame` lands | Paid |
 | [0004](0004-traffic-state-quadratic-ingest.md) | TrafficState ingest is linear per event | M5 replaces the in-memory store, or a session over 10k requests lags the UI | Open |
 | [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or a JVM client of `sdk/core` needs mDNS | Open |
@@ -64,3 +64,4 @@ Rules:
 | [0044](0044-m2-review-round-3-cleanups.md) | Non-correctness findings of the third M2 milestone review | The next PR that touches `Masking.swift`, `Capture.kt` or `protocol/fixtures/masking.json` | Open |
 | [0045](0045-background-upload-progress-test-flaky.md) | The background upload test missed its progress callback once | The second failure of `aFileUploadIsCapturedBothWays` in `make swift-sim`, or the next PR that touches `BackgroundSessionTests.swift` | Open |
 | [0046](0046-mdns-test-skipped-on-hosted-macos.md) | The mDNS round trip test is skipped on the hosted macOS runner | The runner image grants local network access (actions/runner-images#10924), or the next PR that touches `release-gate.yml` to add a job that needs Bonjour on macOS (M3.8) | Open |
+| [0047](0047-android-e2e-needs-public-services.md) | The Android end to end depends on public services | The first `make e2e-android` failure caused by `httpbin.org` or `echo.websocket.org` | Open |

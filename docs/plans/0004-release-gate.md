@@ -67,7 +67,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   simulator target included). Fixes what only shows on a clean runner.
   Accept: the gate run green with the job's log showing the Swift fixture
   tests and `iosSimulatorArm64Test` executed, not skipped.
-- [ ] **M3.5 Android end to end, locally.** A `make e2e-android` target:
+- [x] **M3.5 Android end to end, locally.** (`test/android-end-to-end`; ADR-0056: `runAll`, `host`, `port` launch extras, `scripts/e2e_android.sh`; DEBT-0002 re-triggered, `make check` 66 s; DEBT-0047 public services; API 37 grant path not run, the 37.2 image reports SDK 36) A `make e2e-android` target:
   headless server (`make server`'s entry point) on a free port, sample debug
   APK installed on a booted emulator, every sample call triggered without a
   hand (a launch extra, as the iOS `-runAll YES`), the server log asserted

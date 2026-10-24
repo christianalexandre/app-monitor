@@ -68,6 +68,26 @@ Properties: `liveName`, `liveExchanges` (5), `liveTimeoutMs` (300000),
 `liveAdvertise` (true). The buttons call public services, so the machine and
 the device need internet.
 
+### The Android sample end to end, scripted
+
+`make e2e-android` (ADR-0056) needs a booted emulator in `adb devices`
+(`ANDROID_SERIAL` picks one when a phone is attached too) and the internet.
+It builds the debug APK and the server's `installDist`, starts the headless
+server on a free port, installs the APK, grants `ACCESS_LOCAL_NETWORK` on
+API 37+, and launches the sample with launch extras:
+
+```sh
+adb shell am start -S -W --activity-clear-task -n appmonitor.sample/.MainActivity \
+  --es host 10.0.2.2 --ei port <port> --ez runAll true
+```
+
+`host` and `port` restart the SDK on that desktop only; `runAll` runs every
+button in turn. The script then waits up to `E2E_TIMEOUT` seconds (120) for
+each call's `RequestStarted`, its response or failure, and the WebSocket's
+sent, received and close frames, and prints one `ok` or `missing` line per
+call. Server log and logcat in `build/e2e-android/`. A sample button added
+or renamed needs its line in the script's expected list.
+
 ### The iOS sample against a desktop
 
 `make ios-sample` builds `samples/ios` into `build/ios-sample/`. With

@@ -73,3 +73,4 @@ Rules:
 | [0053](0053-gate-required-on-main-by-ruleset.md) | The release gate is required on main through the existing ruleset | Accepted |
 | [0054](0054-sdk-publication-coordinates.md) | SDK publication coordinates and tag scheme | Accepted |
 | [0055](0055-desktop-package-names.md) | Desktop package names, bundle id and unsigned dry-run packages | Accepted |
+| [0056](0056-android-end-to-end-by-launch-extras.md) | Android end to end driven by launch extras, asserted on the headless server log | Accepted |
