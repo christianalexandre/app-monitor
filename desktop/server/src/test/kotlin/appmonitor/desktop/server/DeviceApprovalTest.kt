@@ -15,6 +15,7 @@ import io.ktor.websocket.readBytes
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -135,6 +136,29 @@ class DeviceApprovalTest {
         }
 
     @Test
+    fun `a pair forgotten between its answer and HelloAck is closed with 1008 and never published`() =
+        runBlocking {
+            val key = DeviceKey("device-1", "app.a")
+            val forgetting =
+                DeviceApproval {
+                    approvals.decide(key, approved = true)
+                    approvals.forget(key)
+                    server!!.disconnect(key)
+                    true
+                }
+            val port = start(forgetting)
+            withTimeout(TIMEOUT) {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertNull(incoming.receiveCatching().getOrNull())
+                    assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason)
+                }
+            }
+            server!!.stop()
+            assertNull(server!!.sessions.firstOrNull())
+        }
+
+    @Test
     fun `forgetAll drops every answer`() {
         approvals.decide(DeviceKey("device-1", "app.a"), approved = true)
         approvals.decide(DeviceKey("device-2", "app.a"), approved = false)
@@ -236,10 +260,10 @@ class DeviceApprovalTest {
             assertTrue(approvals.pending.value.isEmpty())
         }
 
-    private suspend fun start(): Int =
+    private suspend fun start(approval: DeviceApproval = approvals): Int =
         AppMonitorServer(
             ServerConfig(host = HOST, port = 0, advertise = false),
-            approval = approvals,
+            approval = approval,
         ) { _, _ -> error("not advertising") }.also { server = it }.start()
 
     private suspend fun <T> connect(

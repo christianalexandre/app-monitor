@@ -103,7 +103,7 @@ on every commit, the size-bound pass committing one session at a time,
 four comment blocks over 4 lines, mappings written twice). None was
 rejected.
 
-- [ ] **M5.R1 A pair forgotten while its approval lands keeps streaming.**
+- [x] **M5.R1 A pair forgotten while its approval lands keeps streaming.** (every connection is tracked from its `Hello`; `disconnect` removes it under the publishing lock, so a pending or answered handshake is closed and never published; the test forgets inside the approval)
   `AppMonitorServer.serve` adds the session to `open` only after
   `approve()` returns and the session is published, so a `disconnect(key)`
   (Forget, Forget all, Clear all data) in that window misses it: the

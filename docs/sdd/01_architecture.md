@@ -121,9 +121,10 @@ device                         AppMonitorServer
   asks once per (`device_id`, `app_id`), shares one pending entry between
   connections of the same pair, and remembers each answer, starting from
   the ones it is built with, until `forget` (persisted by the app, below).
-  `AppMonitorServer.disconnect(key)` closes the pair's open sessions with
-  1008; a connection admitted in the same instant as a forget stays until it
-  reconnects.
+  `AppMonitorServer.disconnect(key)` closes the pair's connections with
+  1008, handshakes still pending or answered but not yet published
+  included; under the lock that publishes sessions, so a connection racing
+  a forget either is closed after `HelloAck` or never gets one.
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty
