@@ -18,8 +18,12 @@ import kotlin.coroutines.suspendCoroutine
 private const val HTTPBIN = "https://httpbin.org"
 private const val ECHO = "wss://echo.websocket.org"
 
-/** The calls behind the sample's buttons; blocking, run them off the main thread. */
-class SampleCalls {
+/** The calls behind the sample's buttons, against [target] when set, else the public services; blocking, run them off the main thread. */
+class SampleCalls(
+    target: String? = null,
+) {
+    private val http = target ?: HTTPBIN
+    private val echo = target?.let { "ws${it.removePrefix("http")}/ws" } ?: ECHO
     private val client =
         OkHttpClient
             .Builder()
@@ -28,29 +32,29 @@ class SampleCalls {
             .build()
     private val webSockets = AppMonitorWebSocketFactory(client)
 
-    fun getJson(): String = call(Request.Builder().url("$HTTPBIN/json").build())
+    fun getJson(): String = call(Request.Builder().url("$http/json").build())
 
     fun postJson(): String =
         call(
             Request
                 .Builder()
-                .url("$HTTPBIN/post")
+                .url("$http/post")
                 .post("""{"hello":"desktop"}""".toRequestBody("application/json".toMediaType()))
                 .build(),
         )
 
-    fun notFound(): String = call(Request.Builder().url("$HTTPBIN/status/404").build())
+    fun notFound(): String = call(Request.Builder().url("$http/status/404").build())
 
     fun timeout(): String =
         call(
-            Request.Builder().url("$HTTPBIN/delay/10").build(),
+            Request.Builder().url("$http/delay/10").build(),
             client.newBuilder().callTimeout(2, TimeUnit.SECONDS).build(),
         )
 
     suspend fun webSocketEcho(): String =
         suspendCoroutine { continuation ->
             webSockets.newWebSocket(
-                Request.Builder().url(ECHO).build(),
+                Request.Builder().url(echo).build(),
                 EchoListener("hello from the sample") { continuation.resume(it) },
             )
         }

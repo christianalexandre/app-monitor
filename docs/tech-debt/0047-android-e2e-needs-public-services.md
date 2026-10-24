@@ -1,10 +1,10 @@
 ---
 id: DEBT-0047
 title: The Android and iOS end to end depend on public services
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The first `make e2e-android` or `make e2e-ios` failure caused by `httpbin.org` or `echo.websocket.org` (a gate run or a local one)
-paid_date:
+paid_date: 2026-10-24
 ---
 
 # DEBT-0047 — The Android and iOS end to end depend on public services
@@ -38,4 +38,8 @@ PLAN-0005 M4.8a, before `make e2e-kmp` adds a third run on the same hosts.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0005 M4.8a, ADR-0074: `tools/e2e-target` serves the samples' paths
+and a WebSocket echo on the host's loopback; `make e2e-android` and
+`make e2e-ios` start it and pass its URL as the `target` launch parameter,
+and fail when a request goes elsewhere. Both passed on 2026-10-24 with every
+URL on `10.0.2.2:N` and `127.0.0.1:N`.

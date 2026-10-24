@@ -27,8 +27,12 @@ private const val ECHO_MESSAGE = "hello from the kmp sample"
 /** The engine of each platform: OkHttp on Android, Darwin on iOS (ADR-0063). */
 internal expect val engine: HttpClientEngineFactory<*>
 
-/** The calls behind the sample's buttons, against public services the sample does not control. */
-internal class SampleCalls {
+/** The calls behind the sample's buttons, against [target] when set, else public services the sample does not control. */
+internal class SampleCalls(
+    target: String?,
+) {
+    private val http = target ?: HTTPBIN
+    private val echo = target?.let { "ws${it.removePrefix("http")}/ws" } ?: ECHO
     private val client =
         HttpClient(engine) {
             install(AppMonitorKtor)
@@ -36,25 +40,25 @@ internal class SampleCalls {
             install(HttpTimeout) { requestTimeoutMillis = 10_000 }
         }
 
-    suspend fun getJson(): String = call { client.get("$HTTPBIN/json") }
+    suspend fun getJson(): String = call { client.get("$http/json") }
 
     suspend fun postJson(): String =
         call {
-            client.post("$HTTPBIN/post") {
+            client.post("$http/post") {
                 contentType(ContentType.Application.Json)
                 setBody("""{"hello":"desktop"}""")
             }
         }
 
-    suspend fun notFound(): String = call { client.get("$HTTPBIN/status/404") }
+    suspend fun notFound(): String = call { client.get("$http/status/404") }
 
-    suspend fun timeout(): String = call { client.get("$HTTPBIN/delay/10") { timeout { requestTimeoutMillis = 2_000 } } }
+    suspend fun timeout(): String = call { client.get("$http/delay/10") { timeout { requestTimeoutMillis = 2_000 } } }
 
     /** echo.websocket.org greets first, so frames are read until the echo comes back. */
     suspend fun webSocketEcho(): String =
         attempt("WebSocket failed") {
             var result = "no echo"
-            client.webSocket(ECHO) {
+            client.webSocket(echo) {
                 send(Frame.Text(ECHO_MESSAGE))
                 for (frame in incoming) {
                     if (frame is Frame.Text && frame.readText() == ECHO_MESSAGE) {

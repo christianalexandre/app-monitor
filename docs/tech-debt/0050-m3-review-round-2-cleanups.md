@@ -3,7 +3,7 @@ id: DEBT-0050
 title: Non-correctness findings of the second M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `pr-conventions.yml`, `debt_check.sh`, `e2e_ios.sh` or `0049-m3-review-round-1-cleanups.md`, or the first `release/*` branch opened to `main`
+trigger: The next PR that touches `pr-conventions.yml` or `debt_check.sh`, PLAN-0005 M4.10, or the first `release/*` branch opened to `main`
 paid_date:
 ---
 
@@ -50,7 +50,8 @@ use today; they are noise, duplication or stale references.
 
 The next PR that touches `pr-conventions.yml`, `debt_check.sh`,
 `e2e_ios.sh` or `0049-m3-review-round-1-cleanups.md` pays that
-file's item. The first `release/*` branch opened to `main` pays the
+file's item; since `test/hermetic-end-to-end`, PLAN-0005 M4.10 pays the
+`e2e_ios.sh` one. The first `release/*` branch opened to `main` pays the
 squash-trailer item, or finds #132 merged.
 
 ## How it was paid
@@ -61,3 +62,9 @@ Partly paid. `feat/kmp-sample-app` (touching the `Makefile`) paid the
 `debt-check` item: the `Makefile`, `.claude/commands/next.md` and SDD 03's
 scripts row cite ADR-0061 and say it exits 2 on an unresolved base; the
 `Makefile` left the trigger with it (DEBT-0051).
+
+`test/hermetic-end-to-end` touched `e2e_ios.sh` without paying its item: the
+KMP end to end (PLAN-0005 M4.10) is a third caller of the simulator pick, so
+the shared helper is written there, for all three at once. It paid the
+DEBT-0049 item: that DEBT's index row no longer lists `debt_check.sh`, and its
+paid items no longer sit under the template placeholder.

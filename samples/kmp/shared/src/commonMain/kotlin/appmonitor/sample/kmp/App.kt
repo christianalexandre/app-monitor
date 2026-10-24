@@ -26,10 +26,13 @@ private data class SampleButton(
     val call: suspend () -> String,
 )
 
-/** The sample's one screen on both platforms; [runAll] taps every button in turn, as the end to ends do. */
+/** The sample's one screen on both platforms; [runAll] taps every button in turn and [target] replaces the public services, as the end to ends do. */
 @Composable
-fun App(runAll: Boolean) {
-    val calls = remember { SampleCalls() }
+fun App(
+    runAll: Boolean,
+    target: String?,
+) {
+    val calls = remember { SampleCalls(target) }
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf("Tap a button; the call shows up in the desktop.") }
     val buttons =

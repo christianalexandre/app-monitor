@@ -56,3 +56,7 @@ check, the simulator selection and the Info.plist key check moved to
 (ADR-0071); WebSocket tasks and background downloads reuse `requestStarted`
 and `fileHead`. The `MonitorClient.swift` and `SampleCalls.swift` items are
 open.
+
+`SampleCalls.swift` paid in `test/hermetic-end-to-end`: `BackgroundDownload.run`
+resets `bytes` with the continuation it installs. The `MonitorClient.swift`
+item is open.
