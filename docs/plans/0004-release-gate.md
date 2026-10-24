@@ -118,6 +118,45 @@ into `main`: the last task opens the release PR, the owner merges it.
   Accept: the release PR's gate green on every job, linked in the plan's
   *Outcome*.
 
+### First milestone review
+
+Findings of the `code-review` of `40b9891..168c0b9`. Four are correctness
+findings and became tasks. Six went to DEBT-0049 (the local network grant
+on an Android 17 preview image, `debt_check.sh`'s path matching, the fixed
+desktop `packageVersion`, the iOS POMs the dry-run skips, the duplicate
+builds in the gate, globals in `e2e_lib.sh`). The release PR #132's gate
+ran green on every job (run 40058097609).
+
+- [ ] **M3.R1 Attribution trailers reach `main` from a `release/*` branch.**
+  `pr-conventions.yml` skips the trailer check on every PR to `main`
+  (ADR-0059), but `branch_check.sh` also lets `release/x.y.z` target `main`,
+  and its commits never passed the check on a PR to `dev`. A hotfix commit
+  with a `Co-Authored-By:` trailer on `release/1.0.1` goes green. Skip only
+  when the head is `dev`.
+  Accept: `make check`; the workflow condition names `github.head_ref`, and
+  ADR-0059 says the check still runs on `release/*` heads.
+- [ ] **M3.R2 `make debt-check` reports nothing when the base is wrong.**
+  `debt_check.sh` runs without `set -e` and exits 0, so a failing
+  `git diff "$base...HEAD"` (`BASE=orign/dev`, or `origin/dev` never
+  fetched) prints an error and then "no open DEBT trigger names a changed
+  file", hiding every committed change. Fail when the base does not resolve.
+  Accept: `make scripts-test` with a case where an unknown base exits
+  non-zero and prints no "no open DEBT" line.
+- [ ] **M3.R3 The Android sample restarts the monitor on every recreation.**
+  `MainActivity.onCreate` calls `restartMonitor` whenever the launch intent
+  has `host`, rotation and process recreation included, unlike `runAll`,
+  which checks `savedInstanceState == null`. Each rotation stops the client,
+  drops its buffer and reconnects to the desktop.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; the restart is guarded like `runAll`.
+- [ ] **M3.R4 `make e2e-ios` cannot pick a simulator with parentheses in
+  its name.** `e2e_ios.sh`'s `simulators` matches the name with `[^(]*`, so
+  `SIM_DEVICE="iPhone SE (3rd generation)"` fails with "no iPhone simulator
+  named …" although the simulator exists. Parse the UDID as the last
+  parenthesised UUID instead.
+  Accept: `make e2e-ios` green, and the parser, fed a `simctl list` line for
+  `iPhone SE (3rd generation)`, prints that name (shown in the PR).
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
