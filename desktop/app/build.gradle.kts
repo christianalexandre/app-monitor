@@ -67,7 +67,7 @@ tasks.register<Test>("liveScreenshots") {
     outputs.upToDateWhen { false }
     testLogging.showStandardStreams = true
     systemProperty("liveScreenshotDir", rootProject.file("docs/screenshots").absolutePath)
-    listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise").forEach { key ->
+    listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise", "liveDataDir").forEach { key ->
         providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
     }
 }
