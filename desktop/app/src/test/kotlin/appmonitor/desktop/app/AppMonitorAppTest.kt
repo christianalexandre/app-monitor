@@ -12,7 +12,9 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.app.ui.RUNS
 import appmonitor.desktop.app.ui.RUN_NAME
+import appmonitor.desktop.app.ui.SEARCH
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
@@ -24,6 +26,7 @@ import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
+import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
@@ -267,7 +270,7 @@ class AppMonitorAppTest {
 
                 awaitText("iPhone")
                 onNodeWithText("Pixel").assertDoesNotExist()
-                onNodeWithText("▾", substring = true).performClick()
+                onNodeWithTag(RUNS).performClick()
                 onAllNodesWithText("Rename")[0].performClick()
                 onNodeWithTag(RUN_NAME).performTextReplacement("Checkout on iPhone")
                 onNodeWithText("Save").performClick()
@@ -283,16 +286,71 @@ class AppMonitorAppTest {
                 onNodeWithText("Login on Pixel ▾").assertExists()
                 awaitText("https://a.example/login")
 
-                onNodeWithText("▾", substring = true).performClick()
+                onNodeWithTag(RUNS).performClick()
                 onNodeWithText("All runs").performClick()
                 awaitText("iPhone")
                 onNodeWithText("Pixel").assertExists()
 
-                onNodeWithText("▾", substring = true).performClick()
+                onNodeWithTag(RUNS).performClick()
                 onNodeWithText("New run").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { storage.currentRun.value > second }
                 awaitText("No requests yet")
                 onNodeWithText("iPhone").assertDoesNotExist()
+            }
+        }
+
+    @Test
+    fun `the filters narrow the request list and combine`() =
+        withStorage { storage ->
+            fun request(
+                id: String,
+                method: String,
+                path: String,
+            ) = envelope(RequestStarted(request_id = id, method = method, url = "https://api.example.com/$path"))
+            storage.record(
+                request("r1", "GET", "login"),
+                envelope(ResponseReceived(request_id = "r1", status_code = 200)),
+                request("r2", "POST", "items"),
+                envelope(ResponseReceived(request_id = "r2", status_code = 201)),
+                request("r3", "GET", "items/missing"),
+                envelope(ResponseReceived(request_id = "r3", status_code = 404)),
+                request("r4", "GET", "feed"),
+                envelope(RequestFailed(request_id = "r4", error = "timeout")),
+            )
+            val url = { path: String -> "https://api.example.com/$path" }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
+
+                awaitText(url("feed"))
+                onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("login")).fetchSemanticsNodes().isEmpty() }
+                onNodeWithText(url("items")).assertExists()
+                onNodeWithText(url("items/missing")).assertExists()
+                onNodeWithText(url("feed")).assertDoesNotExist()
+
+                onNodeWithText("Status: Any ▾").performClick()
+                onNodeWithText("4xx").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
+                onNodeWithText(url("items/missing")).assertExists()
+                onNodeWithText("Status: 4xx ▾").assertExists()
+                screenshot("filters.png")
+
+                onNodeWithText("Method: Any ▾").performClick()
+                onNodeWithText("POST").performClick()
+                awaitText("No requests match")
+
+                onNodeWithTag(SEARCH).performTextReplacement("")
+                onNodeWithText("Status: 4xx ▾").performClick()
+                onNodeWithText("Any").performClick()
+                awaitText(url("items"))
+                onNodeWithText(url("login")).assertDoesNotExist()
+
+                onNodeWithText("Method: POST ▾").performClick()
+                onNodeWithText("Any").performClick()
+                onNodeWithText("Failed only").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
+                onNodeWithText(url("feed")).assertExists()
             }
         }
 

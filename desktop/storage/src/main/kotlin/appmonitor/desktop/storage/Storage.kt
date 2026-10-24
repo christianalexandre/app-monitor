@@ -199,6 +199,24 @@ class Storage private constructor(
             .asFlow()
             .mapToList(Dispatchers.IO)
 
+    /** A page of the exchanges [filter] matches in arrival order; the next page passes the last id as [afterId]. */
+    suspend fun searchExchanges(
+        filter: ExchangeFilter,
+        afterId: Long = 0,
+        limit: Long = PAGE_SIZE,
+    ): List<StoredExchange> = read { SearchQuery(driver, filter, afterId, limit).executeAsList() }
+
+    /** The first [limit] exchanges [filter] matches, again after each commit that changes an exchange or a session. */
+    fun observeExchanges(
+        filter: ExchangeFilter,
+        limit: Long = PAGE_SIZE,
+    ): Flow<List<StoredExchange>> =
+        SearchQuery(driver, filter, 0, limit)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+
+    internal fun searchPlan(filter: ExchangeFilter): List<String> = SearchQuery(driver, filter, 0, PAGE_SIZE).plan()
+
     suspend fun sessions(runId: Long): List<StoredSession> =
         read {
             sessionQueries.ofRun(runId).executeAsList().map {

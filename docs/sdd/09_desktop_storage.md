@@ -2,12 +2,13 @@
 
 **Built in part** (ADR-0066): the module, its schema, write path and paged
 reads are in `desktop/storage` (M5.3), the app writes and reads through
-it (M5.4, SDD 01), and approvals are kept in it (M5.5); run names, search
-and retention are M5.6 to M5.8 (PLAN-0006).
+it (M5.4, SDD 01), approvals are kept in it (M5.5), runs are named (M5.6)
+and exchanges searched (M5.7); retention is M5.8 (PLAN-0006).
 `desktop/storage` keeps what the desktop receives in one SQLite file through
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
-files, connection settings), ADR-0086 (opening, booleans, lost writes).
+files, connection settings), ADR-0086 (opening, booleans, lost writes),
+ADR-0087 (search queries).
 Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
@@ -158,7 +159,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   connection, not one per statement (ADR-0085).
 - Lists are pages by key, never by `OFFSET`: exchanges of a run or session
   ordered by `id`, `PAGE_SIZE` 200, the next page `WHERE id > :last`. The
-  window observes the first N rows (`observeExchangesOfSession`, N grown by
+  window observes the first N rows (`observeExchanges`, N grown by
   a page as the list nears its end), the runs newest first (`observeRuns`)
   and the sessions of one run or of all (`observeSessions(runId)`)
   through SQLDelight's `Query` listeners (`coroutines-extensions`), which
@@ -166,7 +167,22 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   refresh.
 - The detail of one exchange reads its meta, its bodies (inflated on read)
   and its frames by page.
-- Search and filters (M5.7) are `WHERE` clauses on the indexed columns.
+- Search and filters (ADR-0087): `searchExchanges(filter, afterId)` and
+  `observeExchanges(filter, limit)` take an `ExchangeFilter` — text in
+  `url` (the host is in it; `LIKE`, ASCII case-insensitive, `%` and `_`
+  literal), method, `StatusClass` (1xx to 5xx), failed only, device id, app
+  id, run, session; unset fields match all, set ones combine with AND.
+  `SearchQuery` writes only the clauses of the fields set, so SQLite plans
+  each combination with its index: `exchanges_method`,
+  `exchanges_status_code`, and `exchanges_session_ref_id` under a subquery
+  on `sessions` for session, run, device and app. Text and failed only walk
+  the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
+  listens to `exchanges` and `sessions`, so the window follows commits as
+  with the generated ones.
+- The window's request list is the selected session's exchanges under a
+  filter bar: search field, method, status class, failed only. The device
+  and app are the session picked in the device list, the run the run
+  picker; changing a filter starts again from the first page.
 
 ### Tests that drive it
 
@@ -196,7 +212,10 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A 10k-request session ingested in bounded time, restart shows it one click away in the run picker (M5.6), the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5), and in `desktop/app` across three launches with a real server |
 | Sessions grouped by run, runs named | `RunsTest` (M5.6): a session spanning "New run" stays in its run, names kept across a restart, a lost "New run" keeps the earlier run |
-| One case per filter and their combination | `SearchTest` (M5.7) |
+| One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |
+| Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
+| Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
+| The filter bar narrows the list and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7) |
 | Age and size bounds, oldest session first, connected and named kept, secure delete | `RetentionTest` (M5.8) |
 
 ## Limits

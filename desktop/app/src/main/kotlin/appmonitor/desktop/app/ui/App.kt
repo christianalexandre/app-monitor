@@ -21,9 +21,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Card
+import androidx.compose.material.Checkbox
 import androidx.compose.material.Divider
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
@@ -53,6 +57,8 @@ import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
+import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.StatusClass
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredApproval
@@ -103,7 +109,8 @@ internal fun AppMonitorApp(
     var selectedSession by remember { mutableStateOf<Long?>(null) }
     var selectedRequest by remember { mutableStateOf<Long?>(null) }
     val session = sessions.firstOrNull { it.id == selectedSession } ?: sessions.firstOrNull()
-    val pages = key(session?.id) { rememberExchangePages(storage, session?.id) }
+    var filter by remember { mutableStateOf(ExchangeFilter()) }
+    val pages = key(session?.id, filter) { rememberExchangePages(storage, session?.id, filter) }
     val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
     var settingsOpen by remember { mutableStateOf(false) }
     var runsOpen by remember { mutableStateOf(false) }
@@ -125,7 +132,7 @@ internal fun AppMonitorApp(
                     selectedSession = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
-                RequestList(pages, row, Modifier.weight(1f).fillMaxHeight()) {
+                RequestList(pages, row, filter, { filter = it }, Modifier.weight(1f).fillMaxHeight()) {
                     selectedRequest = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
@@ -186,7 +193,7 @@ internal fun StorageUnavailable(
     }
 }
 
-/** The first rows of a session's requests; [loadMore] asks for one more page once the last one is full. */
+/** The first rows of a session's requests [filter] matches; [loadMore] asks for one more page once the last one is full. */
 private class ExchangePages(
     val rows: List<StoredExchange>,
     val loadMore: () -> Unit,
@@ -197,10 +204,15 @@ private class ExchangePages(
 private fun rememberExchangePages(
     storage: Storage,
     sessionId: Long?,
+    filter: ExchangeFilter,
 ): ExchangePages {
-    val limit = remember(sessionId) { MutableStateFlow(Storage.PAGE_SIZE) }
-    val rows by remember(storage, sessionId) {
-        if (sessionId == null) flowOf(emptyList()) else limit.flatMapLatest { storage.observeExchangesOfSession(sessionId, it) }
+    val limit = remember(sessionId, filter) { MutableStateFlow(Storage.PAGE_SIZE) }
+    val rows by remember(storage, sessionId, filter) {
+        if (sessionId == null) {
+            flowOf(emptyList())
+        } else {
+            limit.flatMapLatest { storage.observeExchanges(filter.copy(sessionId = sessionId), it) }
+        }
     }.collectAsState(emptyList())
     return ExchangePages(rows) { if (rows.size >= limit.value) limit.value += Storage.PAGE_SIZE }
 }
@@ -379,7 +391,7 @@ private fun DeviceList(
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
-        TextButton(onClick = onRuns, Modifier.padding(horizontal = 4.dp)) {
+        TextButton(onClick = onRuns, Modifier.padding(horizontal = 4.dp).testTag(RUNS)) {
             Text("$runTitle ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -415,6 +427,8 @@ private fun DeviceList(
 private fun RequestList(
     pages: ExchangePages,
     selected: StoredExchange?,
+    filter: ExchangeFilter,
+    onFilter: (ExchangeFilter) -> Unit,
     modifier: Modifier,
     onSelect: (StoredExchange) -> Unit,
 ) {
@@ -432,7 +446,8 @@ private fun RequestList(
     LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) pages.loadMore() }
     Column(modifier) {
         PaneTitle("Requests")
-        if (exchanges.isEmpty()) Placeholder("No requests yet")
+        FilterBar(filter, onFilter)
+        if (exchanges.isEmpty()) Placeholder(if (filter == ExchangeFilter()) "No requests yet" else "No requests match")
         LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
             items(exchanges, key = { it.id }) { exchange ->
                 Row(
@@ -453,6 +468,61 @@ private fun RequestList(
         }
     }
 }
+
+/** Text in the URL, method, status class and failed only; the device and app are the session picked on the left. */
+@Composable
+private fun FilterBar(
+    filter: ExchangeFilter,
+    onFilter: (ExchangeFilter) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 12.dp)) {
+        OutlinedTextField(
+            filter.text.orEmpty(),
+            { onFilter(filter.copy(text = it.ifEmpty { null })) },
+            Modifier.fillMaxWidth().testTag(SEARCH),
+            placeholder = { Text("Search URL") },
+            singleLine = true,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Choice("Method", filter.method, METHODS, { it }) { onFilter(filter.copy(method = it)) }
+            Choice("Status", filter.statusClass, StatusClass.entries, ::labelOf) { onFilter(filter.copy(statusClass = it)) }
+            Row(
+                Modifier.toggleable(filter.failedOnly) { onFilter(filter.copy(failedOnly = it)) }.padding(end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(filter.failedOnly, onCheckedChange = null)
+                Text("Failed only")
+            }
+        }
+    }
+}
+
+/** A button showing [label] and the [chosen] option, opening a menu of "Any" and [options]. */
+@Composable
+private fun <T : Any> Choice(
+    label: String,
+    chosen: T?,
+    options: List<T>,
+    nameOf: (T) -> String,
+    onChoose: (T?) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) { Text("$label: ${chosen?.let(nameOf) ?: "Any"} ▾") }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            (listOf(null) + options).forEach { option ->
+                DropdownMenuItem(onClick = {
+                    onChoose(option)
+                    open = false
+                }) { Text(option?.let(nameOf) ?: "Any") }
+            }
+        }
+    }
+}
+
+private val METHODS = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+
+private fun labelOf(status: StatusClass): String = "${status.from / 100}xx"
 
 @Composable
 private fun RequestDetail(
@@ -635,6 +705,10 @@ private const val PREVIEW_BYTES = 512
 internal const val REQUEST_LIST = "requests"
 
 internal const val RUN_NAME = "run-name"
+
+internal const val SEARCH = "search"
+
+internal const val RUNS = "runs"
 
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50

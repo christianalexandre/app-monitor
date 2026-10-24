@@ -3,7 +3,7 @@ id: DEBT-0058
 title: Non-correctness findings of the first M4 milestone review
 status: Open
 date: 2026-10-24
-trigger: The first desktop or MCP feature that groups or filters exchanges by URL
+trigger: The first desktop or MCP feature that groups exchanges by URL or matches a whole URL
 paid_date:
 ---
 
@@ -37,11 +37,17 @@ duplicate check does not depend on it.
 
 ## Trigger
 
-The first desktop or MCP feature that groups or filters exchanges by URL.
+The first desktop or MCP feature that groups exchanges by URL or matches a
+whole URL.
 
 Re-triggered by `fix/ktor-body-read-failure`, which touched `Capture.kt`
 and paid the two comment blocks: the scheme is a protocol choice that
 change did not need, and only the grouping feature can pick it.
+
+Fired by `feat/search-and-filters` (M5.7) and narrowed: its text filter is a
+substring of the URL (ADR-0087), so a host or path matches both schemes;
+only text typed with the scheme splits them. Grouping, or an exact URL
+match, still has to pick one.
 
 ## How it was paid
 

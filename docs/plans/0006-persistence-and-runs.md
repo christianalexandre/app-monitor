@@ -75,7 +75,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   in the UI, the list of runs, exchanges grouped under their run.
   Accept: `./gradlew :desktop:app:test` — storage tests for run grouping
   and an offscreen screenshot of the run list with two named runs.
-- [ ] **M5.7 Search and filters.** Over the stored exchanges: text in URL
+- [x] **M5.7 Search and filters.** (ADR-0087, DEBT-0063; DEBT-0058 fired and narrowed to grouping or whole-URL match; the window's device and app filter is the session list, `ExchangeFilter` carries device, app and run for M6; the run picker got a test tag, the filter menus share its "▾") Over the stored exchanges: text in URL
   and host, method, status class, failed only, device and app, run;
   answered by indexed queries, not by filtering in memory.
   Accept: `./gradlew :desktop:storage:test` with one case per filter and
