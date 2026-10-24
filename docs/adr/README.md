@@ -98,3 +98,7 @@ Rules:
 | [0078](0078-device-id-published-by-hard-link.md) | The device id file is published by an exclusive hard link | Accepted |
 | [0079](0079-ios-device-id-directory-without-dirname.md) | sdk/core on iOS creates the device id directory with NSFileManager, not kotlinx-io | Accepted |
 | [0080](0080-device-id-file-lock-without-links.md) | Without hard links, sdk/core publishes the device id under a file lock | Accepted |
+| [0081](0081-what-the-desktop-stores-on-disk.md) | What the desktop stores on disk, where, and how it is protected | Proposed |
+| [0082](0082-storage-retention.md) | How long the desktop keeps captured traffic, and how it is cleared | Proposed |
+| [0083](0083-persisted-device-approvals.md) | Device approvals survive a restart, and how one is revoked | Proposed |
+| [0084](0084-what-a-run-is.md) | What a run is for the developer, and what the window shows by default | Proposed |
