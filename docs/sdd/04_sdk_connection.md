@@ -125,7 +125,7 @@ throw. Only these differ from the JVM:
 | Ktor engine | CIO | CIO: raw BSD sockets, so the Swift SDK's `URLSession` hooks never see the monitor's own WebSocket, and ATS does not govern it (ADR-0066 A) |
 | Locks | atomicfu `SynchronizedObject` and `synchronized`, in common code | Same |
 | Oversize counter | a `Long` under the client's lock | Same |
-| Device id | `kotlin.uuid.Uuid`, `kotlinx.io.files` in `noBackupFilesDir` | Same code; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it, excluded from backup (ADR-0064 B.1) |
+| Device id | `kotlin.uuid.Uuid`, `kotlinx.io.files` in `noBackupFilesDir` | Same code; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it, excluded from backup (ADR-0064 B.1); a new id is written beside it and hard linked in, the first writer wins (ADR-0078) |
 | `Hello` | `Build.MANUFACTURER` and `MODEL`, `Android` release, package name | As the Swift SDK: model identifier (`SIMULATOR_MODEL_IDENTIFIER` plus " Simulator" on the simulator, `uname` machine on a device), `iOS X.Y[.Z]`, bundle id (process name without one), `CFBundleShortVersionString` |
 | mDNS | `NsdManager` | `nw_browser` with TXT records for names and `path`; each new name resolved by `DNSServiceResolve` then `DNSServiceGetAddrInfo` (IPv4), no probe connection (ADR-0068). A browser that fails, or waits on `PolicyDenied`, logs once per client and finds nothing |
 | Timestamps | `kotlin.time.Clock.System` | Same |
