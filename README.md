@@ -14,8 +14,11 @@ checkout fail in the last run?"* straight from the captured traffic.
 > **Status: pre-alpha.** Code lands milestone by milestone. Android apps
 > using OkHttp show their traffic in the desktop, on the emulator and on a
 > device; iOS apps show all their `URLSession` traffic, proven on the
-> simulator so far (DEBT-0041). Everything below marked *planned* does not
-> exist yet. Current milestone: [M2 — iOS SDK](docs/plans/0003-ios-sdk.md).
+> simulator so far (DEBT-0041). Every PR to `main` passes a release gate:
+> desktop tests on three OSes, the Kotlin ↔ Swift contract, both samples end
+> to end, unsigned packages and an SDK publication dry-run. Everything below
+> marked *planned* does not exist yet. Current milestone:
+> [M3 — Release gate](docs/plans/0004-release-gate.md).
 
 ## Why
 
@@ -148,6 +151,9 @@ in a documented loop. The process is part of the portfolio:
   the only memory, so they stay current.
 - **Conventions enforced by CI** — semantic branches, Conventional Commits,
   one PR template per change type, protected `dev` and `main`.
+- **Release gate** — `main` requires
+  [`release-gate.yml`](.github/workflows/release-gate.yml) green: desktop
+  ×3 OS, contract tests, Android and iOS end to end, packages, SDK dry-run.
 
 ## Contributing
 
