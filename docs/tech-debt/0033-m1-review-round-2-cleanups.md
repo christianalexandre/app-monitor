@@ -27,8 +27,8 @@ standalone PR.
 
 ## Trigger
 
-The next PR that touches `Capture.kt` or `BodyFormat.kt` pays that file's
-items.
+The next PR that touches `BodyFormat.kt` pays its item. The OkHttp
+Capture.kt items are paid (below), so that name no longer triggers this.
 
 ## How it was paid
 

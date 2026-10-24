@@ -18,7 +18,7 @@ built are marked **(planned)**; see `../plans/` for their milestone.
 
 Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
 `tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`,
-`sdk/no-op`), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
+`sdk/no-op`), the Ktor plugin (`sdk/ktor`, HTTP), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
 Everything else is **(planned)**.
 
 ## Protocol
@@ -176,8 +176,8 @@ a stack trace (DEBT-0010). See ADR-0010.
   need the local network keys, which
   `sdk/ios/scripts/add_local_network_keys.sh` adds (ADR-0049).
 - **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); the
-  OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor adapter
-  **(planned)**. Connection states, offline buffer and `stop()`: SDD 04
+  OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor plugin
+  `sdk/ktor` on JVM, Android and iOS, HTTP only so far (SDD 08, ADR-0069). Connection states, offline buffer and `stop()`: SDD 04
   (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
 - **Android entry point** (ADR-0017): `AppMonitor.start(context, options)` /
   `stop()`; `AppMonitorOptions` holds the enabled flag, manual host and port,

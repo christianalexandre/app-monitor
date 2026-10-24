@@ -1,0 +1,4 @@
+public final class appmonitor/sdk/ktor/AppMonitorKtorKt {
+	public static final fun getAppMonitorKtor ()Lio/ktor/client/plugins/api/ClientPlugin;
+}
+
