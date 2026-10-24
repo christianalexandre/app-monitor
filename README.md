@@ -160,3 +160,7 @@ make check    # run all gates
 
 Toolchain: [development environment](docs/sdd/02_development_environment.md).
 Workflow: [git and pull requests](docs/guidelines/03_git_and_pull_requests.md).
+
+## License
+
+[MIT](LICENSE).

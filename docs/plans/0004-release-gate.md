@@ -46,7 +46,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   (d) packaging — unsigned dry-run packages only until M10, the bundle id
   and package names.
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M3.2a Public repository.** (added by M3.2, ADR-0052) A `LICENSE`
+- [ ] **M3.2a Public repository.** (`LICENSE` MIT, chosen by the owner, in `chore/mit-license`; VPN and LAN addresses in DEBT-0036 replaced by examples; left: the owner makes the repository public) (added by M3.2, ADR-0052) A `LICENSE`
   with the license the owner picks, the README's license line, and the
   repository made public by the owner. No gate job runs on a GitHub-hosted
   runner before this.
