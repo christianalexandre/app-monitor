@@ -33,10 +33,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestLocalNetwork()
-        intent.getStringExtra(EXTRA_HOST)?.let { host ->
+        val firstLaunch = savedInstanceState == null
+        intent.getStringExtra(EXTRA_HOST)?.takeIf { firstLaunch }?.let { host ->
             (application as SampleApplication).restartMonitor(host, intent.getIntExtra(EXTRA_PORT, AppMonitorOptions().port))
         }
-        val runAll = savedInstanceState == null && intent.getBooleanExtra(EXTRA_RUN_ALL, false)
+        val runAll = firstLaunch && intent.getBooleanExtra(EXTRA_RUN_ALL, false)
         setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { Sample(calls, runAll) } } }
     }
 }
