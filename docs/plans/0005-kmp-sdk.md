@@ -55,7 +55,10 @@ ADR.
   (M3's lesson).
   Accept: `make docs-check`; every SDD 04 state has its iOS exits and a
   named test.
-- [ ] **M4.3 `sdk/core` on iOS targets.** The iOS targets M4.1 (a) picks in
+- [x] **M4.3 `sdk/core` on iOS targets.** (`feat/sdk-core-ios-targets`; ADR-0067, DEBT-0053. Deviations: iOS
+  `AppMonitor.start` moves to M4.4 with the `Hello` it needs; the no-op's iOS dump to M4.8; the iOS
+  tests run in `make check` on a Mac only, PR CI is Linux, the gate job is M4.10's; found and fixed a
+  hang on every platform, a session after a ping timeout never left connected) The iOS targets M4.1 (a) picks in
   `appmonitor.kmp-sdk` (supersedes ADR-0023's "no iOS artifact"); transport,
   buffer and backoff build and run there per M4.2; ABI dumps updated for
   the new targets.

@@ -13,6 +13,8 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -32,9 +34,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.IOException
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.io.IOException
 import kotlin.random.Random
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -81,20 +83,20 @@ internal class MonitorClient(
     // Built on the client's scope, off the caller's thread: it may read storage.
     private val hello by lazy(hello)
 
-    private val lock = Any()
+    private val lock = SynchronizedObject()
     private var client: HttpClient? = null
     private var running: Job? = null
     private var releasing: Job? = null
 
-    // Under lock with stopRequested: stop leaves an open session to close itself with 1000.
-    private var inSession = false
+    // Under lock with stopRequested: stop must not cancel a connect or a session (ADR-0067 C).
+    private var inConnect = false
 
     val state: StateFlow<ClientState> = mutableState.asStateFlow()
 
     /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
-    val dropped: Long get() = buffer.dropped + oversized.get()
+    val dropped: Long get() = buffer.dropped + synchronized(lock) { oversized }
 
-    private val oversized = AtomicLong()
+    private var oversized = 0L
 
     private var connectFailureLogged = false
 
@@ -117,7 +119,7 @@ internal class MonitorClient(
         if (stopRequested.isCompleted) return
         val bytes = envelope.encode()
         if (bytes.size > Protocol.MAX_FRAME_BYTES) {
-            oversized.incrementAndGet()
+            synchronized(lock) { oversized++ }
             return
         }
         buffer.offer(BufferedFrame(envelope.channel, bytes))
@@ -125,11 +127,10 @@ internal class MonitorClient(
 
     /** Returns at once; the release runs on the client's scope, bounded by [ClientConfig.closeTimeout]. */
     fun stop() {
-        val run: Job?
         synchronized(lock) {
             if (!stopRequested.complete(Unit)) return
-            run = running
-            if (!inSession) run?.cancel()
+            val run = running
+            if (!inConnect) run?.cancel()
             releasing =
                 scope
                     .launch {
@@ -162,7 +163,7 @@ internal class MonitorClient(
                 when (connect(endpoint)) {
                     Outcome.Stopped -> return
                     Outcome.Rejected -> backoff.exhaust()
-                    Outcome.Lost -> Unit
+                    Outcome.Lost -> if (stopRequested.isCompleted) return
                 }
             }
             mutableState.value = ClientState.BackingOff
@@ -171,6 +172,18 @@ internal class MonitorClient(
     }
 
     private suspend fun connect(endpoint: Endpoint): Outcome {
+        synchronized(lock) {
+            if (stopRequested.isCompleted) return Outcome.Stopped
+            inConnect = true
+        }
+        try {
+            return connectAndServe(endpoint)
+        } finally {
+            synchronized(lock) { inConnect = false }
+        }
+    }
+
+    private suspend fun connectAndServe(endpoint: Endpoint): Outcome {
         mutableState.value = ClientState.Connecting
         val http = checkNotNull(client)
         val upgraded = CompletableDeferred<Unit>()
@@ -181,13 +194,22 @@ internal class MonitorClient(
                         withTimeoutOrNull(config.connectTimeout) { upgraded.await() }
                             ?: throw IOException("No WebSocket upgrade within ${config.connectTimeout}")
                     }
-                var outcome = Outcome.Lost
-                http.webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path) {
-                    upgraded.complete(Unit)
-                    outcome = session(this)
+                val outcome = CompletableDeferred<Outcome>()
+                val call =
+                    launch {
+                        http.webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path) {
+                            upgraded.complete(Unit)
+                            outcome.complete(session(this))
+                        }
+                    }
+                select {
+                    call.onJoin { }
+                    outcome.onAwait { }
                 }
+                // Without the bound, a desktop that stopped answering keeps this call open forever (ADR-0067 D).
+                if (withTimeoutOrNull(config.closeTimeout) { call.join() } == null) call.cancel()
                 watchdog.cancel()
-                outcome
+                if (outcome.isCompleted) outcome.await() else Outcome.Lost
             }
         } catch (e: CancellationException) {
             // Ktor cancels the session's channels when the connection drops.
@@ -198,7 +220,7 @@ internal class MonitorClient(
                 connectFailureLogged = true
                 log(
                     "cannot reach the desktop at ${endpoint.host}:${endpoint.port} (${e.message ?: e::class.simpleName}); " +
-                        "retrying with backoff. On Android 17+ check ACCESS_LOCAL_NETWORK",
+                        "retrying with backoff. $CONNECT_FAILURE_HINT",
                 )
             }
             Outcome.Lost
@@ -206,30 +228,21 @@ internal class MonitorClient(
     }
 
     private suspend fun session(ws: DefaultClientWebSocketSession): Outcome {
-        val stopFirst =
-            synchronized(lock) {
-                inSession = true
-                stopRequested.isCompleted
-            }
-        try {
-            if (stopFirst) return closeNormally(ws)
-            mutableState.value = ClientState.Handshaking
-            return coroutineScope {
-                val stop = async { stopRequested.await() }
-                val serve = async { serveUntilClosed(ws) }
-                select {
-                    serve.onAwait { outcome ->
-                        stop.cancel()
-                        outcome
-                    }
-                    stop.onAwait {
-                        serve.cancel()
-                        closeNormally(ws)
-                    }
+        if (stopRequested.isCompleted) return closeNormally(ws)
+        mutableState.value = ClientState.Handshaking
+        return coroutineScope {
+            val stop = async { stopRequested.await() }
+            val serve = async { serveUntilClosed(ws) }
+            select {
+                serve.onAwait { outcome ->
+                    stop.cancel()
+                    outcome
+                }
+                stop.onAwait {
+                    serve.cancel()
+                    closeNormally(ws)
                 }
             }
-        } finally {
-            synchronized(lock) { inSession = false }
         }
     }
 
@@ -248,6 +261,7 @@ internal class MonitorClient(
         ws.send(Frame.Binary(true, helloEnvelope().encode()))
         val ack = awaitHelloAck(ws) ?: return closeOutcome(ws)
         backoff.reset()
+        connectFailureLogged = false
         mutableState.value = ClientState.Connected
         val accepted = ack.channels.toSet()
         coroutineScope {
@@ -293,7 +307,7 @@ internal class MonitorClient(
             channel = Protocol.CHANNEL_CORE,
             type = "Hello",
             payload = hello.encodeByteString(),
-            timestamp_ms = System.currentTimeMillis(),
+            timestamp_ms = Clock.System.now().toEpochMilliseconds(),
         )
 
     private enum class Outcome { Lost, Rejected, Stopped }

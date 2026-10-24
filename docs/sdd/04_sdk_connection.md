@@ -1,6 +1,6 @@
 # 04 — SDK connection lifecycle
 
-How `sdk/core` (KMP: Android and JVM; iOS designed in
+How `sdk/core` (KMP: Android, JVM and iOS, see
 [Kotlin/Native (iOS)](#kotlinnative-ios)) finds the desktop, connects, holds
 events while it cannot send them, and lets go of everything on `stop()`.
 The transport is `internal` `MonitorClient` in `sdk/core` (ADR-0023), which
@@ -31,9 +31,9 @@ it. The client is a state machine; exactly one state is current.
 | --- | --- | --- |
 | **idle** | Nothing; no client yet. Events are dropped. | `start()` with `enabled` → discovering. `start()` with `enabled = false` → stays idle. |
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
-| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
+| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
 | **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
-| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off. `stop()` → stopped. |
+| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
 | **stopped** | Nothing; every resource released, buffer discarded. Events are dropped. | `start()` → a new client in discovering, empty buffer. |
 
@@ -86,7 +86,7 @@ bounded by 1 s. Tests await it through an internal join.
 | --- | --- |
 | idle, stopped | Nothing. |
 | discovering | Stops mDNS browsing and pending resolves. |
-| connecting | Cancels the connect; the half-open socket is closed. |
+| connecting | Lets the connect end itself: upgraded → closed 1000 as below; failed → stopped. Still connecting at the 1 s bound → cancelled; the half-open socket is closed (ADR-0067 C, DEBT-0053 on iOS). |
 | handshaking, connected | Sends close 1000 and waits up to 1 s for the desktop's; then cancels the session. Buffered events are not flushed. |
 | backing off | Cancels the timer. |
 
@@ -109,46 +109,51 @@ cancels the scope.
 
 ### Kotlin/Native (iOS)
 
-> **Designed, not built yet** (ADR-0066): the contract PLAN-0005 M4.3 and
-> M4.4 implement. Each part loses this mark in the PR that builds it.
+> Built by PLAN-0005 M4.3 (ADR-0066, ADR-0067), except what is marked
+> *(M4.4)*: discovery beyond a manual host, the iOS `Hello`, the device id
+> file and `AppMonitor.start` on iOS.
 
 `sdk/core` on `iosArm64` and `iosSimulatorArm64` (ADR-0062 E.1) runs the
 same `MonitorClient`, states, bounds, backoff and buffer as above. The app
 calls `AppMonitor.start(options)` / `stop()` from `iosMain` Kotlin or from
 Swift through its framework (ADR-0062 B.1); both return at once and never
-throw. Only these differ from the JVM:
+throw *(M4.4)*. Only these differ from the JVM:
 
 | Topic | JVM / Android | iOS |
 | --- | --- | --- |
 | Ktor engine | CIO | CIO: raw BSD sockets, so the Swift SDK's `URLSession` hooks never see the monitor's own WebSocket, and ATS does not govern it (ADR-0066 A) |
-| Locks | JVM `synchronized` | atomicfu `SynchronizedObject` and `synchronized`, in common code |
-| Oversize counter | `AtomicLong` | a `Long` under the client's lock |
-| Device id | `java.util.UUID`, `java.io.File` in `noBackupFilesDir` | `kotlin.uuid.Uuid`, `kotlinx.io.files`; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it (ADR-0064 B.1) |
-| Timestamps | `System.currentTimeMillis` | `kotlin.time.Clock.System` |
-| Socket errors | `java.io.IOException` | `kotlinx.io.IOException` |
+| Locks | atomicfu `SynchronizedObject` and `synchronized`, in common code | Same |
+| Oversize counter | a `Long` under the client's lock | Same |
+| Device id | `kotlin.uuid.Uuid`, `kotlinx.io.files` in `noBackupFilesDir` | Same code; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it (ADR-0064 B.1) *(M4.4)* |
+| Timestamps | `kotlin.time.Clock.System` | Same |
+| Socket errors | `kotlinx.io.IOException` | Same |
 | `platformLog` | `Log.w` / stderr | `NSLog` |
+| Connect failure hint | `ACCESS_LOCAL_NETWORK` (Android) | `NSLocalNetworkUsageDescription` and `NSBonjourServices` (ADR-0063 B.1) |
+| `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; cancelling a connect may leak its socket (DEBT-0053) |
 | Threads | `Dispatchers.Default` | `Dispatchers.Default`, the native worker pool; nothing runs on the main thread, so `start()` from the app's main thread does no I/O |
-| Emulator / simulator host | `10.0.2.2` when `Build.HARDWARE` says emulator | `127.0.0.1` on `iosSimulatorArm64`, known at compile time (ADR-0002) |
+| Emulator / simulator host | `10.0.2.2` when `Build.HARDWARE` says emulator | `127.0.0.1` on `iosSimulatorArm64`, known at compile time (ADR-0002) *(M4.4)* |
 
 #### States and their iOS exits
 
 Tests run on `iosSimulatorArm64Test` unless marked *JVM*; `commonTest`
-ones run against a stand-in desktop on `ktor-server-cio` (ADR-0066 C).
-Names in *italics* do not exist yet; the task in brackets writes them.
+ones (`MonitorClientTest`, `MonitorHolderTest`) also run on the JVM and the
+Android host, against `StandInDesktop` on `ktor-server-cio` (ADR-0066 C);
+`iosTest` ones (`PlatformIosTest`) on the simulator only. Names in
+*italics* do not exist yet; the task in brackets writes them.
 
 | State | iOS exits, where they differ | Test |
 | --- | --- | --- |
 | **idle** | As above. | `disabledStaysIdle`, `stopWhenIdleDoesNothing` |
-| **discovering** | Manual `host` only, else Bonjour from Kotlin/Native (M4.4), then `127.0.0.1:47474` on the simulator. | `manualHostIsTheOnlySource`; *`simulatorHostFollowsABonjourThatFindsNothing`* (M4.4) |
-| **connecting** | Refused, unreachable or 10 s → backing off; the first such failure logs one line naming the endpoint and the Info.plist keys of ADR-0063 B.1, not `ACCESS_LOCAL_NETWORK`. No cleartext exit: `isCleartextPermitted` is `true`. | `anUnreachableDesktopIsLoggedOncePerClient`; *`aConnectFailureNamesTheInfoPlistKeys`*, *`cleartextIsAlwaysPermitted`* (M4.3) |
+| **discovering** | Manual `host` only, else Bonjour from Kotlin/Native (M4.4), then `127.0.0.1:47474` on the simulator. | `manualHostIsTheOnlySource`, `stopWhileDiscoveringReleasesEverything`; *`simulatorHostFollowsABonjourThatFindsNothing`* (M4.4) |
+| **connecting** | Refused, unreachable or 10 s → backing off; the first such failure logs one line naming the endpoint and the Info.plist keys of ADR-0063 B.1, not `ACCESS_LOCAL_NETWORK`. No cleartext exit: `isCleartextPermitted` is `true`. | `anUnreachableDesktopIsLoggedOncePerClient`, `anOutageAfterAConnectionIsLoggedAgain`, `aConnectFailureNamesTheInfoPlistKeys`, `cleartextIsAlwaysPermitted` |
 | **handshaking** | As above. | `aRejectedDeviceWaitsTheLongestDelay` |
-| **connected** | As above; a write to a socket the desktop closed must end in backing off, not kill the app with `SIGPIPE` (unverified, ADR-0066). | `handshakesWithTheDesktop`; *`aDesktopThatDiesMidSessionEndsInBackingOff`* (M4.3) |
+| **connected** | As above; a write to a socket the desktop closed ends in backing off, no `SIGPIPE` (ADR-0067). | `handshakesWithTheDesktop`, `delivers1000EventsInOrder`, `aDesktopThatDiesMidSessionEndsInBackingOff`; *JVM*: `dropsEnvelopesOnChannelsTheDesktopDidNotAccept` |
 | **backing off** | As above. | `eventsQueuedWhileTheDesktopIsDownArriveAfterItReturns` |
-| **stopped** | As above. | `eventsAfterStopAreDropped` |
+| **stopped** | As above. | `eventsAfterStopAreDropped`, `anEnvelopeLargerThanAFrameIsDroppedBeforeTheBuffer` |
 
 `start()` while running and `start()` after `stop()`:
 `aSecondStartIsIgnoredWhileRunning`, `startAfterStopBuildsANewClient`.
-Device id: `isStableAcrossStarts`, `aCorruptFileIsReplaced`;
+Device id (`DeviceIdTest`): `isStableAcrossStarts`, `aCorruptFileIsReplaced`;
 *`readsTheSwiftSdkDeviceIdFile`* (M4.4).
 
 #### `stop()` on iOS
@@ -158,7 +163,7 @@ As in [`stop()` in each state](#stop-in-each-state), with the same tests:
 `NsdManager`), `stopWhileConnectingClosesTheHalfOpenSocket`,
 `stopWhileHandshakingClosesTheSessionNormally`, `stopWhileBackingOffCancelsTheTimer`,
 and `stopWhileConnectedEndsTheDesktopSession` (*JVM*: it reads the real
-desktop's session list).
+desktop's session list, `MonitorClientDesktopTest`).
 
 #### Background and foreground
 
@@ -168,10 +173,10 @@ resume the state goes on from where it was: a connection the OS dropped
 ends with a socket error or the ping timeout → backing off → discovering.
 Whether a backoff delay counts the time suspended is not specified. Events captured
 before suspension stay in the buffer. Test:
-*`aDesktopThatStopsAnsweringPingsEndsInBackingOff`* (M4.3), a stand-in
-desktop that keeps the socket open but never answers, as a suspended or
-vanished desktop looks from the app; the live test of M4.3 covers the real
-simulator.
+`aDesktopThatStopsAnsweringPingsEndsInBackingOff`, a stand-in desktop that
+keeps the socket open but never answers, as a suspended or vanished desktop
+looks from the app. `LiveServerTest` reaches `make server` from the
+simulator when `APPMONITOR_LIVE_HOST` is set (ADR-0067 B).
 
 ## Limits
 

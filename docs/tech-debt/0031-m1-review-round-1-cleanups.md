@@ -39,3 +39,7 @@ The next PR that touches `AppMonitorInterceptor.kt`, `TrafficState.kt` or
 ## How it was paid
 
 > Filled when closing.
+
+Partly paid: the `MonitorClient.kt` item in `feat/sdk-core-ios-targets`;
+the flag resets when a session reaches connected, test
+`anOutageAfterAConnectionIsLoggedAgain`.

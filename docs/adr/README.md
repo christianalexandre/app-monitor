@@ -84,3 +84,4 @@ Rules:
 | [0064](0064-ktor-swift-dedupe-by-correlation-header.md) | How the Ktor plugin and the Swift SDK avoid capturing one exchange twice | Accepted |
 | [0065](0065-kmp-sample-app.md) | KMP sample app, its UI toolkit, targets and place in the release gate | Accepted |
 | [0066](0066-sdk-core-on-kotlin-native.md) | sdk/core on Kotlin/Native keeps CIO and runs its state tests in common code | Accepted |
+| [0067](0067-sdk-core-ios-build-and-stop-while-connecting.md) | sdk/core iOS build, live simulator test, and stop() letting a connect end itself | Accepted |

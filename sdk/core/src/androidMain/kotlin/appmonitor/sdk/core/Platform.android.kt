@@ -8,3 +8,5 @@ internal actual fun isCleartextPermitted(host: String): Boolean = NetworkSecurit
 internal actual fun platformLog(message: String) {
     Log.w("AppMonitor", message)
 }
+
+internal actual val CONNECT_FAILURE_HINT: String = "On Android 17+ check ACCESS_LOCAL_NETWORK"

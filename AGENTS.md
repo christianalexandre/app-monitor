@@ -103,7 +103,8 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
-| SDK core tests (buffer, backoff, transport, discovery) | `./gradlew :sdk:core:allTests` | active; JVM and Android host; transport against an in-process desktop, discovery with fake browsers |
+| SDK core tests (buffer, backoff, transport, discovery) | `./gradlew :sdk:core:allTests` | active; JVM, Android host and iOS simulator (macOS with Xcode); transport against a stand-in desktop, and the real one on JVM, discovery with fake browsers; ADR-0066, ADR-0067 |
+| SDK core on the iOS simulator against a running desktop | `APPMONITOR_LIVE_HOST=127.0.0.1 ./gradlew :sdk:core:iosSimulatorArm64Test --tests '*LiveServerTest*'` | active; `make server` or `make desktop` running; skipped without the variable; ADR-0067 |
 | OkHttp capture tests (interceptor + WebSocket factory + masking vector) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3` and `protocol/fixtures/masking.json`, Android host has no tests |
 | No-op SDK check (API matches the real SDK, defaults) | `./gradlew :sdk:no-op:check` | active; compares `sdk/*/api/` dumps, ADR-0026 |
 | Update SDK public API dumps | `./gradlew updateKotlinAbi` | active; after a deliberate public API change, then align `sdk/no-op` |
