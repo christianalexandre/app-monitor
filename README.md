@@ -93,7 +93,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | M8 — iOS deep capture | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | M9 — Interaction | Mocks, breakpoints, replay |
-| M10 — Distribution | Signed packages, Homebrew, Maven Central, SwiftPM |
+| M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
