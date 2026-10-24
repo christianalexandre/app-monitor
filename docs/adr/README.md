@@ -76,3 +76,4 @@ Rules:
 | [0056](0056-android-end-to-end-by-launch-extras.md) | Android end to end driven by launch extras, asserted on the headless server log | Accepted |
 | [0057](0057-ios-end-to-end-by-launch-arguments.md) | iOS end to end driven by launch arguments, sharing the Android assertions | Accepted |
 | [0058](0058-sdk-publication-dry-run.md) | SDK publication dry-run with maven-publish, a protocol artifact and a path SwiftPM consumer | Accepted |
+| [0059](0059-no-trailer-check-on-release-prs.md) | The attribution trailer check runs on PRs to dev only | Accepted |
