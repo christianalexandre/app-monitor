@@ -3,7 +3,7 @@ id: DEBT-0051
 title: Non-correctness findings of the third M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `samples/android/src/main/AndroidManifest.xml`, `02_development_environment.md` or `0050-m3-review-round-2-cleanups.md`, or a rotation or process-death regression in the Android sample
+trigger: The next PR that touches `samples/android/src/main/AndroidManifest.xml` or `0050-m3-review-round-2-cleanups.md`, or a rotation or process-death regression in the Android sample
 paid_date:
 ---
 
@@ -22,9 +22,6 @@ today (ADR-0016):
 - DEBT-0050's trigger names `Makefile`, which most PRs that add a command
   touch, while only its stale ADR-0051 item is about the `Makefile`. Name
   the `debt-check` target's line or move the item's trigger elsewhere.
-- `docs/sdd/02_development_environment.md`: the Android end to end
-  paragraph has one line far past the file's wrapping, as has the M3.R5
-  task line in PLAN-0004.
 
 Rejected: `MainActivity` has no `onNewIntent`, but with the default launch
 mode an `am start` that reaches a running top activity only brings its task
@@ -42,9 +39,11 @@ trigger and line wrapping.
 The next PR that touches `samples/android/src/main/AndroidManifest.xml`
 (a launch mode or a second activity), or a rotation or process-death
 regression found by hand, pays the coverage item; the next PR that touches
-`02_development_environment.md` or `0050-m3-review-round-2-cleanups.md`
-pays that file's item.
+`0050-m3-review-round-2-cleanups.md` pays the trigger item.
 
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
+
+Partly paid: the line wrapping of the Android end to end paragraph in SDD 02
+and of the M3.R5 task line, in `fix/android-sample-extras-per-target`.
