@@ -1,0 +1,41 @@
+name: TestHost
+options:
+  bundleIdPrefix: dev.appmonitor
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  AppMonitor:
+    path: ..
+targets:
+  TestHost:
+    type: application
+    platform: iOS
+    sources: [Host]
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      SWIFT_VERSION: "6.0"
+      ENABLE_USER_SCRIPT_SANDBOXING: YES
+    postBuildScripts:
+      - name: AppMonitor local network keys
+        script: '"$SRCROOT/../scripts/add_local_network_keys.sh"'
+        inputFiles:
+          - $(SRCROOT)/../scripts/add_local_network_keys.sh
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+          - $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+  BackgroundTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - ../Tests/AppMonitorTests/TestHTTPServer.swift
+    dependencies:
+      - target: TestHost
+      - package: AppMonitor
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_VERSION: "6.0"
+      TEST_HOST: $(BUILT_PRODUCTS_DIR)/TestHost.app/TestHost
+      BUNDLE_LOADER: $(TEST_HOST)

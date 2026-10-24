@@ -19,7 +19,9 @@ Open a pull request for the current branch, following
    (`git diff <base>...HEAD`) and from what was really run in this session.
    Sections that do not apply say `N/A` with a reason. Remove the HTML
    comments. "What was actually run" lists commands and results; unknown
-   means "not run".
+   means "not run". *DEBT triggers* lists each DEBT `make debt-check`
+   prints and how it was handled (paid, re-triggered, not fired and why),
+   or "none fired".
 6. Write the body to a file in the scratchpad and run
    `gh pr create --base <base> --title "<title>" --body-file <file>`
    (`--draft` if the task is `[!]` or has a `Proposed` ADR).

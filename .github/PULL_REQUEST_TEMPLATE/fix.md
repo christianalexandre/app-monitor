@@ -22,6 +22,10 @@
 | --- | --- |
 | `make check` | |
 
+## DEBT triggers
+
+<!-- Each DEBT `make debt-check` lists: paid, re-triggered, or not fired and why. "None fired" otherwise. -->
+
 ## Docs
 
 - [ ] `docs/sdd/` reflects the change (or N/A)

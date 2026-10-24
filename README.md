@@ -11,9 +11,14 @@ the same network. The desktop keeps a searchable history and exposes a local
 checkout fail in the last run?"* straight from the captured traffic.
 
 > [!NOTE]
-> **Status: pre-alpha.** The architecture and workflow are defined; code lands
-> milestone by milestone. Everything below marked *planned* does not exist
-> yet. Current milestone: [M0 — Foundation](docs/plans/0001-foundation.md).
+> **Status: pre-alpha.** Code lands milestone by milestone. Android apps
+> using OkHttp show their traffic in the desktop, on the emulator and on a
+> device; iOS apps show all their `URLSession` traffic, proven on the
+> simulator so far (DEBT-0041). Every PR to `main` passes a release gate:
+> desktop tests on three OSes, the Kotlin ↔ Swift contract, both samples end
+> to end, unsigned packages and an SDK publication dry-run. Everything below
+> marked *planned* does not exist yet. Current milestone:
+> [M3 — Release gate](docs/plans/0004-release-gate.md).
 
 ## Why
 
@@ -57,10 +62,12 @@ flowchart LR
 1. The desktop app starts a server and announces itself on the local network
    (mDNS, `_appmonitor._tcp`).
 2. The SDK finds it automatically: mDNS on physical devices, `10.0.2.2` on the
-   Android emulator, `localhost` on the iOS simulator.
+   Android emulator, `127.0.0.1` on the iOS simulator.
 3. Every request, response, error and WebSocket frame is sent as a Protobuf
    message inside a channel envelope — the same transport will carry logs,
    analytics and storage inspection later.
+
+![The desktop showing a physical Android device's traffic](docs/screenshots/device-traffic.png)
 
 Design details: [architecture](docs/sdd/01_architecture.md) and the
 [decision records](docs/adr/README.md).
@@ -69,48 +76,63 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 
 | Platform | SDK | Captures | Status |
 | --- | --- | --- | --- |
-| Android | `sdk-android` | OkHttp (Retrofit, Apollo, …) | planned — M1 |
-| iOS | `sdk-ios` (Swift Package) | All `URLSession` traffic, incl. background sessions | planned — M2 |
-| iOS | `sdk-ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
+| Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
+| iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
+| iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
-| Desktop | macOS · Linux · Windows | — | planned — M0 |
+| Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
 
 ## Roadmap
 
 | Milestone | Delivers |
 | --- | --- |
 | [M0 — Foundation](docs/plans/0001-foundation.md) | Protocol, desktop server and UI, fake traffic end to end |
-| M1 — Android SDK | Real Android apps on emulator and device |
-| M2 — iOS SDK | Real iOS apps, full `URLSession` coverage |
-| M3 — Release gate | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
+| [M1 — Android SDK](docs/plans/0002-android-sdk.md) | Real Android apps on emulator and device |
+| [M2 — iOS SDK](docs/plans/0003-ios-sdk.md) | Real iOS apps, full `URLSession` coverage |
+| [M3 — Release gate](docs/plans/0004-release-gate.md) | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
 | M4 — KMP SDK | Ktor plugin for every KMP target |
 | M5 — Persistence | Runs, search, filters, retention |
 | M6 — MCP server | Traffic, runs and stats queryable by AI agents |
 | M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | M8 — iOS deep capture | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | M9 — Interaction | Mocks, breakpoints, replay |
-| M10 — Distribution | Signed packages, Homebrew, Maven Central, SwiftPM |
+| M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
-## Planned usage
+## Usage
 
 > [!IMPORTANT]
-> Illustrative only — the public API is defined in M1 and M2 and may change.
+> Not published yet (M10); the API may change before then. The Android API
+> is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md), the iOS one in
+> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md).
 
 ```kotlin
-// Android — debug builds only
+// Android — Application.onCreate
+AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+
 val client = OkHttpClient.Builder()
     .addInterceptor(AppMonitorInterceptor())
     .build()
+val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
 ```
 
+Debug builds depend on `sdk/android-okhttp`, release builds on `sdk/no-op`
+(same API, does nothing). A working app is in
+[`samples/android`](samples/android).
+
 ```swift
-// iOS
-#if DEBUG
-AppMonitor.start()
-#endif
+// iOS — App.init or application(_:didFinishLaunchingWithOptions:)
+import AppMonitor
+
+AppMonitor.start(AppMonitorOptions(appName: "My App"))
 ```
+
+Every `URLSession` is captured without further code. The same `AppMonitor`
+product compiles to stubs in configurations whose name lacks `Debug`, and
+the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
+local network keys to debug builds only. A working app is in
+[`samples/ios`](samples/ios).
 
 ## How this project is built
 
@@ -129,6 +151,9 @@ in a documented loop. The process is part of the portfolio:
   the only memory, so they stay current.
 - **Conventions enforced by CI** — semantic branches, Conventional Commits,
   one PR template per change type, protected `dev` and `main`.
+- **Release gate** — `main` requires
+  [`release-gate.yml`](.github/workflows/release-gate.yml) green: desktop
+  ×3 OS, contract tests, Android and iOS end to end, packages, SDK dry-run.
 
 ## Contributing
 
@@ -141,3 +166,7 @@ make check    # run all gates
 
 Toolchain: [development environment](docs/sdd/02_development_environment.md).
 Workflow: [git and pull requests](docs/guidelines/03_git_and_pull_requests.md).
+
+## License
+
+[MIT](LICENSE).

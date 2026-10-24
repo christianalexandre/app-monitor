@@ -64,7 +64,8 @@ iteration) only when the decision touches:
 `docs/plans/`, implement it on a semantic branch, run the gates, update docs,
 commit, open the PR to `dev`.
 `make loop` repeats it, each iteration in a **fresh session** (the docs are the
-memory); `/loop /next` repeats it inside one session. Stop conditions are in
+memory) inside a dedicated worktree (`../app-monitor-loop`), so the main
+checkout stays free; `/loop /next` repeats it inside one session. Stop conditions are in
 `.claude/commands/next.md`. Everything the loop writes — reports included —
 is in English.
 
@@ -96,10 +97,49 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 
 | What | Command | State |
 | --- | --- | --- |
-| All gates | `make check` | active: `docs-check` (lint/build/test join as modules land) |
+| List make targets | `make help` | active; default goal |
+| All gates | `make check` | active: `docs-check` + `lint` + `scripts-test` + `build` + `swift` |
 | Docs consistency | `make docs-check` | active |
+| Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
+| Gradle build and tests | `make build` | active |
+| Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
+| SDK core tests (buffer, backoff, transport, discovery) | `./gradlew :sdk:core:allTests` | active; JVM and Android host; transport against an in-process desktop, discovery with fake browsers |
+| OkHttp capture tests (interceptor + WebSocket factory + masking vector) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3` and `protocol/fixtures/masking.json`, Android host has no tests |
+| No-op SDK check (API matches the real SDK, defaults) | `./gradlew :sdk:no-op:check` | active; compares `sdk/*/api/` dumps, ADR-0026 |
+| Update SDK public API dumps | `./gradlew updateKotlinAbi` | active; after a deliberate public API change, then align `sdk/no-op` |
+| Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
+| Regenerate protocol fixtures | `./gradlew :protocol:jvmTest -PupdateFixtures` | active; only for a deliberate contract change; mirror the change in `sdk/ios/Tests/AppMonitorTests/Samples.swift` |
+| iOS SDK gates (proto freshness, swift-format, `swift test`, debug/release public API, Info.plist keys script, simulator tests, sample build) | `make swift` | active; macOS with `swift` only, prints `swift: SKIPPED` elsewhere, `swift-sim: SKIPPED` and `ios-sample: SKIPPED` without XcodeGen; ADR-0037, ADR-0039, ADR-0047, ADR-0048, ADR-0049, ADR-0050 |
+| iOS SDK public API, debug and release builds against `sdk/ios/api/AppMonitor.swiftinterface` | `scripts/swift_api_check.sh` | active; macOS with `swift`; `--update` rewrites the dump after a deliberate public API change; ADR-0048 |
+| iOS SDK tests hosted in an app on the simulator (background sessions), then the local network keys in the Debug `TestHost.app` only | `make swift-sim` | active; Xcode and `brew install xcodegen`; first available iPhone simulator, or `SIM_DEVICE="iPhone 17"`; log in `build/ios-simulator.log`; ADR-0047, ADR-0049 |
+| iOS sample in Debug and Release for the simulator, keys and SDK names in Debug only | `make ios-sample` | active; Xcode and `brew install xcodegen`; `SIM_DEVICE` as `make swift-sim`; app in `build/ios-sample/Build/Products/`, log in `build/ios-sample.log`; ADR-0050 |
+| Run the iOS sample against a desktop, every button in turn | `xcrun simctl install booted build/ios-sample/Build/Products/Debug-iphonesimulator/Sample.app` then `xcrun simctl launch booted dev.appmonitor.sample -runAll YES` | active; after `make ios-sample`; `make server` or `make desktop` running; SDD 02 |
+| Info.plist keys script tests (which configurations, app's keys kept, idempotent) | `scripts/test_add_local_network_keys.sh` | active; macOS (`plutil`), in `make swift`; ADR-0049 |
+| iOS SDK tests (fixtures decode and re-encode, transport against an in-process desktop, discovery with fake browsers and one real Bonjour round, `URLSession` capture against an in-process HTTP server and WebSocket echo, masking vector) | `swift test --package-path sdk/ios` | active; Swift Testing on the macOS host; the Bonjour round needs a multicast-capable interface |
+| iOS transport against a running desktop | `APPMONITOR_LIVE_HOST=127.0.0.1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running; skipped without the variable |
+| iOS Bonjour discovery against a running desktop | `APPMONITOR_LIVE_DISCOVERY=1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running on the LAN; skipped without the variable |
+| Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |
+| Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
+| Unsigned desktop package for the host OS | `./gradlew :desktop:app:packageDmg` (`packageMsi`, `packageDeb`) | active; output in `desktop/app/build/compose/binaries/main/`; SDD 02, ADR-0055 |
+| Desktop app tests (store, body formats, offscreen UI) | `./gradlew :desktop:app:test` | active; screenshots in `desktop/app/build/screenshots/` (`app.png`, `approval.png`, `frames.png`) |
+| End to end screenshots from a real device or emulator | `./gradlew :desktop:app:liveScreenshots -PliveName=device` | active; real server on 47474, approves the first device, writes `docs/screenshots/<name>-*.png`; `-PliveAdvertise=false` forces the emulator's `10.0.2.2`; drive the sample by hand, SDD 02, ADR-0031 |
+| Headless desktop server, logs envelopes to stdout | `make server` | active; `ARGS="--port N"` |
+| Replay fixture traffic to a desktop | `make fake-traffic` | active; mDNS discovery, or `ARGS="--host H [--port N]"`; `--name S` picks a service, `--timeout MS` bounds discovery |
+| Fake client tests (replay + mDNS discovery) | `./gradlew :tools:fake-client:test` | active; needs a multicast-capable LAN interface |
+| Android sample APKs (debug with the SDK, release with `sdk/no-op`) | `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease` | active; `:samples:android:checkReleaseHasNoSdk` in `check`, ADR-0030 |
+| Android end to end on a booted emulator (headless server on a free port, sample with `runAll`, every envelope asserted) | `make e2e-android` | active; `ANDROID_SERIAL` picks the emulator, `E2E_TIMEOUT` (s, 120); needs the internet; logs in `build/e2e-android/`; SDD 02, ADR-0056 |
+| iOS end to end on a simulator (headless server on a free port, Debug sample with `-host`, `-port`, `-runAll`, every envelope asserted) | `make e2e-ios` | active; macOS with Xcode and XcodeGen; booted iPhone simulator, else boots one (`SIM_DEVICE` picks by name), `E2E_TIMEOUT` (s, 120); needs the internet; logs in `build/e2e-ios/`; SDD 02, ADR-0057 |
+| SDK publication dry-run (Kotlin SDKs to `build/maven-dry-run`, POMs checked, SwiftPM consumer of the root `Package.swift` in debug and release) | `make publish-dry-run` | active; Swift part macOS only, `publish-swift: SKIPPED` elsewhere; prints the file list and DEBT-0040's numbers; ADR-0058 |
+| Sample host tests (WebSocket echo listener) | `./gradlew :samples:android:testDebugUnitTest` | active; JVM, no device |
+| Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
+| Release gate on any ref (branch job, desktop tests on ubuntu, macOS, windows) | `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]` | active; also on every PR to `main`; `head` (default `dev`) is the branch checked as the PR head; ADR-0052, DEBT-0046 |
+| Apply the `main` ruleset (gate required) after editing it | `gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604903 --input .github/rulesets/protect-main.json` | active; check with `gh api repos/christianalexandre/app-monitor/rules/branches/main`; ADR-0053, DEBT-0048 |
+| Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, `scripts/test_debt_check.sh` and `scripts/test_sim_list.sh` (simulator list parser), ADR-0013 |
 | Branch name check | `make branch-check` | active |
-| Development loop, fresh session per iteration | `make loop` | active; logs in `.loop/` |
+| Open DEBTs whose trigger names a file the branch changes | `make debt-check` | active; `BASE=<ref>` (default `origin/dev`), committed and uncommitted changes, exits 0 unless the base does not resolve; `/next` self-check, ADR-0051, ADR-0061 |
+| Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019) |
+| Follow the running loop live | `make loop-watch` | active |
+| Create the loop worktree | `make loop-worktree` | active; honours `LOOP_WORKTREE`; open `claude` there once to accept the trust dialog |
 
 Commands are added here **in the same PR** that creates them.
 

@@ -1,0 +1,35 @@
+// Channel "core": connection handshake. The device sends Hello first; the
+// desktop answers HelloAck before any other channel is used (ADR-0002).
+syntax = "proto3";
+
+package appmonitor.v1;
+
+enum Platform {
+  PLATFORM_UNSPECIFIED = 0;
+  PLATFORM_ANDROID = 1;
+  PLATFORM_IOS = 2;
+  PLATFORM_JVM = 3;
+}
+
+message Hello {
+  uint32 protocol_version = 1;
+  Platform platform = 2;
+  // Stable per install, chosen by the SDK.
+  string device_id = 3;
+  string device_name = 4;
+  string os_version = 5;
+  // Bundle id (iOS) or application id (Android).
+  string app_id = 6;
+  string app_version = 7;
+  string sdk_version = 8;
+  // Channels the device can send or receive.
+  repeated string channels = 9;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  // Identifies this connection on the desktop.
+  string session_id = 2;
+  // Subset of Hello.channels the desktop accepted.
+  repeated string channels = 3;
+}

@@ -1,0 +1,225 @@
+---
+id: PLAN-0003
+title: iOS SDK
+status: Done # Draft | Active | Done | Abandoned
+milestone: M2
+started: 2026-10-23
+finished: 2026-10-23
+---
+
+# PLAN-0003 — iOS SDK (M2)
+
+## Goal
+
+A real iOS app, on the simulator and on a device, shows all its `URLSession`
+traffic (ADR-0004 layer 1) in the desktop after the developer approves the
+device, through a native Swift package that speaks the same protocol as the
+Kotlin SDKs, proven by the shared fixtures.
+
+## Tasks
+
+M1's lessons applied: decisions in the "stop and ask" areas of `AGENTS.md`
+come first, with the owner asked which side the masking defaults err on
+(ADR-0034); every place a secret can sit is listed before the capture code;
+the Swift transport follows SDD 04's lifecycle, written down for Swift before
+its code. The previous tool's source is
+`github.com/christianalexandre/app-network-monitor` (public), ported without
+Pulse (ADR-0003).
+
+- [x] **M2.1 iOS SDK API, privacy and CI decisions.** (ADR-0035, ADR-0036, ADR-0037 `Accepted`: the owner took every recommendation) `Proposed` ADRs, one
+  stop: (a) the public API an app developer touches — `AppMonitor.start(...)`
+  and its options (mirroring ADR-0017 where Swift allows), how capture is
+  turned on (automatic `URLSessionConfiguration` coverage vs an explicit
+  call), the SwiftPM products (SDK and no-op), the minimum iOS version;
+  (b) what is captured and masked — every place a secret can sit in a
+  `URLSession` exchange (headers, URL user info, query, fragment, URL
+  response headers, WebSocket frames, bodies), the defaults, the `masking`
+  switch (ADR-0034), the Info.plist keys the SDK requires; (c) where Swift
+  tests run: PR CI on a macOS runner (10× minutes, ADR-0012) or locally plus
+  M3's release gate.
+  Accept: the ADRs merged by the owner with `status: Accepted`.
+- [x] **M2.2 Protocol: capture layer.** (ADR-0038; field on `RequestStarted` only, later events inherit it) A field telling which capture layer
+  produced an entry (ADR-0004 requires the UI to show it), new field numbers,
+  none renumbered; Kotlin SDKs set it; fixtures regenerated; the desktop
+  shows it.
+  Accept: `./gradlew :protocol:allTests :desktop:app:test` — fixture and
+  round-trip tests for the field; a UI test shows the layer.
+- [x] **M2.3 Swift package and contract tests.** (ADR-0039; generated code committed, `make swift` in `make check` on macOS only) `sdk/ios` SwiftPM package,
+  swift-protobuf code generated from `protocol/proto`, a `make` target for
+  the Swift gates wired as M2.1 (c) decides.
+  Accept: `swift test --package-path sdk/ios` — every file in
+  `protocol/fixtures/` decodes to the expected values and re-encodes byte for
+  byte.
+- [x] **M2.4 Swift connection lifecycle on paper.** (SDD 06, ADR-0040: Network.framework, one serial queue; `.waiting` is not a connect failure) SDD 04 (or a new
+  chapter) states where the Swift transport differs from `sdk/core`:
+  Network.framework or `URLSessionWebSocketTask`, threading (actors, queues),
+  who owns each resource, what `stop()` does in each state.
+  Accept: `make docs-check`; every SDD 04 state has its Swift exits.
+- [x] **M2.5 Swift transport.** (ADR-0041: `.waiting` with ECONNREFUSED ends connecting; `AppMonitor.start` and the device id moved to M2.6) Handshake, ring buffer that drops the oldest,
+  reconnection with backoff, all per M2.4. Connects to an explicit host only.
+  Accept: `swift test --package-path sdk/ios` — against an in-process
+  WebSocket server: handshake, 1000 events in order, events queued while the
+  desktop is down arrive after it returns, `stop()` in each state releases
+  everything; one run against `make server` logged in the PR.
+- [x] **M2.6 Swift discovery.** (ADR-0042: a Bonjour result's IPv4 address from a TCP probe to its service) Manual host → `NWBrowser` → the simulator's
+  host loopback, per the discovery contract (ADR-0024: late TXT, two
+  services, selector rules); `AppMonitor.start` / `stop` and
+  `AppMonitorOptions` (ADR-0035 A, B) build the client, with the device id
+  file and `Hello` of ADR-0036 D.
+  Accept: `swift test --package-path sdk/ios` — order of fallbacks and the
+  ADR-0024 cases with fake browsers.
+- [x] **M2.7 `URLSession` capture.** (ADR-0043: hooks on task `resume` and CFNetwork's connection callbacks, not `URLProtocol`; shared masking vector `protocol/fixtures/masking.json` read by both SDKs; DEBT-0037; DEBT-0035's trigger fired, M2.7a added) Request, response and failure events
+  from every `URLSession`, sessions created before `start()` included,
+  uploads (data, file, stream), with M2.1's masking and body limit; never
+  alters the app's call beyond reading the bounded body.
+  Accept: `swift test --package-path sdk/ios` — against a local HTTP server:
+  2xx, 5xx, a failure, a body over the limit, a masked header, a session
+  created before `start()`, each upload kind.
+- [x] **M2.7a Non-`http` `Location` masking decision.** (ADR-0044 `Accepted`: option 1, every absolute URI; three vector cases, DEBT-0035 paid; added by M2.7:
+  DEBT-0035's trigger fired) A `Proposed` ADR asking whether both SDKs mask
+  `maskedQueryParameters` in a custom-scheme `Location` and
+  `Content-Location` (RFC 8252 redirects), with how each SDK parses them;
+  one stop.
+  Accept: the ADR merged by the owner; if accepted, a case in
+  `protocol/fixtures/masking.json` and both SDKs pass it.
+- [x] **M2.8 WebSocket tasks.** (ADR-0045: hooks on the WebSocket task's own methods, captured URL is `http` as on Android; close frames both ways too; DEBT-0038) Frames of `URLSessionWebSocketTask` sent and
+  received, bounded as `WebSocketFrame` (ADR-0028).
+  Accept: `swift test --package-path sdk/ios` — text and binary frames both
+  ways and a frame over the limit, against a local echo server.
+- [x] **M2.9 Background sessions.** (ADR-0046: hooks on the background session's callbacks, not delegate proxying; ADR-0047: XcodeGen test host, `make swift-sim` in `make swift`; DEBT-0039) Background `URLSession` traffic through
+  delegate proxying (ADR-0004 layer 1).
+  Accept: an `xcodebuild test` on the iPhone simulator — a background
+  download is captured and the app's delegate still gets every callback.
+- [x] **M2.10 Release stubs.** (ADR-0048: bodies and sources under `#if DEBUG`, both builds vs a committed `.swiftinterface` dump; an app config gets `DEBUG` only if its name contains `Debug`; SwiftProtobuf still linked in release, DEBT-0040) The release build of the `AppMonitor` product
+  (ADR-0035 D.1): same public API as debug, no network code; a check that
+  fails when one build gains a public symbol.
+  Accept: the check passes, and fails on a public member added to one side.
+- [x] **M2.11 Info.plist build-phase script.** (ADR-0049: keys when the configuration name contains `Debug`, as the SDK; app's own keys kept; proven on `TestHost` by `make swift-sim`, the sample being M2.12) Adds the local network keys
+  M2.1 (b) decides to debug builds only.
+  Accept: a debug build of the sample has the keys, a release build has
+  none (`plutil` output in the PR).
+- [x] **M2.12 SwiftUI sample app.** (ADR-0050: XcodeGen spec, `make ios-sample` in `make swift` scans the release binary for SDK names; `-runAll YES` launch argument runs every button) `samples/ios`: GET JSON, POST, 404,
+  timeout, upload, WebSocket echo, background download; debug uses the SDK,
+  release gets the stubs of the same product; its Run Script phase runs
+  M2.11's script.
+  Accept: `xcodebuild build` for the simulator in both configurations; with
+  `make server` running, each button shows up in the server log (log in the
+  PR); the release app contains no SDK symbols
+  other than the stubs.
+- [x] **M2.13 End to end on the simulator.** (changed by the owner: no
+  physical iPhone available, the device half is DEBT-0041; `simulator-*.png`,
+  all seven buttons, by `liveScreenshots`; the desktop no longer advertises
+  mDNS on point-to-point interfaces, a VPN tunnel broke its mDNS test) Sample app →
+  desktop app with approval, on the iPhone simulator.
+  Accept: screenshots in `docs/screenshots/` of the desktop showing the
+  sample's traffic from the simulator.
+- [x] **M2.14 Docs sync.** (README status, platforms and Swift usage; SDD 01 iOS SDK and entry point; SDD 03 and `AGENTS.md` already current) SDD architecture and code map, `AGENTS.md`
+  commands, README status rows reflect M2.
+  Accept: `make docs-check`.
+
+### First milestone review
+
+Findings of the `code-review` of `2d0f0ca..9dee53b`. One is a correctness
+finding and became a task. Five went to DEBT-0042 (an IPv6 zone id in a
+manual host, the sink read twice and the `ws`/`wss` guard in
+`URLSessionCapture.started`, `RequestStarted` built twice, the sample's
+background download size kept between runs, the simulator selection copied
+between scripts). DEBT-0040's trigger had fired with M2.12 (#107) unpaid; it
+moved to M3's publication dry-run. Two were rejected: on the simulator the
+3 s bound drops a desktop still waiting for its TXT record and tries
+`127.0.0.1`, as `sdk/core` does (`withTimeoutOrNull(mdnsBeforeEmulator)`
+wraps the TXT grace), and the next round finds it again; a probe left in
+`.waiting` blocks that name for one round only, since `BonjourBrowser`
+opens a new `BonjourSession` every round.
+
+- [x] **M2.R1 Unparseable `Location` sent in clear on iOS.** (OkHttp's `uri` ported to `Masking.swift`, every non-`http` or unparsed value goes through it; vector case `location no url parser accepts`, Kotlin unchanged) When
+  `URL(string:relativeTo:)` returns nil, `Masking.headers` keeps a
+  `Location` or `Content-Location` value as received, while OkHttp's
+  `Capture.kt` falls back to `uri(value)` and masks it (ADR-0044). On the
+  macOS 26 host `Location: http://h:p/x?code=1` (a bad port) fails both
+  `URL` and `URLComponents`, so `code` reaches the desktop; on iOS 15–16,
+  the deployment target, any value with a space does too. The Swift SDK
+  gets the same RFC 3986 fallback as the Kotlin one.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with a `Location` neither SDK's URL parser accepts arrives with its
+  masked query parameter as `██` in both.
+
+### Second milestone review
+
+Findings of the `code-review` of `9dee53b..7b9d596`. Two are correctness
+findings and became tasks. Three went to DEBT-0043 (`url(_:)` keeping a value
+`URLComponents` rejects, with no such value found on the macOS 26 host and
+iOS 15–16 not probed; `uri(_:)` not returning early without masked query
+names; Foundation-parsed custom schemes pinned only by the ADR-0044 cases).
+One was paid here: the DEBT-0042 index row now names its files. One was
+folded into M2.R3: Kotlin's `userInfo` finds the scheme at the first `:`,
+so a value without a scheme splits at `user:`.
+
+- [x] **M2.R2 Password with a raw `@` partly sent in clear.** (both `userInfo` end the user info at the last `@` before the path; vector case `location no url parser accepts with an at sign in the password`) Both SDKs'
+  `uri` fallback ends the user info at the first `@`, while Foundation
+  (`URLComponents("http://user:p@ss@h/x")` gives password `p@ss`) and
+  RFC 3986 parsers end it at the last `@` before the path. For
+  `Location: http://user:p@ss@h:p/x` (a bad port, so `uri`) both SDKs send
+  `http://██:██@ss@h:p/x`.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with that `Location` arrives as `http://██:██@h:p/x` in both.
+- [x] **M2.R3 Unparseable `Location` without a scheme sent in clear on
+  Android.** (Kotlin's `uri` drops the scheme guard, `userInfo` starts after the `SCHEME` match or at 0; vector case `location no url parser accepts without a scheme`, Swift unchanged) Kotlin's `uri` returns a value with no scheme unchanged, while
+  Swift's masks it (M2.R1). `Location: //user:pw@h:p/x?code=1`: `HttpUrl`'s
+  `resolve` returns null (bad port), so user, password and `code` reach the
+  desktop from Android only. Kotlin's `uri` and `userInfo` handle a value
+  without a scheme as Swift's do.
+  Accept: `swift test --package-path sdk/ios` and
+  `./gradlew :sdk:android-okhttp:allTests` — a `protocol/fixtures/masking.json`
+  case with that `Location` arrives with user, password and `code` as `██`
+  in both.
+
+### Third milestone review
+
+Findings of the `code-review` of `7b9d596..70c7f57`. None is a correctness
+finding, so no task was added. Four went to DEBT-0044 (Kotlin's `uri`
+rewriting values with neither scheme nor authority, no vector case for an
+`@` in the path or a value with no path, the two `userInfo` finding the
+scheme differently, the fallback being two hand-written parsers). One was
+a broken rule: #114 touched `Masking.swift` and left DEBT-0043 unpaid; its
+trigger now names the next such PR after #114. Two were rejected: a raw
+`/`, `?` or `#` in a password (`http://user:p/ss@h:p/x`) is not user info
+for RFC 3986 or WHATWG parsers, which end the authority there, and
+`URLComponents` rejects all four values probed on the macOS 26 host, so the
+SDKs mask what every parser would call user info and query.
+
+## Outcome
+
+- **Shipped**: plan (#92); M2.1 API, privacy and CI decisions (#93); M2.2
+  capture layer in the protocol (#94); M2.3 Swift package and contract tests
+  (#95); M2.4 Swift lifecycle in SDD 06 (#96); M2.5 transport (#97); M2.6
+  discovery and `AppMonitor` (#98); M2.7 `URLSession` capture (#99); loop
+  runs the merge as its own command (#100); M2.7a custom-scheme `Location`
+  decision and masking (#101, #102); M2.8 WebSocket tasks (#103); M2.9
+  background sessions (#104); M2.10 release stubs (#105); M2.11 Info.plist
+  keys script (#106); M2.12 SwiftUI sample (#107); M2.13 end to end on the
+  simulator (#108, #109); M2.14 docs sync (#110). Three review rounds: plan
+  updates #111, #113 and this PR; fixes M2.R1 (#112), M2.R2 (#114), M2.R3
+  (#115).
+- **Decisions**: ADR-0035 to ADR-0050.
+- **Debt**: DEBT-0036 to DEBT-0044 created; DEBT-0035 paid. Review
+  findings left open are only non-correctness ones, in DEBT-0042, DEBT-0043
+  and DEBT-0044. DEBT-0040 moved to M3's publication dry-run, and
+  DEBT-0043's trigger fired with #114 unpaid (third review). No correctness
+  finding is left open.
+- **Deviations**: M2.5 left `AppMonitor.start` and the device id to M2.6;
+  M2.7 found DEBT-0035's trigger fired and added M2.7a, a decision taken
+  before the WebSocket code; M2.13 was changed by the owner to the
+  simulator only, no physical iPhone being available (DEBT-0041). The
+  review added M2.R1–M2.R3, all in the `uri` fallback for a `Location` no
+  URL parser accepts.
+- **Lessons**: writing the Swift lifecycle first (M2.4) held again: no
+  transport or discovery race became a review task. Every review task was
+  in one hand-written fallback parser duplicated in two languages, one
+  delimiter per round; the next plan that touches masking should write the
+  fallback rule once in SDD 05 and pin its edge cases in the shared vector
+  before code (DEBT-0044). A DEBT trigger of "the next PR that touches X"
+  was missed by the very next fix PR; `/next` should check open DEBT
+  triggers against the files a PR changes.

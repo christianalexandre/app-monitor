@@ -1,0 +1,244 @@
+---
+id: PLAN-0004
+title: Release gate
+status: Done # Draft | Active | Done | Abandoned
+milestone: M3
+started: 2026-10-23
+finished: 2026-10-24
+---
+
+# PLAN-0004 — Release gate (M3)
+
+## Goal
+
+Nothing reaches `main` without proving the whole system still works:
+`.github/workflows/release-gate.yml` runs on every PR to `main`, refuses any
+head branch other than `dev`, and is green only when the desktop builds and
+passes its tests on ubuntu, macOS and windows, the Kotlin ↔ Swift contract
+tests pass, the Android and iOS samples reach a headless desktop server end
+to end, the desktop packages and the SDK artifacts build; `main` requires
+it if the plan allows.
+
+## Tasks
+
+M2's lessons applied: decisions in the "stop and ask" areas of `AGENTS.md`
+come first, in one stop; every end to end runs locally as a `make` target
+before it runs in the workflow, so a red gate can be reproduced on the Mac;
+DEBTs whose trigger is in this milestone (DEBT-0002, DEBT-0040, DEBT-0041)
+are paid or re-triggered by the task that fires them. The loop never merges
+into `main`: the last task opens the release PR, the owner merges it.
+
+- [x] **M3.1 Loop checks DEBT triggers.** (ADR-0051; `make debt-check`, matches backticked trigger names only) PLAN-0003's lesson: before
+  committing, `/next` lists the open DEBTs whose trigger names a file the
+  branch changes, and the PR body says how each was handled (paid,
+  re-triggered, or not fired and why). `.claude/commands/next.md`, the PR
+  template and, if scripted, `scripts/` with a bash test.
+  Accept: `make scripts-test` (if scripted) and `make docs-check`; the PR of
+  this task lists its own DEBT check.
+- [x] **M3.2 Release gate decisions.** (`docs/release-gate-decisions`; ADR-0052 to ADR-0055 `Accepted` by the owner: the repository goes public instead of paying for runners, every id under `io.github.christianalexandre`, packages unsigned at M10 too; M3.2a added) `Proposed` ADRs, one stop:
+  (a) cost — runner minutes per gate run (macOS 10×, windows 2× on a private
+  repo, ADR-0012), measured or estimated per job, and which jobs run on
+  which runner; (b) branch protection or a ruleset on `main` requiring the
+  gate — whether the account's GitHub plan offers it for a private repo,
+  and what replaces it if not; (c) SDK publication coordinates — Maven
+  group and artifact ids of `sdk/*`, the SwiftPM package and product names
+  an app adds and the tag scheme, which an app developer types;
+  (d) packaging — unsigned dry-run packages only until M10, the bundle id
+  and package names.
+  Accept: the ADRs merged by the owner with `status: Accepted`.
+- [x] **M3.2a Public repository.** (`LICENSE` MIT, chosen by the owner, in `chore/mit-license` #120; VPN and LAN addresses in DEBT-0036 replaced by examples; the owner made the repository public, `gh repo view` prints `PUBLIC` and `MIT License`) (added by M3.2, ADR-0052) A `LICENSE`
+  with the license the owner picks, the README's license line, and the
+  repository made public by the owner. No gate job runs on a GitHub-hosted
+  runner before this.
+  Accept: `gh repo view --json visibility` prints `PUBLIC` and `gh repo view
+  --json licenseInfo` names the license.
+- [x] **M3.3 Gate skeleton and desktop matrix.** (`ci/release-gate-skeleton`; branch job reuses `scripts/branch_check.sh`, so `release/x.y.z` passes too as guidelines 03 allow; dispatch takes a `head` input; mDNS round trip skipped on hosted macOS, DEBT-0046; measured ≈3.5 macOS, ≈4 ubuntu, ≈4.6 windows min) `release-gate.yml` on
+  `pull_request` to `main` plus `workflow_dispatch`; a first job fails when
+  the head branch is not `dev`; desktop build and tests
+  (`:desktop:app:test`, `:desktop:server:test`, `:protocol:jvmTest`) on
+  ubuntu, macOS and windows, one job per check (ADR-0052). `pr-conventions.yml` and
+  `ci.yml` unchanged on PRs to `dev`.
+  Accept: a `gh workflow run release-gate.yml --ref <branch>` run green on
+  the three OSes, linked in the PR; a run with a non-`dev` head fails at the
+  branch job.
+- [x] **M3.4 Contract tests Kotlin ↔ Swift in the gate.** (`ci/release-gate-contract`; one `contract` job on macos-latest, Xcode 26.6, XcodeGen from Homebrew; nothing needed fixing on a clean runner; measured ≈5.7 min against ADR-0052's ≈15 estimate; the Swift Bonjour round passes on the runner, noted in DEBT-0046) A macOS job runs
+  `make swift` (fixtures decode and re-encode in Swift, proto freshness,
+  public API dump, simulator tests) and `./gradlew :protocol:allTests` (iOS
+  simulator target included). Fixes what only shows on a clean runner.
+  Accept: the gate run green with the job's log showing the Swift fixture
+  tests and `iosSimulatorArm64Test` executed, not skipped.
+- [x] **M3.5 Android end to end, locally.** (`test/android-end-to-end`; ADR-0056: `runAll`, `host`, `port` launch extras, `scripts/e2e_android.sh`; DEBT-0002 re-triggered, `make check` 66 s; DEBT-0047 public services; API 37 grant path not run, the 37.2 image reports SDK 36) A `make e2e-android` target:
+  headless server (`make server`'s entry point) on a free port, sample debug
+  APK installed on a booted emulator, every sample call triggered without a
+  hand (a launch extra, as the iOS `-runAll YES`), the server log asserted
+  for each expected envelope (request, response, failure, WebSocket
+  frames). Device approval as the headless server does it. DEBT-0002's
+  trigger fires here: pay it or re-trigger it.
+  Accept: `make e2e-android` green on the Mac against an emulator; a sample
+  call removed from the run makes it fail, shown in the PR.
+- [x] **M3.6 Android end to end in the gate.** (`ci/release-gate-e2e-android`; `e2e-android` job on ubuntu-latest with KVM, `reactivecircus/android-emulator-runner@v2`, API 36 `google_apis` x86_64; run 40049064470 green, measured ≈3 min against ADR-0052's ≈10 estimate; DEBT-0047 did not fire) A job that boots an emulator
+  on the runner M3.2 (a) picks and runs `make e2e-android`; server log and
+  logcat uploaded on failure.
+  Accept: the gate run green with the job's assertion lines in its log.
+- [x] **M3.7 iOS end to end, locally.** (`test/ios-end-to-end`; ADR-0057: `-host`, `-port` launch arguments, `scripts/e2e_ios.sh` boots a simulator when none is; assertions moved to `scripts/e2e_lib.sh`, `make e2e-android` rerun green on an API 36 emulator; DEBT-0047 widened to iOS; DEBT-0041 not fired, it fires at the release PR) A `make e2e-ios` target: headless
+  server, `make ios-sample`'s Debug app on a booted simulator launched with
+  `-runAll YES`, the server log asserted as in M3.5 (URLSession calls,
+  WebSocket, background download). DEBT-0041's trigger is the first release
+  PR: re-trigger it or state the gap in the PR.
+  Accept: `make e2e-ios` green on the Mac; a sample call removed from the
+  run makes it fail, shown in the PR.
+- [x] **M3.8 iOS end to end in the gate.** (`ci/release-gate-e2e-ios`; separate `e2e-ios` job on macos-latest, ADR-0052 Option 1; run 40051258417 green, measured ≈14 min against ≈10 estimated; loopback host, DEBT-0046 not fired; the run's first `e2e-android` attempt failed on a corrupt emulator download, green on rerun) The macOS job (or a second one,
+  per M3.2 (a)) runs `make e2e-ios`; server log and simulator log uploaded
+  on failure.
+  Accept: the gate run green with the job's assertion lines in its log.
+- [x] **M3.9 Packaging dry-run.** (`ci/release-gate-packaging`; `package` job ×3 OS, run 40053289077 green with `desktop-dmg`, `desktop-msi`, `desktop-deb` artifacts; measured ≈5.7 macOS, ≈3.7 windows, ≈3.6 ubuntu min against ≈5 each; runtime modules from `suggestRuntimeModules`; no `.deb` maintainer e-mail, a public package would expose it) Compose Desktop `nativeDistributions` for
+  `desktop/app` with the names M3.2 (d) decides; the gate builds `.dmg` on
+  macOS, `.msi` on windows and `.deb` on ubuntu, unsigned, and uploads them
+  as short-lived artifacts. SDD 02 says how to build one locally.
+  Accept: `./gradlew :desktop:app:packageDmg` on the Mac produces a `.dmg`
+  that launches the app; the gate run lists the three artifacts.
+- [x] **M3.10 SDK publication dry-run.** (`build/sdk-publication-dry-run`; ADR-0058: `maven-publish`, `protocol` published as `appmonitor-protocol` since `sdk/core` depends on it, root `Package.swift`, `make publish-dry-run`, `publish` job on macOS; DEBT-0040 re-triggered to M10's first tag, release consumer 3.6 MB with 14,767 SwiftProtobuf symbols; run 40055218483, `publish` ≈6.3 min) `sdk/core`, `sdk/android-okhttp`
+  and `sdk/no-op` publish with the coordinates of M3.2 (c) to a local Maven
+  repository, POMs complete; the iOS package is resolved by a throwaway
+  SwiftPM project from a path or tag and built in Debug and Release.
+  DEBT-0040's trigger fires here: pay it (release build without
+  SwiftProtobuf) or re-trigger it with what the dry-run measured.
+  Accept: `./gradlew publishAllPublicationsToDryRunRepository` (or the
+  plugin's equivalent) and the SwiftPM consumer build in the gate, green;
+  the published file list in the PR.
+- [x] **M3.11 Gate required on `main`.** (`ci/release-gate-required`; `protect-main` ruleset updated with the 11 gate checks, JSON in `.github/rulesets/protect-main.json`; probe PR #130 from a non-`dev` branch `BLOCKED`, closed unmerged; DEBT-0048 check names not matched to jobs) Branch protection or a ruleset as
+  M3.2 (b) decides, set with `gh api` and recorded (the JSON in the repo, or
+  the command in SDD 02); otherwise a DEBT with a trigger.
+  Accept: `gh api repos/{owner}/{repo}/rules/branches/main` (or the
+  protection endpoint) lists the gate's checks as required, or the DEBT.
+- [x] **M3.12 Docs sync and first release PR.** (`docs/release-gate-docs`; SDD 01 *Verification*, README status; AGENTS.md already listed every command; draft release PR #132 opened, not merged; DEBT-0041 fired and re-triggered to M10's first tag, no iPhone; #132's `conventions` failed on a GitHub squash trailer in #95, fixed in `ci/release-pr-trailer-check`, ADR-0059) SDD 01/02 describe the gate,
+  `AGENTS.md` lists the new commands, README status updated; a draft PR
+  `dev` → `main` opened so the gate runs for real. The loop does not merge
+  it.
+  Accept: the release PR's gate green on every job, linked in the plan's
+  *Outcome*.
+
+### First milestone review
+
+Findings of the `code-review` of `40b9891..168c0b9`. Four are correctness
+findings and became tasks. Six went to DEBT-0049 (the local network grant
+on an Android 17 preview image, `debt_check.sh`'s path matching, the fixed
+desktop `packageVersion`, the iOS POMs the dry-run skips, the duplicate
+builds in the gate, globals in `e2e_lib.sh`). The release PR #132's gate
+ran green on every job (run 40058097609).
+
+- [x] **M3.R1 Attribution trailers reach `main` from a `release/*` branch.** (`ci/release-trailer-check-head`; ADR-0060 supersedes ADR-0059, since accepted ADRs are immutable, instead of editing it; DEBT-0048 did not fire, no job renamed)
+  `pr-conventions.yml` skips the trailer check on every PR to `main`
+  (ADR-0059), but `branch_check.sh` also lets `release/x.y.z` target `main`,
+  and its commits never passed the check on a PR to `dev`. A hotfix commit
+  with a `Co-Authored-By:` trailer on `release/1.0.1` goes green. Skip only
+  when the head is `dev`.
+  Accept: `make check`; the workflow condition names `github.head_ref`, and
+  ADR-0059 says the check still runs on `release/*` heads.
+- [x] **M3.R2 `make debt-check` reports nothing when the base is wrong.** (`fix/debt-check-unknown-base`; ADR-0061 supersedes ADR-0051; exits 2 on an unresolved base; DEBT-0049 fired and its `debt_check.sh` item was paid: whole-segment paths, no stem match for a whole basename)
+  `debt_check.sh` runs without `set -e` and exits 0, so a failing
+  `git diff "$base...HEAD"` (`BASE=orign/dev`, or `origin/dev` never
+  fetched) prints an error and then "no open DEBT trigger names a changed
+  file", hiding every committed change. Fail when the base does not resolve.
+  Accept: `make scripts-test` with a case where an unknown base exits
+  non-zero and prints no "no open DEBT" line.
+- [x] **M3.R3 The Android sample restarts the monitor on every recreation.** (`fix/android-sample-restart-guard`; two rotations: 3 connections before, 1 after; after process death the extras are no longer applied and the monitor falls back to discovery)
+  `MainActivity.onCreate` calls `restartMonitor` whenever the launch intent
+  has `host`, rotation and process recreation included, unlike `runAll`,
+  which checks `savedInstanceState == null`. Each rotation stops the client,
+  drops its buffer and reconnects to the desktop.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; the restart is guarded like `runAll`.
+- [x] **M3.R4 `make e2e-ios` cannot pick a simulator with parentheses in
+  its name.** (`fix/e2e-ios-simulator-names`; `scripts/sim_list.sh` shared by `e2e_ios.sh`, `ios_sample_check.sh` and `swift_sim_check.sh`, whose default picks had the same `[^(]*`; `make e2e-ios` green on a throwaway `iPhone 17 (e2e name)` simulator, no iPhone SE image on Xcode 26.5) `e2e_ios.sh`'s `simulators` matches the name with `[^(]*`, so
+  `SIM_DEVICE="iPhone SE (3rd generation)"` fails with "no iPhone simulator
+  named …" although the simulator exists. Parse the UDID as the last
+  parenthesised UUID instead.
+  Accept: `make e2e-ios` green, and the parser, fed a `simctl list` line for
+  `iPhone SE (3rd generation)`, prints that name (shown in the PR).
+
+### Second milestone review
+
+Findings of the `code-review` of `168c0b9..de0d069`. One is a correctness
+finding and became a task. Seven went to DEBT-0050 (the squash trailer on a
+`release/*` head, the unanchored `generated with`, `debt_check.sh`'s
+basename and path matching, `e2e_ios.sh`'s duplicate simulator pick, stale
+ADR-0051 references, DEBT-0049's paid item). Two were rejected, with the
+reason in DEBT-0050.
+
+- [x] **M3.R5 The Android sample loses its launch extras after process
+  death.** (`fix/android-sample-extras-process-death`; `applyLaunchExtras`
+  once per process in `SampleApplication`; through a forwarder on the
+  extras' port, the `origin/dev` build made no connection to it after
+  `am kill`, the fix one; two rotations, one connection) M3.R3 guards
+  `restartMonitor` with `savedInstanceState == null`,
+  but after process death the activity is restored with a saved state while
+  the new process's `SampleApplication` has started the monitor with
+  default options. `--es host … --ei port N` is then ignored and the monitor
+  never reaches the headless server on port N. Guard on whether this
+  process already applied the extras, not on the saved state.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; one rotation still makes one connection, and after
+  `adb shell am kill` and a return to the app the monitor reconnects to the
+  extras' port (server log in the PR).
+
+### Third milestone review
+
+Findings of the `code-review` of `de0d069..b3f1f69`. Two correctness
+findings, both in `SampleApplication.applyLaunchExtras`, became one task.
+Three went to DEBT-0051 (no automated rotation or process-death check,
+DEBT-0050's `Makefile` trigger, line wrapping). Two were rejected, with the
+reason in DEBT-0051. This is the last review round (ADR-0016).
+
+- [x] **M3.R6 The Android sample ignores new launch extras while its
+  process lives.** (`fix/android-sample-extras-per-target`; the applied host
+  and port kept, set after `start` returns; two servers on an API 37
+  emulator: a second `am start` without `-S` reached B with 5 calls, the
+  `origin/dev` build sent them to A; two rotations, no new connection; after
+  `am kill`, one reconnection to B; DEBT-0051's wrapping item paid) M3.R5's once-per-process boolean drops a fresh launch
+  that points at another desktop: `am start --activity-clear-task … --es
+  host H --ei port B` without `-S`, after an earlier launch on port A, keeps
+  the monitor on A, and `runAll` sends every call there. The flag is also
+  set before `AppMonitor.start`, so a launch whose `start` throws is never
+  retried. Remember the applied host and port, set after `start` returns,
+  and restart only when they differ.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; a second `am start` without `-S` on another port reaches that
+  port's server, one rotation still makes one connection, and the
+  process-death return of M3.R5 still reconnects (server logs in the PR).
+
+## Outcome
+
+- **Shipped**: plan (#117); M3.1 DEBT trigger check in the loop (#118);
+  M3.2 release gate decisions (#119); M3.2a MIT license and public
+  repository (#120, #121); M3.3 gate skeleton and desktop matrix (#122);
+  M3.4 Swift contract job (#123); M3.5 Android end to end locally (#124);
+  M3.6 in the gate (#125); M3.7 iOS end to end locally (#126); M3.8 in the
+  gate (#127); M3.9 unsigned desktop packages (#128); M3.10 SDK publication
+  dry-run (#129); M3.11 gate required on `main` by ruleset (#131); M3.12
+  docs sync and the first release PR #132, left open for the owner, its
+  gate green on every job (run 40058097609), with the trailer fix it
+  needed (#134). Three review rounds: plan updates #135, #140, #142 and
+  this PR; fixes M3.R1 (#136), M3.R2 (#137), M3.R3 (#138), M3.R4 (#139),
+  M3.R5 (#141), M3.R6 (#143).
+- **Decisions**: ADR-0051 to ADR-0061; ADR-0060 supersedes ADR-0059 and
+  ADR-0061 supersedes ADR-0051.
+- **Debt**: DEBT-0045 to DEBT-0051 created. DEBT-0002 re-triggered by
+  M3.5; DEBT-0040 and DEBT-0041 fired and were re-triggered to M10's first
+  tag; DEBT-0049's `debt_check.sh` item paid by M3.R2, DEBT-0051's wrapping
+  item by M3.R6. Review findings left open are only non-correctness ones,
+  in DEBT-0049, DEBT-0050 and DEBT-0051. No correctness finding is left
+  open.
+- **Deviations**: M3.2 added M3.2a, the owner choosing a public repository
+  over paid runners (ADR-0052); M3.12's release PR failed `conventions` on
+  a GitHub squash trailer and needed #134 before the gate could run. The
+  three reviews added M3.R1–M3.R6; three of them (R3, R5, R6) were the same
+  Android sample guard, each fix opening the next case.
+- **Lessons**: measured runner time beat ADR-0052's estimates on every job
+  but iOS end to end (≈14 against ≈10 min). Running each end to end as a
+  `make` target first made every gate job green on its first or second
+  run. The launch extras guard took three rounds because no test drives
+  rotation, process death or a second launch (DEBT-0051): the next plan
+  that touches lifecycle code should write its cases down, and a check for
+  them, before the code. `make debt-check` caught triggers the M2 loop
+  missed.

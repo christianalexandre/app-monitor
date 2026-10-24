@@ -1,0 +1,16 @@
+// Every WebSocket binary frame carries exactly one Envelope (ADR-0001).
+// Field numbers are never renumbered or reused (guidelines 04).
+syntax = "proto3";
+
+package appmonitor.v1;
+
+message Envelope {
+  // Debug tool the payload belongs to: "core", "network", ...
+  string channel = 1;
+  // Message name inside the channel, e.g. "RequestStarted".
+  string type = 2;
+  // The encoded message named by `type`.
+  bytes payload = 3;
+  // When the event happened on the sender, Unix epoch milliseconds.
+  int64 timestamp_ms = 4;
+}

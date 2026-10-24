@@ -20,54 +20,29 @@ record of how the milestone was actually built once it is done.
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
   code of that milestone. The roadmap row then links to it.
-- A milestone ends with a checkpoint: the loop stops and the owner reviews.
+- **Checkpoint**: when every task is `[x]`, the agent reviews the milestone
+  (`code-review`) in at most three rounds — the first on the whole milestone
+  diff, the next ones only on what changed since — and turns correctness
+  findings into `MN.R*` tasks, the rest into one DEBT per round (ADR-0016).
+  Then it opens the close-plan PR and merges it after green CI, unless a
+  correctness finding is left open or `PLAN_CHECKPOINT=1` is set: then it
+  stops, and the owner merging that PR is the approval to start the next
+  plan (ADR-0019).
 
 ## Index
 
 | Plan | Milestone | Title | Status |
 | --- | --- | --- | --- |
-| [0001](0001-foundation.md) | M0 | Foundation | Active |
+| [0001](0001-foundation.md) | M0 | Foundation | Done |
+| [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
+| [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
+| [0004](0004-release-gate.md) | M3 | Release gate | Done |
+| [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M1 — Android SDK
-
-A real Android app (emulator and device) shows traffic in the desktop.
-`sdk/core` (KMP: discovery mDNS → `10.0.2.2`, connection, offline ring buffer,
-reconnection), `sdk/android-okhttp` interceptor, `sdk/no-op`, Android sample
-app, device approval dialog in the desktop, header masking.
-
-### M2 — iOS SDK (capture layer 1)
-
-A real iOS app (simulator and device) shows all its URLSession traffic. Swift
-package `sdk/ios` (Network.framework transport, NWBrowser, swift-protobuf),
-URLSession capture ported from `app-network-monitor` without Pulse, sessions
-created before `start()`, uploads, WebSocket tasks, background sessions
-(ADR-0004 layer 1). Contract tests against `protocol/fixtures/`. SwiftUI sample
-app. Info.plist build-phase script.
-
-### M3 — Release gate
-
-Nothing reaches `main` without proving the whole system still works.
-`.github/workflows/release-gate.yml` on PRs to `main` (only from `dev`):
-
-- desktop build and tests on ubuntu, macOS and windows;
-- protocol contract tests Kotlin ↔ Swift;
-- Android e2e: sample app on an emulator talking to a headless desktop server;
-- iOS e2e: sample app on a simulator talking to a headless desktop server;
-- packaging dry-run (`.dmg`, `.msi`, `.deb`) and SDK publication dry-run.
-
-Branch protection/rulesets on `main` requiring the gate, if the plan allows
-(otherwise a DEBT with trigger). macOS runners cost 10× minutes on private
-repos: iOS and macOS jobs run only in the release gate, not on every PR.
-
-### M4 — KMP SDK
-
-`sdk/ktor` HttpClient plugin (all targets), correlation header and dedupe with
-the Swift SDK (ADR-0003), KMP sample app.
 
 ### M5 — Persistence and runs
 
@@ -99,8 +74,9 @@ the OkHttp interceptor automatically.
 
 ### M10 — Distribution
 
-Signed desktop packages via GitHub Releases, Homebrew cask, Maven Central,
-SwiftPM tags, docs site, README with GIFs.
+Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
+owner's, with the steps to let them run (ADR-0055: no signing cost), Maven
+Central, SwiftPM tags, docs site, README with GIFs.
 
 ### Later — more debug channels
 

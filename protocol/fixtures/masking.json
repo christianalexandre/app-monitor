@@ -1,0 +1,143 @@
+{
+  "comment": "ADR-0036 A: the masking rule every SDK applies, read by the iOS and OkHttp tests. Response headers resolve against url.",
+  "cases": [
+    {
+      "name": "default headers",
+      "url": "https://api.example.com/v1/items?id=1",
+      "maskedUrl": "https://api.example.com/v1/items?id=1",
+      "requestHeaders": [["Authorization", "Bearer t0k"], ["Proxy-Authorization", "Basic YQ=="], ["Cookie", "s=1"], ["Accept", "application/json"]],
+      "maskedRequestHeaders": [["Authorization", "██"], ["Proxy-Authorization", "██"], ["Cookie", "██"], ["Accept", "application/json"]],
+      "responseHeaders": [["Set-Cookie", "s=2; HttpOnly"], ["Content-Type", "application/json"]],
+      "maskedResponseHeaders": [["Set-Cookie", "██"], ["Content-Type", "application/json"]]
+    },
+    {
+      "name": "names added by the app, any case",
+      "maskedHeaders": ["x-api-key"],
+      "maskedQueryParameters": ["TOKEN"],
+      "url": "https://api.example.com/v1/items?token=abc&id=1",
+      "maskedUrl": "https://api.example.com/v1/items?token=██&id=1",
+      "requestHeaders": [["X-Api-Key", "k3y"], ["X-Trace", "1"]],
+      "maskedRequestHeaders": [["X-Api-Key", "██"], ["X-Trace", "1"]]
+    },
+    {
+      "name": "user name and password",
+      "url": "https://user:s3cret@api.example.com/login",
+      "maskedUrl": "https://██:██@api.example.com/login"
+    },
+    {
+      "name": "user name alone",
+      "url": "https://user@api.example.com/login",
+      "maskedUrl": "https://██@api.example.com/login"
+    },
+    {
+      "name": "password alone",
+      "url": "https://:s3cret@api.example.com/login",
+      "maskedUrl": "https://:██@api.example.com/login"
+    },
+    {
+      "name": "form-encoded fragment",
+      "maskedQueryParameters": ["access_token"],
+      "url": "https://app.example.com/cb#access_token=abc&state=xyz",
+      "maskedUrl": "https://app.example.com/cb#access_token=██&state=xyz"
+    },
+    {
+      "name": "fragment that is not form-encoded",
+      "maskedQueryParameters": ["access_token"],
+      "url": "https://app.example.com/docs#access_token",
+      "maskedUrl": "https://app.example.com/docs#access_token"
+    },
+    {
+      "name": "redirect locations",
+      "maskedQueryParameters": ["code", "access_token"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [
+        ["Location", "https://user:s3cret@client.example.com/cb?code=abc&state=1#access_token=tok&token_type=bearer"],
+        ["Content-Location", "/landing?code=def"]
+      ],
+      "maskedResponseHeaders": [
+        ["Location", "https://██:██@client.example.com/cb?code=██&state=1#access_token=██&token_type=bearer"],
+        ["Content-Location", "https://auth.example.com/landing?code=██"]
+      ]
+    },
+    {
+      "name": "location named in masked headers",
+      "maskedHeaders": ["location"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "/next"]],
+      "maskedResponseHeaders": [["Location", "██"]]
+    },
+    {
+      "name": "location that is not an http url",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "com.example.app:/oauth?code=abc"]],
+      "maskedResponseHeaders": [["Location", "com.example.app:/oauth?code=██"]]
+    },
+    {
+      "name": "location with a custom scheme and an authority",
+      "maskedQueryParameters": ["code", "access_token"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [
+        ["Location", "com.example.app://user:s3cret@oauth/cb?code=abc&state=1#access_token=tok&token_type=bearer"],
+        ["Content-Location", "com.example.app://@oauth?code&state=%20x"]
+      ],
+      "maskedResponseHeaders": [
+        ["Location", "com.example.app://██:██@oauth/cb?code=██&state=1#access_token=██&token_type=bearer"],
+        ["Content-Location", "com.example.app://@oauth?code=██&state=%20x"]
+      ]
+    },
+    {
+      "name": "opaque locations",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [
+        ["Location", "myapp:oauth?code=abc#code"],
+        ["Content-Location", "urn:ietf:wg:oauth:2.0:oob?CODE=x"]
+      ],
+      "maskedResponseHeaders": [
+        ["Location", "myapp:oauth?code=██#code"],
+        ["Content-Location", "urn:ietf:wg:oauth:2.0:oob?CODE=██"]
+      ]
+    },
+    {
+      "name": "location no url parser accepts",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://user:s3cret@h:p/x?code=1#code=2"]],
+      "maskedResponseHeaders": [["Location", "http://██:██@h:p/x?code=██#code=██"]]
+    },
+    {
+      "name": "location no url parser accepts with an at sign in the password",
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://user:p@ss@h:p/x"]],
+      "maskedResponseHeaders": [["Location", "http://██:██@h:p/x"]]
+    },
+    {
+      "name": "location no url parser accepts without a scheme",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "//user:pw@h:p/x?code=1"]],
+      "maskedResponseHeaders": [["Location", "//██:██@h:p/x?code=██"]]
+    },
+    {
+      "name": "masking off",
+      "masking": false,
+      "maskedHeaders": ["x-api-key"],
+      "maskedQueryParameters": ["token"],
+      "url": "https://user:s3cret@api.example.com/v1?token=abc#token=def",
+      "maskedUrl": "https://user:s3cret@api.example.com/v1?token=abc#token=def",
+      "requestHeaders": [["Authorization", "Bearer t0k"], ["X-Api-Key", "k3y"]],
+      "maskedRequestHeaders": [["Authorization", "Bearer t0k"], ["X-Api-Key", "k3y"]],
+      "responseHeaders": [["Set-Cookie", "s=2"], ["Location", "/next?token=abc"]],
+      "maskedResponseHeaders": [["Set-Cookie", "s=2"], ["Location", "/next?token=abc"]]
+    }
+  ]
+}
