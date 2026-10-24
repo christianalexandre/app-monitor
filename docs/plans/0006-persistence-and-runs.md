@@ -95,6 +95,68 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
 
+### First milestone review
+
+Findings of the `code-review` of `982f39b..055c62b`. Five are correctness
+findings and became tasks. Four went to DEBT-0064 (the search re-reading
+on every commit, the size-bound pass committing one session at a time,
+four comment blocks over 4 lines, mappings written twice). None was
+rejected.
+
+- [ ] **M5.R1 A pair forgotten while its approval lands keeps streaming.**
+  `AppMonitorServer.serve` adds the session to `open` only after
+  `approve()` returns and the session is published, so a `disconnect(key)`
+  (Forget, Forget all, Clear all data) in that window misses it: the
+  device goes on streaming with no answer stored, and after Clear all data
+  its traffic is dropped while it shows as connected. Register the session
+  before it is published, or have `disconnect` also close the handshakes
+  waiting on that pair.
+  Accept: `./gradlew :desktop:server:test` with a test that forgets the
+  pair between the answer and the `HelloAck` (fails before the fix); the
+  session is closed.
+- [ ] **M5.R2 Opening a chosen data directory changes its permissions.**
+  `Storage.createOwnerOnly` sets `rwx------` on every open, so
+  `APPMONITOR_DATA_DIR=$HOME/Documents` makes the user's Documents
+  owner-only, and a directory the user does not own (`/tmp`) makes
+  `setPosixFilePermissions` throw, so the store never opens. ADR-0081 C.1
+  says the directory is *created* `0700`: set it only on a directory the
+  store creates.
+  Accept: `./gradlew :desktop:storage:test` with a test opening an
+  existing `0755` directory (mode unchanged) and one the user cannot
+  chmod (store opens).
+- [ ] **M5.R3 Calls after or during `Storage.close` hang or race the
+  writer.** `newRun()` and `flush()` ignore `enqueue` returning false and
+  await `done` forever, and items left in the channel when `close` times
+  out are never completed; `WriteQueue.close` cancels the writer without
+  joining it, so `driver.close()` can run while the writer thread is still
+  inside a blocking JDBC write. Complete what the queue will never write,
+  return at once once closed, and close the driver only after the writer
+  has left its batch.
+  Accept: `./gradlew :desktop:storage:test` with `newRun()` and `flush()`
+  after `close` returning, and a `close` that times out on a stalled
+  `beforeCommit` not closing the driver under the writer.
+- [ ] **M5.R4 A rolled back `Disconnected` leaves the session connected.**
+  `Ingest.apply` removes the connection and its row from memory before the
+  transaction commits; when the batch rolls back nothing restores them,
+  so the row keeps `disconnected_at_ms` NULL for the rest of the launch:
+  the UI shows the session as connected and retention never prunes it.
+  Keep the disconnect in memory only once committed, or retry it in the
+  next batch.
+  Accept: `./gradlew :desktop:storage:test` with a batch holding a
+  `Disconnected` failing in `beforeCommit`, then a good batch: the session
+  is stored as disconnected.
+- [ ] **M5.R5 A retention pass runs on with settings changed under it.**
+  `applyRetention` reads the settings once and `yield()`s between chunks
+  on the writer thread, so `setRetention` and `clearAll` can run in the
+  middle of a pass. A pass started with a 7-day bound goes on deleting
+  after the developer raised it to 30 days or removed it (data the new
+  settings keep is deleted), and its final status overwrites `clearAll`'s,
+  hiding a `clearAll` failure.
+  Accept: `./gradlew :desktop:storage:test` with a pass interleaved with
+  a `setRetention` that raises the bound (nothing past the new bound is
+  deleted) and with a failing `clearAll` (its error stays in
+  `retentionStatus`).
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
