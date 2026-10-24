@@ -3,7 +3,7 @@ id: DEBT-0058
 title: Non-correctness findings of the first M4 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `Discovery.kt`, `WebSocketCaptureTest.kt` or `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Capture.kt`
+trigger: The first desktop or MCP feature that groups or filters exchanges by URL
 paid_date:
 ---
 
@@ -37,9 +37,11 @@ duplicate check does not depend on it.
 
 ## Trigger
 
-The next PR that touches `Discovery.kt`, `WebSocketCaptureTest.kt` or
-`sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Capture.kt`, or the
-first desktop or MCP feature that groups or filters exchanges by URL.
+The first desktop or MCP feature that groups or filters exchanges by URL.
+
+Re-triggered by `fix/ktor-body-read-failure`, which touched `Capture.kt`
+and paid the two comment blocks: the scheme is a protocol choice that
+change did not need, and only the grouping feature can pick it.
 
 ## How it was paid
 

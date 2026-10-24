@@ -229,9 +229,12 @@ internal fun OutgoingContent.capture(limit: Int): CapturedBody =
 internal suspend fun HttpResponse.capture(limit: Int): CapturedBody =
     when {
         status == HttpStatusCode.SwitchingProtocols -> CapturedBody.NONE
-        !isSaved -> CapturedBody(ByteString.EMPTY, truncated = true, size = contentLength())
+        !isSaved -> unread()
         else -> readRawBytes().captured(limit)
     }
+
+/** A response body sent empty, truncated, with its `Content-Length` when known. */
+internal fun HttpResponse.unread(): CapturedBody = CapturedBody(ByteString.EMPTY, truncated = true, size = contentLength())
 
 internal fun newRequestId(): String = Uuid.random().toString()
 

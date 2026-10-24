@@ -19,6 +19,8 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpReceivePipeline
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.Cookie
@@ -27,8 +29,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.ChannelWriterContent
 import io.ktor.http.contentType
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.ClosedByteChannelException
+import io.ktor.utils.io.InternalAPI
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
 import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -156,6 +163,23 @@ class AppMonitorKtorTest {
         }
 
     @Test
+    fun aBodyThatFailsToReadSendsTheResponseUnread() =
+        runTest {
+            val client = client { respond("lost", headers = headersOf(HttpHeaders.ContentLength, "4")) }
+            client.receivePipeline.intercept(HttpReceivePipeline.After) { response -> proceedWith(Unreadable(response)) }
+            assertFailsWith<ClosedByteChannelException> { client.get("https://api.example.com/x") }
+
+            val started = sink.started()
+            val received = sink.received()
+            assertEquals(started.request_id, received.request_id)
+            assertEquals(200, received.status_code)
+            assertEquals(0, received.body.size)
+            assertEquals(true, received.body_truncated)
+            assertEquals(4L, received.body_size)
+            assertEquals(0, sink.pending)
+        }
+
+    @Test
     fun nothingIsSentWhileTheMonitorIsStopped() =
         runTest {
             val sink = RecordingSink(options = null)
@@ -249,6 +273,21 @@ class AppMonitorKtorTest {
             assertEquals("home", client.get("https://auth.example.com/login").bodyAsText())
             assertEquals(listOf(Protocol.CAPTURE_HEADER_KTOR, null), seen)
         }
+
+    /** [response] whose body throws on every read, as a plugin that breaks the saved body leaves it. */
+    @OptIn(InternalAPI::class)
+    private class Unreadable(
+        response: HttpResponse,
+    ) : HttpResponse() {
+        override val call = response.call
+        override val status = response.status
+        override val version = response.version
+        override val requestTime = response.requestTime
+        override val responseTime = response.responseTime
+        override val headers = response.headers
+        override val coroutineContext = response.coroutineContext
+        override val rawContent: ByteReadChannel get() = ByteChannel().apply { cancel(IOException("body lost")) }
+    }
 
     private class Unreachable(
         message: String,
