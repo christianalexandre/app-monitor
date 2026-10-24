@@ -122,7 +122,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   with the next batch, so one bad moment does not stop ingest or close a
   device. `Storage.health` (a `StateFlow`) holds the count and the last
   error; the window shows "N events not saved: <error>" until a later batch
-  succeeds. An exchange whose `RequestStarted` was in a lost batch is
+  holding events succeeds. An exchange whose `RequestStarted` was in a lost batch is
   created by its next event, with what that event carries; a session whose
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected`.

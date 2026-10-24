@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -97,6 +98,8 @@ class WriteQueueTest {
                 storage.connected("s1", hello(), null)
                 storage.received("s1", envelope(started("r1")))
                 held.release()
+                // The flush's barrier then rides alone: a batch with nothing to save must not clear the error.
+                withTimeout(5.seconds) { storage.health.first { it.notSaved > 0 } }
                 storage.flush()
                 assertEquals(StorageHealth(notSaved = 2, lastError = "java.sql.SQLException: disk I/O error"), storage.health.value)
                 assertTrue(storage.sessions(storage.runId).isEmpty(), "rolled back with the batch")

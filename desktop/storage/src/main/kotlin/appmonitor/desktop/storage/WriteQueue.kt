@@ -79,7 +79,7 @@ internal class WriteQueue<T>(
             val count = batch.count(counted)
             try {
                 write(batch)
-                mutableHealth.update { it.copy(lastError = null) }
+                if (count > 0) mutableHealth.update { it.copy(lastError = null) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
