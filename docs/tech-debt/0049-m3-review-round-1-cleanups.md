@@ -3,7 +3,7 @@ id: DEBT-0049
 title: Non-correctness findings of the first M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `debt_check.sh`, `e2e_android.sh`, `e2e_lib.sh`, `publish_dry_run.sh`, `release-gate.yml` or `desktop/app/build.gradle.kts`, or M10's first published desktop package
+trigger: The next PR that touches `e2e_android.sh`, `e2e_lib.sh`, `publish_dry_run.sh`, `release-gate.yml` or `desktop/app/build.gradle.kts`, or M10's first published desktop package
 paid_date:
 ---
 
@@ -19,10 +19,6 @@ today (ADR-0016):
   `ro.build.version.sdk` is 37 or more. A preview image of Android 17 still
   reports 36 (the 37.2 image did, M3.5), so the grant is skipped there. The
   gate and the Mac run API 36 images, where no grant is needed.
-- `scripts/debt_check.sh`: a trigger path matches a file only as the whole
-  path, a prefix or a suffix, so `ios/Sources` never matches
-  `sdk/ios/Sources/x.swift`. The stem rule matches too much: `Makefile`
-  matches `Makefile.bak`.
 - `desktop/app/build.gradle.kts`: `packageVersion` is fixed at `1.0.0`, with
   a fixed Windows `upgradeUuid`. A second MSI with the same version does not
   upgrade the first one. Only dry-run packages exist (ADR-0055).
@@ -42,7 +38,7 @@ today. The duplicate builds cost minutes, not correctness.
 
 ## Trigger
 
-The next PR that touches `debt_check.sh`, `e2e_android.sh`, `e2e_lib.sh`,
+The next PR that touches `e2e_android.sh`, `e2e_lib.sh`,
 `publish_dry_run.sh` or `release-gate.yml` pays that file's item. The
 `packageVersion` item is paid by the next PR that touches
 `desktop/app/build.gradle.kts`, or before M10's first published desktop
@@ -51,3 +47,7 @@ package.
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
+
+Partly paid: the `scripts/debt_check.sh` item, in `fix/debt-check-unknown-base`
+(ADR-0061): paths match by whole segments anywhere, and a name that is a
+file's whole basename never matches by stem.

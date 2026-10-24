@@ -135,7 +135,7 @@ ran green on every job (run 40058097609).
   when the head is `dev`.
   Accept: `make check`; the workflow condition names `github.head_ref`, and
   ADR-0059 says the check still runs on `release/*` heads.
-- [ ] **M3.R2 `make debt-check` reports nothing when the base is wrong.**
+- [x] **M3.R2 `make debt-check` reports nothing when the base is wrong.** (`fix/debt-check-unknown-base`; ADR-0061 supersedes ADR-0051; exits 2 on an unresolved base; DEBT-0049 fired and its `debt_check.sh` item was paid: whole-segment paths, no stem match for a whole basename)
   `debt_check.sh` runs without `set -e` and exits 0, so a failing
   `git diff "$base...HEAD"` (`BASE=orign/dev`, or `origin/dev` never
   fetched) prints an error and then "no open DEBT trigger names a changed
