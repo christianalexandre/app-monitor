@@ -57,9 +57,42 @@ class DeviceIdTest {
 
                 val stored = SystemFileSystem.source(file).buffered().use { it.readString() }
                 assertEquals(List(WRITERS) { stored }, ids, "round $round")
-                assertEquals(listOf("appmonitor-device-id"), SystemFileSystem.list(Path(dir, "$round")).map { it.name })
+                val left = SystemFileSystem.list(Path(dir, "$round")).map { it.name }.filterNot { it == "appmonitor-device-id.lock" }
+                assertEquals(listOf("appmonitor-device-id"), left)
             }
         }
+
+    @Test
+    fun racingWritersThatCannotLinkAllReturnTheIdLeftInTheFile() =
+        runTest {
+            repeat(ROUNDS) { round ->
+                val file = Path(dir, "unlinked-$round", "appmonitor-device-id")
+
+                val ids =
+                    withContext(Dispatchers.Default) {
+                        List(WRITERS) { async { deviceId(file, link = { _, _ -> null }) } }.awaitAll()
+                    }
+
+                val stored = SystemFileSystem.source(file).buffered().use { it.readString() }
+                assertEquals(List(WRITERS) { stored }, ids, "round $round")
+                assertEquals(
+                    setOf("appmonitor-device-id", "appmonitor-device-id.lock"),
+                    SystemFileSystem.list(Path(dir, "unlinked-$round")).map { it.name }.toSet(),
+                )
+            }
+        }
+
+    @Test
+    fun aCorruptFileIsReplacedWithoutALink() {
+        SystemFileSystem.createDirectories(dir)
+        val file = Path(dir, "appmonitor-device-id")
+        SystemFileSystem.sink(file).buffered().use { it.writeString("not a uuid") }
+
+        val id = deviceId(file, link = { _, _ -> null })
+
+        assertNotEquals("not a uuid", id)
+        assertEquals(id, SystemFileSystem.source(file).buffered().use { it.readString() })
+    }
 
     private fun deleteRecursively(path: Path) {
         if (!SystemFileSystem.exists(path)) return

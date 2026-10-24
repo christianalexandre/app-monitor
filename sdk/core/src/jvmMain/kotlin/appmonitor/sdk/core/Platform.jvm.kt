@@ -1,7 +1,7 @@
 package appmonitor.sdk.core
 
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
+import java.io.IOException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -17,14 +17,14 @@ internal actual val CONNECT_FAILURE_HINT: String = "Check that the desktop app i
 internal actual fun linkExclusive(
     existing: Path,
     target: Path,
-): Boolean =
+): Boolean? =
     try {
         Files.createLink(Paths.get(target.toString()), Paths.get(existing.toString()))
         true
     } catch (_: FileAlreadyExistsException) {
         false
+    } catch (_: IOException) {
+        null
+    } catch (_: UnsupportedOperationException) {
+        null
     }
-
-internal actual fun createParentDirectories(file: Path) {
-    file.parent?.let { SystemFileSystem.createDirectories(it) }
-}
