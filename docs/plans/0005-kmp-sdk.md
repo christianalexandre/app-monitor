@@ -124,7 +124,8 @@ ADR.
   server` and every call shows; its release builds contain no SDK names.
 - [x] **M4.10 KMP end to end.** (`test/kmp-end-to-end`; ADR-0075, pays DEBT-0049's double build and DEBT-0050's simulator pick.
   Deviations: every end to end now fails on an exchange captured twice, not only the KMP one; `e2e-ios` builds its
-  Debug app only, as `e2e-kmp-ios`; gate minutes GATE_MINUTES) `make e2e-kmp`: headless server, the KMP
+  Debug app only, as `e2e-kmp-ios`; gate run 40113961385
+  green: `e2e-kmp-android` 3.6 min, `e2e-kmp-ios` 22.0 min against ADR-0065's ≈10–12, `contract` 43.1 min, DEBT-0057) `make e2e-kmp`: headless server, the KMP
   sample on an Android emulator and an iOS simulator with `runAll`, every
   envelope asserted, as `make e2e-android` and `make e2e-ios`; on iOS with
   the Swift SDK also running, each exchange once. Then the release gate

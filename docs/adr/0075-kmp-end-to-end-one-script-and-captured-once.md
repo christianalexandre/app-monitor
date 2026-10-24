@@ -74,7 +74,9 @@ A.2, B.2 and C.2. The assertions of `e2e_lib.sh` get a device-free test,
   not only the KMP one.
 - The settle adds 3 s to each end to end; a duplicate arriving later than
   that is not caught.
-- The release gate gains two jobs; its wall time stays the slowest job's.
+- The release gate gains two jobs; run 40113961385 measured `e2e-kmp-android`
+  at 3.6 min and `e2e-kmp-ios` at 22.0 min (ADR-0065 estimated ≈10–12);
+  the wall time stays `contract`'s, 43.1 min in that run (DEBT-0057).
 - Each end to end job still builds its Debug app, as `contract` does on
   another runner: sharing it would make the end to ends wait for
   `contract` and lengthen the gate.
