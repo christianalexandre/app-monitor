@@ -105,7 +105,9 @@ ADR.
   publish-dry-run` (ADR-0058).
   Accept: `./gradlew :sdk:no-op:check` and `make publish-dry-run` list the
   new artifacts.
-- [ ] **M4.9 KMP sample app.** `samples/kmp` per M4.1 (d): every call of
+- [x] **M4.9 KMP sample app.** (`feat/kmp-sample-app`; ADR-0073: ADR-0062 D.1 proven on iOS by `CONFIGURATION`, on Android by
+  substituting the no-ops in the app's release configurations. Deviations: the sample's Android modules need compileSdk 37,
+  Compose Multiplatform 1.12 and Ktor's OkHttp 5.5 require it; `make kmp-sample` joins `make swift`) `samples/kmp` per M4.1 (d): every call of
   the other samples (GET, POST, failure, WebSocket if M4.6 ships) through
   Ktor, a `runAll` launch path as ADR-0056 and ADR-0057, the release build
   without the SDK.

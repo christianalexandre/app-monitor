@@ -18,6 +18,11 @@ val generateMaskingVector by tasks.registering {
     }
 }
 
+// The app lint of samples/kmp reads the host test sources, generated directory included.
+tasks.matching { it.name.endsWith("LintModel") || it.name.startsWith("lintAnalyze") }.configureEach {
+    dependsOn(generateMaskingVector)
+}
+
 kotlin {
     android {
         namespace = "appmonitor.sdk.ktor"

@@ -90,3 +90,4 @@ Rules:
 | [0070](0070-ktor-websocket-frames-from-the-engine-session.md) | The Ktor plugin records WebSocket frames on the engine's session | Accepted |
 | [0071](0071-ktor-capture-header-over-an-in-process-mark.md) | The Ktor plugin marks its captures with the header, not an in-process mark | Accepted |
 | [0072](0072-no-op-per-adapter-and-klib-dumps.md) | One no-op module per SDK module, checked against JVM, Android and klib dumps | Accepted |
+| [0073](0073-kmp-sample-layout-and-release-swap.md) | KMP sample in three modules, the release swap per platform and compileSdk 37 | Accepted |

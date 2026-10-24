@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Swift gates of sdk/ios (ADR-0037, ADR-0039, ADR-0047, ADR-0048): generated code
 # matches protocol/proto, swift-format lint, swift test, the debug and release
-# public API (ADR-0048), the Info.plist keys script (ADR-0049), simulator tests, sample.
+# public API (ADR-0048), the Info.plist keys script (ADR-0049), simulator tests, samples.
 # macOS with swift only; elsewhere prints one skip line and passes.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -17,7 +17,7 @@ if ! diff -q <(scripts/swift_proto_hash.sh) "$pkg/Sources/AppMonitor/Generated/p
   exit 1
 fi
 swift format lint --strict --recursive --configuration "$pkg/.swift-format" \
-  Package.swift "$pkg/Package.swift" "$pkg/Sources" "$pkg/Tests" "$pkg/TestHost" samples/ios
+  Package.swift "$pkg/Package.swift" "$pkg/Sources" "$pkg/Tests" "$pkg/TestHost" samples/ios samples/kmp/iosApp
 swift test --package-path "$pkg"
 scripts/swift_api_check.sh
 scripts/test_swift_api_check.sh
@@ -25,7 +25,9 @@ scripts/test_add_local_network_keys.sh
 if command -v xcodegen >/dev/null 2>&1; then
   scripts/swift_sim_check.sh
   scripts/ios_sample_check.sh
+  scripts/kmp_sample_check.sh
 else
   echo "swift-sim: SKIPPED (needs 'brew install xcodegen'; ADR-0047)"
   echo "ios-sample: SKIPPED (needs 'brew install xcodegen'; ADR-0050)"
+  echo "kmp-sample: SKIPPED (needs 'brew install xcodegen'; ADR-0073)"
 fi

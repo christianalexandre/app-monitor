@@ -92,7 +92,7 @@ always work from `origin/dev`, never `git switch dev`.
   4. Does the change work on a clean machine, without this machine's local
      files or env (`local.properties`, `settings.local.json`)?
   5. Is anything public that should be `internal`?
-  6. `make debt-check` (ADR-0051): for each DEBT it lists, pay it in this
+  6. `make debt-check` (ADR-0061; exits 2 when its base does not resolve): for each DEBT it lists, pay it in this
      PR, re-trigger it (new trigger, reason in the DEBT), or say why it did
      not fire. Event triggers it cannot see are still yours to notice.
 

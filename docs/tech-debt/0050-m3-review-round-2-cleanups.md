@@ -3,7 +3,7 @@ id: DEBT-0050
 title: Non-correctness findings of the second M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `pr-conventions.yml`, `debt_check.sh`, `e2e_ios.sh`, `Makefile` or `0049-m3-review-round-1-cleanups.md`, or the first `release/*` branch opened to `main`
+trigger: The next PR that touches `pr-conventions.yml`, `debt_check.sh`, `e2e_ios.sh` or `0049-m3-review-round-1-cleanups.md`, or the first `release/*` branch opened to `main`
 paid_date:
 ---
 
@@ -31,9 +31,6 @@ today (ADR-0016):
 - `scripts/e2e_ios.sh`: repeats the tool check and the simulator pick of
   `scripts/ios_lib.sh`, with a second parse of `sim_list.sh`'s output
   (`substr($0, 38)` against `cut -d' ' -f2-`).
-- `Makefile`, `.claude/commands/next.md` and the scripts row of SDD 03 cite
-  ADR-0051 for `debt-check`, superseded by ADR-0061, and do not say it can
-  exit 2.
 - DEBT-0049: the paid `debt_check.sh` item was removed from *What is
   missing* while *How it was paid* still names it under the template
   placeholder, and its index row still lists `debt_check.sh`.
@@ -52,10 +49,15 @@ use today; they are noise, duplication or stale references.
 ## Trigger
 
 The next PR that touches `pr-conventions.yml`, `debt_check.sh`,
-`e2e_ios.sh`, `Makefile` or `0049-m3-review-round-1-cleanups.md` pays that
+`e2e_ios.sh` or `0049-m3-review-round-1-cleanups.md` pays that
 file's item. The first `release/*` branch opened to `main` pays the
 squash-trailer item, or finds #132 merged.
 
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
+
+Partly paid. `feat/kmp-sample-app` (touching the `Makefile`) paid the
+`debt-check` item: the `Makefile`, `.claude/commands/next.md` and SDD 03's
+scripts row cite ADR-0061 and say it exits 2 on an unresolved base; the
+`Makefile` left the trigger with it (DEBT-0051).
