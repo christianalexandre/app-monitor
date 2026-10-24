@@ -42,7 +42,7 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
-    /** Completed once the batch holding it is committed or rolled back. */
+    /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
         override val sessionId: String? get() = null
@@ -69,8 +69,6 @@ internal class Ingest(
         } catch (e: Exception) {
             rows = before.filterKeys { it in connections }
             throw e
-        } finally {
-            batch.forEach { if (it is StorageItem.Barrier) it.done.complete(Unit) }
         }
     }
 

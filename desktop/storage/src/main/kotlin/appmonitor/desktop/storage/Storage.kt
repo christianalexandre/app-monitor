@@ -59,6 +59,7 @@ class Storage private constructor(
             },
             counted = { it !is StorageItem.Barrier },
             write = ingest::write,
+            written = { batch -> batch.forEach { if (it is StorageItem.Barrier) it.done.complete(Unit) } },
         )
 
     /** Items lost to write failures, and the last one's error while it lasts. */

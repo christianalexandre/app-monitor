@@ -20,7 +20,7 @@ import kotlin.time.Duration
 /**
  * Items waiting for the writer, bounded by [maxBytes] of [sizeOf] (SDD 09). [write] gets up to
  * [maxBatch] items at a time on [dispatcher]; a batch it throws on is skipped, its [counted] items
- * added to [health].
+ * added to [health]. [written] sees each batch once [health] accounts for it.
  */
 internal class WriteQueue<T>(
     private val maxBytes: Long,
@@ -29,6 +29,7 @@ internal class WriteQueue<T>(
     private val sizeOf: (T) -> Long,
     private val counted: (T) -> Boolean,
     private val write: (List<T>) -> Unit,
+    private val written: (List<T>) -> Unit = {},
 ) {
     private val pending = AtomicLong()
 
@@ -86,6 +87,7 @@ internal class WriteQueue<T>(
             }
             pending.addAndGet(-count.toLong())
             queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
+            written(batch)
         }
     }
 }
