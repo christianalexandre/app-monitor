@@ -165,7 +165,11 @@ class MonitorClientTest {
         runBlocking {
             val desktop = desktop()
             val discover =
-                discovery(AppMonitorOptions(host = LOOPBACK, port = desktop.port), mdns = { error("mDNS used") }, onEmulator = true)
+                discovery(
+                    AppMonitorOptions(host = LOOPBACK, port = desktop.port),
+                    mdns = { error("mDNS used") },
+                    fallbackHost = EMULATOR_HOST,
+                )
             val client = client(discover = discover)
             client.awaitState(ClientState.Connected)
         }

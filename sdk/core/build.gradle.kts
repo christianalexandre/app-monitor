@@ -30,7 +30,9 @@ kotlin {
 
 // ADR-0067: the simulator test runs under `simctl spawn`, which passes on SIMCTL_CHILD_ variables only.
 tasks.named<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>("iosSimulatorArm64Test") {
-    val liveHost = providers.environmentVariable("APPMONITOR_LIVE_HOST").orNull
-    inputs.property("liveHost", liveHost.orEmpty())
-    if (liveHost != null) environment("SIMCTL_CHILD_APPMONITOR_LIVE_HOST", liveHost)
+    for (name in listOf("APPMONITOR_LIVE_HOST", "APPMONITOR_LIVE_DISCOVERY")) {
+        val value = providers.environmentVariable(name).orNull
+        inputs.property(name, value.orEmpty())
+        if (value != null) environment("SIMCTL_CHILD_$name", value)
+    }
 }

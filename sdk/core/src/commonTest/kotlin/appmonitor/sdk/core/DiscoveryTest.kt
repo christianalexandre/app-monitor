@@ -16,13 +16,14 @@ import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoveryTest {
-    private val config = DiscoveryConfig(mdnsBeforeEmulator = 3.seconds, txtGrace = 500.milliseconds)
+    private val config = DiscoveryConfig(mdnsBeforeFallback = 3.seconds, txtGrace = 500.milliseconds)
 
     @Test
     fun manualHostIsTheOnlySource() =
         runTest {
             val browser = FakeBrowser()
-            val discover = discovery(AppMonitorOptions(host = "192.168.1.20", port = 4000), { browser }, onEmulator = true, config)
+            val discover =
+                discovery(AppMonitorOptions(host = "192.168.1.20", port = 4000), { browser }, fallbackHost = EMULATOR_HOST, config)
 
             assertEquals(Endpoint("192.168.1.20", 4000), discover())
             assertEquals(0, browser.browses)
@@ -32,7 +33,7 @@ class DiscoveryTest {
     fun mdnsComesBeforeTheEmulatorHost() =
         runTest {
             val browser = FakeBrowser { it(answer("AppMonitor", "192.168.1.20", "/v1/ws")) }
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = true, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = EMULATOR_HOST, config)
 
             assertEquals(Endpoint("192.168.1.20", Protocol.DEFAULT_PORT, "/v1/ws"), discover())
             assertEquals(1, browser.closes)
@@ -42,7 +43,7 @@ class DiscoveryTest {
     fun emulatorHostFollowsAnMdnsThatFindsNothing() =
         runTest {
             val browser = FakeBrowser()
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = true, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = EMULATOR_HOST, config)
 
             assertEquals(Endpoint(EMULATOR_HOST), discover())
             assertEquals(3_000, testScheduler.currentTime)
@@ -52,7 +53,7 @@ class DiscoveryTest {
     @Test
     fun emulatorHostFollowsAnMdnsThatMayNotRun() =
         runTest {
-            val discover = discovery(AppMonitorOptions(), { null }, onEmulator = true, config)
+            val discover = discovery(AppMonitorOptions(), { null }, fallbackHost = EMULATOR_HOST, config)
 
             assertEquals(Endpoint(EMULATOR_HOST), discover())
             assertEquals(0, testScheduler.currentTime)
@@ -63,7 +64,7 @@ class DiscoveryTest {
         runTest {
             val logs = mutableListOf<String>()
             val failing = MdnsBrowser { error("NsdManager unavailable") }
-            val discover = discovery(AppMonitorOptions(), { failing }, onEmulator = true, config, log = { logs += it })
+            val discover = discovery(AppMonitorOptions(), { failing }, fallbackHost = EMULATOR_HOST, config, log = { logs += it })
 
             assertEquals(Endpoint(EMULATOR_HOST), discover())
             assertTrue(logs.single().contains("NsdManager unavailable"), logs.toString())
@@ -73,7 +74,7 @@ class DiscoveryTest {
     fun aDeviceWaitsForMdnsUntilTheClientTimesOut() =
         runTest {
             val browser = FakeBrowser()
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = false, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config)
 
             assertNull(withTimeoutOrNull(5.seconds) { discover() })
             assertEquals(1, browser.closes)
@@ -82,14 +83,14 @@ class DiscoveryTest {
     @Test
     fun aDeviceWithoutMdnsFindsNothing() =
         runTest {
-            assertNull(discovery(AppMonitorOptions(), { null }, onEmulator = false, config)())
+            assertNull(discovery(AppMonitorOptions(), { null }, fallbackHost = null, config)())
         }
 
     @Test
     fun aLateTxtRecordGivesThePath() =
         runTest {
             val browser = FakeBrowser()
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = false, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config)
             launch {
                 browser.answer(answer("AppMonitor", "192.168.1.20", path = null))
                 delay(400)
@@ -103,7 +104,7 @@ class DiscoveryTest {
     fun noTxtRecordWithinTheGraceUsesTheDefaultPath() =
         runTest {
             val browser = FakeBrowser()
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = false, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config)
             launch {
                 browser.answer(answer("AppMonitor", "192.168.1.20", path = null))
                 delay(600)
@@ -122,7 +123,7 @@ class DiscoveryTest {
                     it(answer("Desk A", "192.168.1.20", path = null))
                     it(answer("Desk B", "192.168.1.30", path = "/v1/ws"))
                 }
-            val discover = discovery(AppMonitorOptions(), { browser }, onEmulator = false, config)
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config)
 
             assertEquals(Endpoint("192.168.1.20"), discover())
         }
