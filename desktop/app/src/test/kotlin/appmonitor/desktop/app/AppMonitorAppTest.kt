@@ -360,14 +360,14 @@ class AppMonitorAppTest {
                 awaitText(url("feed"))
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("login")).fetchSemanticsNodes().isEmpty() }
-                onNodeWithText(url("items")).assertExists()
-                onNodeWithText(url("items/missing")).assertExists()
+                awaitText(url("items"))
+                awaitText(url("items/missing"))
                 onNodeWithText(url("feed")).assertDoesNotExist()
 
                 onNodeWithText("Status: Any ▾").performClick()
                 onNodeWithText("4xx").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
-                onNodeWithText(url("items/missing")).assertExists()
+                awaitText(url("items/missing"))
                 onNodeWithText("Status: 4xx ▾").assertExists()
                 screenshot("filters.png")
 
@@ -385,7 +385,7 @@ class AppMonitorAppTest {
                 onNodeWithText("Any").performClick()
                 onNodeWithText("Failed only").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
-                onNodeWithText(url("feed")).assertExists()
+                awaitText(url("feed"))
             }
         }
 
