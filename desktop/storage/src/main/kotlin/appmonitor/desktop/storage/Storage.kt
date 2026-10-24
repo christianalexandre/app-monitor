@@ -58,6 +58,7 @@ class Storage private constructor(
     private val clock: () -> Long,
     maxQueueBytes: Long,
     retentionInterval: Duration?,
+    private val afterRetentionChunk: suspend () -> Unit,
     beforeCommit: (List<StorageItem>) -> Unit,
 ) {
     internal val writerDispatcher: ExecutorCoroutineDispatcher =
@@ -81,6 +82,9 @@ class Storage private constructor(
 
     /** What the last [applyRetention] left. */
     val retentionStatus: StateFlow<RetentionStatus> = mutableRetentionStatus.asStateFlow()
+
+    // Writer thread only: a retention pass that sees it change was overtaken by a clearAll.
+    private var clears = 0L
 
     private val queue =
         WriteQueue(
@@ -200,6 +204,10 @@ class Storage private constructor(
         withContext(writerDispatcher) {
             val now = clock()
             val settings = ingest.retention
+            val clearsAtStart = clears
+
+            // Between chunks a setRetention (which runs its own pass) or a clearAll ends this one, status untouched.
+            fun superseded() = ingest.retention != settings || clears != clearsAtStart
             var deleted = 0L
             val status =
                 try {
@@ -210,7 +218,9 @@ class Storage private constructor(
                             if (ids.isEmpty()) break
                             database.transaction { ids.forEach(database.sessionQueries::delete) }
                             deleted += ids.size
+                            afterRetentionChunk()
                             yield()
+                            if (superseded()) return@withContext mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(before)
                     }
@@ -220,23 +230,25 @@ class Storage private constructor(
                             val id = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
                             database.sessionQueries.delete(id)
                             deleted++
+                            afterRetentionChunk()
                             yield()
+                            if (superseded()) return@withContext mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(Long.MAX_VALUE)
                     }
-                    if (deleted > 0) {
-                        database.transaction {
-                            database.deviceQueries.deleteUnused()
-                            database.appQueries.deleteUnused()
-                        }
-                        releaseFreePages()
+                    // Also after nothing deleted: a superseded pass leaves its cleanup to the next one.
+                    database.transaction {
+                        database.deviceQueries.deleteUnused()
+                        database.appQueries.deleteUnused()
                     }
+                    releaseFreePages()
                     RetentionStatus(fileBytes(), liveBytes() > settings.maxBytes, now, deleted)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     RetentionStatus(mutableRetentionStatus.value.usedBytes, false, now, deleted, e.toString())
                 }
+            if (superseded()) return@withContext mutableRetentionStatus.value
             mutableRetentionStatus.value = status
             status
         }
@@ -249,6 +261,7 @@ class Storage private constructor(
     suspend fun clearAll() {
         flush()
         withContext(writerDispatcher) {
+            clears++
             val error =
                 try {
                     ingest.clear(clock())
@@ -478,6 +491,7 @@ class Storage private constructor(
             clock: () -> Long,
             maxQueueBytes: Long,
             retentionInterval: Duration? = RETENTION_INTERVAL,
+            afterRetentionChunk: suspend () -> Unit = {},
             beforeCommit: (List<StorageItem>) -> Unit,
         ): Storage {
             val file = createOwnerOnly(directory)
@@ -501,7 +515,7 @@ class Storage private constructor(
                         database.runQueries.insert(clock())
                         database.runQueries.lastId().executeAsOne()
                     }
-                return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, beforeCommit)
+                return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, afterRetentionChunk, beforeCommit)
             } catch (e: Throwable) {
                 driver.close()
                 throw e

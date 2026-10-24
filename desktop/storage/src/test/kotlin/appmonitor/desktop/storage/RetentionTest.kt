@@ -2,12 +2,14 @@ package appmonitor.desktop.storage
 
 import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.DriverManager
 import kotlin.io.path.listDirectoryEntries
 import kotlin.random.Random
 import kotlin.test.Test
@@ -76,11 +78,6 @@ class RetentionTest {
                 storage.setRetention(RetentionSettings(maxAgeDays = null, maxBytes = bound))
                 val status = storage.retentionStatus.value
 
-                println(
-                    "DEBUG status=$status pc=${dir.queryLong(
-                        "PRAGMA page_count",
-                    )} fl=${dir.queryLong("PRAGMA freelist_count")} av=${dir.queryLong("PRAGMA auto_vacuum")} full=$full",
-                )
                 val left = serverSessions(storage)
                 assertTrue(status.deletedSessions in 1..5, "deleted ${status.deletedSessions}")
                 assertEquals(
@@ -152,6 +149,70 @@ class RetentionTest {
                 storage.close(5.seconds)
             }
             assertFalse(dir.contains(marker))
+        }
+
+    @Test
+    fun aRaisedBoundStopsAPassAlreadyRunning() =
+        withDataDir { dir ->
+            var now = 0L
+            var raise: (suspend () -> Unit)? = null
+            val storage =
+                Storage.open(dir, { now }, Storage.MAX_QUEUE_BYTES, retentionInterval = null, afterRetentionChunk = {
+                    raise?.invoke()
+                    raise = null
+                }) {}
+            runBlocking {
+                repeat(Storage.AGE_CHUNK.toInt()) { session(storage, "old$it", "d1") }
+                now = 20 * day
+                session(storage, "month", "d2")
+                now = 40 * day
+                session(storage, "recent", "d3")
+                storage.flush()
+                val raised = RetentionSettings(maxAgeDays = 30)
+                raise = {
+                    val job = launch { storage.setRetention(raised) }
+                    storage.retention.first { it == raised }
+                    job.join()
+                }
+
+                storage.applyRetention()
+
+                assertEquals(listOf("month", "recent"), serverSessions(storage), "the first chunk went, no more")
+                assertEquals(0, storage.retentionStatus.value.deletedSessions, "the raised pass's status")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aClearAllFailingDuringAPassKeepsItsError() =
+        withDataDir { dir ->
+            var now = 0L
+            var clear: (suspend () -> Unit)? = null
+            val storage =
+                Storage.open(dir, { now }, Storage.MAX_QUEUE_BYTES, retentionInterval = null, afterRetentionChunk = {
+                    clear?.invoke()
+                    clear = null
+                }) {}
+            runBlocking {
+                repeat(Storage.AGE_CHUNK.toInt() + 1) { session(storage, "old$it", "d1") }
+                storage.flush()
+                now = 8 * day
+                clear = {
+                    clear = null
+                    // Another connection's write lock makes clearAll fail once the busy timeout ends.
+                    DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { lock ->
+                        lock.createStatement().use { it.execute("BEGIN IMMEDIATE") }
+                        launch { storage.clearAll() }.join()
+                    }
+                }
+
+                storage.applyRetention()
+
+                val error = storage.retentionStatus.value.lastError
+                assertTrue(error?.contains("SQLITE_BUSY") == true, "clearAll's error kept, was $error")
+                assertEquals(1, serverSessions(storage).size, "the pass stopped after its first chunk")
+                storage.close(5.seconds)
+            }
         }
 
     private suspend fun session(
