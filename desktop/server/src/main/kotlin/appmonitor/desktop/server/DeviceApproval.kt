@@ -30,13 +30,15 @@ data class PendingDevice(
 )
 
 /**
- * Asks once per [DeviceKey] and remembers the answer until this instance is dropped. Connections of the same key
- * share one pending entry; it disappears when the last of them is cancelled (the device left) or on [decide].
+ * Asks once per [DeviceKey] and remembers the answer, starting from [remembered], until [forget]. Connections of the
+ * same key share one pending entry; it disappears when the last of them is cancelled (the device left) or on [decide].
  */
-class DeviceApprovals : DeviceApproval {
+class DeviceApprovals(
+    remembered: Map<DeviceKey, Boolean> = emptyMap(),
+) : DeviceApproval {
     private val lock = Any()
 
-    private val decisions = mutableMapOf<DeviceKey, Boolean>()
+    private val decisions = remembered.toMutableMap()
 
     private val waiting = mutableMapOf<DeviceKey, Waiting>()
 
@@ -80,6 +82,15 @@ class DeviceApprovals : DeviceApproval {
             }
         entry?.decision?.complete(approved)
     }
+
+    /** Drops the answer for [key], so its next [approve] asks again; returns the answer dropped, if any. */
+    fun forget(key: DeviceKey): Boolean? = synchronized(lock) { decisions.remove(key) }
+
+    /** [forget] for every key; returns the answers dropped. */
+    fun forgetAll(): Map<DeviceKey, Boolean> =
+        synchronized(lock) {
+            decisions.toMap().also { decisions.clear() }
+        }
 
     private class Waiting {
         val decision = CompletableDeferred<Boolean>()

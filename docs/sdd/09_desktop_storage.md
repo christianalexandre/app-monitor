@@ -1,9 +1,9 @@
 # 09 — Desktop storage
 
 **Built in part** (ADR-0066): the module, its schema, write path and paged
-reads are in `desktop/storage` (M5.3), and the app writes and reads through
-it (M5.4, SDD 01); approvals, run names, search and retention are M5.5 to
-M5.8 (PLAN-0006).
+reads are in `desktop/storage` (M5.3), the app writes and reads through
+it (M5.4, SDD 01), and approvals are kept in it (M5.5); run names, search
+and retention are M5.6 to M5.8 (PLAN-0006).
 `desktop/storage` keeps what the desktop receives in one SQLite file through
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
@@ -70,8 +70,8 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
   channels, unknown `network` types, a payload that does not decode
   (ADR-0081 A.1).
 - Booleans (`failed`, `payload_truncated`, `approved`) are `INTEGER` 0 or 1.
-- `approvals` and `settings` are in the version-1 schema with no query yet
-  (M5.5, M5.8), so those tasks need no migration.
+- `approvals` and `settings` are in the version-1 schema, so M5.5 and M5.8
+  need no migration; `settings` has no query yet (M5.8).
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).
 
@@ -107,6 +107,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   in-memory store does today); a `WebSocketFrame` increments `frame_count`.
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
+- Approvals take the same queue (ADR-0083): `decided(hello, approved)`
+  upserts the pair's row with the last `device_name`, OS and app version,
+  `forget(deviceId, appId)` and `forgetAll()` delete; queued in click order,
+  drained by `close` like envelopes. `approvals()` reads them once at
+  launch, `observeApprovals()` follows them for the settings.
 
 ### When a write is slow or fails
 
@@ -130,7 +135,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected`.
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
-  file). The app opens without storage: the window shows the error and the
+  file, stored approvals that cannot be read). The app opens without storage: the window shows the error and the
   path ("Clear all data" there comes with M5.8); the server is not started,
   so devices are not admitted into a desktop that cannot keep them.
 - **Close.** On exit, after the server stops, `Storage.close(timeout)`
@@ -181,7 +186,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
 | A 10k-request session ingested in bounded time, restart shows it, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
-| Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5) |
+| Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5), and in `desktop/app` across three launches with a real server |
 | Sessions grouped by run, runs named | `RunsTest` (M5.6) |
 | One case per filter and their combination | `SearchTest` (M5.7) |
 | Age and size bounds, oldest session first, connected and named kept, secure delete | `RetentionTest` (M5.8) |

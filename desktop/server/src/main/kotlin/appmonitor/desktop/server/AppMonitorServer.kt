@@ -27,12 +27,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetAddress
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,6 +73,8 @@ class AppMonitorServer internal constructor(
     @Volatile private var advertiser: MdnsAdvertiser? = null
 
     @Volatile private var stopped = false
+
+    private val open = ConcurrentHashMap<DeviceSession, DefaultWebSocketServerSession>()
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -164,6 +168,15 @@ class AppMonitorServer internal constructor(
         releasing.await()
     }
 
+    /** Closes every open session of [key] with 1008; the device's next `Hello` is asked for again. */
+    fun disconnect(key: DeviceKey) {
+        open.forEach { (session, connection) ->
+            if (session.hello.device_id == key.deviceId && session.hello.app_id == key.appId) {
+                connection.launch { connection.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")) }
+            }
+        }
+    }
+
     private suspend fun release(
         advertiser: MdnsAdvertiser?,
         server: EmbeddedServer<*, *>?,
@@ -208,6 +221,7 @@ class AppMonitorServer internal constructor(
             close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
             return
         }
+        open[session] = this
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
             for (frame in incoming) {
@@ -224,6 +238,7 @@ class AppMonitorServer internal constructor(
                 session.deliver(envelope)
             }
         } finally {
+            open.remove(session)
             session.close()
         }
     }

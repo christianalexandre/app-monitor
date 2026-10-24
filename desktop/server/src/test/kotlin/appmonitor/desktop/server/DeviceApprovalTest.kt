@@ -22,6 +22,7 @@ import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -92,6 +93,57 @@ class DeviceApprovalTest {
             }
             assertEquals(emptyList(), approvals.pending.value)
         }
+
+    @Test
+    fun `remembered answers are given without asking`() =
+        runBlocking {
+            val remembered =
+                DeviceApprovals(mapOf(DeviceKey("device-1", "app.a") to true, DeviceKey("device-1", "app.b") to false))
+            withTimeout(TIMEOUT) {
+                assertTrue(remembered.approve(hello.toHello()))
+                assertFalse(remembered.approve(hello(appId = "app.b").toHello()))
+            }
+            assertEquals(emptyList(), remembered.pending.value)
+        }
+
+    @Test
+    fun `a forgotten device is closed with 1008 and asked again`() =
+        runBlocking<Unit> {
+            val port = start()
+            val key = DeviceKey("device-1", "app.a")
+            approvals.decide(key, approved = true)
+            withTimeout(TIMEOUT) {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertEquals("HelloAck", Envelope.ADAPTER.decode((incoming.receive() as Frame.Binary).readBytes()).type)
+                    assertEquals(true, approvals.forget(key))
+                    server!!.disconnect(key)
+                    assertNull(incoming.receiveCatching().getOrNull())
+                    assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason)
+                }
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertEquals(
+                        key,
+                        approvals.pending
+                            .first { it.isNotEmpty() }
+                            .single()
+                            .key,
+                    )
+                }
+            }
+        }
+
+    @Test
+    fun `forgetAll drops every answer`() {
+        approvals.decide(DeviceKey("device-1", "app.a"), approved = true)
+        approvals.decide(DeviceKey("device-2", "app.a"), approved = false)
+        assertEquals(
+            mapOf(DeviceKey("device-1", "app.a") to true, DeviceKey("device-2", "app.a") to false),
+            approvals.forgetAll(),
+        )
+        assertNull(approvals.forget(DeviceKey("device-1", "app.a")))
+    }
 
     @Test
     fun `another app on an approved device still asks`() =
@@ -222,5 +274,7 @@ class DeviceApprovalTest {
                     ).encode().toByteString(),
                 timestamp_ms = 1L,
             )
+
+        fun Envelope.toHello(): Hello = Hello.ADAPTER.decode(payload)
     }
 }

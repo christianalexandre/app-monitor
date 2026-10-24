@@ -119,8 +119,11 @@ device                         AppMonitorServer
   its ping while pending is withdrawn. The default approves every device
   (headless server, tests); the desktop app passes `DeviceApprovals`, which
   asks once per (`device_id`, `app_id`), shares one pending entry between
-  connections of the same pair, and remembers each answer until the app
-  quits (persisted in M5).
+  connections of the same pair, and remembers each answer, starting from
+  the ones it is built with, until `forget` (persisted by the app, below).
+  `AppMonitorServer.disconnect(key)` closes the pair's open sessions with
+  1008; a connection admitted in the same instant as a forget stays until it
+  reconnects.
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty
@@ -288,9 +291,18 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call
-  `DeviceApprovals.decide`. A pending device is not in the device list until
-  approved. `make fake-traffic` against the app must be approved within its
-  10 s handshake wait (DEBT-0028).
+  `ApprovalStore.decide`, which answers the connections at once and queues
+  the answer to storage (ADR-0083). The store is built from the stored
+  answers at launch, so an approved pair is admitted with no dialog and a
+  rejected one closed with 1008 after a restart. "Settings" above the device
+  list opens the settings; their "Devices" section lists every answered pair
+  (name, app id, approved or rejected, date, OS, app version) with "Forget"
+  per row and "Forget all": a forgotten pair is asked again on its next
+  `Hello`, and its open sessions are closed with 1008 when it was approved.
+  A pending device is not in the device list until approved.
+  `make fake-traffic` against the app must be approved within its 10 s
+  handshake wait the first time; its fixture `Hello` is always the same
+  pair, so later runs are admitted with no dialog (DEBT-0028).
 - UI: three panes (devices, requests of the selected device, detail). The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
   when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies

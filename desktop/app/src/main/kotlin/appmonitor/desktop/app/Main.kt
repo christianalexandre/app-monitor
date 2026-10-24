@@ -3,16 +3,19 @@ package appmonitor.desktop.app
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
+import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.StorageUnavailable
 import appmonitor.desktop.server.AppMonitorServer
-import appmonitor.desktop.server.DeviceApprovals
+import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.printStopFailure
@@ -38,17 +41,18 @@ import kotlin.time.Duration
 
 fun main() {
     val directory = dataDirectory()
-    val storage =
+    lateinit var server: AppMonitorServer
+    val (storage, approvals) =
         try {
-            Storage.open(directory)
+            val storage = Storage.open(directory)
+            storage to openApprovals(storage) { server.disconnect(it) }
         } catch (e: Exception) {
             exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
             return
         }
     val store = TrafficStore(storage)
     var status by mutableStateOf("Starting server…")
-    val approvals = DeviceApprovals()
-    val server = AppMonitorServer(approval = approvals)
+    server = AppMonitorServer(approval = approvals.approvals)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
     addStopHook(timeout = STOP_TIMEOUT * 2) {
@@ -68,8 +72,17 @@ fun main() {
                             title = "App Monitor",
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
+                            val scope = rememberCoroutineScope()
                             val pending by approvals.pending.collectAsState()
-                            AppMonitorApp(storage, status, pending, approvals::decide)
+                            val answered by remember { approvals.stored }.collectAsState(emptyList())
+                            AppMonitorApp(
+                                storage,
+                                status,
+                                pending,
+                                onDecide = { device, approved -> scope.launch { approvals.decide(device, approved) } },
+                                answered = answered,
+                                onForget = { key -> scope.launch { if (key == null) approvals.forgetAll() else approvals.forget(key) } },
+                            )
                         }
                     }
                 }
@@ -79,6 +92,18 @@ fun main() {
         }
     }
 }
+
+// The store is closed again when its answers cannot be read: the failure window runs no server.
+private fun openApprovals(
+    storage: Storage,
+    disconnect: (DeviceKey) -> Unit,
+): ApprovalStore =
+    try {
+        runBlocking { ApprovalStore.open(storage, disconnect) }
+    } catch (e: Exception) {
+        runBlocking { storage.close(STOP_TIMEOUT) }
+        throw e
+    }
 
 private suspend fun showStorageFailure(
     file: String,

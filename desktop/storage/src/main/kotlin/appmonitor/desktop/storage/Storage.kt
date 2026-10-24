@@ -96,6 +96,27 @@ class Storage private constructor(
         queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
     }
 
+    /** Queues the developer's answer for [hello]'s (`device_id`, `app_id`), replacing an earlier one (ADR-0083). */
+    suspend fun decided(
+        hello: Hello,
+        approved: Boolean,
+    ) {
+        queue.enqueue(StorageItem.Decided(hello, approved, clock()))
+    }
+
+    /** Queues forgetting the answer for (`deviceId`, `appId`). */
+    suspend fun forget(
+        deviceId: String,
+        appId: String,
+    ) {
+        queue.enqueue(StorageItem.Forgot(deviceId, appId))
+    }
+
+    /** Queues forgetting every answer. */
+    suspend fun forgetAll() {
+        queue.enqueue(StorageItem.Forgot(null, null))
+    }
+
     /**
      * Ends the run, then writes what is queued for up to [timeout]. Returns how many items were
      * not written; they are lost, and the next open closes what they left open.
@@ -115,6 +136,16 @@ class Storage private constructor(
         read {
             runQueries.all { id, name, started, ended -> StoredRun(id, name, started, ended) }.executeAsList()
         }
+
+    /** Every stored answer, oldest first. */
+    suspend fun approvals(): List<StoredApproval> = read { approvalQueries.all(::StoredApproval).executeAsList() }
+
+    /** [approvals], again after each commit that changes one. */
+    fun observeApprovals(): Flow<List<StoredApproval>> =
+        database.approvalQueries
+            .all(::StoredApproval)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     /** Every stored session, oldest first, again after each commit that changes one. */
     fun observeSessions(): Flow<List<StoredSession>> =
@@ -363,6 +394,27 @@ data class StoredRun(
     val startedAtMs: Long,
     val endedAtMs: Long?,
 )
+
+/** One answered (`device_id`, `app_id`) pair, with the device as its last `Hello` described it (ADR-0083). */
+data class StoredApproval(
+    val deviceId: String,
+    val appId: String,
+    val approved: Boolean,
+    val decidedAtMs: Long,
+    val deviceName: String,
+    val osVersion: String,
+    val appVersion: String,
+) {
+    internal constructor(
+        deviceId: String,
+        appId: String,
+        approved: Long,
+        decidedAtMs: Long,
+        deviceName: String,
+        osVersion: String,
+        appVersion: String,
+    ) : this(deviceId, appId, approved != 0L, decidedAtMs, deviceName, osVersion, appVersion)
+}
 
 data class StoredSession(
     val id: Long,
