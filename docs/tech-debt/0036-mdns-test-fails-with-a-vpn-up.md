@@ -13,8 +13,8 @@ paid_date:
 
 `AppMonitorServerTest > advertised service resolves over mdns` times out
 after 10 s on a Mac with a VPN up (`utun6`, `POINTOPOINT,MULTICAST`,
-`10.1.69.61`), on a clean `origin/dev` at `b439832` too, so `make check`
-fails there. `make server` logs `mDNS on [10.1.69.61/…, 192.168.3.221/…]`:
+`10.0.0.5`), on a clean `origin/dev` at `b439832` too, so `make check`
+fails there. `make server` logs `mDNS on [10.0.0.5/…, 192.168.1.20/…]`:
 `lanAddresses()` keeps the tunnel, because it filters on `isVirtual` and
 `supportsMulticast()` only. That the tunnel is what breaks the resolve is
 likely, not isolated.
