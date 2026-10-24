@@ -95,3 +95,4 @@ Rules:
 | [0075](0075-kmp-end-to-end-one-script-and-captured-once.md) | The KMP end to end is one script per platform argument, and every end to end asserts each exchange once | Accepted |
 | [0076](0076-fast-pr-suite-slow-suites-in-the-release-gate.md) | PRs to dev run a fast suite; slow suites run only in the release gate | Accepted |
 | [0077](0077-hello-names-the-sdk.md) | Hello names the SDK that opened the session | Accepted |
+| [0078](0078-device-id-published-by-hard-link.md) | The device id file is published by an exclusive hard link | Accepted |

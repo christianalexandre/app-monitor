@@ -159,7 +159,8 @@ cache lives for one bounded browse.
   Accept: `make scripts-test` with a crafted log holding the same socket
   under `ws://` and `http://` (fails) and two `sdk/core` sessions and no
   Swift one (fails); `make e2e-kmp-ios` green.
-- [ ] **M4.R2 Both SDKs starting together can write two device ids.**
+- [x] **M4.R2 Both SDKs starting together can write two device ids.** (`fix/shared-device-id-atomic`; ADR-0078. Deviation: on
+  Kotlin/Native `createDirectories` threw when a racing writer made the directory first, which the race test found)
   `deviceId` in `sdk/core` truncates and writes the shared
   `appmonitor-device-id` file non-atomically, with no coordination with the
   Swift SDK: on a first launch that starts both (`KmpSampleApp.init`), each

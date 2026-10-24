@@ -54,7 +54,9 @@ on the name's next result; every probe ends with the round. The desktop
 sees that probe as one empty TCP connection.
 
 The device id file (ADR-0036 D) is read or created on the client's queue,
-not on the thread that called `start()`.
+not on the thread that called `start()`. A new id is written beside the file
+and hard linked to it, so the Swift SDK and `sdk/core` in one app keep the
+first one written (ADR-0078).
 
 ### Info.plist keys
 
