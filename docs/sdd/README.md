@@ -7,7 +7,9 @@ Rules:
 
 - Changed the design → change the chapter in the same PR.
 - Describe what exists. Planned work lives in `../plans/`; missing work in
-  `../tech-debt/`.
+  `../tech-debt/`. One exception: a section marked **Designed, not built
+  yet** is the contract a plan task writes before its code (ADR-0066); the
+  PR that builds it removes the mark.
 - New chapter: copy `_template.md` to `NN_topic.md` and add it below.
 
 ## Chapters

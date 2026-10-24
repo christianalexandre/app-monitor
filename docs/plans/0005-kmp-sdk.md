@@ -48,7 +48,7 @@ ADR.
   toolkit, targets, and whether its end to end joins the release gate
   (runner minutes, ADR-0052).
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M4.2 `sdk/core` lifecycle on iOS on paper.** SDD 04 states where
+- [x] **M4.2 `sdk/core` lifecycle on iOS on paper.** (`docs/sdk-core-ios-lifecycle`; ADR-0066 picks CIO and common tests, DEBT-0052) SDD 04 states where
   `sdk/core` on Kotlin/Native differs from the JVM: Ktor engine, the JDK
   calls it replaces, threading, what `stop()` does in each state, app
   background and foreground; each case names the test that will drive it

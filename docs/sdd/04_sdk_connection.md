@@ -1,6 +1,7 @@
 # 04 — SDK connection lifecycle
 
-How `sdk/core` (KMP, Android + JVM) finds the desktop, connects, holds
+How `sdk/core` (KMP: Android and JVM; iOS designed in
+[Kotlin/Native (iOS)](#kotlinnative-ios)) finds the desktop, connects, holds
 events while it cannot send them, and lets go of everything on `stop()`.
 The transport is `internal` `MonitorClient` in `sdk/core` (ADR-0023), which
 connects to the endpoint its `discover` function returns; discovery and the
@@ -106,6 +107,72 @@ cancels the scope.
   cannot end every later session.
 - Memory only: nothing captured is written to the app's storage.
 
+### Kotlin/Native (iOS)
+
+> **Designed, not built yet** (ADR-0066): the contract PLAN-0005 M4.3 and
+> M4.4 implement. Each part loses this mark in the PR that builds it.
+
+`sdk/core` on `iosArm64` and `iosSimulatorArm64` (ADR-0062 E.1) runs the
+same `MonitorClient`, states, bounds, backoff and buffer as above. The app
+calls `AppMonitor.start(options)` / `stop()` from `iosMain` Kotlin or from
+Swift through its framework (ADR-0062 B.1); both return at once and never
+throw. Only these differ from the JVM:
+
+| Topic | JVM / Android | iOS |
+| --- | --- | --- |
+| Ktor engine | CIO | CIO: raw BSD sockets, so the Swift SDK's `URLSession` hooks never see the monitor's own WebSocket, and ATS does not govern it (ADR-0066 A) |
+| Locks | JVM `synchronized` | atomicfu `SynchronizedObject` and `synchronized`, in common code |
+| Oversize counter | `AtomicLong` | a `Long` under the client's lock |
+| Device id | `java.util.UUID`, `java.io.File` in `noBackupFilesDir` | `kotlin.uuid.Uuid`, `kotlinx.io.files`; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it (ADR-0064 B.1) |
+| Timestamps | `System.currentTimeMillis` | `kotlin.time.Clock.System` |
+| Socket errors | `java.io.IOException` | `kotlinx.io.IOException` |
+| `platformLog` | `Log.w` / stderr | `NSLog` |
+| Threads | `Dispatchers.Default` | `Dispatchers.Default`, the native worker pool; nothing runs on the main thread, so `start()` from the app's main thread does no I/O |
+| Emulator / simulator host | `10.0.2.2` when `Build.HARDWARE` says emulator | `127.0.0.1` on `iosSimulatorArm64`, known at compile time (ADR-0002) |
+
+#### States and their iOS exits
+
+Tests run on `iosSimulatorArm64Test` unless marked *JVM*; `commonTest`
+ones run against a stand-in desktop on `ktor-server-cio` (ADR-0066 C).
+Names in *italics* do not exist yet; the task in brackets writes them.
+
+| State | iOS exits, where they differ | Test |
+| --- | --- | --- |
+| **idle** | As above. | `disabledStaysIdle`, `stopWhenIdleDoesNothing` |
+| **discovering** | Manual `host` only, else Bonjour from Kotlin/Native (M4.4), then `127.0.0.1:47474` on the simulator. | `manualHostIsTheOnlySource`; *`simulatorHostFollowsABonjourThatFindsNothing`* (M4.4) |
+| **connecting** | Refused, unreachable or 10 s → backing off; the first such failure logs one line naming the endpoint and the Info.plist keys of ADR-0063 B.1, not `ACCESS_LOCAL_NETWORK`. No cleartext exit: `isCleartextPermitted` is `true`. | `anUnreachableDesktopIsLoggedOncePerClient`; *`aConnectFailureNamesTheInfoPlistKeys`*, *`cleartextIsAlwaysPermitted`* (M4.3) |
+| **handshaking** | As above. | `aRejectedDeviceWaitsTheLongestDelay` |
+| **connected** | As above; a write to a socket the desktop closed must end in backing off, not kill the app with `SIGPIPE` (unverified, ADR-0066). | `handshakesWithTheDesktop`; *`aDesktopThatDiesMidSessionEndsInBackingOff`* (M4.3) |
+| **backing off** | As above. | `eventsQueuedWhileTheDesktopIsDownArriveAfterItReturns` |
+| **stopped** | As above. | `eventsAfterStopAreDropped` |
+
+`start()` while running and `start()` after `stop()`:
+`aSecondStartIsIgnoredWhileRunning`, `startAfterStopBuildsANewClient`.
+Device id: `isStableAcrossStarts`, `aCorruptFileIsReplaced`;
+*`readsTheSwiftSdkDeviceIdFile`* (M4.4).
+
+#### `stop()` on iOS
+
+As in [`stop()` in each state](#stop-in-each-state), with the same tests:
+`stopWhileDiscoveringReleasesEverything` (the Bonjour browser instead of
+`NsdManager`), `stopWhileConnectingClosesTheHalfOpenSocket`,
+`stopWhileHandshakingClosesTheSessionNormally`, `stopWhileBackingOffCancelsTheTimer`,
+and `stopWhileConnectedEndsTheDesktopSession` (*JVM*: it reads the real
+desktop's session list).
+
+#### Background and foreground
+
+No lifecycle observer, as in the Swift SDK (SDD 06): a suspended app runs
+no coroutine, so the client neither sends nor times out meanwhile. On
+resume the state goes on from where it was: a connection the OS dropped
+ends with a socket error or the ping timeout → backing off → discovering.
+Whether a backoff delay counts the time suspended is not specified. Events captured
+before suspension stay in the buffer. Test:
+*`aDesktopThatStopsAnsweringPingsEndsInBackingOff`* (M4.3), a stand-in
+desktop that keeps the socket open but never answers, as a suspended or
+vanished desktop looks from the app; the live test of M4.3 covers the real
+simulator.
+
 ## Limits
 
 - Dropped envelopes (full buffer, oversized, in flight when the socket
@@ -119,3 +186,5 @@ cancels the scope.
   (DEBT-0024).
 - `NsdBrowser`, the permission check and the emulator test run only on
   Android; host tests use fake browsers (ADR-0024).
+- On iOS, local network privacy with CIO's BSD sockets is unproven on a
+  physical iPhone; the simulator has no prompt (DEBT-0052).
