@@ -123,6 +123,8 @@ jobs:
           xcrun simctl list devices available | grep -m1 iPhone
       - name: Swift SDK gates
         run: make swift
+      - name: Swift SDK tests on the simulator
+        run: make swift-sim
       - name: Protocol tests, all targets
         run: ./gradlew :protocol:allTests
       - name: Logs and reports
@@ -132,8 +134,38 @@ jobs:
           name: contract-logs
           path: |
             build/ios-simulator.log
-            build/ios-sample.log
             protocol/build/reports/tests/
+          retention-days: 7
+
+  samples:
+    needs: branch
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic # ADR-0012
+      - name: Toolchain
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+          xcrun simctl list devices available | grep -m1 iPhone
+      - name: Sample apps, debug and release
+        run: make samples
+      - name: Logs and reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: samples-logs
+          path: |
+            build/ios-sample.log
+            build/kmp-sample.log
+            samples/android/build/reports/
           retention-days: 7
 
   e2e-android:

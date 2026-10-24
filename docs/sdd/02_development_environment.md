@@ -17,12 +17,15 @@ What a machine needs to build and test the whole repository.
 
 No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
 `make swift-proto` builds `protoc` and `protoc-gen-swift` from the pinned
-swift-protobuf for `sdk/ios` (ADR-0039). `make check` runs the Swift gates
-(`make swift`) only on macOS with `swift` on the `PATH`; elsewhere it prints
-`swift: SKIPPED` (ADR-0037). Inside `make swift`, the simulator tests
-(`make swift-sim`) need XcodeGen and an iPhone simulator; without XcodeGen
-they print `swift-sim: SKIPPED` (ADR-0047), and the sample build
-(`make ios-sample`) `ios-sample: SKIPPED` (ADR-0050).
+swift-protobuf for `sdk/ios` (ADR-0039). `make check` is the fast suite
+(ADR-0076): docs, lint, script tests, `./gradlew build` without the sample
+apps, and the host Swift gates (`make swift`) only on macOS with `swift` on
+the `PATH`; elsewhere it prints `swift: SKIPPED` (ADR-0037). The slow
+suites are separate targets: `make swift-sim` (simulator tests) and
+`make samples` (`android-samples`, `ios-sample`, `kmp-sample`);
+`make check-full` runs `make check` plus both. The simulator targets need
+XcodeGen and an iPhone simulator; without them they print
+`swift-sim: SKIPPED` (ADR-0047) and `ios-sample: SKIPPED` (ADR-0050).
 The Android SDK must provide platform `android-36` and build tools 36.0.0
 (AGP 9.3, ADR-0007).
 
@@ -124,7 +127,7 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 internet only for the first build. It uses the booted iPhone simulator, or boots the first available
 one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample's Debug app
 for it (Release and its SDK name scan are `make ios-sample`'s, in
-`make swift`; ADR-0075) and the `installDist` of the server and of
+`make samples`; ADR-0075) and the `installDist` of the server and of
 `tools/e2e-target`, starts both on free ports and launches the Debug app:
 
 ```sh
@@ -141,7 +144,7 @@ whose assertions `scripts/test_e2e_lib.sh` tests on a crafted log in `make scrip
 
 ### The KMP sample against a desktop
 
-`make kmp-sample` (ADR-0073, in `make swift`) builds `samples/kmp`: the
+`make kmp-sample` (ADR-0073, in `make samples`) builds `samples/kmp`: the
 Android app in debug and release, then, on macOS with XcodeGen, the iOS host
 in Debug and Release into `build/kmp-sample/`; its Run Script phase calls
 `./gradlew :samples:kmp:shared:embedAndSignAppleFrameworkForXcode`, which
@@ -220,8 +223,8 @@ uploaded anywhere: Central and tags are M10.
 Gradle cache PRs read). It uses the runner's preinstalled Android SDK
 (`ANDROID_HOME` from the environment wins over the `Makefile` default) and
 `setup-gradle` with `cache-provider: basic`. iOS tasks are skipped on Linux,
-so on PRs to `dev` iOS simulator tests and `make swift` run only locally;
-the release gate runs them. See
+so on PRs to `dev` `make swift` runs only locally; simulator tests, sample
+apps and end to ends run in the release gate (ADR-0076). See
 ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
 trailers (skipped only on `dev` → `main`, ADR-0060) and `make docs-check`.
 
@@ -231,17 +234,21 @@ trailers (skipped only on `dev` → `main`, ADR-0060) and `make docs-check`.
 (guidelines 03); every other job needs it. A dispatch checks its `head`
 input (default `dev`) instead of a PR head, so the gate can be run on any
 ref: `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]`.
-The workflow must exist on `dev` for a dispatch to find it. The `desktop`
+The workflow must exist on `dev` for a dispatch to find it. Dispatching is
+for the owner; the loop never does it (ADR-0076). The `desktop`
 job runs `:desktop:app:test`, `:desktop:server:test` and
 `:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
 (`fail-fast: false`, reports uploaded on failure). On macOS it sets
 `APPMONITOR_NO_LOCAL_NETWORK=1`, which drops the mDNS round trip test: the
 hosted runner has no local network access (DEBT-0046). The `contract`
 job, on macOS, installs XcodeGen with Homebrew, runs `make swift` (proto
-freshness, swift-format, `swift test` with the fixture tests, public API,
-simulator tests, sample) and `./gradlew :protocol:allTests`
-(`iosSimulatorArm64Test` included); the simulator and sample logs and the
-protocol reports are uploaded on failure. The `e2e-android` job, on ubuntu,
+freshness, swift-format, `swift test` with the fixture tests, public API),
+`make swift-sim` and `./gradlew :protocol:allTests`
+(`iosSimulatorArm64Test` included); the simulator log and the protocol
+reports are uploaded on failure. The `samples` job, on macOS, installs
+XcodeGen and runs `make samples` (the Android sample's `build`, the iOS and
+KMP samples in debug and release with their SDK name scans); their logs are
+uploaded on failure (ADR-0076). The `e2e-android` job, on ubuntu,
 enables KVM, builds the debug APK and the `installDist` of the server and
 of `tools/e2e-target`, then
 boots an API 36 `google_apis` x86_64 emulator with
