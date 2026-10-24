@@ -1,10 +1,5 @@
 # 09 — Desktop storage
 
-**Built in part** (ADR-0066): the module, its schema, write path and paged
-reads are in `desktop/storage` (M5.3), the app writes and reads through
-it (M5.4, SDD 01), approvals are kept in it (M5.5), runs are named (M5.6),
-exchanges searched (M5.7) and retention bounds what stays (M5.8); the live
-check is M5.9 (PLAN-0006).
 `desktop/storage` keeps what the desktop receives in one SQLite file through
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,

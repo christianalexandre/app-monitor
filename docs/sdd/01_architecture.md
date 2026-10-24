@@ -232,7 +232,7 @@ a stack trace (DEBT-0010). See ADR-0010.
 ## Desktop
 
 Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
-**(planned)**, designed in SDD 09, MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
+(`desktop/storage`, SDD 09), MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
 is a feature module owning a `channel` **(planned)**. See ADR-0005.
 
 `desktop/app` today (ADR-0011):
@@ -351,8 +351,6 @@ Two levels guard the branches (details and commands in SDD 02, *CI*):
 
 ## Limits
 
-- The desktop store is in memory and unbounded; it lives until the app
-  closes (SQLDelight in M5).
 - WebSocket ping and pong frames are not captured (DEBT-0029).
 - Selecting text across body chunks that scrolled out of view is lost
   (ADR-0029).
