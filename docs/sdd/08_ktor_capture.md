@@ -43,8 +43,8 @@ app ── HttpClient { install(AppMonitorKtor) }
 | Event | Sent when | Body |
 | --- | --- | --- |
 | `RequestStarted` | Before the engine, once the headers are final | `setBody` of a string, bytes or a serialized object (`ByteArrayContent`), cut at `maxBodyBytes`. A stream (`ChannelWriterContent`, `ReadChannelContent`, multipart, upload progress): not read, empty with `body_truncated` and its length when known. No body: empty, no size. The content's `Content-Type` is added to the headers when absent. |
-| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, read with `readRawBytes()` and cut. A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
-| `RequestFailed` | The engine or the receive pipeline throws | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
+| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, read with `readRawBytes()` and cut. A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
+| `RequestFailed` | The engine or the receive pipeline throws, or the saved body's read is cancelled | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
 
 ### One WebSocket
 

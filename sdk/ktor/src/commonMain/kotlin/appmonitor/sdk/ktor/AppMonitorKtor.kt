@@ -49,6 +49,7 @@ internal fun appMonitorKtor(
                 try {
                     response.capture(options.maxBodyBytes)
                 } catch (e: CancellationException) {
+                    sink.emit("RequestFailed") { requestFailed(id, e) }
                     throw e
                 } catch (e: Exception) {
                     response.unread()

@@ -244,7 +244,7 @@ rejected:
   Accept: `./gradlew :sdk:core:allTests` with a racing-writers test where
   the link is refused, every writer returning the id left in the file;
   the Android path no longer needs `link`.
-- [ ] **M4.R8 A cancelled body read leaves its request pending.**
+- [x] **M4.R8 A cancelled body read leaves its request pending.** (`fix/ktor-cancelled-body-read`)
   `AppMonitorKtor`'s send interceptor rethrows a `CancellationException`
   from `response.capture` with no terminal envelope, after
   `RequestStarted`; `proceed()` emits `RequestFailed` for the same
