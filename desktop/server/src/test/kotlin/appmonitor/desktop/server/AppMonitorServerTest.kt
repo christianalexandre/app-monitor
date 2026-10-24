@@ -67,6 +67,7 @@ class AppMonitorServerTest {
                 val device = session.await()
                 assertEquals(helloAck.session_id, device.id)
                 assertEquals("device-0001", device.hello.device_id)
+                assertEquals("127.0.0.1", device.peerAddress)
                 assertEquals(sent, device.envelopes.take(100).toList())
             }
         }

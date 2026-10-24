@@ -1,0 +1,11 @@
+-- Not under a session: retention never touches it (ADR-0083).
+CREATE TABLE approvals (
+  device_id TEXT NOT NULL,
+  app_id TEXT NOT NULL,
+  approved INTEGER NOT NULL,
+  decided_at_ms INTEGER NOT NULL,
+  device_name TEXT NOT NULL,
+  os_version TEXT NOT NULL,
+  app_version TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_id)
+);

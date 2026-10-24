@@ -15,6 +15,8 @@ class DeviceSession internal constructor(
     val hello: Hello,
     /** Channels accepted in the `HelloAck`. */
     val channels: List<String>,
+    /** The device's address as the socket sees it. */
+    val peerAddress: String,
 ) {
     private val buffer = Channel<Envelope>(Channel.BUFFERED)
 

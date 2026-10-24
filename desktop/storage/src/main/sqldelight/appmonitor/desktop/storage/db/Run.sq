@@ -1,0 +1,32 @@
+-- A time window on the desktop, across devices (ADR-0084).
+CREATE TABLE runs (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  started_at_ms INTEGER NOT NULL,
+  ended_at_ms INTEGER
+);
+
+CREATE INDEX runs_started_at_ms ON runs(started_at_ms);
+
+insert:
+INSERT INTO runs(started_at_ms) VALUES (?);
+
+lastId:
+SELECT last_insert_rowid();
+
+end:
+UPDATE runs SET ended_at_ms = :endedAtMs WHERE id = :id;
+
+closeOpen:
+UPDATE runs
+SET ended_at_ms = coalesce(
+  (SELECT max(sessions.disconnected_at_ms) FROM sessions WHERE sessions.run_id = runs.id),
+  runs.started_at_ms
+)
+WHERE ended_at_ms IS NULL;
+
+byId:
+SELECT * FROM runs WHERE id = ?;
+
+all:
+SELECT * FROM runs ORDER BY id;

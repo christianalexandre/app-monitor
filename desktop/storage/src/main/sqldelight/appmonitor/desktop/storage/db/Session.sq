@@ -1,0 +1,47 @@
+-- One connection of an app; `hello` is the Hello as received.
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY,
+  run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+  device_ref INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  app_ref INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+  server_session_id TEXT NOT NULL,
+  hello BLOB NOT NULL,
+  app_version TEXT NOT NULL,
+  sdk_name TEXT NOT NULL,
+  peer_address TEXT,
+  connected_at_ms INTEGER NOT NULL,
+  disconnected_at_ms INTEGER,
+  last_envelope_at_ms INTEGER
+);
+
+CREATE INDEX sessions_run_id ON sessions(run_id);
+CREATE INDEX sessions_last_envelope_at_ms ON sessions(last_envelope_at_ms);
+
+insert:
+INSERT INTO sessions(run_id, device_ref, app_ref, server_session_id, hello, app_version, sdk_name, peer_address, connected_at_ms)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastId:
+SELECT last_insert_rowid();
+
+touch:
+UPDATE sessions SET last_envelope_at_ms = :atMs WHERE id = :id;
+
+disconnect:
+UPDATE sessions SET disconnected_at_ms = :atMs WHERE id = :id;
+
+closeOpen:
+UPDATE sessions
+SET disconnected_at_ms = coalesce(last_envelope_at_ms, connected_at_ms)
+WHERE disconnected_at_ms IS NULL;
+
+byId:
+SELECT * FROM sessions WHERE id = ?;
+
+ofRun:
+SELECT sessions.*, devices.device_id, devices.name AS device_name, devices.platform, devices.os_version, apps.app_id
+FROM sessions
+JOIN devices ON devices.id = sessions.device_ref
+JOIN apps ON apps.id = sessions.app_ref
+WHERE sessions.run_id = ?
+ORDER BY sessions.id;

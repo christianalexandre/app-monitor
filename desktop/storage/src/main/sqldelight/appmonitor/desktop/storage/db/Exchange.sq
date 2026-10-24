@@ -1,0 +1,65 @@
+-- One request and its outcome. `*_meta` are the events re-encoded without their body (SDD 09).
+CREATE TABLE exchanges (
+  id INTEGER PRIMARY KEY,
+  session_ref INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL,
+  method TEXT,
+  url TEXT,
+  host TEXT,
+  status_code INTEGER,
+  failed INTEGER NOT NULL DEFAULT 0,
+  started_at_ms INTEGER,
+  ended_at_ms INTEGER,
+  capture_layer INTEGER,
+  request_meta BLOB,
+  response_meta BLOB,
+  error TEXT,
+  frame_count INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (session_ref, request_id)
+);
+
+CREATE INDEX exchanges_session_ref_id ON exchanges(session_ref, id);
+CREATE INDEX exchanges_host ON exchanges(host);
+CREATE INDEX exchanges_status_code ON exchanges(status_code);
+CREATE INDEX exchanges_method ON exchanges(method);
+
+insertIfAbsent:
+INSERT OR IGNORE INTO exchanges(session_ref, request_id) VALUES (?, ?);
+
+idOf:
+SELECT id FROM exchanges WHERE session_ref = ? AND request_id = ?;
+
+started:
+UPDATE exchanges
+SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_layer = :captureLayer, request_meta = :meta
+WHERE id = :id;
+
+responded:
+UPDATE exchanges SET status_code = :statusCode, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
+
+failed:
+UPDATE exchanges SET failed = 1, error = :error, ended_at_ms = :atMs WHERE id = :id;
+
+frameAdded:
+UPDATE exchanges SET frame_count = frame_count + 1 WHERE id = :id;
+
+-- Pages by key (SDD 09): the next page starts after the last id of the previous one.
+pageOfSession:
+SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count
+FROM exchanges
+WHERE session_ref = :sessionRef AND id > :afterId
+ORDER BY id
+LIMIT :limit;
+
+pageOfRun:
+SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
+  exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
+  exchanges.error, exchanges.frame_count
+FROM exchanges
+JOIN sessions ON sessions.id = exchanges.session_ref
+WHERE sessions.run_id = :runId AND exchanges.id > :afterId
+ORDER BY exchanges.id
+LIMIT :limit;
+
+byId:
+SELECT * FROM exchanges WHERE id = ?;

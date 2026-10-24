@@ -1,0 +1,18 @@
+-- Bytes apart from the rows lists read (ADR-0005); `size` is before compression.
+CREATE TABLE bodies (
+  exchange_ref INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  part INTEGER NOT NULL,
+  codec TEXT NOT NULL,
+  data BLOB NOT NULL,
+  size INTEGER NOT NULL,
+  PRIMARY KEY (exchange_ref, part)
+);
+
+put:
+INSERT OR REPLACE INTO bodies(exchange_ref, part, codec, data, size) VALUES (?, ?, ?, ?, ?);
+
+remove:
+DELETE FROM bodies WHERE exchange_ref = ? AND part = ?;
+
+bodyOf:
+SELECT codec, data FROM bodies WHERE exchange_ref = ? AND part = ?;
