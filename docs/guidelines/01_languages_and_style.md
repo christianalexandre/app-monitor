@@ -16,7 +16,7 @@ How code is written in each language of the repository.
   and options). Anything else public needs a reason in the PR.
 - **Debug only.** SDK code must compile to nothing in release: every SDK ships a
   no-op artifact with the same public API. A public API change updates the
-  dumps (`./gradlew updateKotlinAbi`) and `sdk/no-op` in the same PR; on iOS,
+  dumps (`./gradlew updateKotlinAbi`) and the module's `sdk/*-no-op` twin in the same PR; on iOS,
   public declarations stay out of `#if DEBUG` and the dump is rewritten by
   `scripts/swift_api_check.sh --update` (ADR-0048).
 - **No secrets in the repo.** Local values go in `local.properties` or env vars.

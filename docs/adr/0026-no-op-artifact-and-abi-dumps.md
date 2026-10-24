@@ -1,9 +1,9 @@
 ---
 id: ADR-0026
 title: One no-op artifact, checked against committed ABI dumps
-status: Accepted
+status: Superseded
 date: 2026-10-22
-superseded_by:
+superseded_by: ADR-0072
 ---
 
 # ADR-0026 — One no-op artifact, checked against committed ABI dumps

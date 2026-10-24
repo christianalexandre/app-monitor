@@ -5,6 +5,6 @@
 // - Show manifest properties: true
 // - Show declarations: true
 
-// Library unique name: <app-monitor.sdk:ktor>
+// Library unique name: <io.github.christianalexandre:ktor>
 final val appmonitor.sdk.ktor/AppMonitorKtor // appmonitor.sdk.ktor/AppMonitorKtor|{}AppMonitorKtor[0]
     final fun <get-AppMonitorKtor>(): io.ktor.client.plugins.api/ClientPlugin<kotlin/Unit> // appmonitor.sdk.ktor/AppMonitorKtor.<get-AppMonitorKtor>|<get-AppMonitorKtor>(){}[0]

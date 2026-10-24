@@ -17,8 +17,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
 ```
 
 Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
-`tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`,
-`sdk/no-op`), the Ktor plugin (`sdk/ktor`, HTTP), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
+`tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`),
+the no-op modules (`sdk/*-no-op`), the Ktor plugin (`sdk/ktor`, HTTP), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
 Everything else is **(planned)**.
 
 ## Protocol
@@ -185,9 +185,11 @@ a stack trace (DEBT-0010). See ADR-0010.
   `masking` switch (ADR-0034). Masking
   and the body limit run on the device, before the wire (ADR-0018). Capture:
   `AppMonitorInterceptor` and `AppMonitorWebSocketFactory`.
-- **Release builds** depend on `sdk/no-op`: the same public types doing
-  nothing, kept identical by comparing the committed ABI dumps (ADR-0026).
-- `samples/android` uses the SDK in debug and `sdk/no-op` in release, and
+- **Release builds** swap each SDK module for its no-op twin
+  (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
+  same public types doing nothing, kept identical by comparing the committed
+  JVM, Android and klib ABI dumps (ADR-0072).
+- `samples/android` uses the SDK in debug and `sdk/okhttp-no-op` in release, and
   `checkReleaseHasNoSdk` proves the release APK has no SDK classes
   (ADR-0030). It is the device side of the end-to-end run (SDD 02,
   ADR-0031).

@@ -1,5 +1,6 @@
 plugins {
     id("appmonitor.kmp-sdk-ios")
+    id("appmonitor.publish")
 }
 
 // Compiled into commonTest, so the JVM, the Android host and the simulator read the same vector (ADR-0036 A).

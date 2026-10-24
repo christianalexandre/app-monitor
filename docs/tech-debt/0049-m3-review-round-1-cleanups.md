@@ -51,3 +51,7 @@ package.
 Partly paid: the `scripts/debt_check.sh` item, in `fix/debt-check-unknown-base`
 (ADR-0061): paths match by whole segments anywhere, and a name that is a
 file's whole basename never matches by stem.
+
+The `scripts/publish_dry_run.sh` item, in `build/sdk-ktor-no-op-publication`
+(ADR-0072): every artifact's `-iosarm64` and `-iossimulatorarm64` POMs are
+checked, `appmonitor-protocol`'s included.

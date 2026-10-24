@@ -43,7 +43,7 @@ Rules:
 | [0023](0023-sdk-core-module-and-ktor-transport.md) | sdk/core module layout and its Ktor CIO transport | Accepted |
 | [0024](0024-sdk-discovery-contract.md) | One mDNS selection rule for every client, and the SDK's discovery sources | Accepted |
 | [0025](0025-okhttp-capture-module.md) | OkHttp capture module, its bridge to sdk/core and the body cap | Accepted |
-| [0026](0026-no-op-artifact-and-abi-dumps.md) | One no-op artifact, checked against committed ABI dumps | Accepted |
+| [0026](0026-no-op-artifact-and-abi-dumps.md) | One no-op artifact, checked against committed ABI dumps | Superseded by [0072](0072-no-op-per-adapter-and-klib-dumps.md) |
 | [0027](0027-device-approval-on-the-desktop.md) | Device approval as a server hook, shown in the window | Accepted |
 | [0028](0028-websocket-frame-truncation-fields.md) | WebSocket frames carry a truncation flag and their original size | Accepted |
 | [0029](0029-desktop-renders-bodies-off-the-ui-thread.md) | The detail pane is a lazy list; bodies render off the UI thread in chunks | Accepted |
@@ -89,3 +89,4 @@ Rules:
 | [0069](0069-ktor-capture-hook-and-common-masking.md) | The Ktor plugin captures in the send pipeline and masks by RFC 3986 on strings | Accepted |
 | [0070](0070-ktor-websocket-frames-from-the-engine-session.md) | The Ktor plugin records WebSocket frames on the engine's session | Accepted |
 | [0071](0071-ktor-capture-header-over-an-in-process-mark.md) | The Ktor plugin marks its captures with the header, not an in-process mark | Accepted |
+| [0072](0072-no-op-per-adapter-and-klib-dumps.md) | One no-op module per SDK module, checked against JVM, Android and klib dumps | Accepted |

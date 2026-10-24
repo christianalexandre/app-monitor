@@ -117,8 +117,8 @@ val client = OkHttpClient.Builder()
 val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
 ```
 
-Debug builds depend on `sdk/android-okhttp`, release builds on `sdk/no-op`
-(same API, does nothing). A working app is in
+Debug builds depend on `sdk/android-okhttp`, release builds on
+`sdk/okhttp-no-op` (same API, does nothing). A working app is in
 [`samples/android`](samples/android).
 
 ```swift

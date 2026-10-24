@@ -10,23 +10,51 @@ group_dir="$repo/io/github/christianalexandre"
 rm -rf "$repo"
 ./gradlew -q publishAllPublicationsToDryRunRepository
 
-fail=0
-for base in appmonitor-protocol appmonitor-core appmonitor-okhttp appmonitor-no-op; do
-  for suffix in "" -jvm -android; do
-    artifact="$base$suffix"
-    pom="$(find "$group_dir/$artifact" -name '*.pom' 2>/dev/null | head -1)"
-    if [[ -z "$pom" ]]; then
-      echo "publish: no POM for $artifact" >&2
-      fail=1
-      continue
+# Artifact base, then the targets it publishes besides its root (ADR-0062 C.1 and E.1).
+artifacts=(
+  "appmonitor-protocol jvm android ios"
+  "appmonitor-core jvm android ios"
+  "appmonitor-okhttp jvm android"
+  "appmonitor-ktor jvm android ios"
+  "appmonitor-core-no-op jvm android ios"
+  "appmonitor-okhttp-no-op jvm android"
+  "appmonitor-ktor-no-op jvm android ios"
+)
+expected=()
+for entry in "${artifacts[@]}"; do
+  read -r base targets <<<"$entry"
+  expected+=("$base")
+  for target in $targets; do
+    if [[ "$target" == ios ]]; then
+      expected+=("$base-iosarm64" "$base-iossimulatorarm64")
+    else
+      expected+=("$base-$target")
     fi
-    for tag in name description url license developer scm; do
-      if ! grep -q "<$tag>" "$pom"; then
-        echo "publish: $artifact POM has no <$tag>" >&2
-        fail=1
-      fi
-    done
   done
+done
+
+fail=0
+for artifact in "${expected[@]}"; do
+  pom="$(find "$group_dir/$artifact" -name '*.pom' 2>/dev/null | head -1)"
+  if [[ -z "$pom" ]]; then
+    echo "publish: no POM for $artifact" >&2
+    fail=1
+    continue
+  fi
+  for tag in name description url license developer scm; do
+    if ! grep -q "<$tag>" "$pom"; then
+      echo "publish: $artifact POM has no <$tag>" >&2
+      fail=1
+    fi
+  done
+  # ADR-0072: a release build that swaps in a no-op pulls no real SDK artifact.
+  if [[ "$artifact" == *-no-op* ]]; then
+    leaked="$(sed -n 's|.*<artifactId>\(appmonitor-[^<]*\)</artifactId>.*|\1|p' "$pom" | grep -v -- '-no-op' || true)"
+    if [[ -n "$leaked" ]]; then
+      echo "publish: $artifact depends on $leaked" >&2
+      fail=1
+    fi
+  fi
 done
 [[ $fail -eq 0 ]] || exit 1
 echo "publish: Maven files in $repo"
