@@ -135,7 +135,11 @@ job, on macOS, installs XcodeGen with Homebrew, runs `make swift` (proto
 freshness, swift-format, `swift test` with the fixture tests, public API,
 simulator tests, sample) and `./gradlew :protocol:allTests`
 (`iosSimulatorArm64Test` included); the simulator and sample logs and the
-protocol reports are uploaded on failure.
+protocol reports are uploaded on failure. The `e2e-android` job, on ubuntu,
+enables KVM, builds the debug APK and the server's `installDist`, then
+boots an API 36 `google_apis` x86_64 emulator with
+`reactivecircus/android-emulator-runner` and runs `make e2e-android` in it;
+`build/e2e-android/` (server log, logcat) is uploaded on failure.
 
 ## Limits
 
