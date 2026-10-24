@@ -188,8 +188,9 @@ cache lives for one bounded browse.
   DEBT-0027 fires (`MonitorClient` change).
   Accept: `./gradlew :sdk:core:allTests` with a session that completes
   `Rejected` and whose close throws, ending rejected, not lost.
-- [ ] **M4.R5 The peer's close is lost when `incoming` closes with a
-  cause.** `RecordingReceiveChannel` records the peer's close only on
+- [x] **M4.R5 The peer's close is lost when `incoming` closes with a
+  cause.** (`fix/ktor-ws-close-with-cause`. Deviation: only OkHttp's default session lost it;
+  on a raw one the close is a frame in `incoming`, read before the cause) `RecordingReceiveChannel` records the peer's close only on
   `ClosedReceiveChannelException` or `hasNext() == false`; a channel closed
   with a cause rethrows it from `receive()` and `hasNext()`, so the
   `DIRECTION_RECEIVED:OPCODE_CLOSE` frame is never emitted (Darwin may fail

@@ -113,13 +113,17 @@ private class RecordingReceiveChannel(
             }
         }
 
-    override suspend fun receive(): Frame =
+    // A channel closed with a cause rethrows the cause, not `ClosedReceiveChannelException`.
+    @OptIn(DelicateCoroutinesApi::class)
+    private inline fun <T> reading(read: () -> T): T =
         try {
-            taken(channel.receive())
-        } catch (e: ClosedReceiveChannelException) {
-            ended()
+            read()
+        } catch (e: Throwable) {
+            if (e is ClosedReceiveChannelException || channel.isClosedForReceive) ended()
             throw e
         }
+
+    override suspend fun receive(): Frame = taken(reading { channel.receive() })
 
     override suspend fun receiveCatching(): ChannelResult<Frame> = taken(channel.receiveCatching())
 
@@ -128,7 +132,7 @@ private class RecordingReceiveChannel(
     override fun iterator(): ChannelIterator<Frame> {
         val iterator = channel.iterator()
         return object : ChannelIterator<Frame> {
-            override suspend fun hasNext(): Boolean = iterator.hasNext().also { if (!it) ended() }
+            override suspend fun hasNext(): Boolean = reading { iterator.hasNext() }.also { if (!it) ended() }
 
             override fun next(): Frame = taken(iterator.next())
         }

@@ -68,8 +68,8 @@ at `Transform`, wraps the engine's session so each frame becomes a
   by Ktor's `DefaultWebSocketSession`: every frame Ktor puts on the wire,
   pings, pongs and both closes included. OkHttp hands over its own default
   session: text and binary frames both ways and a close the app sends; the
-  peer's close is recorded from `closeReason` when `incoming` ends, and the
-  answer OkHttp sends to it is not seen.
+  peer's close is recorded from `closeReason` when `incoming` ends, closed
+  or failed with a cause, and the answer OkHttp sends to it is not seen.
 - **Off until started**: no id is set while the monitor is off, so a
   session opened then is never wrapped; a frame after `stop()` is dropped.
 
