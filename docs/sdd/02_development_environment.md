@@ -108,7 +108,9 @@ ref: `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]`.
 The workflow must exist on `dev` for a dispatch to find it. The `desktop`
 job runs `:desktop:app:test`, `:desktop:server:test` and
 `:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
-(`fail-fast: false`, reports uploaded on failure).
+(`fail-fast: false`, reports uploaded on failure). On macOS it sets
+`APPMONITOR_NO_LOCAL_NETWORK=1`, which drops the mDNS round trip test: the
+hosted runner has no local network access (DEBT-0046).
 
 ## Limits
 

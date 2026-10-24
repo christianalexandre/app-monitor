@@ -47,15 +47,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic # ADR-0012
-      - name: Diagnose network (temporary)
-        if: runner.os == 'macOS'
-        run: |
-          ifconfig
-          /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate || true
-          netstat -rn -f inet | head -20
       - name: Desktop app tests
         run: ./gradlew :desktop:app:test
       - name: Desktop server tests
+        env:
+          APPMONITOR_NO_LOCAL_NETWORK: ${{ runner.os == 'macOS' && '1' || '' }} # DEBT-0046
         run: ./gradlew :desktop:server:test
       - name: Protocol JVM tests
         run: ./gradlew :protocol:jvmTest
