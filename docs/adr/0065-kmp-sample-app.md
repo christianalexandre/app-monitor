@@ -1,7 +1,7 @@
 ---
 id: ADR-0065
 title: KMP sample app, its UI toolkit, targets and place in the release gate
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -66,7 +66,9 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (Compose Multiplatform, one
+shared UI), B.1 (Android, `iosArm64`, `iosSimulatorArm64`) and C.1
+(`e2e-kmp-android` and `e2e-kmp-ios` jobs in the release gate).
 
 ## Consequences
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-0063
 title: What the Ktor plugin captures and masks, and the keys a KMP iOS app needs
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -96,7 +96,10 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (the shared rule member for
+member, WebSocket frames in scope, `masking = false` turns it off, default
+`true`) and B.1 (`add_local_network_keys.sh` in the KMP app's Xcode target,
+same `Debug` rule).
 
 ## Consequences
 

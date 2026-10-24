@@ -1,7 +1,7 @@
 ---
 id: ADR-0064
 title: How the Ktor plugin and the Swift SDK avoid capturing one exchange twice
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -81,7 +81,15 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (`X-AppMonitor-Capture: ktor`
+on iOS only, skipped by the Swift hook) and B.1 (`sdk/core` on iOS reuses
+the Swift SDK's device id file).
+
+Two checks come with it. M4.7 first tries an in-process mark that never
+leaves the device (`URLProtocol.setProperty` on the Darwin engine's
+request); if it works without new public API, a new ADR replaces the header,
+otherwise the header stands. B.1 holds only if M4.4 proves the desktop keeps
+two sessions with the same (`device_id`, `app_id`) open at once.
 
 ## Consequences
 

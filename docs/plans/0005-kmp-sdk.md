@@ -26,7 +26,7 @@ before the code; every end to end runs locally as a `make` target before it
 runs in the release gate; `make debt-check` decides how each fired DEBT is
 handled (DEBT-0027 fires on any `MonitorClient` change).
 
-- [!] **M4.1 KMP SDK API, privacy and dedupe decisions.** (`docs/kmp-sdk-decisions`; waiting for the owner on ADR-0062, ADR-0063, ADR-0064, ADR-0065) `Proposed` ADRs,
+- [x] **M4.1 KMP SDK API, privacy and dedupe decisions.** (ADR-0062, ADR-0063, ADR-0064, ADR-0065 `Accepted`: the owner took every recommendation) `Proposed` ADRs,
   one stop: (a) the public API a KMP developer touches — how the Ktor
   plugin is installed and configured, how `AppMonitor.start` looks from
   common and iOS code (ADR-0017's shape), the Maven artifacts and their
@@ -58,7 +58,9 @@ handled (DEBT-0027 fires on any `MonitorClient` change).
 - [ ] **M4.4 `sdk/core` iOS discovery and device identity.** Manual host →
   Bonjour from Kotlin/Native → the simulator's `127.0.0.1`, the same
   contract as ADR-0024 and the Swift SDK (ADR-0042); the `Hello` an iOS KMP
-  app sends (device id, model, OS, app name).
+  app sends (device id, model, OS, app name); the device id file shared
+  with the Swift SDK, and two sessions with one (`device_id`, `app_id`)
+  kept open by the desktop (ADR-0064 B.1).
   Accept: `./gradlew :sdk:core:allTests` — discovery with fake browsers on
   the iOS simulator; the live test finds `make server` by Bonjour.
 - [ ] **M4.5 `sdk/ktor` HTTP capture.** The plugin per M4.1 (a, b) on JVM,
@@ -72,7 +74,8 @@ handled (DEBT-0027 fires on any `MonitorClient` change).
   Accept: `./gradlew :sdk:ktor:allTests` — frames captured against an
   in-process echo server on JVM.
 - [ ] **M4.7 Dedupe with the Swift SDK.** The correlation header per M4.1
-  (c) in `sdk/ktor`; the Swift SDK's hooks skip what carries it.
+  (c) in `sdk/ktor`; the Swift SDK's hooks skip what carries it. First
+  tries the in-process mark ADR-0064 names; a working one goes to a new ADR.
   Accept: `./gradlew :sdk:ktor:allTests` and `swift test --package-path
   sdk/ios` — a request with the header yields no Swift capture, one
   without it still does.

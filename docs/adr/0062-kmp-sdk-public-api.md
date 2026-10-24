@@ -1,7 +1,7 @@
 ---
 id: ADR-0062
 title: KMP SDK public API, artifacts, no-op and iOS targets
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -141,7 +141,15 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (`install(AppMonitorKtor)`,
+no configuration block), B.1 (`AppMonitor.start(options)` in `iosMain`, no
+common `expect`), C.1 (one no-op per adapter over `appmonitor-core-no-op`),
+D.1 and E.1 (`iosArm64`, `iosSimulatorArm64`, Ktor 3.6.0 or newer).
+
+D.1 is meant to have the effect of the Swift SDK's `#if DEBUG` (ADR-0048):
+Kotlin has no conditional compilation, so the Gradle dependency swap is the
+equivalent, and an iOS release binary holds no SDK code. If M4.9 shows D.1
+cannot work, M4 stops at a new `Proposed` ADR; D.2 is not taken silently.
 
 ## Consequences
 
