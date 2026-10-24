@@ -1,0 +1,401 @@
+package appmonitor.desktop.storage
+
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlCursor
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import appmonitor.desktop.storage.db.AppMonitorDatabase
+import appmonitor.v1.CaptureLayer
+import appmonitor.v1.Envelope
+import appmonitor.v1.Hello
+import appmonitor.v1.RequestStarted
+import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import okio.ByteString
+import okio.ByteString.Companion.toByteString
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
+import java.sql.DriverManager
+import java.util.Properties
+import java.util.concurrent.Executors
+import kotlin.time.Duration
+import kotlin.time.TimeSource
+
+/**
+ * The desktop's SQLite store (SDD 09). Writes go through one queue to one writer thread;
+ * reads run on [Dispatchers.IO], each in its own transaction.
+ */
+class Storage private constructor(
+    /** The database file. */
+    val file: Path,
+    /** The run this launch opened (ADR-0084). */
+    val runId: Long,
+    private val driver: JdbcSqliteDriver,
+    private val database: AppMonitorDatabase,
+    private val clock: () -> Long,
+    maxQueueBytes: Long,
+    beforeCommit: (List<StorageItem>) -> Unit,
+) {
+    internal val writerDispatcher: ExecutorCoroutineDispatcher =
+        Executors
+            .newSingleThreadExecutor { Thread(it, WRITER_THREAD).apply { isDaemon = true } }
+            .asCoroutineDispatcher()
+
+    private val ingest = Ingest(database, runId, beforeCommit)
+
+    private val queue =
+        WriteQueue(
+            maxBytes = maxQueueBytes,
+            maxBatch = MAX_BATCH,
+            dispatcher = writerDispatcher,
+            sizeOf = { item: StorageItem ->
+                if (item is StorageItem.Received) Envelope.ADAPTER.encodedSize(item.envelope).toLong() else 0L
+            },
+            counted = { it !is StorageItem.Barrier },
+            write = ingest::write,
+            written = { batch -> batch.forEach { if (it is StorageItem.Barrier) it.done.complete(Unit) } },
+        )
+
+    /** Items lost to write failures, and the last one's error while it lasts. */
+    val health: StateFlow<StorageHealth> = queue.health
+
+    /** The most encoded envelope bytes waiting at once since the store opened (DEBT-0022). */
+    val queueHighWaterBytes: Long get() = queue.highWaterBytes
+
+    /** Queues a session's start; call before its first [received]. Suspends only while the queue is full. */
+    suspend fun connected(
+        sessionId: String,
+        hello: Hello,
+        peerAddress: String?,
+    ) {
+        queue.enqueue(StorageItem.Connected(sessionId, hello, peerAddress, clock()))
+    }
+
+    suspend fun received(
+        sessionId: String,
+        envelope: Envelope,
+    ) {
+        queue.enqueue(StorageItem.Received(sessionId, envelope, clock()))
+    }
+
+    suspend fun disconnected(sessionId: String) {
+        queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
+    }
+
+    /**
+     * Ends the run, then writes what is queued for up to [timeout]. Returns how many items were
+     * not written; they are lost, and the next open closes what they left open.
+     */
+    suspend fun close(timeout: Duration): Long {
+        val start = TimeSource.Monotonic.markNow()
+        withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
+        val lost = queue.close(timeout - start.elapsedNow())
+        if (lost > 0) System.err.println("Storage closed with $lost items not saved")
+        writerDispatcher.close()
+        driver.close()
+        return lost
+    }
+
+    suspend fun runs(): List<StoredRun> =
+        read {
+            runQueries.all { id, name, started, ended -> StoredRun(id, name, started, ended) }.executeAsList()
+        }
+
+    suspend fun sessions(runId: Long): List<StoredSession> =
+        read {
+            sessionQueries.ofRun(runId).executeAsList().map {
+                StoredSession(
+                    id = it.id,
+                    runId = it.run_id,
+                    serverSessionId = it.server_session_id,
+                    hello = Hello.ADAPTER.decode(it.hello),
+                    peerAddress = it.peer_address,
+                    connectedAtMs = it.connected_at_ms,
+                    disconnectedAtMs = it.disconnected_at_ms,
+                    lastEnvelopeAtMs = it.last_envelope_at_ms,
+                )
+            }
+        }
+
+    /** A page of a run's exchanges in arrival order; the next page passes the last [StoredExchange.id] as [afterId]. */
+    suspend fun exchangesOfRun(
+        runId: Long,
+        afterId: Long = 0,
+        limit: Long = PAGE_SIZE,
+    ): List<StoredExchange> = read { exchangeQueries.pageOfRun(runId, afterId, limit, ::StoredExchange).executeAsList() }
+
+    suspend fun exchangesOfSession(
+        sessionId: Long,
+        afterId: Long = 0,
+        limit: Long = PAGE_SIZE,
+    ): List<StoredExchange> = read { exchangeQueries.pageOfSession(sessionId, afterId, limit, ::StoredExchange).executeAsList() }
+
+    /** One exchange with its events as the device sent them, bodies included; null when it is not stored. */
+    suspend fun exchange(id: Long): ExchangeDetail? =
+        read {
+            val row = exchangeQueries.byId(id).executeAsOneOrNull() ?: return@read null
+
+            fun body(part: Long): ByteString =
+                bodyQueries.bodyOf(id, part).executeAsOneOrNull()?.let { Codec.decode(it.codec, it.data_).toByteString() }
+                    ?: ByteString.EMPTY
+            ExchangeDetail(
+                exchange =
+                    StoredExchange(
+                        row.id,
+                        row.session_ref,
+                        row.request_id,
+                        row.method,
+                        row.url,
+                        row.host,
+                        row.status_code,
+                        row.failed,
+                        row.started_at_ms,
+                        row.ended_at_ms,
+                        row.capture_layer,
+                        row.error,
+                        row.frame_count,
+                    ),
+                request = row.request_meta?.let { RequestStarted.ADAPTER.decode(it).copy(body = body(Ingest.PART_REQUEST)) },
+                response = row.response_meta?.let { ResponseReceived.ADAPTER.decode(it).copy(body = body(Ingest.PART_RESPONSE)) },
+            )
+        }
+
+    /** A page of an exchange's WebSocket frames, in the order the device sent them. */
+    suspend fun frames(
+        exchangeId: Long,
+        afterId: Long = 0,
+        limit: Long = PAGE_SIZE,
+    ): List<StoredFrame> =
+        read {
+            frameQueries.pageOfExchange(exchangeId, afterId, limit).executeAsList().map {
+                StoredFrame(
+                    id = it.id,
+                    atMs = it.at_ms,
+                    direction = WebSocketFrame.Direction.fromValue(it.direction.toInt()) ?: WebSocketFrame.Direction.DIRECTION_UNSPECIFIED,
+                    opcode = WebSocketFrame.Opcode.fromValue(it.opcode.toInt()) ?: WebSocketFrame.Opcode.OPCODE_UNSPECIFIED,
+                    payload =
+                        if (it.codec == null ||
+                            it.data_ == null
+                        ) {
+                            ByteString.EMPTY
+                        } else {
+                            Codec.decode(it.codec, it.data_).toByteString()
+                        },
+                    payloadTruncated = it.payload_truncated != 0L,
+                    payloadSize = it.payload_size,
+                )
+            }
+        }
+
+    private suspend fun <R> read(block: AppMonitorDatabase.() -> R): R =
+        withContext(Dispatchers.IO) { database.transactionWithResult { database.block() } }
+
+    /** Runs [block] on the writer thread, between two batches; tests use it to hold the writer. */
+    internal suspend fun <R> onWriter(block: () -> R): R = withContext(writerDispatcher) { block() }
+
+    internal fun pageQuery(sessionId: Long) = database.exchangeQueries.pageOfSession(sessionId, 0, PAGE_SIZE)
+
+    /** Reads a PRAGMA on a connection of the store's driver, opened for it. */
+    internal fun pragma(name: String): Long? = driver.longQuery("PRAGMA $name")
+
+    /** Returns once everything queued before it is written or counted as lost. */
+    internal suspend fun flush() {
+        val barrier = StorageItem.Barrier()
+        queue.enqueue(barrier)
+        barrier.done.await()
+    }
+
+    companion object {
+        const val FILE_NAME = "appmonitor.db"
+        const val PAGE_SIZE = 200L
+        const val MAX_QUEUE_BYTES = 64L * 1024 * 1024
+        internal const val MAX_BATCH = 500
+        internal const val WRITER_THREAD = "appmonitor-storage"
+
+        /**
+         * Opens or creates `appmonitor.db` in [directory] and opens a new run (SDD 09, ADR-0085).
+         * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched.
+         */
+        fun open(
+            directory: Path,
+            clock: () -> Long = System::currentTimeMillis,
+        ): Storage = open(directory, clock, MAX_QUEUE_BYTES) {}
+
+        internal fun open(
+            directory: Path,
+            clock: () -> Long,
+            maxQueueBytes: Long,
+            beforeCommit: (List<StorageItem>) -> Unit,
+        ): Storage {
+            val file = createOwnerOnly(directory)
+            val url = "jdbc:sqlite:$file"
+            prepare(url)
+            val driver = JdbcSqliteDriver(url, connectionProperties())
+            try {
+                val database = AppMonitorDatabase(driver)
+                val runId =
+                    database.transactionWithResult {
+                        val version = driver.longQuery("PRAGMA user_version") ?: 0L
+                        val schema = AppMonitorDatabase.Schema
+                        when {
+                            version == 0L -> schema.create(driver)
+                            version < schema.version -> schema.migrate(driver, version, schema.version)
+                            version > schema.version -> throw NewerDatabaseException(version, schema.version)
+                        }
+                        driver.execute(null, "PRAGMA user_version = ${schema.version}", 0)
+                        database.sessionQueries.closeOpen()
+                        database.runQueries.closeOpen()
+                        database.runQueries.insert(clock())
+                        database.runQueries.lastId().executeAsOne()
+                    }
+                return Storage(file, runId, driver, database, clock, maxQueueBytes, beforeCommit)
+            } catch (e: Throwable) {
+                driver.close()
+                throw e
+            }
+        }
+
+        private fun createOwnerOnly(directory: Path): Path {
+            Files.createDirectories(directory)
+            val posix = "posix" in directory.fileSystem.supportedFileAttributeViews()
+            if (posix) Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"))
+            val file = directory.resolve(FILE_NAME)
+            if (Files.notExists(file)) {
+                Files.createFile(file)
+                // SQLite gives the WAL and shared-memory files the database's mode.
+                if (posix) Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"))
+            }
+            return file
+        }
+
+        // ADR-0086: before the driver's properties touch the file; VACUUM is what makes auto_vacuum hold.
+        private fun prepare(url: String) {
+            DriverManager.getConnection(url).use { connection ->
+                val version =
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("PRAGMA user_version").use { if (it.next()) it.getLong(1) else 0L }
+                    }
+                val schemaVersion = AppMonitorDatabase.Schema.version
+                if (version > schemaVersion) throw NewerDatabaseException(version, schemaVersion)
+                if (version == 0L) {
+                    connection.createStatement().use {
+                        it.execute("PRAGMA auto_vacuum = INCREMENTAL")
+                        it.execute("VACUUM")
+                    }
+                }
+            }
+        }
+
+        // ADR-0085: per-connection settings must be properties, a PRAGMA statement dies with its connection.
+        private fun connectionProperties() =
+            Properties().apply {
+                setProperty("journal_mode", "WAL")
+                setProperty("synchronous", "NORMAL")
+                setProperty("foreign_keys", "true")
+                setProperty("secure_delete", "true")
+                setProperty("busy_timeout", "5000")
+            }
+
+        private fun JdbcSqliteDriver.longQuery(sql: String): Long? =
+            executeQuery(
+                null,
+                sql,
+                { cursor: SqlCursor -> QueryResult.Value(if (cursor.next().value) cursor.getLong(0) else null) },
+                0,
+            ).value
+    }
+}
+
+/** `appmonitor.db` was written by a newer App Monitor; nothing was written to it. */
+class NewerDatabaseException(
+    val found: Long,
+    val supported: Long,
+) : Exception("Database schema version $found is newer than this App Monitor's ($supported)")
+
+data class StoredRun(
+    val id: Long,
+    val name: String?,
+    val startedAtMs: Long,
+    val endedAtMs: Long?,
+)
+
+data class StoredSession(
+    val id: Long,
+    val runId: Long,
+    val serverSessionId: String,
+    val hello: Hello,
+    val peerAddress: String?,
+    val connectedAtMs: Long,
+    val disconnectedAtMs: Long?,
+    val lastEnvelopeAtMs: Long?,
+)
+
+/** The columns lists and filters read; no body, no headers. */
+data class StoredExchange(
+    val id: Long,
+    val sessionId: Long,
+    val requestId: String,
+    val method: String?,
+    val url: String?,
+    val host: String?,
+    val statusCode: Int?,
+    val failed: Boolean,
+    val startedAtMs: Long?,
+    val endedAtMs: Long?,
+    val captureLayer: CaptureLayer,
+    val error: String?,
+    val frameCount: Long,
+) {
+    internal constructor(
+        id: Long,
+        sessionRef: Long,
+        requestId: String,
+        method: String?,
+        url: String?,
+        host: String?,
+        statusCode: Long?,
+        failed: Long,
+        startedAtMs: Long?,
+        endedAtMs: Long?,
+        captureLayer: Long?,
+        error: String?,
+        frameCount: Long,
+    ) : this(
+        id,
+        sessionRef,
+        requestId,
+        method,
+        url,
+        host,
+        statusCode?.toInt(),
+        failed != 0L,
+        startedAtMs,
+        endedAtMs,
+        captureLayer?.let { CaptureLayer.fromValue(it.toInt()) } ?: CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
+        error,
+        frameCount,
+    )
+}
+
+/** [request] and [response] are the events as received, bodies restored; null until that event is stored. */
+data class ExchangeDetail(
+    val exchange: StoredExchange,
+    val request: RequestStarted?,
+    val response: ResponseReceived?,
+)
+
+data class StoredFrame(
+    val id: Long,
+    val atMs: Long,
+    val direction: WebSocketFrame.Direction,
+    val opcode: WebSocketFrame.Opcode,
+    val payload: ByteString,
+    val payloadTruncated: Boolean,
+    val payloadSize: Long?,
+)

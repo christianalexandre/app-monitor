@@ -52,7 +52,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   each desktop OS, the data directory per OS, the runtime modules the
   packaged app needs (ADR-0055).
   Accept: `make docs-check`; every write path case has a named test.
-- [ ] **M5.3 `desktop/storage` module.** SQLDelight schema per M5.2,
+- [x] **M5.3 `desktop/storage` module.** (ADR-0086; `DeviceSession.peerAddress` added as SDD 09 asks; `approvals` and `settings` tables in schema 1 without queries; `java.sql` joins the package with the app's dependency in M5.4) SQLDelight schema per M5.2,
   migrations verified at build time, an ingest API taking `Hello` and
   envelopes, bodies compressed in their own table, paged queries the UI
   needs.

@@ -9,4 +9,5 @@ dependencies {
     implementation(libs.spotless.gradle.plugin)
     implementation(libs.android.gradle.plugin)
     implementation(libs.wire.gradle.plugin)
+    implementation(libs.sqldelight.gradle.plugin)
 }

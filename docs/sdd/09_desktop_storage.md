@@ -1,12 +1,13 @@
 # 09 — Desktop storage
 
-**Designed, not built yet** (ADR-0066): the contract M5.3 to M5.8 build
-(PLAN-0006). `desktop/storage` keeps what the desktop receives in one SQLite
-file through SQLDelight (ADR-0005), so traffic, runs and approvals survive a
-restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
+**Built in part** (ADR-0066): the module, its schema, write path and paged
+reads are in `desktop/storage` (M5.3); the app does not use it yet (M5.4), and
+approvals, run names, search and retention are M5.5 to M5.8 (PLAN-0006).
+`desktop/storage` keeps what the desktop receives in one SQLite file through
+SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
-files, connection settings). Code: `desktop/storage/` (planned), used by
-`desktop/app`.
+files, connection settings), ADR-0086 (opening, booleans, lost writes).
+Code: `desktop/storage/`, used by `desktop/app` from M5.4.
 
 ## How it works
 
@@ -14,7 +15,9 @@ files, connection settings). Code: `desktop/storage/` (planned), used by
 
 `<data dir>/appmonitor.db`, with `appmonitor.db-wal` and `-shm` beside it.
 The data directory and its resolution order (`APPMONITOR_DATA_DIR`, then
-per OS) are ADR-0085's; the settings show the path. On macOS and Linux the
+per OS) are ADR-0085's, computed by `dataDirectory()`; the settings show the
+path. The WAL and shared-memory files exist while a connection is open: the
+store closes its connection after each transaction, so they come and go. On macOS and Linux the
 directory is `0700` and the files `0600`.
 
 Opening (`Storage.open(dir)`):
@@ -23,9 +26,12 @@ Opening (`Storage.open(dir)`):
    `0600` if absent.
 2. Open the driver with the connection properties of ADR-0085 (WAL,
    `foreign_keys`, `secure_delete`, `busy_timeout`).
-3. `user_version` 0 → `auto_vacuum = INCREMENTAL`, create the schema;
-   lower than the schema → migrate in one transaction; higher → fail with
-   `NewerDatabase` (nothing written).
+3. `user_version` is read first on one plain connection, without the
+   properties: higher than the schema → fail with `NewerDatabaseException`
+   (nothing written); 0 → `auto_vacuum = INCREMENTAL` and `VACUUM` on that
+   same connection, which applies it whatever the file holds. Then, in one
+   transaction on the driver: 0 → create the schema; lower → migrate; the
+   version set to the schema's.
 4. Recover from a crash: sessions without `disconnected_at_ms` get their
    `last_envelope_at_ms` (or `connected_at_ms`) as end; runs without
    `ended_at_ms` get their last session's end, or their start.
@@ -62,6 +68,9 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 - `raw_envelopes` holds what the store does not turn into rows: other
   channels, unknown `network` types, a payload that does not decode
   (ADR-0081 A.1).
+- Booleans (`failed`, `payload_truncated`, `approved`) are `INTEGER` 0 or 1.
+- `approvals` and `settings` are in the version-1 schema with no query yet
+  (M5.5, M5.8), so those tasks need no migration.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).
 
@@ -107,31 +116,36 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   today's back-pressure (ADR-0009): nothing is dropped, and DEBT-0022 is
   back for as long as it lasts. The queue's high-water mark is recorded for
   the M5.4 measurement; DEBT-0022 is re-triggered on it there.
-- **Failed batch** (`SQLException`: disk full, I/O error). The transaction
-  rolls back; the batch's items are counted as not saved; the writer goes on
+- **Failed batch** (any exception from the batch, `SQLException` for disk
+  full or I/O error). The transaction rolls back; the batch's items are
+  counted as not saved; the writer goes on
   with the next batch, so one bad moment does not stop ingest or close a
   device. `Storage.health` (a `StateFlow`) holds the count and the last
   error; the window shows "N events not saved: <error>" until a later batch
-  succeeds. An exchange whose `RequestStarted` was in a lost batch is
-  created by its next event, with what that event carries.
+  holding events succeeds. An exchange whose `RequestStarted` was in a lost batch is
+  created by its next event, with what that event carries; a session whose
+  row was in a lost batch is inserted again from its `Hello`, which the
+  writer keeps until the session's `Disconnected`.
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
   file). The app opens without storage: the window shows the error, the
   path and "Clear all data"; the server is not started, so devices are not
   admitted into a desktop that cannot keep them.
-- **Close.** On exit, after the server stops, the queue is drained with the
-  same `STOP_TIMEOUT` as the server; what is still queued after it is lost
-  and logged with its count.
+- **Close.** On exit, after the server stops, `Storage.close(timeout)`
+  queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
+  the server; what is still queued after it, the batch being written
+  included, is lost, logged and returned as a count. The next open closes
+  what it left open.
 
 ### Reading
 
-- The UI reads on `Dispatchers.IO`; WAL lets a read see the last committed
+- `Storage`'s reads are suspending functions that move to `Dispatchers.IO`; WAL lets a read see the last committed
   batch while the writer works. Each read is one transaction, so it opens one
   connection, not one per statement (ADR-0085).
 - Lists are pages by key, never by `OFFSET`: exchanges of a run or session
   ordered by `id`, `PAGE_SIZE` 200, the next page `WHERE id > :last`. The
   window holds the pages in view; a commit re-runs the pages loaded through
-  SQLDelight's `Query` listeners (`coroutines-extensions`), conflated so a
-  burst of batches is one refresh.
+  SQLDelight's `Query` listeners (`coroutines-extensions`, added with M5.4,
+  its first user), conflated so a burst of batches is one refresh.
 - The detail of one exchange reads its meta, its bodies (inflated on read)
   and its frames by page.
 - Search and filters (M5.7) are `WHERE` clauses on the indexed columns.
@@ -157,6 +171,8 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A full queue suspends `enqueue`, nothing dropped | `WriteQueueTest.fullQueueSuspends` |
 | A failed batch is counted, the next one is written | `WriteQueueTest.failedBatchIsCountedAndSkipped` |
 | Close drains the queue within the timeout | `WriteQueueTest.closeDrainsQueue` |
+| Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
+| Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | A 10k-request session ingested in bounded time, restart shows it | `TrafficStoreTest` in `desktop/app` (M5.4) |
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5) |

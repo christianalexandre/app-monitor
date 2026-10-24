@@ -128,6 +128,8 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |
 | Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
 | Unsigned desktop package for the host OS | `./gradlew :desktop:app:packageDmg` (`packageMsi`, `packageDeb`) | active; output in `desktop/app/build/compose/binaries/main/`; SDD 02, ADR-0055 |
+| Desktop storage tests (open, ingest, write queue, paging, data directory) and migration verification | `./gradlew :desktop:storage:test :desktop:storage:verifySqlDelightMigration` | active; JVM, in `make build`; temporary data directories; SDD 09, ADR-0085 |
+| Regenerate the storage schema dump after a new migration | `./gradlew :desktop:storage:generateMainAppMonitorDatabaseSchema` | active; writes the next `desktop/storage/src/main/sqldelight/databases/<version>.db`, commit it; a shipped one is never edited; ADR-0085 |
 | Desktop app tests (store, body formats, offscreen UI) | `./gradlew :desktop:app:test` | active; screenshots in `desktop/app/build/screenshots/` (`app.png`, `approval.png`, `frames.png`) |
 | End to end screenshots from a real device or emulator | `./gradlew :desktop:app:liveScreenshots -PliveName=device` | active; real server on 47474, approves the first device, writes `docs/screenshots/<name>-*.png`; `-PliveAdvertise=false` forces the emulator's `10.0.2.2`; drive the sample by hand, SDD 02, ADR-0031 |
 | Headless desktop server, logs envelopes to stdout | `make server` | active; `ARGS="--port N"` |

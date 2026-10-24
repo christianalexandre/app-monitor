@@ -200,6 +200,7 @@ class AppMonitorServer internal constructor(
                 id = UUID.randomUUID().toString(),
                 hello = hello,
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
+                peerAddress = call.request.local.remoteAddress,
             )
         // Under the lock stop takes: a handshake racing stop is either published or gets no HelloAck.
         val published = synchronized(lock) { !stopped && newSessions.trySend(session).isSuccess }
