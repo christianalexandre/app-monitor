@@ -151,7 +151,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
   the server; what is still queued after it, the batch being written
   included, is lost, logged and returned as a count. The next open closes
-  what it left open.
+  what it left open. The writer stops at the next batch boundary and
+  completes what it will not write, so a `flush` or `newRun` waiting on it
+  returns; the database is closed only once the writer has left its batch,
+  which after a timeout may be after `close` returned. A `flush` or
+  `newRun` after `close` returns at once.
 
 ### Retention
 
@@ -247,6 +251,8 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A failed batch is counted, the next one is written | `WriteQueueTest.failedBatchIsCountedAndSkipped` |
 | Close drains the queue within the timeout | `WriteQueueTest.closeDrainsQueue` |
 | Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
+| `flush` and `newRun` after close return | `WriteQueueTest.callsAfterCloseReturn` |
+| A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
