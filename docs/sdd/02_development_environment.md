@@ -94,8 +94,8 @@ start before the click.
 Gradle cache PRs read). It uses the runner's preinstalled Android SDK
 (`ANDROID_HOME` from the environment wins over the `Makefile` default) and
 `setup-gradle` with `cache-provider: basic`. iOS tasks are skipped on Linux,
-so iOS simulator tests and `make swift` run only locally until the release
-gate (M3). See
+so on PRs to `dev` iOS simulator tests and `make swift` run only locally;
+the release gate runs them. See
 ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
 trailers and `make docs-check`.
 
@@ -110,7 +110,12 @@ job runs `:desktop:app:test`, `:desktop:server:test` and
 `:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
 (`fail-fast: false`, reports uploaded on failure). On macOS it sets
 `APPMONITOR_NO_LOCAL_NETWORK=1`, which drops the mDNS round trip test: the
-hosted runner has no local network access (DEBT-0046).
+hosted runner has no local network access (DEBT-0046). The `contract`
+job, on macOS, installs XcodeGen with Homebrew, runs `make swift` (proto
+freshness, swift-format, `swift test` with the fixture tests, public API,
+simulator tests, sample) and `./gradlew :protocol:allTests`
+(`iosSimulatorArm64Test` included); the simulator and sample logs and the
+protocol reports are uploaded on failure.
 
 ## Limits
 

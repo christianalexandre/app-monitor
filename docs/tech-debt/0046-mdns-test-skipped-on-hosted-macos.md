@@ -28,7 +28,11 @@ profile, MDM or `tccutil`
 ([Apple forums 770473](https://developer.apple.com/forums/thread/770473));
 OpenJDK skips its multicast tests on the same runner for the same reason
 ([JMC-8437](https://bugs.openjdk.org/browse/JMC-8437)). The advertiser code
-is the same JVM code the other two OSes test.
+is the same JVM code the other two OSes test. The Swift
+`BonjourBrowserTests` round (`NWListener` advertising, `NWBrowser`
+resolving, one process) passes in the gate's `contract` job (run
+40047342296), so the denial hits the JVM's multicast sockets, not every
+Bonjour use on the runner.
 
 ## Trigger
 
