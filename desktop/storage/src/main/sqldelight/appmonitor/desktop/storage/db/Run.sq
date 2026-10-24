@@ -36,3 +36,13 @@ SELECT * FROM runs ORDER BY id;
 
 newestFirst:
 SELECT * FROM runs ORDER BY id DESC;
+
+-- Unnamed runs left without sessions; the current run has no end, so it never matches.
+deleteEmptyBefore:
+DELETE FROM runs
+WHERE name IS NULL
+  AND ended_at_ms < :before
+  AND NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.run_id = runs.id);
+
+deleteAll:
+DELETE FROM runs;

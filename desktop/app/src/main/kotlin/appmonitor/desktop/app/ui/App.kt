@@ -58,6 +58,8 @@ import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.RetentionSettings
+import appmonitor.desktop.storage.RetentionStatus
 import appmonitor.desktop.storage.StatusClass
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StorageHealth
@@ -82,8 +84,8 @@ import java.util.Locale
 
 /**
  * The shown run's sessions, then the selected one's requests, then the selected request; above them, the first device
- * to approve, the runs, or the settings listing [answered] pairs. [onForget] gets null for every pair. Every pane reads
- * [storage] and follows its commits (SDD 09).
+ * to approve, the runs, or the settings: retention, [onClearAll], and the [answered] pairs. [onForget] gets null for
+ * every pair. Every pane reads [storage] and follows its commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -93,6 +95,7 @@ internal fun AppMonitorApp(
     onDecide: (PendingDevice, approved: Boolean) -> Unit = { _, _ -> },
     answered: List<StoredApproval> = emptyList(),
     onForget: (DeviceKey?) -> Unit = {},
+    onClearAll: () -> Unit = {},
 ) {
     val currentRun by storage.currentRun.collectAsState()
     val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
@@ -105,6 +108,8 @@ internal fun AppMonitorApp(
         }
     val sessions by remember(storage, shownRunId) { storage.observeSessions(shownRunId) }.collectAsState(emptyList())
     val health by storage.health.collectAsState()
+    val retention by storage.retention.collectAsState()
+    val retentionStatus by storage.retentionStatus.collectAsState()
     val scope = rememberCoroutineScope()
     var selectedSession by remember { mutableStateOf<Long?>(null) }
     var selectedRequest by remember { mutableStateOf<Long?>(null) }
@@ -124,6 +129,7 @@ internal fun AppMonitorApp(
                     session,
                     status,
                     health,
+                    retentionStatus,
                     Modifier.width(240.dp).fillMaxHeight(),
                     onSettings = { settingsOpen = true },
                     runTitle = runTitle,
@@ -145,7 +151,21 @@ internal fun AppMonitorApp(
                     }
                 }
             }
-            if (settingsOpen) DeviceSettings(answered, onForget) { settingsOpen = false }
+            if (settingsOpen) {
+                Settings(
+                    retention,
+                    retentionStatus,
+                    onRetention = { scope.launch { storage.setRetention(it) } },
+                    onClearAll = {
+                        shown = ShownRun.Current
+                        selectedSession = null
+                        selectedRequest = null
+                        onClearAll()
+                    },
+                    answered,
+                    onForget,
+                ) { settingsOpen = false }
+            }
             if (runsOpen) {
                 RunList(
                     runs,
@@ -175,12 +195,18 @@ internal fun AppMonitorApp(
     }
 }
 
-/** What the window shows when the store did not open: no server runs behind it (SDD 09). */
+/**
+ * What the window shows when the store did not open: no server runs behind it (SDD 09). [onClearAll] deletes the files
+ * after a confirmation and returns what to tell the developer.
+ */
 @Composable
 internal fun StorageUnavailable(
     file: String,
     error: String,
+    onClearAll: () -> String = { "" },
 ) {
+    var confirming by remember { mutableStateOf(false) }
+    var cleared by remember { mutableStateOf<String?>(null) }
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,6 +214,24 @@ internal fun StorageUnavailable(
                 Text(error, color = MaterialTheme.colors.error)
                 Text(file, fontFamily = FontFamily.Monospace)
                 Text("No device is admitted until the file opens.", style = MaterialTheme.typography.caption)
+                val result = cleared
+                when {
+                    result != null -> {
+                        Text(result)
+                    }
+
+                    confirming -> {
+                        Text("Delete this file and everything in it? This cannot be undone.", color = MaterialTheme.colors.error)
+                        Row {
+                            TextButton(onClick = { confirming = false }) { Text("Cancel") }
+                            TextButton(onClick = { cleared = onClearAll() }, Modifier.testTag(CONFIRM_CLEAR)) { Text("Delete everything") }
+                        }
+                    }
+
+                    else -> {
+                        TextButton(onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL)) { Text("Clear all data") }
+                    }
+                }
             }
         }
     }
@@ -326,17 +370,55 @@ private fun RunList(
     }
 }
 
-/** The settings' "Devices" section: every answered pair, each with "Forget", and "Forget all" (ADR-0083 C.1). */
+/**
+ * "Retention": the age and size bounds, the file's size and "Clear all data" behind a confirmation (ADR-0082). "Devices":
+ * every answered pair, each with "Forget", and "Forget all" (ADR-0083 C.1).
+ */
 @Composable
-private fun DeviceSettings(
+private fun Settings(
+    retention: RetentionSettings,
+    status: RetentionStatus,
+    onRetention: (RetentionSettings) -> Unit,
+    onClearAll: () -> Unit,
     answered: List<StoredApproval>,
     onForget: (DeviceKey?) -> Unit,
     onClose: () -> Unit,
 ) {
+    var confirming by remember { mutableStateOf(false) }
     Overlay {
         Card(Modifier.width(520.dp), elevation = 8.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Settings", style = MaterialTheme.typography.h6)
+                Text("Retention", style = MaterialTheme.typography.subtitle2)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Choice("Keep", retention.maxAgeDays, AGE_CHOICES, ::ageOf, any = "Forever") {
+                        onRetention(retention.copy(maxAgeDays = it))
+                    }
+                    Choice("Up to", retention.maxBytes, SIZE_CHOICES, ::bytesOf, any = null) {
+                        if (it != null) onRetention(retention.copy(maxBytes = it))
+                    }
+                }
+                Text(
+                    "${bytesOf(status.usedBytes)} on disk. Named runs are kept past both limits.",
+                    style = MaterialTheme.typography.caption,
+                )
+                retentionWarning(
+                    status,
+                    retention,
+                )?.let { Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption) }
+                if (confirming) {
+                    Text("Delete every run, request and device answer? This cannot be undone.", color = MaterialTheme.colors.error)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { confirming = false }) { Text("Cancel") }
+                        TextButton(onClick = {
+                            confirming = false
+                            onClearAll()
+                        }, Modifier.testTag(CONFIRM_CLEAR)) { Text("Delete everything") }
+                    }
+                } else {
+                    TextButton(onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL)) { Text("Clear all data") }
+                }
+                Divider()
                 Text("Devices", style = MaterialTheme.typography.subtitle2)
                 if (answered.isEmpty()) Text("No device answered yet", style = MaterialTheme.typography.caption)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
@@ -384,6 +466,7 @@ private fun DeviceList(
     selected: StoredSession?,
     status: String,
     health: StorageHealth,
+    retentionStatus: RetentionStatus,
     modifier: Modifier,
     onSettings: () -> Unit,
     runTitle: String,
@@ -406,6 +489,9 @@ private fun DeviceList(
                 color = MaterialTheme.colors.error,
                 style = MaterialTheme.typography.caption,
             )
+        }
+        retentionWarning(retentionStatus)?.let {
+            Text(it, Modifier.padding(horizontal = 12.dp), color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption)
         }
         LazyColumn {
             items(sessions, key = { it.id }) { session ->
@@ -497,28 +583,61 @@ private fun FilterBar(
     }
 }
 
-/** A button showing [label] and the [chosen] option, opening a menu of "Any" and [options]. */
+/** A button showing [label] and the [chosen] option, opening a menu of [any] (null when unset) and [options]. */
 @Composable
 private fun <T : Any> Choice(
     label: String,
     chosen: T?,
     options: List<T>,
     nameOf: (T) -> String,
+    any: String? = "Any",
     onChoose: (T?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) { Text("$label: ${chosen?.let(nameOf) ?: "Any"} ▾") }
+        TextButton(onClick = { open = true }) { Text("$label: ${chosen?.let(nameOf) ?: any.orEmpty()} ▾") }
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            (listOf(null) + options).forEach { option ->
+            (if (any == null) options else listOf(null) + options).forEach { option ->
                 DropdownMenuItem(onClick = {
                     onChoose(option)
                     open = false
-                }) { Text(option?.let(nameOf) ?: "Any") }
+                }) { Text(option?.let(nameOf) ?: any.orEmpty()) }
             }
         }
     }
 }
+
+private val AGE_CHOICES = listOf(1, 3, 7, 14, 30, 90)
+
+private val SIZE_CHOICES = listOf(100L shl 20, 500L shl 20, 1L shl 30, 2L shl 30, 5L shl 30, 10L shl 30, 20L shl 30)
+
+private fun ageOf(days: Int): String = if (days == 1) "1 day" else "$days days"
+
+private fun bytesOf(bytes: Long): String =
+    when {
+        bytes >= 1L shl 30 -> "%.1f GiB".format(Locale.ENGLISH, bytes / (1L shl 30).toDouble()).replace(".0 ", " ")
+        bytes >= 1L shl 20 -> "${bytes shr 20} MiB"
+        else -> "${bytes shr 10} KiB"
+    }
+
+/** Null while retention keeps the file within its bounds and its last pass did not fail. */
+private fun retentionWarning(
+    status: RetentionStatus,
+    retention: RetentionSettings? = null,
+): String? =
+    when {
+        status.lastError != null -> {
+            "Retention failed: ${status.lastError}"
+        }
+
+        status.keptOverBound -> {
+            "Named runs and connected devices pass the size limit" + (retention?.let { " of ${bytesOf(it.maxBytes)}" } ?: "")
+        }
+
+        else -> {
+            null
+        }
+    }
 
 private val METHODS = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
@@ -709,6 +828,10 @@ internal const val RUN_NAME = "run-name"
 internal const val SEARCH = "search"
 
 internal const val RUNS = "runs"
+
+internal const val CLEAR_ALL = "clear-all"
+
+internal const val CONFIRM_CLEAR = "confirm-clear"
 
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50

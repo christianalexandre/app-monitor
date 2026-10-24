@@ -12,6 +12,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.app.ui.CLEAR_ALL
+import appmonitor.desktop.app.ui.CONFIRM_CLEAR
 import appmonitor.desktop.app.ui.RUNS
 import appmonitor.desktop.app.ui.RUN_NAME
 import appmonitor.desktop.app.ui.SEARCH
@@ -20,6 +22,7 @@ import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.desktop.storage.StoredApproval
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
@@ -39,6 +42,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -248,6 +252,37 @@ class AppMonitorAppTest {
             }
 
             assertEquals(listOf(DeviceKey("d2", "app.a"), null), forgotten)
+        }
+
+    @Test
+    fun `the settings change retention and clear all data after a confirmation`() =
+        withStorage { storage ->
+            storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", onClearAll = { runBlocking { storage.clearAll() } }) }
+
+                awaitText("Pixel")
+                onNodeWithText("Settings").performClick()
+                onNodeWithText("Keep: 7 days ▾").performClick()
+                onNodeWithText("30 days").performClick()
+                onNodeWithText("Up to: 1 GiB ▾").performClick()
+                onNodeWithText("2 GiB").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { storage.retention.value == RetentionSettings(30, 2L shl 30) }
+                awaitText("Keep: 30 days ▾")
+                onNodeWithText("on disk", substring = true).assertExists()
+
+                onNodeWithTag(CLEAR_ALL).performClick()
+                onNodeWithText("cannot be undone", substring = true).assertExists()
+                onNodeWithText("Cancel").performClick()
+                onNodeWithTag(CLEAR_ALL).performClick()
+                onNodeWithTag(CONFIRM_CLEAR).performClick()
+                onNodeWithText("Close").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("Pixel").fetchSemanticsNodes().isEmpty() }
+            }
+
+            assertEquals(RetentionSettings(), storage.retention.value, "settings cleared with the rest")
+            assertEquals(emptyList(), runBlocking { storage.observeSessions().first() })
         }
 
     @Test

@@ -13,16 +13,24 @@ import appmonitor.v1.Hello
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import java.nio.file.Files
@@ -32,6 +40,8 @@ import java.sql.DriverManager
 import java.util.Properties
 import java.util.concurrent.Executors
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
 /**
@@ -41,12 +51,13 @@ import kotlin.time.TimeSource
 class Storage private constructor(
     /** The database file. */
     val file: Path,
-    /** The run this launch opened (ADR-0084). */
+    /** The run this launch opened (ADR-0084); [clearAll] deletes it, [currentRun] follows. */
     val runId: Long,
     private val driver: JdbcSqliteDriver,
     private val database: AppMonitorDatabase,
     private val clock: () -> Long,
     maxQueueBytes: Long,
+    retentionInterval: Duration?,
     beforeCommit: (List<StorageItem>) -> Unit,
 ) {
     internal val writerDispatcher: ExecutorCoroutineDispatcher =
@@ -58,8 +69,18 @@ class Storage private constructor(
 
     private val mutableCurrentRun = MutableStateFlow(runId)
 
-    /** The run new sessions join (ADR-0084 A.1): [runId], then the one each [newRun] opened. */
+    /** The run new sessions join (ADR-0084 A.1): [runId], then the one each [newRun] or [clearAll] opened. */
     val currentRun: StateFlow<Long> = mutableCurrentRun.asStateFlow()
+
+    private val mutableRetention = MutableStateFlow(ingest.retention)
+
+    /** The stored retention settings (ADR-0082 A.1), defaults until [setRetention] is written. */
+    val retention: StateFlow<RetentionSettings> = mutableRetention.asStateFlow()
+
+    private val mutableRetentionStatus = MutableStateFlow(RetentionStatus())
+
+    /** What the last [applyRetention] left. */
+    val retentionStatus: StateFlow<RetentionStatus> = mutableRetentionStatus.asStateFlow()
 
     private val queue =
         WriteQueue(
@@ -73,12 +94,24 @@ class Storage private constructor(
             write = ingest::write,
             written = { batch ->
                 mutableCurrentRun.value = ingest.currentRun
+                mutableRetention.value = ingest.retention
                 batch.forEach {
                     if (it is StorageItem.Barrier) it.done.complete(Unit)
                     if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
                 }
             },
         )
+
+    // ADR-0082 D.1: at open, then every interval; close cancels it.
+    private val retentionJob: Job? =
+        retentionInterval?.let { interval ->
+            CoroutineScope(SupervisorJob()).launch {
+                while (true) {
+                    applyRetention()
+                    delay(interval)
+                }
+            }
+        }
 
     /** Items lost to write failures, and the last one's error while it lasts. */
     val health: StateFlow<StorageHealth> = queue.health
@@ -148,12 +181,108 @@ class Storage private constructor(
         queue.enqueue(StorageItem.Forgot(null, null))
     }
 
+    /** Queues [settings], then applies them at once. */
+    suspend fun setRetention(settings: RetentionSettings) {
+        queue.enqueue(StorageItem.SetRetention(settings))
+        flush()
+        applyRetention()
+    }
+
+    /**
+     * Deletes ended sessions outside named runs, oldest last envelope first: older than the age bound, then while the
+     * file passes the size bound, until it is under 90 % of it (ADR-0082). Runs on the writer thread between batches,
+     * one transaction per chunk; a failure is kept in [retentionStatus], not thrown.
+     */
+    suspend fun applyRetention(): RetentionStatus =
+        withContext(writerDispatcher) {
+            val now = clock()
+            val settings = ingest.retention
+            var deleted = 0L
+            val status =
+                try {
+                    settings.maxAgeDays?.let { days ->
+                        val before = now - days.days.inWholeMilliseconds
+                        while (true) {
+                            val ids = database.sessionQueries.prunable(before, AGE_CHUNK).executeAsList()
+                            if (ids.isEmpty()) break
+                            database.transaction { ids.forEach(database.sessionQueries::delete) }
+                            deleted += ids.size
+                            yield()
+                        }
+                        database.runQueries.deleteEmptyBefore(before)
+                    }
+                    if (liveBytes() > settings.maxBytes) {
+                        val target = settings.maxBytes / 10 * 9
+                        while (liveBytes() > target) {
+                            val id = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
+                            database.sessionQueries.delete(id)
+                            deleted++
+                            yield()
+                        }
+                        database.runQueries.deleteEmptyBefore(Long.MAX_VALUE)
+                    }
+                    if (deleted > 0) {
+                        database.transaction {
+                            database.deviceQueries.deleteUnused()
+                            database.appQueries.deleteUnused()
+                        }
+                        releaseFreePages()
+                    }
+                    RetentionStatus(fileBytes(), liveBytes() > settings.maxBytes, now, deleted)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    RetentionStatus(mutableRetentionStatus.value.usedBytes, false, now, deleted, e.toString())
+                }
+            mutableRetentionStatus.value = status
+            status
+        }
+
+    /**
+     * Deletes everything, named runs, approvals and settings included, rewrites the file and opens a new run (ADR-0082
+     * D.1, ADR-0088). Connected sessions are forgotten, so close them first; what they send next is dropped. A failure
+     * is kept in [retentionStatus], not thrown.
+     */
+    suspend fun clearAll() {
+        flush()
+        withContext(writerDispatcher) {
+            val error =
+                try {
+                    ingest.clear(clock())
+                    driver.execute(null, "VACUUM", 0)
+                    null
+                } catch (e: Exception) {
+                    e.toString()
+                }
+            mutableCurrentRun.value = ingest.currentRun
+            mutableRetention.value = ingest.retention
+            mutableRetentionStatus.value = RetentionStatus(usedBytes = fileBytes(), lastPassAtMs = clock(), lastError = error)
+        }
+    }
+
+    // ADR-0088: one page per statement, the driver steps each once; chunked so batches pass between.
+    private suspend fun releaseFreePages() {
+        var free = pragma("freelist_count") ?: 0
+        while (free > 0) {
+            database.transaction { repeat(minOf(free, VACUUM_CHUNK).toInt()) { driver.execute(null, "PRAGMA incremental_vacuum", 0) } }
+            val left = pragma("freelist_count") ?: 0
+            if (left >= free) break
+            free = left
+            yield()
+        }
+    }
+
+    private fun liveBytes(): Long = ((pragma("page_count") ?: 0) - (pragma("freelist_count") ?: 0)) * (pragma("page_size") ?: 0)
+
+    private fun fileBytes(): Long = (pragma("page_count") ?: 0) * (pragma("page_size") ?: 0)
+
     /**
      * Ends the run, then writes what is queued for up to [timeout]. Returns how many items were
      * not written; they are lost, and the next open closes what they left open.
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
+        retentionJob?.cancelAndJoin()
         withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
@@ -327,6 +456,9 @@ class Storage private constructor(
         const val MAX_QUEUE_BYTES = 64L * 1024 * 1024
         internal const val MAX_BATCH = 500
         internal const val WRITER_THREAD = "appmonitor-storage"
+        val RETENTION_INTERVAL = 10.minutes
+        internal const val AGE_CHUNK = 50L
+        private const val VACUUM_CHUNK = 1_000L
 
         /**
          * Opens or creates `appmonitor.db` in [directory] and opens a new run (SDD 09, ADR-0085).
@@ -341,6 +473,7 @@ class Storage private constructor(
             directory: Path,
             clock: () -> Long,
             maxQueueBytes: Long,
+            retentionInterval: Duration? = RETENTION_INTERVAL,
             beforeCommit: (List<StorageItem>) -> Unit,
         ): Storage {
             val file = createOwnerOnly(directory)
@@ -364,7 +497,7 @@ class Storage private constructor(
                         database.runQueries.insert(clock())
                         database.runQueries.lastId().executeAsOne()
                     }
-                return Storage(file, runId, driver, database, clock, maxQueueBytes, beforeCommit)
+                return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, beforeCommit)
             } catch (e: Throwable) {
                 driver.close()
                 throw e
