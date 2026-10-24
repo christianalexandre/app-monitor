@@ -105,6 +105,13 @@ ADR.
   publish-dry-run` (ADR-0058).
   Accept: `./gradlew :sdk:no-op:check` and `make publish-dry-run` list the
   new artifacts.
+- [ ] **M4.8a Hermetic end to end (DEBT-0047, fired).** `make e2e-android`
+  and `make e2e-ios` start a local HTTP and WebSocket target next to the
+  headless server; the samples take its address at launch (the emulator's
+  `10.0.2.2`, the simulator's `127.0.0.1`) and keep the public URLs as the
+  default for hand runs. M4.9 and M4.10 reuse it.
+  Accept: `make e2e-android` and `make e2e-ios` pass and every URL in their
+  server logs is the local target; DEBT-0047 `Paid`.
 - [ ] **M4.9 KMP sample app.** `samples/kmp` per M4.1 (d): every call of
   the other samples (GET, POST, failure, WebSocket if M4.6 ships) through
   Ktor, a `runAll` launch path as ADR-0056 and ADR-0057, the release build
