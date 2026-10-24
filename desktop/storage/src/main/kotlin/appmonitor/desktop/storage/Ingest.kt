@@ -106,29 +106,46 @@ internal class Ingest(
     private val connections = mutableMapOf<String, Pair<StorageItem.Connected, Long>>()
     private var rows = mapOf<String, Long>()
 
-    // A rolled back disconnect is applied again ahead of the next batch: its session sends nothing more.
+    // A rolled back disconnect is retried before each next batch, in its own transaction: its session sends nothing more.
     private var lostDisconnects = listOf<StorageItem.Disconnected>()
+
+    /** Writes the lost disconnects alone; returns how many were written, 0 when they are lost again. */
+    fun retryLost(): Int {
+        val retried = lostDisconnects
+        if (retried.isEmpty()) return 0
+        val before = rows
+        val beforeConnections = connections.toMap()
+        return try {
+            database.transaction {
+                retried.forEach(::apply)
+                beforeCommit(retried)
+            }
+            lostDisconnects = emptyList()
+            retried.size
+        } catch (_: Exception) {
+            rows = before
+            connections.putAll(beforeConnections)
+            0
+        }
+    }
 
     fun write(batch: List<StorageItem>) {
         val before = rows
         val beforeRun = currentRun
         val beforeRetention = retention
         val beforeConnections = connections.toMap()
-        val retried = lostDisconnects
         try {
             database.transaction {
-                retried.forEach(::apply)
                 batch.forEach(::apply)
                 beforeCommit(batch)
             }
-            lostDisconnects = emptyList()
         } catch (e: Exception) {
-            val disconnects = retried + batch.filterIsInstance<StorageItem.Disconnected>()
+            val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
             disconnects.forEach { item ->
                 val connected = batch.filterIsInstance<StorageItem.Connected>().lastOrNull { it.sessionId == item.sessionId }
                 (beforeConnections[item.sessionId] ?: connected?.let { it to beforeRun })?.let { connections[item.sessionId] = it }
             }
-            lostDisconnects = disconnects.filter { it.sessionId in connections }
+            lostDisconnects = lostDisconnects + disconnects.filter { it.sessionId in connections }
             rows = before.filterKeys { it in connections }
             // Runs opened by the lost batch are gone; the current run is always the highest id.
             currentRun = beforeRun

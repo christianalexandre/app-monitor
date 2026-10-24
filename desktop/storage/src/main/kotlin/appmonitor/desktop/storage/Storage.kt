@@ -96,6 +96,7 @@ class Storage private constructor(
             },
             counted = { it !is StorageItem.Barrier },
             write = ingest::write,
+            retry = ingest::retryLost,
             written = ::settle,
             dropped = ::settle,
         )
