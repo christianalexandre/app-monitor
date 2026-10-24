@@ -41,7 +41,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   hand, named when, what the UI shows by default (the roadmap's "named
   runs").
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M5.2 Storage design on paper.** SDD chapter for `desktop/storage`:
+- [x] **M5.2 Storage design on paper.** (SDD 09, ADR-0085, DEBT-0062; DEBT-0022 kept open, re-triggered in M5.4 on the write queue's high-water mark) SDD chapter for `desktop/storage`:
   tables and indexes (devices, apps, sessions, runs, exchanges, frames,
   bodies apart, ADR-0005), the migration rule, the write path from
   `DeviceSession` to SQLite and the thread it runs on, what happens when a

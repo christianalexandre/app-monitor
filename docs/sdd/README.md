@@ -24,3 +24,4 @@ Rules:
 | 06 | [iOS SDK connection lifecycle](06_ios_sdk_connection.md) |
 | 07 | [iOS URLSession capture](07_ios_urlsession_capture.md) |
 | 08 | [Ktor capture](08_ktor_capture.md) |
+| 09 | [Desktop storage](09_desktop_storage.md) |
