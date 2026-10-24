@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
 export ANDROID_HOME
 
 help: ## List targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
 check: docs-check lint scripts-test build swift ## All gates (grows as modules land)
 
@@ -16,10 +16,11 @@ docs-check: ## Docs frontmatter, indexes and ADR/DEBT references
 lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 	@./gradlew spotlessCheck
 
-scripts-test: ## Bash tests of the loop scripts (ADR-0013)
+scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_loop.sh
 	@scripts/test_debt_check.sh
 	@scripts/test_sim_list.sh
+	@scripts/test_e2e_lib.sh
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
@@ -41,6 +42,14 @@ e2e-android: ## Sample on a booted emulator against the headless server, envelop
 
 e2e-ios: ## Sample on an iPhone simulator against the headless server, envelopes asserted (SIM_DEVICE, ADR-0057)
 	@scripts/e2e_ios.sh
+
+e2e-kmp: e2e-kmp-android e2e-kmp-ios ## KMP sample on an emulator, then a simulator beside the Swift SDK, each exchange once (ADR-0075)
+
+e2e-kmp-android: ## KMP sample on a booted emulator against the headless server, envelopes asserted (ANDROID_SERIAL)
+	@scripts/e2e_kmp.sh android
+
+e2e-kmp-ios: ## KMP sample on an iPhone simulator with the Swift SDK, each exchange once (SIM_DEVICE)
+	@scripts/e2e_kmp.sh ios
 
 publish-dry-run: ## SDKs to build/maven-dry-run, POMs checked; SwiftPM consumer in debug and release (ADR-0058)
 	@scripts/publish_dry_run.sh

@@ -15,16 +15,8 @@ app=appmonitor.sample
 tag=e2e-android
 source scripts/e2e_lib.sh
 
-PATH="$PATH:${ANDROID_HOME:-}/platform-tools"
-command -v adb >/dev/null 2>&1 || fail "adb not found (ANDROID_HOME/platform-tools, or adb on PATH)"
-serial="${ANDROID_SERIAL:-$(adb devices | awk '$1 ~ /^emulator-[0-9]+$/ && $2 == "device" { print $1; exit }')}"
-[[ -n "$serial" ]] || fail "no booted emulator in 'adb devices' (start one, or set ANDROID_SERIAL)"
-export ANDROID_SERIAL="$serial"
-for _ in $(seq 1 90); do
-  [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == 1 ]] && break
-  sleep 2
-done
-[[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]] || fail "$serial did not finish booting"
+boot_emulator
+serial=$ANDROID_SERIAL
 
 ./gradlew -q :samples:android:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
@@ -34,10 +26,7 @@ start_target
 target="http://$host:$target_port"
 
 adb install -r samples/android/build/outputs/apk/debug/android-debug.apk >/dev/null
-# The local network prompt (ADR-0030) would wait for a hand; grant it up front.
-if (($(adb shell getprop ro.build.version.sdk | tr -d '\r') >= 37)); then
-  adb shell pm grant "$app" android.permission.ACCESS_LOCAL_NETWORK
-fi
+grant_local_network "$app"
 adb logcat -c
 # A running activity would get the extras in onNewIntent, which the sample ignores; clear its task.
 adb shell am start -S -W --activity-clear-task -n "$app/.MainActivity" \

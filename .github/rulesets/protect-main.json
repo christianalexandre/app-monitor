@@ -42,6 +42,8 @@
           { "context": "contract" },
           { "context": "e2e-android" },
           { "context": "e2e-ios" },
+          { "context": "e2e-kmp-android" },
+          { "context": "e2e-kmp-ios" },
           { "context": "publish" }
         ]
       }
