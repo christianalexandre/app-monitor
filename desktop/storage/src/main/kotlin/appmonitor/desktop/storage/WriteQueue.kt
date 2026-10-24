@@ -4,6 +4,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,9 +20,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
- * Items waiting for the writer, bounded by [maxBytes] of [sizeOf] (SDD 09). [write] gets up to
- * [maxBatch] items at a time on [dispatcher]; a batch it throws on is skipped, its [counted] items
- * added to [health]. [written] sees each batch once [health] accounts for it.
+ * Items for one writer on [dispatcher], [maxBatch] at a time, bounded by [maxBytes] (SDD 09): a failed
+ * batch's [counted] items go to [health], [written] sees each batch after, [dropped] what [close] left.
  */
 internal class WriteQueue<T>(
     private val maxBytes: Long,
@@ -30,6 +31,7 @@ internal class WriteQueue<T>(
     private val counted: (T) -> Boolean,
     private val write: (List<T>) -> Unit,
     private val written: (List<T>) -> Unit = {},
+    private val dropped: (List<T>) -> Unit = {},
 ) {
     private val pending = AtomicLong()
 
@@ -78,23 +80,39 @@ internal class WriteQueue<T>(
         return lost
     }
 
+    /** Runs [block] once the writer has left its last batch: at once, or later after a [close] that timed out. */
+    fun afterWriter(block: () -> Unit) {
+        writer.invokeOnCompletion { block() }
+    }
+
     private suspend fun drain() {
-        for (first in items) {
-            val batch = mutableListOf(first)
-            while (batch.size < maxBatch) batch += items.tryReceive().getOrNull() ?: break
-            val count = batch.count(counted)
-            try {
-                write(batch)
-                if (count > 0) mutableHealth.update { it.copy(lastError = null) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                mutableHealth.update { StorageHealth(notSaved = it.notSaved + count, lastError = e.toString()) }
+        try {
+            while (true) {
+                // A blocking write never suspends, so a cancelled writer would go on draining.
+                currentCoroutineContext().ensureActive()
+                writeBatch(items.receiveCatching().getOrNull() ?: break)
             }
-            pending.addAndGet(-count.toLong())
-            queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
-            written(batch)
+        } finally {
+            val left = generateSequence { items.tryReceive().getOrNull() }.toList()
+            if (left.isNotEmpty()) dropped(left)
         }
+    }
+
+    private fun writeBatch(first: T) {
+        val batch = mutableListOf(first)
+        while (batch.size < maxBatch) batch += items.tryReceive().getOrNull() ?: break
+        val count = batch.count(counted)
+        try {
+            write(batch)
+            if (count > 0) mutableHealth.update { it.copy(lastError = null) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            mutableHealth.update { StorageHealth(notSaved = it.notSaved + count, lastError = e.toString()) }
+        }
+        pending.addAndGet(-count.toLong())
+        queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
+        written(batch)
     }
 }
 

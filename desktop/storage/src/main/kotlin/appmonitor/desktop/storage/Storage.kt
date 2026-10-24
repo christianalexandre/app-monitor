@@ -92,15 +92,18 @@ class Storage private constructor(
             },
             counted = { it !is StorageItem.Barrier },
             write = ingest::write,
-            written = { batch ->
-                mutableCurrentRun.value = ingest.currentRun
-                mutableRetention.value = ingest.retention
-                batch.forEach {
-                    if (it is StorageItem.Barrier) it.done.complete(Unit)
-                    if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
-                }
-            },
+            written = ::settle,
+            dropped = ::settle,
         )
+
+    private fun settle(batch: List<StorageItem>) {
+        mutableCurrentRun.value = ingest.currentRun
+        mutableRetention.value = ingest.retention
+        batch.forEach {
+            if (it is StorageItem.Barrier) it.done.complete(Unit)
+            if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
+        }
+    }
 
     // ADR-0082 D.1: at open, then every interval; close cancels it.
     private val retentionJob: Job? =
@@ -144,11 +147,11 @@ class Storage private constructor(
 
     /**
      * Ends the current run and opens a new unnamed one; sessions already connected stay in theirs.
-     * Returns the run current once it is written, the earlier one if its batch was lost.
+     * Returns the run current once it is written, the earlier one if its batch was lost or the store is closed.
      */
     suspend fun newRun(): Long {
         val item = StorageItem.NewRun(clock())
-        queue.enqueue(item)
+        if (!queue.enqueue(item)) return mutableCurrentRun.value
         return item.done.await()
     }
 
@@ -277,8 +280,8 @@ class Storage private constructor(
     private fun fileBytes(): Long = (pragma("page_count") ?: 0) * (pragma("page_size") ?: 0)
 
     /**
-     * Ends the run, then writes what is queued for up to [timeout]. Returns how many items were
-     * not written; they are lost, and the next open closes what they left open.
+     * Ends the run, writes what is queued for up to [timeout] and returns how many items were lost (SDD 09); a batch
+     * still being written keeps the file open until it ends.
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
@@ -287,8 +290,10 @@ class Storage private constructor(
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
         if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
-        writerDispatcher.close()
-        driver.close()
+        queue.afterWriter {
+            writerDispatcher.close()
+            driver.close()
+        }
         return lost
     }
 
@@ -443,11 +448,10 @@ class Storage private constructor(
     /** Reads a PRAGMA on a connection of the store's driver, opened for it. */
     internal fun pragma(name: String): Long? = driver.longQuery("PRAGMA $name")
 
-    /** Returns once everything queued before it is written or counted as lost. */
+    /** Returns once everything queued before it is written or counted as lost, at once when the store is closed. */
     suspend fun flush() {
         val barrier = StorageItem.Barrier()
-        queue.enqueue(barrier)
-        barrier.done.await()
+        if (queue.enqueue(barrier)) barrier.done.await()
     }
 
     companion object {

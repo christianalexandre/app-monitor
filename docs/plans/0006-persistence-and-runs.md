@@ -124,8 +124,8 @@ rejected.
   Accept: `./gradlew :desktop:storage:test` with a test opening an
   existing `0755` directory (mode unchanged) and one the user cannot
   chmod (store opens).
-- [ ] **M5.R3 Calls after or during `Storage.close` hang or race the
-  writer.** `newRun()` and `flush()` ignore `enqueue` returning false and
+- [x] **M5.R3 Calls after or during `Storage.close` hang or race the
+  writer.** (the writer stops at the next batch boundary and settles what it leaves, so waiting calls return; the driver is closed when the writer job completes, after `close` returned if it timed out; the two longer comment blocks touched were trimmed to 4 lines, the rest of DEBT-0064 waits for M5.R5) `newRun()` and `flush()` ignore `enqueue` returning false and
   await `done` forever, and items left in the channel when `close` times
   out are never completed; `WriteQueue.close` cancels the writer without
   joining it, so `driver.close()` can run while the writer thread is still

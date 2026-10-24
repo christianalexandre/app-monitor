@@ -2,6 +2,7 @@ package appmonitor.desktop.storage
 
 import app.cash.sqldelight.Query
 import appmonitor.v1.ResponseReceived
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -9,6 +10,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.sql.SQLException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -141,5 +145,54 @@ class WriteQueueTest {
                 held.release()
                 assertEquals(12, lost, "Connected, ten envelopes and the run's end")
             }
+        }
+
+    @Test
+    fun callsAfterCloseReturn() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            runBlocking {
+                storage.close(5.seconds)
+                withTimeout(2.seconds) {
+                    storage.flush()
+                    assertEquals(storage.runId, storage.newRun(), "nothing written, the run stays")
+                }
+            }
+        }
+
+    @Test
+    fun timedOutCloseLeavesTheFileToTheWriter() =
+        withDataDir { dir ->
+            val entered = CountDownLatch(1)
+            val stall = CountDownLatch(1)
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES) { batch ->
+                    if (batch.any { it is StorageItem.Received }) {
+                        entered.countDown()
+                        stall.await()
+                    }
+                }
+            runBlocking {
+                val held = holdWriter(storage)
+                storage.connected("s1", hello(), null)
+                repeat(3) { storage.received("s1", envelope(started("r$it"))) }
+                held.release()
+                assertTrue(entered.await(5, TimeUnit.SECONDS))
+                val queued = async(start = CoroutineStart.UNDISPATCHED) { storage.flush() }
+                val queuedRun = async(start = CoroutineStart.UNDISPATCHED) { storage.newRun() }
+                assertEquals(6, storage.close(300.milliseconds), "the stalled batch, the new run and the run's end")
+                withTimeout(2.seconds) {
+                    storage.flush()
+                    storage.newRun()
+                }
+                stall.countDown()
+                withTimeout(5.seconds) {
+                    queued.await()
+                    assertEquals(storage.runId, queuedRun.await(), "dropped, the run stays")
+                }
+                val executor = storage.writerDispatcher.executor as ExecutorService
+                assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "closed once the writer left its batch")
+            }
+            assertEquals(3, dir.queryLong("SELECT count(*) FROM exchanges"), "the batch committed on an open file")
         }
 }
