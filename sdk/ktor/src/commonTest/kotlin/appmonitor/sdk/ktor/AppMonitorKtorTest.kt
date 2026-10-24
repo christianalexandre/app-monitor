@@ -37,6 +37,7 @@ import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import okio.ByteString.Companion.encodeUtf8
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -180,6 +181,22 @@ class AppMonitorKtorTest {
         }
 
     @Test
+    fun aBodyReadCancelledSendsRequestFailed() =
+        runTest {
+            val client = client { respond("lost", headers = headersOf(HttpHeaders.ContentLength, "4")) }
+            client.receivePipeline.intercept(HttpReceivePipeline.After) { response ->
+                proceedWith(Unreadable(response, CancellationException("caller left")))
+            }
+            assertFailsWith<CancellationException> { client.get("https://api.example.com/x") }
+
+            val started = sink.started()
+            val failed = sink.failed()
+            assertEquals(started.request_id, failed.request_id)
+            assertTrue("caller left" in failed.error, failed.error)
+            assertEquals(0, sink.pending)
+        }
+
+    @Test
     fun nothingIsSentWhileTheMonitorIsStopped() =
         runTest {
             val sink = RecordingSink(options = null)
@@ -274,10 +291,11 @@ class AppMonitorKtorTest {
             assertEquals(listOf(Protocol.CAPTURE_HEADER_KTOR, null), seen)
         }
 
-    /** [response] whose body throws on every read, as a plugin that breaks the saved body leaves it. */
+    /** [response] whose body throws [cause] on every read, as a plugin that breaks the saved body leaves it. */
     @OptIn(InternalAPI::class)
     private class Unreadable(
         response: HttpResponse,
+        private val cause: Throwable = IOException("body lost"),
     ) : HttpResponse() {
         override val call = response.call
         override val status = response.status
@@ -286,7 +304,7 @@ class AppMonitorKtorTest {
         override val responseTime = response.responseTime
         override val headers = response.headers
         override val coroutineContext = response.coroutineContext
-        override val rawContent: ByteReadChannel get() = ByteChannel().apply { cancel(IOException("body lost")) }
+        override val rawContent: ByteReadChannel get() = ByteChannel().apply { cancel(cause) }
     }
 
     private class Unreachable(
