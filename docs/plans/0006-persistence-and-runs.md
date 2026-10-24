@@ -180,7 +180,7 @@ new privacy decision.
   Accept: `./gradlew :desktop:storage:test` with a disconnect that fails on
   every write followed by good batches (they are stored), and a lost
   disconnect retried by a lone `flush()` (`lastError` cleared).
-- [ ] **M5.R7 Calls racing `Storage.close` throw or touch a closed driver.**
+- [x] **M5.R7 Calls racing `Storage.close` throw or touch a closed driver.** (`fix/storage-calls-racing-close`; the three return once `close` starts, a call already queued on the writer included, and the driver closes on the writer thread behind it; `close` waits for that within its timeout)
   `close` shuts the writer dispatcher and the driver once the writer job
   completes, but `clearAll`, `applyRetention` and `setRetention` dispatch
   onto that executor themselves: after `close`, `withContext` on the shut

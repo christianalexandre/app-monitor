@@ -239,7 +239,12 @@ class WriteQueueTest {
                 withTimeout(2.seconds) {
                     storage.flush()
                     assertEquals(storage.runId, storage.newRun(), "nothing written, the run stays")
+                    storage.clearAll()
+                    storage.applyRetention()
+                    storage.setRetention(RetentionSettings(maxAgeDays = 1))
                 }
+                assertEquals(storage.runId, storage.currentRun.value)
+                assertNull(storage.retentionStatus.value.lastError)
             }
         }
 
@@ -277,5 +282,41 @@ class WriteQueueTest {
                 assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "closed once the writer left its batch")
             }
             assertEquals(3, dir.queryLong("SELECT count(*) FROM exchanges"), "the batch committed on an open file")
+        }
+
+    @Test
+    fun callsQueuedOnTheWriterDuringATimedOutCloseDoNothing() =
+        withDataDir { dir ->
+            val entered = CountDownLatch(1)
+            val stall = CountDownLatch(1)
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES, retentionInterval = null) { batch ->
+                    if (batch.any { it is StorageItem.Received }) {
+                        entered.countDown()
+                        stall.await()
+                    }
+                }
+            runBlocking {
+                val held = holdWriter(storage)
+                storage.connected("s1", hello(), null)
+                repeat(3) { storage.received("s1", envelope(started("r$it"))) }
+                held.release()
+                assertTrue(entered.await(5, TimeUnit.SECONDS))
+                val pass = async(start = CoroutineStart.UNDISPATCHED) { storage.applyRetention() }
+                val cleared = async(start = CoroutineStart.UNDISPATCHED) { storage.clearAll() }
+                val set = async(start = CoroutineStart.UNDISPATCHED) { storage.setRetention(RetentionSettings(maxAgeDays = 1)) }
+                storage.close(300.milliseconds)
+                stall.countDown()
+                withTimeout(5.seconds) {
+                    assertEquals(RetentionStatus(), pass.await(), "no pass on a closing store")
+                    cleared.await()
+                    set.await()
+                }
+                assertEquals(RetentionStatus(), storage.retentionStatus.value, "the closed driver was never touched")
+                val executor = storage.writerDispatcher.executor as ExecutorService
+                assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            }
+            assertEquals(3, dir.queryLong("SELECT count(*) FROM exchanges"), "not cleared")
+            assertEquals(0, dir.queryLong("SELECT count(*) FROM settings"), "dropped with the queue")
         }
 }

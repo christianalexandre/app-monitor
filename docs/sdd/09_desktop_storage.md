@@ -157,9 +157,12 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   included, is lost, logged and returned as a count. The next open closes
   what it left open. The writer stops at the next batch boundary and
   completes what it will not write, so a `flush` or `newRun` waiting on it
-  returns; the database is closed only once the writer has left its batch,
-  which after a timeout may be after `close` returned. A `flush` or
-  `newRun` after `close` returns at once.
+  returns; the database is closed on the writer thread, behind what is
+  queued there, once the writer has left its batch, which after a timeout
+  may be after `close` returned. A `flush` or `newRun` after `close`
+  returns at once. Once `close` starts, `clearAll`, `applyRetention` and
+  `setRetention` do nothing and return, a call already queued on the writer
+  thread included, so none touches a closed database.
 
 ### Retention
 
@@ -260,8 +263,9 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A failed batch is counted, the next one is written | `WriteQueueTest.failedBatchIsCountedAndSkipped` |
 | Close drains the queue within the timeout | `WriteQueueTest.closeDrainsQueue` |
 | Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
-| `flush` and `newRun` after close return | `WriteQueueTest.callsAfterCloseReturn` |
+| `flush`, `newRun`, `clearAll`, `applyRetention` and `setRetention` after close return | `WriteQueueTest.callsAfterCloseReturn` |
 | A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
+| Retention and clear calls queued on the writer during a timed out close do nothing and return | `WriteQueueTest.callsQueuedOnTheWriterDuringATimedOutCloseDoNothing` |
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
