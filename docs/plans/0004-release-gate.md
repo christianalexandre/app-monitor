@@ -166,8 +166,8 @@ basename and path matching, `e2e_ios.sh`'s duplicate simulator pick, stale
 ADR-0051 references, DEBT-0049's paid item). Two were rejected, with the
 reason in DEBT-0050.
 
-- [ ] **M3.R5 The Android sample loses its launch extras after process
-  death.** M3.R3 guards `restartMonitor` with `savedInstanceState == null`,
+- [x] **M3.R5 The Android sample loses its launch extras after process
+  death.** (`fix/android-sample-extras-process-death`; `applyLaunchExtras` once per process in `SampleApplication`; through a forwarder on the extras' port, the `origin/dev` build made no connection to it after `am kill`, the fix one; two rotations, one connection) M3.R3 guards `restartMonitor` with `savedInstanceState == null`,
   but after process death the activity is restored with a saved state while
   the new process's `SampleApplication` has started the monitor with
   default options. `--es host … --ei port N` is then ignored and the monitor
