@@ -22,7 +22,9 @@ fun main(args: Array<String>) {
         server.sessions.collect { session ->
             launch {
                 val device = session.hello
-                println("[${session.id}] connected: ${device.device_name} (${device.platform}) ${device.app_id} ${device.app_version}")
+                println(
+                    "[${session.id}] connected: ${device.device_name} (${device.platform}) ${device.app_id} ${device.app_version} ${device.sdk_name}",
+                )
                 session.envelopes.collect { println("[${session.id}] ${describe(it)}") }
                 println("[${session.id}] disconnected")
             }

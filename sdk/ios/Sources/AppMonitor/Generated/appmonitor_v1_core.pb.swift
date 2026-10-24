@@ -93,6 +93,9 @@ nonisolated struct Appmonitor_V1_Hello: Sendable {
   /// Channels the device can send or receive.
   var channels: [String] = []
 
+  /// Which SDK opened the session: "kotlin" (sdk/core) or "swift" (sdk/ios).
+  var sdkName: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -126,7 +129,7 @@ nonisolated extension Appmonitor_V1_Platform: SwiftProtobuf._ProtoNameProviding 
 
 nonisolated extension Appmonitor_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Hello"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}protocol_version\0\u{1}platform\0\u{3}device_id\0\u{3}device_name\0\u{3}os_version\0\u{3}app_id\0\u{3}app_version\0\u{3}sdk_version\0\u{1}channels\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}protocol_version\0\u{1}platform\0\u{3}device_id\0\u{3}device_name\0\u{3}os_version\0\u{3}app_id\0\u{3}app_version\0\u{3}sdk_version\0\u{1}channels\0\u{3}sdk_name\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -143,6 +146,7 @@ nonisolated extension Appmonitor_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf.
       case 7: try { try decoder.decodeSingularStringField(value: &self.appVersion) }()
       case 8: try { try decoder.decodeSingularStringField(value: &self.sdkVersion) }()
       case 9: try { try decoder.decodeRepeatedStringField(value: &self.channels) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self.sdkName) }()
       default: break
       }
     }
@@ -176,6 +180,9 @@ nonisolated extension Appmonitor_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf.
     if !self.channels.isEmpty {
       try visitor.visitRepeatedStringField(value: self.channels, fieldNumber: 9)
     }
+    if !self.sdkName.isEmpty {
+      try visitor.visitSingularStringField(value: self.sdkName, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -189,6 +196,7 @@ nonisolated extension Appmonitor_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf.
     if lhs.appVersion != rhs.appVersion {return false}
     if lhs.sdkVersion != rhs.sdkVersion {return false}
     if lhs.channels != rhs.channels {return false}
+    if lhs.sdkName != rhs.sdkName {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -34,7 +34,7 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 
 | Channel | Messages |
 | --- | --- |
-| `core` | `Hello` (device → desktop, first frame), `HelloAck` |
+| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077), `HelloAck` |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
 
 `Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`

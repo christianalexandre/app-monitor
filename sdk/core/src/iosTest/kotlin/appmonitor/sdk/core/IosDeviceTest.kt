@@ -48,6 +48,7 @@ class IosDeviceTest {
         assertTrue(hello.device_name.endsWith(" Simulator"), hello.device_name)
         assertTrue(hello.app_id.isNotEmpty())
         assertEquals(SDK_VERSION, hello.sdk_version)
+        assertEquals("kotlin", hello.sdk_name)
     }
 
     @Test

@@ -24,6 +24,8 @@ message Hello {
   string sdk_version = 8;
   // Channels the device can send or receive.
   repeated string channels = 9;
+  // Which SDK opened the session: "kotlin" (sdk/core) or "swift" (sdk/ios).
+  string sdk_name = 10;
 }
 
 message HelloAck {

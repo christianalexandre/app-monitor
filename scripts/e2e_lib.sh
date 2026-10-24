@@ -108,13 +108,22 @@ missing() {
   done <<<"$2"
 }
 
-# $2 expectations as for `missing`: prints each one whose RequestStarted is in the log more than once (ADR-0003).
+# $1 expectations as for `missing`: prints each one whose RequestStarted is in the log more than once,
+# schemes compared as the SDKs log a socket's upgrade, `ws` as `http` and `wss` as `https` (ADR-0003).
 repeated() {
   local method url count
   while read -r method url _; do
-    count="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { n++ } END { print n + 0 }' "$server_log")"
+    count="$(awk -v m="$method" -v u="$url" '
+      function blind(s) { sub(/^ws:/, "http:", s); sub(/^wss:/, "https:", s); return s }
+      $2 == "network/RequestStarted" && $4 == m && blind($5) == blind(u) { n++ } END { print n + 0 }' "$server_log")"
     ((count <= 1)) || echo "$method $url: $count RequestStarted"
   done <<<"$1"
+}
+
+# $1 app id, $2 an SDK name (`Hello.sdk_name`, ADR-0077): prints how many sessions it opened for the app.
+sessions() {
+  awk -v a="$1" -v s="$2" '$2 == "connected:" && $NF == s { for (i = 3; i < NF; i++) if ($i == a) { n++; break } }
+    END { print n + 0 }' "$server_log"
 }
 
 # $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is,
