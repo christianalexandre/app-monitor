@@ -87,7 +87,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   PR: re-trigger it or state the gap in the PR.
   Accept: `make e2e-ios` green on the Mac; a sample call removed from the
   run makes it fail, shown in the PR.
-- [ ] **M3.8 iOS end to end in the gate.** The macOS job (or a second one,
+- [~] **M3.8 iOS end to end in the gate.** (`ci/release-gate-e2e-ios`) The macOS job (or a second one,
   per M3.2 (a)) runs `make e2e-ios`; server log and simulator log uploaded
   on failure.
   Accept: the gate run green with the job's assertion lines in its log.
