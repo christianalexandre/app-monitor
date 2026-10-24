@@ -76,7 +76,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   trigger fires here: pay it or re-trigger it.
   Accept: `make e2e-android` green on the Mac against an emulator; a sample
   call removed from the run makes it fail, shown in the PR.
-- [ ] **M3.6 Android end to end in the gate.** A job that boots an emulator
+- [x] **M3.6 Android end to end in the gate.** (`ci/release-gate-e2e-android`; `e2e-android` job on ubuntu-latest with KVM, `reactivecircus/android-emulator-runner@v2`, API 36 `google_apis` x86_64; run 40049064470 green, measured ≈3 min against ADR-0052's ≈10 estimate; DEBT-0047 did not fire) A job that boots an emulator
   on the runner M3.2 (a) picks and runs `make e2e-android`; server log and
   logcat uploaded on failure.
   Accept: the gate run green with the job's assertion lines in its log.
