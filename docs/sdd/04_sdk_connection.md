@@ -149,7 +149,7 @@ Android host, against `StandInDesktop` on `ktor-server-cio` (ADR-0066 C);
 | **idle** | As above. | `disabledStaysIdle`, `stopWhenIdleDoesNothing` |
 | **discovering** | Manual `host` only, else Bonjour (`nw_browser`, `dns_sd`), then `127.0.0.1:47474` on the simulator. | `manualHostIsTheOnlySource`, `stopWhileDiscoveringReleasesEverything`, `simulatorHostFollowsABonjourThatFindsNothing`, `findsAnAdvertisedDesktopWithItsAddressPortAndPath` (a service the test advertises; needs a multicast-capable interface) |
 | **connecting** | Refused, unreachable or 10 s → backing off; the first such failure logs one line naming the endpoint and the Info.plist keys of ADR-0063 B.1, not `ACCESS_LOCAL_NETWORK`. No cleartext exit: `isCleartextPermitted` is `true`. | `anUnreachableDesktopIsLoggedOncePerClient`, `anOutageAfterAConnectionIsLoggedAgain`, `aConnectFailureNamesTheInfoPlistKeys`, `cleartextIsAlwaysPermitted` |
-| **handshaking** | As above. | `aRejectedDeviceWaitsTheLongestDelay` |
+| **handshaking** | As above; a 1008 stays rejected when the call's teardown then throws. | `aRejectedDeviceWaitsTheLongestDelay`, `aRejectionWhoseTeardownThrowsStillWaitsTheLongestDelay` |
 | **connected** | As above; a write to a socket the desktop closed ends in backing off, no `SIGPIPE` (ADR-0067). | `handshakesWithTheDesktop`, `delivers1000EventsInOrder`, `aDesktopThatDiesMidSessionEndsInBackingOff`; *JVM*: `dropsEnvelopesOnChannelsTheDesktopDidNotAccept` |
 | **backing off** | As above. | `eventsQueuedWhileTheDesktopIsDownArriveAfterItReturns` |
 | **stopped** | As above. | `eventsAfterStopAreDropped`, `anEnvelopeLargerThanAFrameIsDroppedBeforeTheBuffer` |

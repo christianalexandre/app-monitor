@@ -178,7 +178,9 @@ cache lives for one bounded browse.
   exchange pending forever although the app got its response.
   Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response whose
   body read throws, ending in exactly one terminal envelope.
-- [ ] **M4.R4 A rejected session can be retried as lost.** In
+- [x] **M4.R4 A rejected session can be retried as lost.** (`fix/rejected-session-not-lost`; DEBT-0027 already `Paid`,
+  nothing to do. Deviations: `MonitorClient` gains an internal `openSession` seam so a test can make the teardown throw;
+  `make check` found M4.R6) In
   `MonitorClient.connectAndServe`, an exception from the `call` coroutine's
   teardown after `outcome` completed (e.g. `Rejected` on close 1008) fails
   the `coroutineScope`, and the catch returns `Outcome.Lost`: backoff is not
@@ -195,6 +197,16 @@ cache lives for one bounded browse.
   Accept: `./gradlew :sdk:ktor:allTests` with an `incoming` closed with a
   cause after a close frame, read by `receive()` and by `for`, both
   recording the close once.
+- [ ] **M4.R6 A writer whose temp file cannot open returns an id not in
+  the file.** Found by `make check` in M4.R4: `racingWritersOnAnEmptyDirectoryAllReturnTheIdLeftInTheFile`
+  failed 4 of 8 runs on the iOS simulator (passes on JVM and Android host;
+  PR CI is Linux, so it never ran there). Instrumented: while another writer
+  creates the directory, `createDirectories` throws "File exists" and then
+  `publish` throws `Failed to open <file>.<uuid> with No such file or
+  directory`; `deviceId` swallows it and returns its own fresh id, which
+  never reaches the file, so one install shows two ids (ADR-0064 B.1, ADR-0078).
+  Accept: `./gradlew :sdk:core:iosSimulatorArm64Test --tests '*DeviceIdTest*' --rerun`
+  green 10 runs in a row.
 
 ## Outcome
 

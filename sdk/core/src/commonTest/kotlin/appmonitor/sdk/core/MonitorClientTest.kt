@@ -5,6 +5,9 @@ import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.network.sockets.InetSocketAddress
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.utils.io.readAvailable
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.IOException
 import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -112,6 +116,24 @@ class MonitorClientTest {
                     close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected"))
                 }
             client(desktop.port, config.copy(backoffInitial = 10.milliseconds, backoffMax = 2.seconds))
+            withTimeout(5.seconds) { while (attempts.value == 0) delay(10) }
+            delay(500)
+            assertEquals(1, attempts.value)
+        }
+
+    @Test
+    fun aRejectionWhoseTeardownThrowsStillWaitsTheLongestDelay() =
+        runBlocking {
+            val attempts = Counter()
+            val desktop =
+                desktop {
+                    attempts.increment()
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected"))
+                }
+            client(desktop.port, config.copy(backoffInitial = 10.milliseconds, backoffMax = 2.seconds)) { endpoint, block ->
+                webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block)
+                throw IOException("teardown failed")
+            }
             withTimeout(5.seconds) { while (attempts.value == 0) delay(10) }
             delay(500)
             assertEquals(1, attempts.value)
@@ -262,8 +284,14 @@ class MonitorClientTest {
         discover: suspend () -> Endpoint? = { Endpoint(LOOPBACK, port) },
         cleartextPermitted: (String) -> Boolean = { true },
         log: (String) -> Unit = {},
+        openSession: (suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit)? = null,
     ): MonitorClient {
-        val client = MonitorClient({ hello }, discover, config, cleartextPermitted, log)
+        val client =
+            if (openSession == null) {
+                MonitorClient({ hello }, discover, config, cleartextPermitted, log)
+            } else {
+                MonitorClient({ hello }, discover, config, cleartextPermitted, log, openSession = openSession)
+            }
         cleanup += { client.stopAndJoin() }
         client.start()
         return client
