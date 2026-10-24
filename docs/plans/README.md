@@ -36,7 +36,7 @@ record of how the milestone was actually built once it is done.
 | [0001](0001-foundation.md) | M0 | Foundation | Done |
 | [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
 | [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
-| [0004](0004-release-gate.md) | M3 | Release gate | Active |
+| [0004](0004-release-gate.md) | M3 | Release gate | Done |
 
 ## Roadmap
 
