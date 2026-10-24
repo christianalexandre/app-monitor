@@ -1,9 +1,9 @@
 ---
 id: ADR-0059
 title: The attribution trailer check runs on PRs to dev only
-status: Accepted
+status: Superseded
 date: 2026-10-24
-superseded_by:
+superseded_by: ADR-0060
 ---
 
 # ADR-0059 — The attribution trailer check runs on PRs to dev only

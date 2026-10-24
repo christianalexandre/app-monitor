@@ -23,7 +23,7 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: scripts/pr_title_check.sh "$TITLE"
       - name: No attribution trailers
-        if: github.base_ref != 'main' # ADR-0059
+        if: github.base_ref != 'main' || github.head_ref != 'dev' # ADR-0060
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

@@ -127,7 +127,7 @@ desktop `packageVersion`, the iOS POMs the dry-run skips, the duplicate
 builds in the gate, globals in `e2e_lib.sh`). The release PR #132's gate
 ran green on every job (run 40058097609).
 
-- [ ] **M3.R1 Attribution trailers reach `main` from a `release/*` branch.**
+- [x] **M3.R1 Attribution trailers reach `main` from a `release/*` branch.** (`ci/release-trailer-check-head`; ADR-0060 supersedes ADR-0059, since accepted ADRs are immutable, instead of editing it; DEBT-0048 did not fire, no job renamed)
   `pr-conventions.yml` skips the trailer check on every PR to `main`
   (ADR-0059), but `branch_check.sh` also lets `release/x.y.z` target `main`,
   and its commits never passed the check on a PR to `dev`. A hotfix commit
