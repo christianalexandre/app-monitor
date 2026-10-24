@@ -1,10 +1,10 @@
 ---
 id: PLAN-0005
 title: KMP SDK
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M4
 started: 2026-10-24
-finished:
+finished: 2026-10-24
 ---
 
 # PLAN-0005 — KMP SDK (M4)
@@ -253,12 +253,65 @@ rejected:
   Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response
   whose body read is cancelled, ending in exactly one `RequestFailed`.
 
+### Third milestone review
+
+Findings of the `code-review` of `97038e3..7819fe8`. None is a
+correctness finding against what the SDD states. Two went to DEBT-0061
+(two `sdk/core` `Platform` comments that restate ADR-0080, and
+`DeviceIdTest` not telling the link path from the lock path). Seven were
+rejected:
+
+- a corrupt id file replaced by two linking writers: rejected in the
+  second review, the SDKs only publish whole files (ADR-0078);
+- `link` failing with something other than `EEXIST`, on the JVM or iOS,
+  sending a writer to the lock while the others link: the temp file was
+  just written in the same directory, so the errors left (`EXDEV`,
+  `ENOSPC`, `EIO`) cannot happen or fail that write first;
+- the lock failing to open or take, leaving the id unsaved: the lock file
+  sits beside the temp file just written, in the app's own directory, and
+  the reported cases (NFS, a JVM without locks) are not where the SDK runs;
+- `withFileLock` blocking `start` with no timeout: the holder only reads
+  the file and renames under the lock, so the wait is one rename;
+- `flock` not retried on `EINTR` and the lock opened without `O_CLOEXEC`:
+  only reached when `link` fails as above, and an iOS app does not fork;
+- a body read cancelled after the status arrived ending in `RequestFailed`
+  rather than an unread `ResponseReceived`: the outcome M4.R8 chose and
+  tests, the app's call failing too.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#145); M4.1 KMP SDK decisions (#146); M4.2 `sdk/core`
+  lifecycle on Kotlin/Native on paper (#147); M4.3 `sdk/core` on iOS
+  (#148); M4.4 iOS discovery, `Hello` and the shared device id (#149);
+  M4.5 `sdk/ktor` HTTP capture (#150); M4.6 its WebSocket frames (#152);
+  M4.7 dedupe with the Swift SDK by the capture header (#153); M4.8 one
+  no-op per SDK module and `sdk/ktor` in the publication dry-run (#154);
+  DEBT-0047 firing (#151) and M4.8a hermetic end to ends (#156); M4.9 KMP
+  sample (#155); M4.10 KMP end to end on Android and iOS (#157); fast PR
+  suite, slow suites in the release gate (#158); M4.11 docs sync (#159).
+  Three review rounds: plan updates #160, #167 and this PR; fixes M4.R1
+  (#161), M4.R2 (#162), M4.R3 (#163), M4.R4 (#164), M4.R5 (#165), M4.R6
+  (#166), M4.R7 (#168), M4.R8 (#169).
+- **Decisions**: ADR-0062 to ADR-0080; ADR-0072 supersedes ADR-0026.
+- **Debt**: DEBT-0052 to DEBT-0061 created. DEBT-0047 paid by M4.8a,
+  DEBT-0057 by #158, DEBT-0049's double build and DEBT-0050's simulator
+  pick by M4.10; DEBT-0058's comment blocks paid by M4.R3, its scheme item
+  re-triggered; DEBT-0060's KDoc and `Platform` copies paid by M4.R7;
+  DEBT-0027 fired on M4.R4, already paid. Review findings left open are
+  only non-correctness ones, in DEBT-0058, DEBT-0060 and DEBT-0061. No
+  correctness finding is left open.
+- **Deviations**: M4.8a added when DEBT-0047 fired, before M4.9; M4.3
+  moved iOS `AppMonitor.start` to M4.4 and the no-op's iOS dump to M4.8;
+  M4.4 resolves with `dns_sd`, the TCP probe never leaving preparing on the
+  simulator; M4.9 needed compileSdk 37; #158 moved the simulator suites and
+  sample apps out of `make check` into the release gate (ADR-0076). The
+  reviews added M4.R1–M4.R8; three of them (R2, R6, R7) were the shared
+  device id file, each fix exposing the next platform case, and R6 was
+  found by `make check` while M4.R4 ran.
+- **Lessons**: the device id took four tasks because each platform's file
+  primitives (kotlinx-io's `dirname`, Android's SELinux `link` rule) were
+  checked only after a race test failed there: the next plan that shares a
+  file or resource across SDKs should list each platform's primitive and
+  its evidence in the ADR before the code. Running every end to end as a
+  `make` target first again paid off: M4.10's gate run was green; iOS end to ends cost more than estimated (22 against ≈10–12 min,
+  DEBT-0057).
