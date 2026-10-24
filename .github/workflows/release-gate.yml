@@ -198,9 +198,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: e2e-ios-logs
-          path: |
-            build/e2e-ios/
-            build/ios-sample.log
+          path: build/e2e-ios/
           retention-days: 7
 
   e2e-kmp-android:

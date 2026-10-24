@@ -44,6 +44,16 @@ boot_simulator() {
   xcrun simctl bootstatus "$udid" -b >/dev/null
 }
 
+# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path: builds the Debug app for the picked
+# simulator, log in $out/build.log. Release and its SDK name scan are `make swift`'s (ADR-0075).
+build_ios_debug() {
+  command -v xcodegen >/dev/null 2>&1 || fail "xcodegen not found ('brew install xcodegen'; ADR-0050)"
+  xcodegen generate --quiet --spec "$1"
+  xcodebuild build -project "$(dirname "$1")/$2.xcodeproj" -scheme "$2" -configuration Debug \
+    -destination "id=$udid" -derivedDataPath "$3" >"$out/build.log" 2>&1 \
+    || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
+}
+
 # $1 an installDist launcher that prints `Listening on port N`, $2 its log; starts it on port 0,
 # sets listener_pid and listener_port.
 listen() {
@@ -112,7 +122,7 @@ repeated() {
 # Waits until nothing is missing, then a settle for late duplicates, and prints one `ok` line per
 # expectation; fails on a gap, a duplicate or a request off the target.
 assert_envelopes() {
-  local deadline=$((SECONDS + $3)) gaps
+  local deadline=$((SECONDS + $3)) gaps method url terminal frames
   while [[ -n "$(missing "$1" "$2")" ]] && ((SECONDS < deadline)); do sleep 2; done
   gaps="$(missing "$1" "$2")"
   if [[ -n "$gaps" ]]; then

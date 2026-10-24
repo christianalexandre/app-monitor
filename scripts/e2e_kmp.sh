@@ -25,12 +25,7 @@ if [[ "$platform" == android ]]; then
 else
   app=dev.appmonitor.kmpsample host=127.0.0.1
   boot_simulator
-  command -v xcodegen >/dev/null 2>&1 || fail "xcodegen not found ('brew install xcodegen'; ADR-0050)"
-  xcodegen generate --quiet --spec samples/kmp/iosApp/project.yml
-  # Debug only: scripts/kmp_sample_check.sh owns Release and the SDK names (ADR-0073).
-  xcodebuild build -project samples/kmp/iosApp/KmpSample.xcodeproj -scheme KmpSample -configuration Debug \
-    -destination "id=$udid" -derivedDataPath build/kmp-sample >"$out/build.log" 2>&1 \
-    || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
+  build_ios_debug samples/kmp/iosApp/project.yml KmpSample build/kmp-sample
   ./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
   started="$(date '+%Y-%m-%d %H:%M:%S')"
   trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true

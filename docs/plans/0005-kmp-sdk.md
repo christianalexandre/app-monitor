@@ -122,7 +122,9 @@ ADR.
   without the SDK.
   Accept: the sample's Android and iOS debug builds run against `make
   server` and every call shows; its release builds contain no SDK names.
-- [ ] **M4.10 KMP end to end.** `make e2e-kmp`: headless server, the KMP
+- [x] **M4.10 KMP end to end.** (`test/kmp-end-to-end`; ADR-0075, pays DEBT-0049's double build and DEBT-0050's simulator pick.
+  Deviations: every end to end now fails on an exchange captured twice, not only the KMP one; `e2e-ios` builds its
+  Debug app only, as `e2e-kmp-ios`; gate minutes GATE_MINUTES) `make e2e-kmp`: headless server, the KMP
   sample on an Android emulator and an iOS simulator with `runAll`, every
   envelope asserted, as `make e2e-android` and `make e2e-ios`; on iOS with
   the Swift SDK also running, each exchange once. Then the release gate

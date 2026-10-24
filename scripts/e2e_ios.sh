@@ -14,11 +14,11 @@ app=dev.appmonitor.sample
 tag=e2e-ios
 source scripts/e2e_lib.sh
 
-boot_simulator
-
-SIM_DEVICE="$sim_name" scripts/ios_sample_check.sh
-./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
+boot_simulator
+build_ios_debug samples/ios/project.yml Sample build/ios-sample
+
+./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
 started="$(date '+%Y-%m-%d %H:%M:%S')"
 trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true
   xcrun simctl spawn "$udid" log show --style compact --start "$started" \
