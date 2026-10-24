@@ -104,3 +104,4 @@ Rules:
 | [0084](0084-what-a-run-is.md) | What a run is for the developer, and what the window shows by default | Accepted |
 | [0085](0085-desktop-storage-platform-primitives.md) | Desktop storage on SQLDelight 2.4.1 and sqlite-jdbc, its files and connection settings | Accepted |
 | [0086](0086-storage-open-and-write-details.md) | How the store prepares a new file, stores booleans and counts lost writes | Accepted |
+| [0087](0087-gradle-plugin-for-the-release-swap.md) | A Gradle plugin swaps the SDK for its no-ops in release builds | Proposed |
