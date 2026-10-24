@@ -74,7 +74,8 @@ class AppMonitorServer internal constructor(
 
     @Volatile private var stopped = false
 
-    private val open = ConcurrentHashMap<DeviceSession, DefaultWebSocketServerSession>()
+    // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
+    private val connections = ConcurrentHashMap<DefaultWebSocketServerSession, Hello>()
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -168,11 +169,16 @@ class AppMonitorServer internal constructor(
         releasing.await()
     }
 
-    /** Closes every open session of [key] with 1008; the device's next `Hello` is asked for again. */
+    /**
+     * Closes every connection of [key] with 1008, handshakes still waiting for their answer or their `HelloAck`
+     * included; the device's next `Hello` is asked for again.
+     */
     fun disconnect(key: DeviceKey) {
-        open.forEach { (session, connection) ->
-            if (session.hello.device_id == key.deviceId && session.hello.app_id == key.appId) {
-                connection.launch { connection.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")) }
+        synchronized(lock) {
+            connections.forEach { (connection, hello) ->
+                if (hello.device_id == key.deviceId && hello.app_id == key.appId && connections.remove(connection, hello)) {
+                    connection.launch { connection.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")) }
+                }
             }
         }
     }
@@ -203,6 +209,15 @@ class AppMonitorServer internal constructor(
             close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
             return
         }
+        connections[this] = hello
+        try {
+            handshaken(hello)
+        } finally {
+            connections.remove(this)
+        }
+    }
+
+    private suspend fun DefaultWebSocketServerSession.handshaken(hello: Hello) {
         val approved = awaitApproval(hello) ?: return
         if (!approved) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
@@ -215,13 +230,16 @@ class AppMonitorServer internal constructor(
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
                 peerAddress = call.request.local.remoteAddress,
             )
-        // Under the lock stop takes: a handshake racing stop is either published or gets no HelloAck.
-        val published = synchronized(lock) { !stopped && newSessions.trySend(session).isSuccess }
+        // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
+        val published =
+            synchronized(lock) {
+                if (!connections.containsKey(this)) return
+                !stopped && newSessions.trySend(session).isSuccess
+            }
         if (!published) {
             close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
             return
         }
-        open[session] = this
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
             for (frame in incoming) {
@@ -238,7 +256,6 @@ class AppMonitorServer internal constructor(
                 session.deliver(envelope)
             }
         } finally {
-            open.remove(session)
             session.close()
         }
     }
