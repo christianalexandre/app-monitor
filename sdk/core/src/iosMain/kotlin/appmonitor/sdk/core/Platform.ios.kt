@@ -3,6 +3,7 @@ package appmonitor.sdk.core
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.io.IOException
 import kotlinx.io.files.Path
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSLog
 import platform.posix.EEXIST
 import platform.posix.errno
@@ -28,4 +29,14 @@ internal actual fun linkExclusive(
     val error = errno
     if (error == EEXIST) return false
     throw IOException("link failed: errno $error")
+}
+
+// ADR-0079: not Path.parent nor createDirectories, whose dirname(3) races.
+@OptIn(ExperimentalForeignApi::class)
+internal actual fun createParentDirectories(file: Path) {
+    val parent = file.toString().substringBeforeLast('/', "")
+    if (parent.isEmpty()) return
+    if (!NSFileManager.defaultManager.createDirectoryAtPath(parent, withIntermediateDirectories = true, attributes = null, error = null)) {
+        throw IOException("cannot create $parent")
+    }
 }

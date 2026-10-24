@@ -7,6 +7,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.Log
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -45,3 +46,7 @@ private fun osLink(
         if (e.errno != OsConstants.EEXIST) throw e
         false
     }
+
+internal actual fun createParentDirectories(file: Path) {
+    file.parent?.let { SystemFileSystem.createDirectories(it) }
+}

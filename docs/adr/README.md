@@ -96,3 +96,4 @@ Rules:
 | [0076](0076-fast-pr-suite-slow-suites-in-the-release-gate.md) | PRs to dev run a fast suite; slow suites run only in the release gate | Accepted |
 | [0077](0077-hello-names-the-sdk.md) | Hello names the SDK that opened the session | Accepted |
 | [0078](0078-device-id-published-by-hard-link.md) | The device id file is published by an exclusive hard link | Accepted |
+| [0079](0079-ios-device-id-directory-without-dirname.md) | sdk/core on iOS creates the device id directory with NSFileManager, not kotlinx-io | Accepted |

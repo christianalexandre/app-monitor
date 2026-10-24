@@ -198,8 +198,9 @@ cache lives for one bounded browse.
   Accept: `./gradlew :sdk:ktor:allTests` with an `incoming` closed with a
   cause after a close frame, read by `receive()` and by `for`, both
   recording the close once.
-- [ ] **M4.R6 A writer whose temp file cannot open returns an id not in
-  the file.** Found by `make check` in M4.R4: `racingWritersOnAnEmptyDirectoryAllReturnTheIdLeftInTheFile`
+- [x] **M4.R6 A writer whose temp file cannot open returns an id not in
+  the file.** (`fix/device-id-temp-file-race`; ADR-0079, DEBT-0059. Deviation: not the `createDirectories` race the task named;
+  kotlinx-io's Apple `Path.parent` uses `dirname(3)`'s shared buffer, so racing writers got each other's parent) Found by `make check` in M4.R4: `racingWritersOnAnEmptyDirectoryAllReturnTheIdLeftInTheFile`
   failed 4 of 8 runs on the iOS simulator (passes on JVM and Android host;
   PR CI is Linux, so it never ran there). Instrumented: while another writer
   creates the directory, `createDirectories` throws "File exists" and then
