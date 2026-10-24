@@ -157,6 +157,27 @@ ran green on every job (run 40058097609).
   Accept: `make e2e-ios` green, and the parser, fed a `simctl list` line for
   `iPhone SE (3rd generation)`, prints that name (shown in the PR).
 
+### Second milestone review
+
+Findings of the `code-review` of `168c0b9..de0d069`. One is a correctness
+finding and became a task. Seven went to DEBT-0050 (the squash trailer on a
+`release/*` head, the unanchored `generated with`, `debt_check.sh`'s
+basename and path matching, `e2e_ios.sh`'s duplicate simulator pick, stale
+ADR-0051 references, DEBT-0049's paid item). Two were rejected, with the
+reason in DEBT-0050.
+
+- [ ] **M3.R5 The Android sample loses its launch extras after process
+  death.** M3.R3 guards `restartMonitor` with `savedInstanceState == null`,
+  but after process death the activity is restored with a saved state while
+  the new process's `SampleApplication` has started the monitor with
+  default options. `--es host … --ei port N` is then ignored and the monitor
+  never reaches the headless server on port N. Guard on whether this
+  process already applied the extras, not on the saved state.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; one rotation still makes one connection, and after
+  `adb shell am kill` and a return to the app the monitor reconnects to the
+  extras' port (server log in the PR).
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
