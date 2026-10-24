@@ -76,7 +76,8 @@ ADR.
   kept open by the desktop (ADR-0064 B.1).
   Accept: `./gradlew :sdk:core:allTests` — discovery with fake browsers on
   the iOS simulator; the live test finds `make server` by Bonjour.
-- [ ] **M4.5 `sdk/ktor` HTTP capture.** The plugin per M4.1 (a, b) on JVM,
+- [x] **M4.5 `sdk/ktor` HTTP capture.** (`feat/sdk-ktor-http-capture`; ADR-0069, DEBT-0055. Deviation: streamed
+  bodies, both ways, are sent empty and truncated rather than split) The plugin per M4.1 (a, b) on JVM,
   Android and iOS: request, response, failure, bounded bodies (ADR-0020),
   masking with the shared vector `protocol/fixtures/masking.json`, capture
   layer `ADAPTER` (ADR-0038); SDD chapter for the module.

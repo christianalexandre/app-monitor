@@ -86,3 +86,4 @@ Rules:
 | [0066](0066-sdk-core-on-kotlin-native.md) | sdk/core on Kotlin/Native keeps CIO and runs its state tests in common code | Accepted |
 | [0067](0067-sdk-core-ios-build-and-stop-while-connecting.md) | sdk/core iOS build, live simulator test, and stop() letting a connect end itself | Accepted |
 | [0068](0068-kotlin-native-bonjour-resolves-with-dns-sd.md) | sdk/core on iOS browses with nw_browser and resolves with dns_sd, not a TCP probe | Accepted |
+| [0069](0069-ktor-capture-hook-and-common-masking.md) | The Ktor plugin captures in the send pipeline and masks by RFC 3986 on strings | Accepted |
