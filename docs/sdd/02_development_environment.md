@@ -159,6 +159,11 @@ enables KVM, builds the debug APK and the server's `installDist`, then
 boots an API 36 `google_apis` x86_64 emulator with
 `reactivecircus/android-emulator-runner` and runs `make e2e-android` in it;
 `build/e2e-android/` (server log, logcat) is uploaded on failure.
+The `e2e-ios` job, on macOS, installs XcodeGen and runs `make e2e-ios`,
+which boots the runner's first available iPhone simulator; the sample
+reaches the server on `127.0.0.1`, so the runner's missing local network
+access (DEBT-0046) does not apply. `build/e2e-ios/` (server and simulator
+logs) and `build/ios-sample.log` are uploaded on failure.
 
 ## Limits
 
