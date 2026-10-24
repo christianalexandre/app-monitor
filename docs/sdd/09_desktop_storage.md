@@ -20,8 +20,9 @@ directory is `0700` and the files `0600`.
 
 Opening (`Storage.open(dir)`):
 
-1. Create the directory, set `0700`; create `appmonitor.db` empty with
-   `0600` if absent.
+1. Create the directory with `0700` if absent; an existing one, such as an
+   `APPMONITOR_DATA_DIR` the developer chose, keeps its mode. Create
+   `appmonitor.db` empty with `0600` if absent.
 2. Open the driver with the connection properties of ADR-0085 (WAL,
    `foreign_keys`, `secure_delete`, `busy_timeout`).
 3. `user_version` is read first on one plain connection, without the
@@ -230,6 +231,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Case | Test |
 | --- | --- |
 | Directory and file created `0700` / `0600`, WAL inherits it | `StorageOpenTest.createsOwnerOnlyFiles` (POSIX only) |
+| An existing directory keeps its mode, one the user cannot chmod still opens | `StorageOpenTest.keepsTheModeOfAnExistingDirectory`, `StorageOpenTest.opensInADirectoryItCannotChmod` (POSIX only; `/tmp` owned by root) |
 | Schema created at 0, `auto_vacuum` incremental | `StorageOpenTest.createsSchemaOnEmptyFile` |
 | Migrations verified against committed schemas | the plugin's migration verification task |
 | Newer `user_version` refused, file untouched | `StorageOpenTest.refusesNewerDatabase` |

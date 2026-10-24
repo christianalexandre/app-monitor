@@ -114,7 +114,7 @@ rejected.
   Accept: `./gradlew :desktop:server:test` with a test that forgets the
   pair between the answer and the `HelloAck` (fails before the fix); the
   session is closed.
-- [ ] **M5.R2 Opening a chosen data directory changes its permissions.**
+- [x] **M5.R2 Opening a chosen data directory changes its permissions.** (only a directory the store creates is set `0700`; the chmod test uses `/tmp`, root-owned and world-writable on macOS and Linux, and skips where it is not)
   `Storage.createOwnerOnly` sets `rwx------` on every open, so
   `APPMONITOR_DATA_DIR=$HOME/Documents` makes the user's Documents
   owner-only, and a directory the user does not own (`/tmp`) makes

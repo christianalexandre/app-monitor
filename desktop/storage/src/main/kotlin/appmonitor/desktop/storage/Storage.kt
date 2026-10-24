@@ -505,9 +505,12 @@ class Storage private constructor(
         }
 
         private fun createOwnerOnly(directory: Path): Path {
-            Files.createDirectories(directory)
             val posix = "posix" in directory.fileSystem.supportedFileAttributeViews()
-            if (posix) Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"))
+            // A directory the developer chose keeps its mode: it may be ~/Documents or not theirs to chmod.
+            if (Files.notExists(directory)) {
+                Files.createDirectories(directory)
+                if (posix) Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"))
+            }
             val file = directory.resolve(FILE_NAME)
             if (Files.notExists(file)) {
                 Files.createFile(file)
