@@ -178,6 +178,27 @@ reason in DEBT-0050.
   `adb shell am kill` and a return to the app the monitor reconnects to the
   extras' port (server log in the PR).
 
+### Third milestone review
+
+Findings of the `code-review` of `de0d069..b3f1f69`. Two correctness
+findings, both in `SampleApplication.applyLaunchExtras`, became one task.
+Three went to DEBT-0051 (no automated rotation or process-death check,
+DEBT-0050's `Makefile` trigger, line wrapping). Two were rejected, with the
+reason in DEBT-0051. This is the last review round (ADR-0016).
+
+- [ ] **M3.R6 The Android sample ignores new launch extras while its
+  process lives.** M3.R5's once-per-process boolean drops a fresh launch
+  that points at another desktop: `am start --activity-clear-task … --es
+  host H --ei port B` without `-S`, after an earlier launch on port A, keeps
+  the monitor on A, and `runAll` sends every call there. The flag is also
+  set before `AppMonitor.start`, so a launch whose `start` throws is never
+  retried. Remember the applied host and port, set after `start` returns,
+  and restart only when they differ.
+  Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
+  green; a second `am start` without `-S` on another port reaches that
+  port's server, one rotation still makes one connection, and the
+  process-death return of M3.R5 still reconnects (server logs in the PR).
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
