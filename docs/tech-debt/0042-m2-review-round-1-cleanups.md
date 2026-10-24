@@ -47,4 +47,12 @@ The next PR that touches `MonitorClient.swift`, `URLSessionCapture.swift`,
 
 `ios_sample_check.sh`'s item paid in `fix/e2e-ios-simulator-names`: the tool
 check, the simulator selection and the Info.plist key check moved to
-`scripts/ios_lib.sh`, sourced by both scripts. The other items are open.
+`scripts/ios_lib.sh`, sourced by both scripts.
+
+`URLSessionCapture.swift` and `WebSocketCapture.swift` paid in
+`feat/ktor-swift-dedupe`: `started` reads the sink once and hands it on;
+`ws`/`wss` are accepted, and that was not free — a WebSocket task made from a
+`URLRequest` keeps its `ws` URL, so those tasks were never captured
+(ADR-0071); WebSocket tasks and background downloads reuse `requestStarted`
+and `fileHead`. The `MonitorClient.swift` and `SampleCalls.swift` items are
+open.

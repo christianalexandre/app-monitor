@@ -119,6 +119,21 @@ final class URLSessionCaptureTests {
         #expect(sink.all.isEmpty)
     }
 
+    @Test func aRequestMarkedBySdkKtorIsNotCapturedAndAnUnmarkedOneIs() async throws {
+        capture()
+        var marked = URLRequest(url: server.url("/ok?marked"))
+        marked.setValue("ktor", forHTTPHeaderField: "x-appmonitor-capture")
+
+        let (data, _) = try await URLSession.shared.data(for: marked)
+        _ = try await URLSession.shared.data(from: server.url("/ok?plain"))
+
+        _ = try await sink.exchange(server.url("/ok?plain"))
+        let urls = try sink.all.filter { $0.type == "RequestStarted" }
+            .map { try Appmonitor_V1_RequestStarted(serializedBytes: $0.payload).url }
+        #expect(urls == [server.url("/ok?plain").absoluteString])
+        #expect(String(decoding: data, as: UTF8.self) == "hello")
+    }
+
     @Test func aSuccessIsCapturedWithItsBodyAndMaskedHeaders() async throws {
         capture(AppMonitorOptions(maskedHeaders: ["x-api-key"]))
         var request = URLRequest(url: server.url("/ok"))

@@ -128,7 +128,9 @@ import AppMonitor
 AppMonitor.start(AppMonitorOptions(appName: "My App"))
 ```
 
-Every `URLSession` is captured without further code. The same `AppMonitor`
+Every `URLSession` is captured without further code, except a request
+carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it already
+captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). The same `AppMonitor`
 product compiles to stubs in configurations whose name lacks `Debug`, and
 the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in

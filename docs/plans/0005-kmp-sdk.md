@@ -89,7 +89,9 @@ ADR.
   truncation as ADR-0028, if M4.1 (b) keeps it in scope.
   Accept: `./gradlew :sdk:ktor:allTests` — frames captured against an
   in-process echo server on JVM.
-- [ ] **M4.7 Dedupe with the Swift SDK.** The correlation header per M4.1
+- [x] **M4.7 Dedupe with the Swift SDK.** (`feat/ktor-swift-dedupe`; ADR-0071: the in-process mark needs
+  `ktor-client-darwin` or new public API, the header stands. Deviation: found and fixed a Swift gap, a WebSocket
+  task made from a `ws` `URLRequest`, as Ktor's Darwin engine makes them, was never captured) The correlation header per M4.1
   (c) in `sdk/ktor`; the Swift SDK's hooks skip what carries it. First
   tries the in-process mark ADR-0064 names; a working one goes to a new ADR.
   Accept: `./gradlew :sdk:ktor:allTests` and `swift test --package-path

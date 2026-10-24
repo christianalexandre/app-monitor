@@ -1,5 +1,6 @@
 package appmonitor.sdk.ktor
 
+import appmonitor.protocol.Protocol
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.plugins.api.ClientPlugin
 import io.ktor.client.plugins.api.createClientPlugin
@@ -17,14 +18,20 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 public val AppMonitorKtor: ClientPlugin<Unit> = appMonitorKtor(MonitorSink)
 
-internal fun appMonitorKtor(sink: CaptureSink): ClientPlugin<Unit> =
+internal fun appMonitorKtor(
+    sink: CaptureSink,
+    marksCaptured: Boolean = MARKS_CAPTURED_REQUESTS,
+): ClientPlugin<Unit> =
     createClientPlugin("AppMonitorKtor") {
         // ADR-0069: after HttpSendPipeline.State, where HttpCookies adds Cookie; once per hop.
         client.sendPipeline.intercept(HttpSendPipeline.Monitoring) { content ->
             val options = sink.options
             context.attributes.remove(REQUEST_ID)
+            // ADR-0064: the Swift SDK skips a task carrying it; a redirect hop copies the previous hop's headers.
+            if (marksCaptured) context.headers.remove(Protocol.CAPTURE_HEADER)
             if (options == null || content !is OutgoingContent) return@intercept
             val request = context
+            if (marksCaptured) request.headers[Protocol.CAPTURE_HEADER] = Protocol.CAPTURE_HEADER_KTOR
             val id = newRequestId()
             request.attributes.put(REQUEST_ID, id)
             val masking = Masking(options)

@@ -88,3 +88,4 @@ Rules:
 | [0068](0068-kotlin-native-bonjour-resolves-with-dns-sd.md) | sdk/core on iOS browses with nw_browser and resolves with dns_sd, not a TCP probe | Accepted |
 | [0069](0069-ktor-capture-hook-and-common-masking.md) | The Ktor plugin captures in the send pipeline and masks by RFC 3986 on strings | Accepted |
 | [0070](0070-ktor-websocket-frames-from-the-engine-session.md) | The Ktor plugin records WebSocket frames on the engine's session | Accepted |
+| [0071](0071-ktor-capture-header-over-an-in-process-mark.md) | The Ktor plugin marks its captures with the header, not an in-process mark | Accepted |

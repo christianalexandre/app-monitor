@@ -1,5 +1,6 @@
 package appmonitor.sdk.ktor
 
+import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
@@ -40,8 +41,9 @@ class AppMonitorKtorTest {
 
     private fun client(
         sink: CaptureSink = this.sink,
+        marksCaptured: Boolean = false,
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-    ) = HttpClient(MockEngine(handler)) { install(appMonitorKtor(sink)) }
+    ) = HttpClient(MockEngine(handler)) { install(appMonitorKtor(sink, marksCaptured)) }
 
     @Test
     fun getSendsRequestAndResponseAsAnAdapter() =
@@ -203,6 +205,49 @@ class AppMonitorKtorTest {
             assertEquals("https://auth.example.com/home?code=██", sink.started().url)
             assertEquals(200, sink.received().status_code)
             assertEquals(0, sink.pending)
+        }
+
+    @Test
+    fun aMarkedCaptureSendsTheCaptureHeaderAndShowsIt() =
+        runTest {
+            val client = client(marksCaptured = true) { request -> respond(request.headers[Protocol.CAPTURE_HEADER].orEmpty()) }
+            assertEquals(Protocol.CAPTURE_HEADER_KTOR, client.get("https://api.example.com/x").bodyAsText())
+            assertTrue(Header(Protocol.CAPTURE_HEADER, Protocol.CAPTURE_HEADER_KTOR) in sink.started().headers)
+        }
+
+    @Test
+    fun anUnmarkedCaptureSendsNoCaptureHeader() =
+        runTest {
+            val client = client { request -> respond(request.headers.contains(Protocol.CAPTURE_HEADER).toString()) }
+            assertEquals("false", client.get("https://api.example.com/x").bodyAsText())
+            assertTrue(sink.started().headers.none { it.name == Protocol.CAPTURE_HEADER })
+        }
+
+    @Test
+    fun nothingIsMarkedWhileTheMonitorIsStopped() =
+        runTest {
+            val sink = RecordingSink(options = null)
+            val client =
+                client(sink, marksCaptured = true) { request -> respond(request.headers.contains(Protocol.CAPTURE_HEADER).toString()) }
+            assertEquals("false", client.get("https://api.example.com/x").bodyAsText())
+        }
+
+    @Test
+    fun aHopSentAfterStopLosesTheCaptureHeader() =
+        runTest {
+            val seen = mutableListOf<String?>()
+            val client =
+                client(marksCaptured = true) { request ->
+                    seen += request.headers[Protocol.CAPTURE_HEADER]
+                    if (request.url.encodedPath == "/login") {
+                        sink.options = null
+                        respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "/home"))
+                    } else {
+                        respond("home")
+                    }
+                }
+            assertEquals("home", client.get("https://auth.example.com/login").bodyAsText())
+            assertEquals(listOf(Protocol.CAPTURE_HEADER_KTOR, null), seen)
         }
 
     private class Unreachable(
