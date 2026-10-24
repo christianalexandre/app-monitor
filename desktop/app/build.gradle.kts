@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":desktop:server"))
+    implementation(project(":desktop:storage"))
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.material)
     implementation(libs.kotlinx.coroutines.swing)
@@ -23,7 +24,7 @@ compose.desktop {
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            modules("java.instrument", "java.management", "jdk.unsupported")
+            modules("java.instrument", "java.management", "java.sql", "jdk.unsupported")
             packageName = "App Monitor"
             packageVersion = "1.0.0"
             description = "Network monitor and debug toolkit for mobile apps"

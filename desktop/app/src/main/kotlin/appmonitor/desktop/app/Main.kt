@@ -10,11 +10,15 @@ import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.app.ui.StorageUnavailable
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
+import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
+import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.dataDirectory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -23,6 +27,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -32,27 +37,57 @@ import kotlin.system.exitProcess
 import kotlin.time.Duration
 
 fun main() {
-    val store = TrafficStore()
+    val directory = dataDirectory()
+    val storage =
+        try {
+            Storage.open(directory)
+        } catch (e: Exception) {
+            exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
+            return
+        }
+    val store = TrafficStore(storage)
     var status by mutableStateOf("Starting server…")
     val approvals = DeviceApprovals()
     val server = AppMonitorServer(approval = approvals)
-    val stop = once(server::stop)
-    addStopHook(stop)
+    val stopServer = once(server::stop)
+    val closeStorage = once { storage.close(STOP_TIMEOUT) }
+    addStopHook(timeout = STOP_TIMEOUT * 2) {
+        try {
+            stopServer()
+        } finally {
+            closeStorage()
+        }
+    }
     exitAfter {
         runBlocking {
-            runUntilExit(serve = { runServer(server, store, stop = stop) { status = it } }) {
-                awaitApplication {
-                    Window(
-                        onCloseRequest = ::exitApplication,
-                        title = "App Monitor",
-                        state = rememberWindowState(width = 1280.dp, height = 800.dp),
-                    ) {
-                        val state by store.state.collectAsState()
-                        val pending by approvals.pending.collectAsState()
-                        AppMonitorApp(state, status, pending, approvals::decide)
+            try {
+                runUntilExit(serve = { runServer(server, store::collect, stop = stopServer) { status = it } }) {
+                    awaitApplication {
+                        Window(
+                            onCloseRequest = ::exitApplication,
+                            title = "App Monitor",
+                            state = rememberWindowState(width = 1280.dp, height = 800.dp),
+                        ) {
+                            val pending by approvals.pending.collectAsState()
+                            AppMonitorApp(storage, status, pending, approvals::decide)
+                        }
                     }
                 }
+            } finally {
+                withContext(NonCancellable) { closeStorage() }
             }
+        }
+    }
+}
+
+private suspend fun showStorageFailure(
+    file: String,
+    failure: Exception,
+) {
+    failure.printStackTrace()
+    awaitApplication {
+        Window(onCloseRequest = ::exitApplication, title = "App Monitor") {
+            StorageUnavailable(file, failure.message ?: failure.toString())
         }
     }
 }
@@ -92,20 +127,21 @@ internal fun once(stop: suspend () -> Unit): suspend () -> Unit {
     return { if (claimed.compareAndSet(false, true)) stop() }
 }
 
-/** Runs [stop] on SIGINT, SIGTERM or `exitProcess`, giving up after [STOP_TIMEOUT]; failures go to [onFailure]. */
+/** Runs [stop] on SIGINT, SIGTERM or `exitProcess`, giving up after [timeout]; failures go to [onFailure]. */
 internal fun addStopHook(
-    stop: suspend () -> Unit,
     addShutdownHook: (Thread) -> Unit = Runtime.getRuntime()::addShutdownHook,
     onFailure: (Throwable) -> Unit = ::printStopFailure,
-) = addShutdownHook(shutdownHook(onFailure = onFailure, stop = stop))
+    timeout: Duration = STOP_TIMEOUT,
+    stop: suspend () -> Unit,
+) = addShutdownHook(shutdownHook(timeout, onFailure, stop))
 
 /**
- * Feeds [store] from [server] until cancelled; reports through [onStatus] a stop by someone else, a [stop] past
+ * Feeds [collect] with [server]'s sessions until cancelled; reports through [onStatus] a stop by someone else, a [stop] past
  * [stopTimeout] and any failure, foreign [CancellationException]s included. Rethrows a [VirtualMachineError].
  */
 internal suspend fun runServer(
     server: AppMonitorServer,
-    store: TrafficStore,
+    collect: suspend (Flow<DeviceSession>) -> Unit,
     start: suspend () -> Int = server::start,
     stop: suspend () -> Unit = server::stop,
     stopTimeout: Duration = STOP_TIMEOUT,
@@ -114,7 +150,7 @@ internal suspend fun runServer(
     try {
         val port = start()
         onStatus("Listening on port $port")
-        store.collect(server.sessions)
+        collect(server.sessions)
         onStatus("Server stopped")
     } catch (e: CancellationException) {
         currentCoroutineContext().ensureActive()

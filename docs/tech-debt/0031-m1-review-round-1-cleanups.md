@@ -40,6 +40,9 @@ The next PR that touches `AppMonitorInterceptor.kt`, `TrafficState.kt` or
 
 > Filled when closing.
 
+Partly paid: the `TrafficState.kt` item in `feat/desktop-app-on-storage`
+(M5.4): the file is gone, a frame is one row insert (DEBT-0004).
+
 Partly paid: the `MonitorClient.kt` item in `feat/sdk-core-ios-targets`;
 the flag resets when a session reaches connected, test
 `anOutageAfterAConnectionIsLoggedAgain`.

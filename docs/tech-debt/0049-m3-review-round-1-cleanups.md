@@ -3,7 +3,7 @@ id: DEBT-0049
 title: Non-correctness findings of the first M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `desktop/app/build.gradle.kts`, the first Android 17 preview image in use, or M10's first published desktop package
+trigger: The first Android 17 preview image in use, or M10's first published desktop package
 paid_date:
 ---
 
@@ -35,9 +35,10 @@ today. The duplicate builds cost minutes, not correctness.
 ## Trigger
 
 The first Android 17 preview image the gate or the Mac runs pays the
-local network grant item. The `packageVersion` item is paid by the next PR
-that touches `desktop/app/build.gradle.kts`, or before M10's first published
-desktop package.
+local network grant item. The `packageVersion` item is paid before M10's
+first published desktop package. It fired on `feat/desktop-app-on-storage`
+(M5.4), which only adds a dependency and the `java.sql` module there: no
+package is published yet, and the version scheme belongs to the release.
 
 ## How it was paid
 

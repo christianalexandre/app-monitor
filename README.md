@@ -82,7 +82,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
 | iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
-| Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
+| Desktop | macOS · Linux · Windows | — | SQLite history, device approval — M1, M5 |
 
 ## Roadmap
 

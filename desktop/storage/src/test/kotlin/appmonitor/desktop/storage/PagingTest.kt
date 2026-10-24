@@ -1,6 +1,9 @@
 package appmonitor.desktop.storage
 
+import appmonitor.v1.ResponseReceived
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.seconds
@@ -31,6 +34,28 @@ class PagingTest {
 
                 val session = storage.sessions(storage.runId).single().id
                 assertEquals(seen.takeLast(50), storage.exchangesOfSession(session, afterId = seen[499].id))
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun observedPagesFollowCommits() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            runBlocking {
+                withTimeout(5.seconds) {
+                    storage.connected("s1", hello(), null)
+                    repeat(3) { storage.received("s1", envelope(started("r$it"))) }
+                    storage.flush()
+                    val session = storage.observeSessions().first { it.isNotEmpty() }.single()
+                    val page = storage.observeExchangesOfSession(session.id, limit = 2)
+                    assertEquals(listOf("r0", "r1"), page.first().map { it.requestId })
+
+                    storage.received("s1", envelope(ResponseReceived(request_id = "r1", status_code = 204)))
+                    storage.disconnected("s1")
+                    assertEquals(204, page.first { rows -> rows[1].statusCode != null }[1].statusCode)
+                    storage.observeSessions().first { it.single().disconnectedAtMs != null }
+                }
                 storage.close(5.seconds)
             }
         }

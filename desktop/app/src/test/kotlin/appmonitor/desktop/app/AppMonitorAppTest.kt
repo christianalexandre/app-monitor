@@ -2,21 +2,12 @@ package appmonitor.desktop.app
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.toAwtImage
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import appmonitor.desktop.app.store.CapturedBody
-import appmonitor.desktop.app.store.CapturedFrame
-import appmonitor.desktop.app.store.Device
-import appmonitor.desktop.app.store.HttpExchange
-import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
@@ -29,29 +20,28 @@ import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
-import appmonitor.v1.Platform
+import appmonitor.v1.RequestStarted
+import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
 import appmonitor.v1.WebSocketFrame.Direction
 import appmonitor.v1.WebSocketFrame.Opcode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.Buffer
+import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
-import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.CopyOnWriteArrayList
-import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -60,215 +50,224 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
 
-@OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalTestApi::class)
 class AppMonitorAppTest {
     @Test
-    fun `shows fake client traffic received by the server`() {
-        val state = receiveFixtureTraffic()
+    fun `shows fake client traffic received by the server`() =
+        withStorage { storage ->
+            storage.receive()
 
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(state, "Listening on port 47474") }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening on port 47474") }
 
-            onNodeWithText("Pixel 9 (emulator)").assertExists()
-            onNodeWithText("Android 16 · disconnected").assertExists()
-            onNodeWithText("POST").assertExists()
-            onNodeWithText("201").assertExists()
-            onNodeWithText("failed").assertExists()
+                awaitText("Pixel 9 (emulator)")
+                onNodeWithText("Android 16 · disconnected").assertExists()
+                awaitText(URL)
+                onNodeWithText("POST").assertExists()
+                onNodeWithText("201").assertExists()
+                onNodeWithText("failed").assertExists()
 
-            onNodeWithText(URL).performClick()
-            onAllNodesWithText(URL, substring = true).assertCountEquals(2)
-            onNodeWithText("Content-Type: application/json").assertExists()
-            onNodeWithText("Adapter layer", substring = true).assertExists()
-            awaitText("{\n    \"name\": \"café\"\n}")
-            awaitText("00000000  00 7f 80 ff", substring = true)
-            onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
-            screenshot("app.png")
+                onNodeWithText(URL).performClick()
+                awaitText("Content-Type: application/json")
+                onAllNodesWithText(URL, substring = true).assertCountEquals(2)
+                onNodeWithText("Adapter layer", substring = true).assertExists()
+                awaitText("{\n    \"name\": \"café\"\n}")
+                awaitText("00000000  00 7f 80 ff", substring = true)
+                onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
+                screenshot("app.png")
 
-            onNodeWithText("req-0003").performClick()
-            onNodeWithText("WebSocket frames (1)").assertExists()
-            onNodeWithText("Unknown layer", substring = true).assertExists()
-            onNodeWithText("↓ received · TEXT · 4 B").assertExists()
-            onNodeWithText("ping").performClick()
-            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("ping").fetchSemanticsNodes().size == 2 }
-            screenshot("frames.png")
+                onNodeWithText("req-0003").performClick()
+                awaitText("WebSocket frames (1)")
+                onNodeWithText("Unknown layer", substring = true).assertExists()
+                onNodeWithText("↓ received · TEXT · 4 B").assertExists()
+                onNodeWithText("ping").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("ping").fetchSemanticsNodes().size == 2 }
+                screenshot("frames.png")
+            }
         }
-    }
 
     @Test
-    fun `frames of a websocket exchange show in order with their truncation`() {
-        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
-        val frames =
-            listOf(
-                CapturedFrame(Direction.DIRECTION_SENT, Opcode.OPCODE_TEXT, CapturedBody("hello".encodeUtf8(), originalSize = 5), 1_010),
-                CapturedFrame(Direction.DIRECTION_RECEIVED, Opcode.OPCODE_TEXT, CapturedBody("hell".encodeUtf8(), true, 11), 1_250),
-                CapturedFrame(
-                    Direction.DIRECTION_SENT,
-                    Opcode.OPCODE_CLOSE,
-                    CapturedBody(Buffer().writeShort(1000).writeUtf8("bye").readByteString()),
+    fun `frames of a websocket exchange show in order with their truncation`() =
+        withStorage { storage ->
+            fun frame(
+                direction: Direction,
+                opcode: Opcode,
+                payload: ByteString,
+                size: Long?,
+                truncated: Boolean = false,
+            ) = WebSocketFrame("r1", direction, opcode, payload, truncated, size)
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "wss://a.example/ws"), 1_000),
+                envelope(ResponseReceived(request_id = "r1", status_code = 101), 1_005),
+                envelope(frame(Direction.DIRECTION_SENT, Opcode.OPCODE_TEXT, "hello".encodeUtf8(), 5), 1_010),
+                envelope(frame(Direction.DIRECTION_RECEIVED, Opcode.OPCODE_TEXT, "hell".encodeUtf8(), 11, truncated = true), 1_250),
+                envelope(
+                    frame(Direction.DIRECTION_SENT, Opcode.OPCODE_CLOSE, Buffer().writeShort(1000).writeUtf8("bye").readByteString(), null),
                     1_500,
                 ),
             )
-        val exchange = HttpExchange("s1", "r1", "GET", "wss://a.example/ws", startedAtMs = 1_000, statusCode = 101, frames = frames)
 
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
 
-            onNodeWithText("wss://a.example/ws").performClick()
-            onNodeWithText("WebSocket frames (3)").assertExists()
-            onNodeWithText("↑ sent · TEXT · 5 B · +10 ms").assertExists()
-            onNodeWithText("↓ received · TEXT · 4 of 11 B · +250 ms").assertExists()
-            onNodeWithText("↑ sent · CLOSE · 5 B · +500 ms").assertExists()
-            onNodeWithText("1000 bye").assertExists()
+                awaitText("wss://a.example/ws")
+                onNodeWithText("wss://a.example/ws").performClick()
+                awaitText("WebSocket frames (3)")
+                onNodeWithText("↑ sent · TEXT · 5 B · +10 ms").assertExists()
+                onNodeWithText("↓ received · TEXT · 4 of 11 B · +250 ms").assertExists()
+                onNodeWithText("↑ sent · CLOSE · 5 B · +500 ms").assertExists()
+                onNodeWithText("1000 bye").assertExists()
 
-            onNodeWithText("hell").performClick()
-            onNodeWithText("Truncated: 4 of 11 bytes shown").assertExists()
-            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("hell").fetchSemanticsNodes().size == 2 }
-        }
-    }
-
-    @Test
-    fun `a body at the protocol limit renders off the UI thread`() {
-        val element = """{"id":12345,"name":"item","tags":["a","b"]}"""
-        val json = List(Protocol.MAX_BODY_BYTES / (element.length + 1)) { element }.joinToString(",", "[", "]").encodeUtf8()
-        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
-        val exchange =
-            HttpExchange(
-                "s1",
-                "r1",
-                "GET",
-                "https://a.example/big",
-                statusCode = 200,
-                responseHeaders = listOf(Header("Content-Type", "application/json")),
-                responseBody = CapturedBody(json, originalSize = json.size.toLong()),
-            )
-
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
-
-            val opened =
-                measureTime {
-                    onNodeWithText("https://a.example/big").performClick()
-                    waitForIdle()
-                }
-            assertTrue(json.size in Protocol.MAX_BODY_BYTES - element.length..Protocol.MAX_BODY_BYTES, "body is ${json.size} bytes")
-            assertTrue(opened < 2.seconds, "opening the exchange blocked the UI thread for $opened")
-            awaitText("[\n    {\n        \"id\": 12345,", substring = true)
-        }
-    }
-
-    @Test
-    fun `a pending device is admitted by clicking Approve in the dialog`() {
-        val approvals = DeviceApprovals()
-        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false), approvals)
-        val store = TrafficStore()
-        runBlocking {
-            val port = server.start()
-            val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }
-            val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
-            try {
-                runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent {
-                        val state by store.state.collectAsState()
-                        val pending by approvals.pending.collectAsState()
-                        AppMonitorApp(state, "Listening", pending, approvals::decide)
-                    }
-
-                    waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
-                    onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
-                    onNodeWithText("Pixel 9 (emulator)").assertDoesNotExist()
-
-                    onNodeWithText("Approve").performClick()
-                    waitUntil(timeoutMillis = TIMEOUT_MS) {
-                        store.state.value.devices
-                            .run { isNotEmpty() && none { it.connected } }
-                    }
-                    onNodeWithText("Approve").assertDoesNotExist()
-                    onNodeWithText("Pixel 9 (emulator)").assertExists()
-                    onNodeWithText("201").assertExists()
-                }
-                assertTrue(withTimeout(TIMEOUT_MS) { replaying.await() }.isSuccess)
-            } finally {
-                collecting.cancel()
-                server.stop()
+                onNodeWithText("hell").performClick()
+                onNodeWithText("Truncated: 4 of 11 bytes shown").assertExists()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("hell").fetchSemanticsNodes().size == 2 }
             }
         }
-    }
 
     @Test
-    fun `Reject in the dialog decides the first pending device and shows the rest waiting`() {
-        val pending =
-            listOf("app.a", "app.b").map {
-                PendingDevice(DeviceKey("d1", it), Hello(device_name = "Pixel", device_id = "d1", app_id = it, os_version = "Android 16"))
-            }
-        val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
-
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(), "Listening", pending) { key, approved -> decisions += key to approved } }
-
-            onNodeWithText("Pixel — app.a wants to connect").assertExists()
-            onNodeWithText("1 more waiting").assertExists()
-            screenshot("approval.png")
-            onNodeWithText("Reject").performClick()
-        }
-
-        assertEquals(listOf(DeviceKey("d1", "app.a") to false), decisions)
-    }
-
-    @Test
-    fun `two exchanges with the same body open in their own default format`() {
-        val body = CapturedBody("{\"a\":1}".encodeUtf8())
-        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
-        val state =
-            TrafficState(
-                devices = listOf(device),
-                exchanges =
-                    listOf(
-                        HttpExchange(
-                            "s1",
-                            "r1",
-                            "POST",
-                            "https://a.example/json",
-                            listOf(Header("Content-Type", "application/json")),
-                            body,
-                        ),
-                        HttpExchange("s1", "r2", "POST", "https://a.example/text", listOf(Header("Content-Type", "text/plain")), body),
+    fun `a body at the protocol limit renders off the UI thread`() =
+        withStorage { storage ->
+            val element = """{"id":12345,"name":"item","tags":["a","b"]}"""
+            val json = List(Protocol.MAX_BODY_BYTES / (element.length + 1)) { element }.joinToString(",", "[", "]").encodeUtf8()
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/big")),
+                envelope(
+                    ResponseReceived(
+                        request_id = "r1",
+                        status_code = 200,
+                        headers = listOf(Header("Content-Type", "application/json")),
+                        body = json,
+                        body_size = json.size.toLong(),
                     ),
+                ),
             )
 
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(state, "Listening") }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
 
-            onNodeWithText("https://a.example/json").performClick()
-            awaitText("{\n    \"a\": 1\n}")
-
-            onNodeWithText("https://a.example/text").performClick()
-            awaitText("{\"a\":1}")
-            onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+                awaitText("https://a.example/big")
+                val opened =
+                    measureTime {
+                        onNodeWithText("https://a.example/big").performClick()
+                        waitForIdle()
+                    }
+                assertTrue(json.size in Protocol.MAX_BODY_BYTES - element.length..Protocol.MAX_BODY_BYTES, "body is ${json.size} bytes")
+                assertTrue(opened < 2.seconds, "opening the exchange blocked the UI thread for $opened")
+                awaitText("[\n    {\n        \"id\": 12345,", substring = true)
+            }
         }
-    }
 
     @Test
-    fun `an unread body shows its truncation note and a whole one none`() {
-        val device = Device("s1", "Pixel", Platform.PLATFORM_ANDROID, "Android 16", "app", "1.0")
-        val exchange =
-            HttpExchange(
-                "s1",
-                "r1",
-                "POST",
-                "https://a.example/upload",
-                requestBody = CapturedBody(truncated = true),
-                statusCode = 204,
+    fun `a pending device is admitted by clicking Approve in the dialog`() =
+        withStorage { storage ->
+            val approvals = DeviceApprovals()
+            val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false), approvals)
+            runBlocking {
+                val port = server.start()
+                val collecting = launch(Dispatchers.Default) { TrafficStore(storage).collect(server.sessions) }
+                val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
+                try {
+                    runDesktopComposeUiTest(width = 1280, height = 800) {
+                        setContent {
+                            val pending by approvals.pending.collectAsState()
+                            AppMonitorApp(storage, "Listening", pending, approvals::decide)
+                        }
+
+                        waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
+                        onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
+                        onNodeWithText("Pixel 9 (emulator)").assertDoesNotExist()
+
+                        onNodeWithText("Approve").performClick()
+                        waitUntil(timeoutMillis = TIMEOUT_MS) {
+                            runBlocking { storage.sessions(storage.runId) }.run { isNotEmpty() && all { it.disconnectedAtMs != null } }
+                        }
+                        onNodeWithText("Approve").assertDoesNotExist()
+                        awaitText("Pixel 9 (emulator)")
+                        awaitText("201")
+                    }
+                    assertTrue(withTimeout(TIMEOUT_MS) { replaying.await() }.isSuccess)
+                } finally {
+                    collecting.cancel()
+                    server.stop()
+                }
+            }
+        }
+
+    @Test
+    fun `Reject in the dialog decides the first pending device and shows the rest waiting`() =
+        withStorage { storage ->
+            val pending =
+                listOf("app.a", "app.b").map {
+                    PendingDevice(
+                        DeviceKey("d1", it),
+                        Hello(device_name = "Pixel", device_id = "d1", app_id = it, os_version = "Android 16"),
+                    )
+                }
+            val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", pending) { key, approved -> decisions += key to approved } }
+
+                onNodeWithText("Pixel — app.a wants to connect").assertExists()
+                onNodeWithText("1 more waiting").assertExists()
+                screenshot("approval.png")
+                onNodeWithText("Reject").performClick()
+            }
+
+            assertEquals(listOf(DeviceKey("d1", "app.a") to false), decisions)
+        }
+
+    @Test
+    fun `two exchanges with the same body open in their own default format`() =
+        withStorage { storage ->
+            val body = "{\"a\":1}".encodeUtf8()
+
+            fun post(
+                id: String,
+                path: String,
+                type: String,
+            ) = envelope(
+                RequestStarted(
+                    request_id = id,
+                    method = "POST",
+                    url = "https://a.example/$path",
+                    headers = listOf(Header("Content-Type", type)),
+                    body = body,
+                ),
+            )
+            storage.record(post("r1", "json", "application/json"), post("r2", "text", "text/plain"))
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
+
+                awaitText("https://a.example/json")
+                onNodeWithText("https://a.example/json").performClick()
+                awaitText("{\n    \"a\": 1\n}")
+
+                onNodeWithText("https://a.example/text").performClick()
+                awaitText("{\"a\":1}")
+                onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+            }
+        }
+
+    @Test
+    fun `an unread body shows its truncation note and a whole one none`() =
+        withStorage { storage ->
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "POST", url = "https://a.example/upload", body_truncated = true)),
+                envelope(ResponseReceived(request_id = "r1", status_code = 204)),
             )
 
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(listOf(device), listOf(exchange)), "Listening") }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
 
-            onNodeWithText("https://a.example/upload").performClick()
-            onNodeWithText("Truncated: 0 bytes shown, original size unknown").assertExists()
-            onAllNodesWithText("Truncated", substring = true).assertCountEquals(1)
-            onAllNodesWithText("None").assertCountEquals(3)
+                awaitText("https://a.example/upload")
+                onNodeWithText("https://a.example/upload").performClick()
+                awaitText("Truncated: 0 bytes shown, original size unknown")
+                onAllNodesWithText("Truncated", substring = true).assertCountEquals(1)
+                onAllNodesWithText("None").assertCountEquals(3)
+            }
         }
-    }
 
     @Test
     fun `shows the failed status when the server start throws a non-IO exception`() {
@@ -277,14 +276,16 @@ class AppMonitorAppTest {
         val statuses = mutableListOf<String>()
         runBlocking {
             server.stop()
-            withTimeout(TIMEOUT_MS) { runServer(server, TrafficStore()) { statuses += it } }
+            withTimeout(TIMEOUT_MS) { runServer(server, drain) { statuses += it } }
         }
 
         assertEquals(listOf("Server failed: Server is single use: create a new instance"), statuses)
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(), statuses.last()) }
+        withStorage { storage ->
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, statuses.last()) }
 
-            onNodeWithText(statuses.last()).assertExists()
+                onNodeWithText(statuses.last()).assertExists()
+            }
         }
     }
 
@@ -294,7 +295,7 @@ class AppMonitorAppTest {
         val statuses = CopyOnWriteArrayList<String>()
         runBlocking {
             withTimeout(TIMEOUT_MS) {
-                runServer(server, TrafficStore(), start = {
+                runServer(server, drain, start = {
                     server.start().also { launch { server.stop() } }
                 }) { statuses += it }
             }
@@ -302,10 +303,12 @@ class AppMonitorAppTest {
 
         assertEquals("Listening on port", statuses.first().substringBeforeLast(' '))
         assertEquals(listOf("Server stopped"), statuses.drop(1))
-        runDesktopComposeUiTest(width = 1280, height = 800) {
-            setContent { AppMonitorApp(TrafficState(), statuses.last()) }
+        withStorage { storage ->
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, statuses.last()) }
 
-            onNodeWithText("Server stopped").assertExists()
+                onNodeWithText("Server stopped").assertExists()
+            }
         }
     }
 
@@ -318,7 +321,7 @@ class AppMonitorAppTest {
             withTimeout(TIMEOUT_MS) {
                 runServer(
                     server,
-                    TrafficStore(),
+                    drain,
                     start = { throw NoClassDefFoundError("javax/jmdns/JmDNS") },
                     stop = { stopped = true },
                 ) { statuses += it }
@@ -338,7 +341,7 @@ class AppMonitorAppTest {
             withTimeout(TIMEOUT_MS) {
                 runServer(
                     server,
-                    TrafficStore(),
+                    drain,
                     start = { throw CancellationException("foreign scope cancelled") },
                     stop = { stopped = true },
                 ) { statuses += it }
@@ -358,7 +361,7 @@ class AppMonitorAppTest {
             withTimeout(TIMEOUT_MS) {
                 val serving =
                     launch {
-                        runServer(server, TrafficStore(), start = {
+                        runServer(server, drain, start = {
                             started.complete(Unit)
                             awaitCancellation()
                         }, stop = {}) { statuses += it }
@@ -389,7 +392,7 @@ class AppMonitorAppTest {
         runBlocking {
             server.stop()
             withTimeout(TIMEOUT_MS) {
-                runServer(server, TrafficStore(), stop = { throw IOException("stop failed") }) { statuses += it }
+                runServer(server, drain, stop = { throw IOException("stop failed") }) { statuses += it }
             }
         }
 
@@ -406,7 +409,7 @@ class AppMonitorAppTest {
         runBlocking {
             server.stop()
             withTimeout(TIMEOUT_MS) {
-                runServer(server, TrafficStore(), stop = { throw NotImplementedError("stop") }) { statuses += it }
+                runServer(server, drain, stop = { throw NotImplementedError("stop") }) { statuses += it }
             }
         }
 
@@ -420,7 +423,7 @@ class AppMonitorAppTest {
         runBlocking {
             server.stop()
             withTimeout(TIMEOUT_MS) {
-                runServer(server, TrafficStore(), stop = { awaitCancellation() }, stopTimeout = 200.milliseconds) { statuses += it }
+                runServer(server, drain, stop = { awaitCancellation() }, stopTimeout = 200.milliseconds) { statuses += it }
             }
         }
 
@@ -432,7 +435,7 @@ class AppMonitorAppTest {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
         val port = runBlocking { server.start() }
         val hooks = CopyOnWriteArrayList<Thread>()
-        addStopHook(server::stop, hooks::add)
+        addStopHook(hooks::add) { server.stop() }
 
         val hook = hooks.single().apply { start() }
         hook.join(TIMEOUT_MS)
@@ -449,14 +452,14 @@ class AppMonitorAppTest {
         val hookFailures = CopyOnWriteArrayList<Throwable>()
         val statuses = CopyOnWriteArrayList<String>()
         val started = CompletableDeferred<Unit>()
-        addStopHook(stop, hooks::add) { hookFailures += it }
+        addStopHook(hooks::add, { hookFailures += it }, stop = stop)
 
         val begin = System.nanoTime()
         runBlocking {
             withTimeout(TIMEOUT_MS) {
                 runUntilExit(
                     serve = {
-                        runServer(server, TrafficStore(), start = {
+                        runServer(server, drain, start = {
                             started.complete(Unit)
                             awaitCancellation()
                         }, stop = stop, stopTimeout = 200.milliseconds) { statuses += it }
@@ -485,7 +488,7 @@ class AppMonitorAppTest {
                     serve = {
                         runServer(
                             server,
-                            TrafficStore(),
+                            drain,
                             start = { server.start().also { listening.complete(it) } },
                             stop = {
                                 delay(200)
@@ -500,40 +503,5 @@ class AppMonitorAppTest {
 
         assertTrue(stopped)
         ServerSocket(listening.getCompleted(), 0, InetAddress.getByName("127.0.0.1")).close()
-    }
-
-    private fun ComposeUiTest.awaitText(
-        text: String,
-        substring: Boolean = false,
-    ) = waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
-
-    private fun ComposeUiTest.screenshot(name: String) {
-        val file = File(System.getProperty("screenshotDir"), name)
-        file.parentFile.mkdirs()
-        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", file)
-    }
-
-    // Real server and fake client: the UI renders what actually crossed the wire.
-    private fun receiveFixtureTraffic(): TrafficState =
-        runBlocking {
-            val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
-            val store = TrafficStore()
-            try {
-                val port = server.start()
-                val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }
-                withTimeout(TIMEOUT_MS) {
-                    replay(Target("127.0.0.1", port))
-                    store.state.first { state -> state.devices.isNotEmpty() && state.devices.none { it.connected } }
-                }
-                collecting.cancel()
-                store.state.value
-            } finally {
-                server.stop()
-            }
-        }
-
-    private companion object {
-        const val URL = "https://api.example.com/v1/items?page=2"
-        const val TIMEOUT_MS = 10_000L
     }
 }

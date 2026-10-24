@@ -1,13 +1,14 @@
 # 09 — Desktop storage
 
 **Built in part** (ADR-0066): the module, its schema, write path and paged
-reads are in `desktop/storage` (M5.3); the app does not use it yet (M5.4), and
-approvals, run names, search and retention are M5.5 to M5.8 (PLAN-0006).
+reads are in `desktop/storage` (M5.3), and the app writes and reads through
+it (M5.4, SDD 01); approvals, run names, search and retention are M5.5 to
+M5.8 (PLAN-0006).
 `desktop/storage` keeps what the desktop receives in one SQLite file through
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
 files, connection settings), ADR-0086 (opening, booleans, lost writes).
-Code: `desktop/storage/`, used by `desktop/app` from M5.4.
+Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
 
@@ -114,8 +115,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   the collector never waits for SQLite, so `DeviceSession` keeps reading
   the socket and its pongs (DEBT-0022). Full → `enqueue` suspends, which is
   today's back-pressure (ADR-0009): nothing is dropped, and DEBT-0022 is
-  back for as long as it lasts. The queue's high-water mark is recorded for
-  the M5.4 measurement; DEBT-0022 is re-triggered on it there.
+  back for as long as it lasts. `queueFullWaits` counts those waits and
+  `close` logs it when it is not zero. Measured in M5.4: 10 000 requests
+  over one real session stored in 0.7 s with a high-water mark of 2.5 MiB
+  of 64 MiB and no wait (`TrafficStoreTest` on the owner's MacBook Pro).
 - **Failed batch** (any exception from the batch, `SQLException` for disk
   full or I/O error). The transaction rolls back; the batch's items are
   counted as not saved; the writer goes on
@@ -127,9 +130,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected`.
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
-  file). The app opens without storage: the window shows the error, the
-  path and "Clear all data"; the server is not started, so devices are not
-  admitted into a desktop that cannot keep them.
+  file). The app opens without storage: the window shows the error and the
+  path ("Clear all data" there comes with M5.8); the server is not started,
+  so devices are not admitted into a desktop that cannot keep them.
 - **Close.** On exit, after the server stops, `Storage.close(timeout)`
   queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
   the server; what is still queued after it, the batch being written
@@ -143,9 +146,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   connection, not one per statement (ADR-0085).
 - Lists are pages by key, never by `OFFSET`: exchanges of a run or session
   ordered by `id`, `PAGE_SIZE` 200, the next page `WHERE id > :last`. The
-  window holds the pages in view; a commit re-runs the pages loaded through
-  SQLDelight's `Query` listeners (`coroutines-extensions`, added with M5.4,
-  its first user), conflated so a burst of batches is one refresh.
+  window observes the first N rows (`observeExchangesOfSession`, N grown by
+  a page as the list nears its end) and the sessions (`observeSessions`)
+  through SQLDelight's `Query` listeners (`coroutines-extensions`), which
+  re-run them after each commit, conflated so a burst of batches is one
+  refresh.
 - The detail of one exchange reads its meta, its bodies (inflated on read)
   and its frames by page.
 - Search and filters (M5.7) are `WHERE` clauses on the indexed columns.
@@ -174,7 +179,8 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
-| A 10k-request session ingested in bounded time, restart shows it | `TrafficStoreTest` in `desktop/app` (M5.4) |
+| Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
+| A 10k-request session ingested in bounded time, restart shows it, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5) |
 | Sessions grouped by run, runs named | `RunsTest` (M5.6) |
 | One case per filter and their combination | `SearchTest` (M5.7) |
