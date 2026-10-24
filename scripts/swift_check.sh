@@ -17,7 +17,7 @@ if ! diff -q <(scripts/swift_proto_hash.sh) "$pkg/Sources/AppMonitor/Generated/p
   exit 1
 fi
 swift format lint --strict --recursive --configuration "$pkg/.swift-format" \
-  "$pkg/Package.swift" "$pkg/Sources" "$pkg/Tests" "$pkg/TestHost" samples/ios
+  Package.swift "$pkg/Package.swift" "$pkg/Sources" "$pkg/Tests" "$pkg/TestHost" samples/ios
 swift test --package-path "$pkg"
 scripts/swift_api_check.sh
 scripts/test_swift_api_check.sh

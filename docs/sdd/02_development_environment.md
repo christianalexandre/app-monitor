@@ -141,6 +141,20 @@ build proof**, not releases: macOS Gatekeeper and Windows SmartScreen block
 them until the user overrides (ADR-0055). The app inside listens on 47474
 like `make desktop`.
 
+## SDK publication dry-run
+
+`make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058) publishes
+`sdk/core`, `sdk/android-okhttp`, `sdk/no-op` and the `protocol` they
+depend on to `build/maven-dry-run`, group `io.github.christianalexandre`,
+artifacts `appmonitor-core`, `appmonitor-okhttp`, `appmonitor-no-op`,
+`appmonitor-protocol` with their `-jvm` and `-android` variants (ADR-0054),
+version `VERSION_NAME` from `gradle.properties`; it fails when a POM lacks
+name, description, URL, license, developer or SCM. On macOS it then builds
+`build/spm-consumer`, a throwaway executable that adds the root
+`Package.swift` by path, in debug and release, and prints the binary size
+and `SwiftProtobuf` symbol count (DEBT-0040). ≈35 s cold. Nothing is
+uploaded anywhere: Central and tags are M10.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin
@@ -182,6 +196,8 @@ logs) and `build/ios-sample.log` are uploaded on failure.
 The `package` job builds the unsigned `.dmg` on macOS, `.msi` on windows
 and `.deb` on ubuntu, one matrix entry each, and uploads each as the
 `desktop-<format>` artifact for 7 days.
+The `publish` job, on macOS, runs `make publish-dry-run` and uploads
+`build/maven-dry-run/` as the `maven-dry-run` artifact for 7 days.
 
 ## Limits
 

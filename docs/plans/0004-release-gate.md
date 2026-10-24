@@ -97,7 +97,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   as short-lived artifacts. SDD 02 says how to build one locally.
   Accept: `./gradlew :desktop:app:packageDmg` on the Mac produces a `.dmg`
   that launches the app; the gate run lists the three artifacts.
-- [ ] **M3.10 SDK publication dry-run.** `sdk/core`, `sdk/android-okhttp`
+- [x] **M3.10 SDK publication dry-run.** (`build/sdk-publication-dry-run`; ADR-0058: `maven-publish`, `protocol` published as `appmonitor-protocol` since `sdk/core` depends on it, root `Package.swift`, `make publish-dry-run`, `publish` job on macOS; DEBT-0040 re-triggered to M10's first tag, release consumer 3.6 MB with 14,767 SwiftProtobuf symbols; run 40055218483, `publish` ≈6.3 min) `sdk/core`, `sdk/android-okhttp`
   and `sdk/no-op` publish with the coordinates of M3.2 (c) to a local Maven
   repository, POMs complete; the iOS package is resolved by a throwaway
   SwiftPM project from a path or tag and built in Debug and Release.

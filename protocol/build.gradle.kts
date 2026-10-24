@@ -1,6 +1,7 @@
 plugins {
     id("appmonitor.kmp-library")
     id("com.squareup.wire")
+    id("appmonitor.publish")
 }
 
 wire {
