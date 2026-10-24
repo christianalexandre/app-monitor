@@ -132,7 +132,8 @@ ADR.
   job if M4.1 (d) allows.
   Accept: `make e2e-kmp` green on the Mac; a call removed from the run
   makes it fail, shown in the PR; the gate run green if the job is added.
-- [ ] **M4.11 Docs sync.** README status, platforms and KMP usage; SDD 01
+- [x] **M4.11 Docs sync.** (`docs/m4-docs-sync`; also `make android-samples` in `AGENTS.md`, SDD 03's
+  stale `make swift` mentions of the sample checks, ADR-0076) README status, platforms and KMP usage; SDD 01
   and 03; `AGENTS.md` commands.
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.

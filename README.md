@@ -14,11 +14,13 @@ checkout fail in the last run?"* straight from the captured traffic.
 > **Status: pre-alpha.** Code lands milestone by milestone. Android apps
 > using OkHttp show their traffic in the desktop, on the emulator and on a
 > device; iOS apps show all their `URLSession` traffic, proven on the
-> simulator so far (DEBT-0041). Every PR to `main` passes a release gate:
-> desktop tests on three OSes, the Kotlin ↔ Swift contract, both samples end
-> to end, unsigned packages and an SDK publication dry-run. Everything below
-> marked *planned* does not exist yet. Current milestone:
-> [M3 — Release gate](docs/plans/0004-release-gate.md).
+> simulator so far (DEBT-0041); Kotlin Multiplatform apps show their Ktor
+> traffic from Android and iOS, and an iOS app running both SDKs shows each
+> exchange once. Every PR to `main` passes a release gate: desktop tests on
+> three OSes, the Kotlin ↔ Swift contract, every sample app, the Android, iOS
+> and KMP samples end to end, unsigned packages and an SDK publication
+> dry-run. Everything below marked *planned* does not exist yet. Current
+> milestone: [M4 — KMP SDK](docs/plans/0005-kmp-sdk.md).
 
 ## Why
 
@@ -79,7 +81,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
 | iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
 | iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
-| KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
+| KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
 | Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
 
 ## Roadmap
@@ -90,7 +92,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M1 — Android SDK](docs/plans/0002-android-sdk.md) | Real Android apps on emulator and device |
 | [M2 — iOS SDK](docs/plans/0003-ios-sdk.md) | Real iOS apps, full `URLSession` coverage |
 | [M3 — Release gate](docs/plans/0004-release-gate.md) | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
-| M4 — KMP SDK | Ktor plugin for every KMP target |
+| [M4 — KMP SDK](docs/plans/0005-kmp-sdk.md) | Ktor plugin on Android and iOS, deduped with the Swift SDK |
 | M5 — Persistence | Runs, search, filters, retention |
 | M6 — MCP server | Traffic, runs and stats queryable by AI agents |
 | M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
@@ -105,7 +107,8 @@ Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 > [!IMPORTANT]
 > Not published yet (M10); the API may change before then. The Android API
 > is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md), the iOS one in
-> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md).
+> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md), the KMP one in
+> [ADR-0062](docs/adr/0062-kmp-sdk-public-api.md).
 
 ```kotlin
 // Android — Application.onCreate
@@ -136,6 +139,48 @@ the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in
 [`samples/ios`](samples/ios).
 
+```kotlin
+// KMP — commonMain, every HttpClient you want to see
+val client = HttpClient(engine) {
+    install(AppMonitorKtor)
+}
+
+// Android — Application.onCreate
+AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+
+// iOS — iosMain, called from the app's entry point
+fun startMonitor() = AppMonitor.start(AppMonitorOptions(appName = "My App"))
+```
+
+The shared module depends on `sdk/ktor` in debug and `sdk/ktor-no-op` in
+release; on iOS the Gradle script picks it from the configuration Xcode
+builds, on Android the release app substitutes both no-ops
+([ADR-0073](docs/adr/0073-kmp-sample-layout-and-release-swap.md)):
+
+```kotlin
+// shared/build.gradle.kts
+val xcodeBuildType = providers.environmentVariable("CONFIGURATION").orNull?.lowercase()
+val sdkKtor = if (xcodeBuildType == "release") ":sdk:ktor-no-op" else ":sdk:ktor"
+kotlin { sourceSets { commonMain.dependencies { implementation(project(sdkKtor)) } } }
+
+// androidApp/build.gradle.kts
+dependencies {
+    debugImplementation(project(":sdk:core"))
+    releaseImplementation(project(":sdk:core-no-op"))
+}
+configurations.matching { it.name.startsWith("release") }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(project(":sdk:ktor")).using(project(":sdk:ktor-no-op"))
+        substitute(project(":sdk:core")).using(project(":sdk:core-no-op"))
+    }
+}
+```
+
+The iOS app adds the same local network keys Run Script phase as a Swift
+app. Beside the Swift SDK, each exchange shows once: `sdk/ktor` marks what
+it captured and the Swift SDK skips it. A working app is in
+[`samples/kmp`](samples/kmp).
+
 ## How this project is built
 
 App Monitor is developed by one person with an AI agent (Claude Code) working
@@ -155,15 +200,17 @@ in a documented loop. The process is part of the portfolio:
   one PR template per change type, protected `dev` and `main`.
 - **Release gate** — `main` requires
   [`release-gate.yml`](.github/workflows/release-gate.yml) green: desktop
-  ×3 OS, contract tests, Android and iOS end to end, packages, SDK dry-run.
+  ×3 OS, contract tests, every sample app, Android, iOS and KMP end to end,
+  packages, SDK dry-run.
 
 ## Contributing
 
 The project is not open to contributions yet. To work on it locally:
 
 ```sh
-make help     # list commands
-make check    # run all gates
+make help        # list commands
+make check       # fast suite, what PRs to dev run
+make check-full  # plus simulator tests and every sample app
 ```
 
 Toolchain: [development environment](docs/sdd/02_development_environment.md).
