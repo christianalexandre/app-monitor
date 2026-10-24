@@ -105,3 +105,4 @@ Rules:
 | [0085](0085-desktop-storage-platform-primitives.md) | Desktop storage on SQLDelight 2.4.1 and sqlite-jdbc, its files and connection settings | Accepted |
 | [0086](0086-storage-open-and-write-details.md) | How the store prepares a new file, stores booleans and counts lost writes | Accepted |
 | [0087](0087-exchange-search-queries.md) | Exchange search is one WHERE built from the filters that are set | Accepted |
+| [0088](0088-retention-pass-and-clear-all.md) | Retention measures live pages, deletes in chunks on the writer thread, and "Clear all data" empties the file in place | Accepted |

@@ -35,6 +35,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -82,6 +85,12 @@ fun main() {
                                 onDecide = { device, approved -> scope.launch { approvals.decide(device, approved) } },
                                 answered = answered,
                                 onForget = { key -> scope.launch { if (key == null) approvals.forgetAll() else approvals.forget(key) } },
+                                onClearAll = {
+                                    scope.launch {
+                                        approvals.forgetAll()
+                                        storage.clearAll()
+                                    }
+                                },
                             )
                         }
                     }
@@ -112,10 +121,19 @@ private suspend fun showStorageFailure(
     failure.printStackTrace()
     awaitApplication {
         Window(onCloseRequest = ::exitApplication, title = "App Monitor") {
-            StorageUnavailable(file, failure.message ?: failure.toString())
+            StorageUnavailable(file, failure.message ?: failure.toString()) { clearDataFiles(Path.of(file)) }
         }
     }
 }
+
+/** Deletes the database and its WAL and shared-memory files (ADR-0082 D.1); returns what to tell the developer. */
+internal fun clearDataFiles(file: Path): String =
+    try {
+        listOf("", "-wal", "-shm").forEach { Files.deleteIfExists(file.resolveSibling(file.fileName.toString() + it)) }
+        "Data deleted. Quit and reopen App Monitor."
+    } catch (e: IOException) {
+        "Could not delete the files: ${e.message ?: e}"
+    }
 
 /** Runs [block], then calls [exit] with 0, or with 1 after printing the failure when [block] throws. */
 internal fun exitAfter(

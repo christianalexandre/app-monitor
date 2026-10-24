@@ -51,3 +51,20 @@ SELECT * FROM sessions ORDER BY id;
 
 inRun:
 SELECT * FROM sessions WHERE run_id = ? ORDER BY id;
+
+-- ADR-0082 B.1, C.1: ended sessions outside named runs, oldest last envelope first.
+prunable:
+SELECT sessions.id
+FROM sessions
+JOIN runs ON runs.id = sessions.run_id
+WHERE sessions.disconnected_at_ms IS NOT NULL
+  AND runs.name IS NULL
+  AND coalesce(sessions.last_envelope_at_ms, sessions.connected_at_ms) < :before
+ORDER BY coalesce(sessions.last_envelope_at_ms, sessions.connected_at_ms), sessions.id
+LIMIT :limit;
+
+delete:
+DELETE FROM sessions WHERE id = ?;
+
+deleteAll:
+DELETE FROM sessions;

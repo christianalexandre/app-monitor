@@ -63,3 +63,6 @@ LIMIT :limit;
 
 byId:
 SELECT * FROM exchanges WHERE id = ?;
+
+deleteAll:
+DELETE FROM exchanges;

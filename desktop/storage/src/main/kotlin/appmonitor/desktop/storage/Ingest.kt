@@ -74,6 +74,12 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    data class SetRetention(
+        val settings: RetentionSettings,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
@@ -91,6 +97,10 @@ internal class Ingest(
     var currentRun: Long = runId
         private set
 
+    /** The stored retention settings, as of the last batch written. */
+    var retention: RetentionSettings = database.retentionSettings()
+        private set
+
     // `connections` outlive a rolled back batch, `rows` do not: a lost session row is inserted again.
     // Each connection keeps the run current when it arrived (ADR-0084 A.1).
     private val connections = mutableMapOf<String, Pair<StorageItem.Connected, Long>>()
@@ -99,6 +109,7 @@ internal class Ingest(
     fun write(batch: List<StorageItem>) {
         val before = rows
         val beforeRun = currentRun
+        val beforeRetention = retention
         try {
             database.transaction {
                 batch.forEach(::apply)
@@ -108,6 +119,7 @@ internal class Ingest(
             rows = before.filterKeys { it in connections }
             // Runs opened by the lost batch are gone; the current run is always the highest id.
             currentRun = beforeRun
+            retention = beforeRetention
             connections.replaceAll { _, (connected, run) -> connected to minOf(run, beforeRun) }
             throw e
         }
@@ -167,10 +179,37 @@ internal class Ingest(
                 }
             }
 
+            is StorageItem.SetRetention -> {
+                database.putRetentionSettings(item.settings)
+                retention = item.settings
+            }
+
             is StorageItem.Barrier -> {
                 Unit
             }
         }
+    }
+
+    /**
+     * Deletes every row, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
+     * connected are forgotten: what they send next is dropped.
+     */
+    fun clear(atMs: Long) {
+        currentRun =
+            database.transactionWithResult {
+                database.exchangeQueries.deleteAll()
+                database.sessionQueries.deleteAll()
+                database.runQueries.deleteAll()
+                database.deviceQueries.deleteUnused()
+                database.appQueries.deleteUnused()
+                database.approvalQueries.forgetAll()
+                database.settingQueries.deleteAll()
+                database.runQueries.insert(atMs)
+                database.runQueries.lastId().executeAsOne()
+            }
+        retention = RetentionSettings()
+        connections.clear()
+        rows = emptyMap()
     }
 
     private fun sessionRow(sessionId: String): Long? {

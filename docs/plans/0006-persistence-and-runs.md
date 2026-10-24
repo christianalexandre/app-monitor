@@ -81,7 +81,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   Accept: `./gradlew :desktop:storage:test` with one case per filter and
   their combination; `./gradlew :desktop:app:test` with a filtered
   screenshot.
-- [ ] **M5.8 Retention settings.** Per M5.1 (b): the settings in the UI,
+- [x] **M5.8 Retention settings.** (ADR-0088: size is live pages, free pages handed back one `incremental_vacuum` statement at a time since the driver steps once; "Clear all data" empties the file in place with `VACUUM` instead of swapping the store, and in the failure window deletes the files and asks for a reopen; settings and approvals cleared with it; empty runs and unused devices deleted with their last session; DEBT-0062 did not fire, the port is still fixed) Per M5.1 (b): the settings in the UI,
   applied at startup and while the app runs, clear everything.
   Accept: `./gradlew :desktop:storage:test` with a controlled clock and
   size, the oldest data deleted first and what M5.1 (b) keeps kept.
