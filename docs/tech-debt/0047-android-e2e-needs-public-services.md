@@ -31,6 +31,11 @@ Then point the samples at a server the scripts start on the host (reached at
 `10.0.2.2` from the emulator, `127.0.0.1` from the simulator), with the
 public URLs left as the default.
 
+Fired on 2026-10-24: release gate run 40093851446 on PR #132,
+`e2e-android` logged `no ResponseReceived` for every `httpbin.org` and
+`echo.websocket.org` call; the rerun passed with no code change. Paid by
+PLAN-0005 M4.8a, before `make e2e-kmp` adds a third run on the same hosts.
+
 ## How it was paid
 
 > Filled when closing.

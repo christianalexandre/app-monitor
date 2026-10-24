@@ -14,6 +14,9 @@ What "done" means for a task.
 - **End-to-end beats mocks for transport.** Connection, discovery and
   streaming are tested against a real desktop server (in-process or headless),
   not a mocked socket.
+- **No test depends on a host outside the machine.** Unit, contract and end
+  to end tests talk to servers the test or its script starts; a public
+  service is never a test target.
 - **Flaky is broken.** A test that fails intermittently becomes a `fix/` task
   or a tech-debt item with a trigger — never a retry loop.
 - **Say what did not run.** If iOS tests could not run (no macOS, no

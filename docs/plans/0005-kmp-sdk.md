@@ -105,9 +105,17 @@ ADR.
   publish-dry-run` (ADR-0058).
   Accept: `./gradlew :sdk:no-op:check` and `make publish-dry-run` list the
   new artifacts.
+- [ ] **M4.8a Hermetic end to end (DEBT-0047, fired).** `make e2e-android`
+  and `make e2e-ios` start a local HTTP and WebSocket target next to the
+  headless server; the samples take its address at launch (the emulator's
+  `10.0.2.2`, the simulator's `127.0.0.1`) and keep the public URLs as the
+  default for hand runs. M4.9 and M4.10 reuse it.
+  Accept: `make e2e-android` and `make e2e-ios` pass and every URL in their
+  server logs is the local target; DEBT-0047 `Paid`.
 - [x] **M4.9 KMP sample app.** (`feat/kmp-sample-app`; ADR-0073: ADR-0062 D.1 proven on iOS by `CONFIGURATION`, on Android by
   substituting the no-ops in the app's release configurations. Deviations: the sample's Android modules need compileSdk 37,
-  Compose Multiplatform 1.12 and Ktor's OkHttp 5.5 require it; `make kmp-sample` joins `make swift`) `samples/kmp` per M4.1 (d): every call of
+  Compose Multiplatform 1.12 and Ktor's OkHttp 5.5 require it; `make kmp-sample` joins `make swift`;
+  done before M4.8a, added while it ran, so the sample calls the public URLs and M4.8a takes `samples/kmp` too) `samples/kmp` per M4.1 (d): every call of
   the other samples (GET, POST, failure, WebSocket if M4.6 ships) through
   Ktor, a `runAll` launch path as ADR-0056 and ADR-0057, the release build
   without the SDK.
