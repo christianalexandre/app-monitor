@@ -165,7 +165,7 @@ Gradle cache PRs read). It uses the runner's preinstalled Android SDK
 so on PRs to `dev` iOS simulator tests and `make swift` run only locally;
 the release gate runs them. See
 ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
-trailers (PRs to `dev` only, ADR-0059) and `make docs-check`.
+trailers (skipped only on `dev` → `main`, ADR-0060) and `make docs-check`.
 
 `.github/workflows/release-gate.yml` runs on every PR to `main` and on
 `workflow_dispatch` (ADR-0052). Its `branch` job runs
