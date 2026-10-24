@@ -1,6 +1,9 @@
 package appmonitor.sdk.core
 
 import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.DeviceApproval
+import appmonitor.desktop.server.DeviceApprovals
+import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.protocol.Protocol
@@ -27,6 +30,7 @@ class MonitorClientDesktopTest {
             protocol_version = Protocol.VERSION,
             platform = Platform.PLATFORM_JVM,
             device_id = "device-1",
+            app_id = "app.a",
             channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
         )
     private val cleanup = mutableListOf<suspend () -> Unit>()
@@ -52,7 +56,7 @@ class MonitorClientDesktopTest {
 
     @Test
     fun stopWhileConnectedEndsTheDesktopSession() =
-        runBlocking {
+        runBlocking<Unit> {
             val (server, port) = desktop()
             val client = client(port)
             val session = withTimeout(5.seconds) { server.sessions.first() }
@@ -61,8 +65,31 @@ class MonitorClientDesktopTest {
             withTimeout(2.seconds) { session.envelopes.toList() }
         }
 
-    private suspend fun desktop(): Pair<AppMonitorServer, Int> {
-        val server = AppMonitorServer(ServerConfig(host = LOOPBACK, port = 0, advertise = false))
+    // ADR-0064 B.1: the Ktor plugin's sdk/core and the Swift SDK in one iOS app send one device id.
+    @Test
+    fun twoSessionsOfOneDeviceAndAppStayOpenTogether() =
+        runBlocking {
+            val approvals = DeviceApprovals()
+            val (server, port) = desktop(approvals)
+            val kotlin = client(port)
+            val swift = client(port)
+            val pending = withTimeout(5.seconds) { approvals.pending.first { it.isNotEmpty() } }
+            assertEquals(listOf(DeviceKey("device-1", "app.a")), pending.map { it.key })
+            approvals.decide(DeviceKey("device-1", "app.a"), approved = true)
+            val sessions = withTimeout(5.seconds) { server.sessions.take(2).toList() }
+            kotlin.awaitState(ClientState.Connected)
+            swift.awaitState(ClientState.Connected)
+
+            kotlin.send(request("from-kotlin"))
+            swift.send(request("from-swift"))
+
+            assertEquals(setOf("from-kotlin", "from-swift"), sessions.map { it.requestIds(1).single() }.toSet())
+            assertEquals(ClientState.Connected, kotlin.state.value)
+            assertEquals(ClientState.Connected, swift.state.value)
+        }
+
+    private suspend fun desktop(approval: DeviceApproval = DeviceApproval.ApproveAll): Pair<AppMonitorServer, Int> {
+        val server = AppMonitorServer(ServerConfig(host = LOOPBACK, port = 0, advertise = false), approval = approval)
         val bound = server.start()
         cleanup += { server.stop() }
         return server to bound

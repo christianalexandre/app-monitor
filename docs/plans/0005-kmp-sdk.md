@@ -65,7 +65,10 @@ ADR.
   Accept: `./gradlew :sdk:core:allTests` runs `iosSimulatorArm64Test` with
   M4.2's cases, not skipped; a live test gated by an environment variable
   reaches `make server` from the iOS simulator.
-- [ ] **M4.4 `sdk/core` iOS discovery and device identity.** Manual host →
+- [x] **M4.4 `sdk/core` iOS discovery and device identity.** (`feat/sdk-core-ios-discovery`; ADR-0068, DEBT-0054. Deviations: the
+  ADR-0042 TCP probe never left preparing on the simulator, so names resolve with `dns_sd`; found and fixed
+  `stopWhileConnectedEndsTheDesktopSession`, which returned a `List` and so never ran on JUnit; the live Bonjour run
+  connected to the first desktop answered, a leftover headless server on 47999, not the `make server` started for it) Manual host →
   Bonjour from Kotlin/Native → the simulator's `127.0.0.1`, the same
   contract as ADR-0024 and the Swift SDK (ADR-0042); the `Hello` an iOS KMP
   app sends (device id, model, OS, app name); the device id file shared

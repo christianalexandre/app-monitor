@@ -13,7 +13,7 @@ public object AppMonitor {
     ) {
         val app = context.applicationContext
         monitor.start(options) {
-            MonitorClient(hello = { androidHello(app) }, discover = discovery(it, nsdBrowser(app), isEmulator()))
+            MonitorClient(hello = { androidHello(app) }, discover = discovery(it, nsdBrowser(app), EMULATOR_HOST.takeIf { isEmulator() }))
         }
     }
 

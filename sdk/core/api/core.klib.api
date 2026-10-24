@@ -26,3 +26,8 @@ final class appmonitor.sdk.core/AppMonitorOptions { // appmonitor.sdk.core/AppMo
     final val port // appmonitor.sdk.core/AppMonitorOptions.port|{}port[0]
         final fun <get-port>(): kotlin/Int // appmonitor.sdk.core/AppMonitorOptions.port.<get-port>|<get-port>(){}[0]
 }
+
+final object appmonitor.sdk.core/AppMonitor { // appmonitor.sdk.core/AppMonitor|null[0]
+    final fun start(appmonitor.sdk.core/AppMonitorOptions = ...) // appmonitor.sdk.core/AppMonitor.start|start(appmonitor.sdk.core.AppMonitorOptions){}[0]
+    final fun stop() // appmonitor.sdk.core/AppMonitor.stop|stop(){}[0]
+}
