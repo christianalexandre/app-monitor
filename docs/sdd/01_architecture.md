@@ -229,7 +229,7 @@ a stack trace (DEBT-0010). See ADR-0010.
 ## Desktop
 
 Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
-**(planned)**, MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
+**(planned)**, designed in SDD 09, MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
 is a feature module owning a `channel` **(planned)**. See ADR-0005.
 
 `desktop/app` today (ADR-0011):
