@@ -5,19 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for tool in xcodebuild xcrun xcodegen; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "ios-sample: $tool not found (needs macOS with Xcode and 'brew install xcodegen'; ADR-0047)" >&2
-    exit 1
-  fi
-done
-
-device="${SIM_DEVICE:-$(xcrun simctl list devices available | sed -n 's/^ *\(iPhone[^(]*\) (.*/\1/p' | head -1)}"
-device="${device% }"
-if [[ -z "$device" ]]; then
-  echo "ios-sample: no available iPhone simulator (install one in Xcode > Settings > Components)" >&2
-  exit 1
-fi
+tag=ios-sample
+source scripts/ios_lib.sh
+device="$(ios_device)"
 
 xcodegen generate --quiet --spec samples/ios/project.yml
 mkdir -p build
@@ -33,15 +23,7 @@ for config in Debug Release; do
     echo "ios-sample: $config build failed, full log in $log" >&2
     exit 1
   fi
-  plist="$products/$config-iphonesimulator/Sample.app/Info.plist"
-  keys=0
-  for key in NSLocalNetworkUsageDescription NSBonjourServices; do
-    if plutil -extract "$key" raw -o /dev/null "$plist" 2>/dev/null; then keys=$((keys + 1)); fi
-  done
-  if [[ "$config" == Debug && $keys -ne 2 ]] || [[ "$config" == Release && $keys -ne 0 ]]; then
-    echo "ios-sample: $config Sample.app has $keys of the 2 local network keys (ADR-0049)" >&2
-    exit 1
-  fi
+  check_network_keys "$config" "$products/$config-iphonesimulator/Sample.app"
 done
 
 # Prints the names the AppMonitor module declares in the binaries of one built app.

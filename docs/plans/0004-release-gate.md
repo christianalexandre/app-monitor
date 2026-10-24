@@ -149,8 +149,8 @@ ran green on every job (run 40058097609).
   drops its buffer and reconnects to the desktop.
   Accept: `./gradlew :samples:android:assembleDebug` and `make e2e-android`
   green; the restart is guarded like `runAll`.
-- [ ] **M3.R4 `make e2e-ios` cannot pick a simulator with parentheses in
-  its name.** `e2e_ios.sh`'s `simulators` matches the name with `[^(]*`, so
+- [x] **M3.R4 `make e2e-ios` cannot pick a simulator with parentheses in
+  its name.** (`fix/e2e-ios-simulator-names`; `scripts/sim_list.sh` shared by `e2e_ios.sh`, `ios_sample_check.sh` and `swift_sim_check.sh`, whose default picks had the same `[^(]*`; `make e2e-ios` green on a throwaway `iPhone 17 (e2e name)` simulator, no iPhone SE image on Xcode 26.5) `e2e_ios.sh`'s `simulators` matches the name with `[^(]*`, so
   `SIM_DEVICE="iPhone SE (3rd generation)"` fails with "no iPhone simulator
   named …" although the simulator exists. Parse the UDID as the last
   parenthesised UUID instead.

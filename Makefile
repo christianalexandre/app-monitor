@@ -19,6 +19,7 @@ lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 scripts-test: ## Bash tests of the loop scripts (ADR-0013)
 	@scripts/test_loop.sh
 	@scripts/test_debt_check.sh
+	@scripts/test_sim_list.sh
 
 build: ## Compile and test every Gradle module, build-logic included
 	@./gradlew build
