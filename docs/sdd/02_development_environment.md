@@ -95,7 +95,7 @@ runs every button in turn, on first launch only. The script then waits up to
 `E2E_TIMEOUT` seconds (120) for each call's `RequestStarted`, its response or
 failure, and the WebSocket's sent, received and close frames, and prints one
 `ok` or `missing` line per call, and fails when a request went anywhere but
-the target. Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
+the target or an expected request was captured twice (ADR-0075). Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
 script's expected list.
 
 ### The iOS sample against a desktop
@@ -122,8 +122,9 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 
 `make e2e-ios` (ADR-0057) needs macOS with Xcode and XcodeGen; the
 internet only for the first build. It uses the booted iPhone simulator, or boots the first available
-one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample through
-`make ios-sample` and the `installDist` of the server and of
+one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample's Debug app
+for it (Release and its SDK name scan are `make ios-sample`'s, in
+`make swift`; ADR-0075) and the `installDist` of the server and of
 `tools/e2e-target`, starts both on free ports and launches the Debug app:
 
 ```sh
@@ -134,8 +135,9 @@ xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
 It then waits up to `E2E_TIMEOUT` seconds (120) for the seven calls as
 `make e2e-android` does (the upload's `PUT` and the background download
 included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
-Server log, target log and the sample's simulator log in `build/e2e-ios/`. Both scripts
-source `scripts/e2e_lib.sh`.
+Server log, target log, the sample's simulator log and `build.log` in `build/e2e-ios/`. The three
+end to end scripts source `scripts/e2e_lib.sh` (device pick, server and target, assertions),
+whose assertions `scripts/test_e2e_lib.sh` tests on a crafted log in `make scripts-test`.
 
 ### The KMP sample against a desktop
 
@@ -161,6 +163,22 @@ xcrun simctl launch booted dev.appmonitor.kmpsample -host 127.0.0.1 -runAll YES
 (OkHttp on Android, Darwin on iOS). On iOS the Swift SDK runs too: the
 desktop shows two sessions of one app, and each exchange once, on the
 Kotlin one (ADR-0064).
+
+### The KMP sample end to end, scripted
+
+`make e2e-kmp` (ADR-0075) runs `make e2e-kmp-android` then
+`make e2e-kmp-ios`, both `scripts/e2e_kmp.sh`. Each needs what its
+counterpart above needs (a booted emulator; macOS with Xcode and XcodeGen),
+builds only the sample's debug app (Release and the SDK name scan stay in
+`make kmp-sample`, as for `make e2e-ios`), starts the server and `tools/e2e-target` on free ports
+and launches the sample with `host`, `port`, `target` and `runAll`, as
+`make e2e-android` and `make e2e-ios` do. It asserts the five calls; the
+WebSocket's URL is logged as `ws://<host>:<target port>/ws`, Ktor's own.
+On iOS it also fails unless the desktop saw two sessions of
+`dev.appmonitor.kmpsample`, the Swift SDK's and `sdk/core`'s, so "captured
+once" means the Swift SDK skipped Ktor's requests (ADR-0064, ADR-0071).
+Logs in `build/e2e-kmp-android/` and `build/e2e-kmp-ios/` (`build.log`
+holds the iOS build).
 
 ## Desktop packages
 
@@ -232,8 +250,12 @@ boots an API 36 `google_apis` x86_64 emulator with
 The `e2e-ios` job, on macOS, installs XcodeGen and runs `make e2e-ios`,
 which boots the runner's first available iPhone simulator; the sample
 reaches the server on `127.0.0.1`, so the runner's missing local network
-access (DEBT-0046) does not apply. `build/e2e-ios/` (server and simulator
-logs) and `build/ios-sample.log` are uploaded on failure.
+access (DEBT-0046) does not apply. `build/e2e-ios/` (server, simulator
+and build logs) is uploaded on failure.
+The `e2e-kmp-android` job, on ubuntu, is `e2e-android`'s with the KMP
+sample's debug APK and `make e2e-kmp-android`; the `e2e-kmp-ios` job, on
+macOS, is `e2e-ios`'s with `make e2e-kmp-ios` (ADR-0065 C.1). Their
+`build/e2e-kmp-*` directories are uploaded on failure.
 The `package` job builds the unsigned `.dmg` on macOS, `.msi` on windows
 and `.deb` on ubuntu, one matrix entry each, and uploads each as the
 `desktop-<format>` artifact for 7 days.

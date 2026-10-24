@@ -14,23 +14,11 @@ app=dev.appmonitor.sample
 tag=e2e-ios
 source scripts/e2e_lib.sh
 
-command -v xcrun >/dev/null 2>&1 || fail "xcrun not found (needs macOS with Xcode; ADR-0047)"
-# Prints "<udid> <name>" of the simulators `simctl list` shows in state $1, iPhones only.
-simulators() {
-  xcrun simctl list devices "$1" | scripts/sim_list.sh
-}
-pick="$(simulators booted | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
-if [[ -z "$pick" ]]; then
-  pick="$(simulators available | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
-  [[ -n "$pick" ]] || fail "no iPhone simulator${SIM_DEVICE:+ named $SIM_DEVICE} (Xcode > Settings > Components)"
-  xcrun simctl boot "${pick%% *}"
-fi
-udid="${pick%% *}"
-xcrun simctl bootstatus "$udid" -b >/dev/null
-
-SIM_DEVICE="${pick#* }" scripts/ios_sample_check.sh
-./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
+boot_simulator
+build_ios_debug samples/ios/project.yml Sample build/ios-sample
+
+./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
 started="$(date '+%Y-%m-%d %H:%M:%S')"
 trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true
   xcrun simctl spawn "$udid" log show --style compact --start "$started" \
@@ -42,7 +30,7 @@ target="http://127.0.0.1:$target_port"
 xcrun simctl terminate "$udid" "$app" 2>/dev/null || true
 xcrun simctl install "$udid" build/ios-sample/Build/Products/Debug-iphonesimulator/Sample.app
 xcrun simctl launch "$udid" "$app" -host 127.0.0.1 -port "$port" -target "$target" -runAll YES >/dev/null
-echo "e2e-ios: sample on ${pick#* } ($udid), server on port $port, target $target"
+echo "e2e-ios: sample on $sim_name ($udid), server on port $port, target $target"
 
 # One expectation per line, as `missing` in scripts/e2e_lib.sh reads them.
 expected="GET $target/json ResponseReceived
