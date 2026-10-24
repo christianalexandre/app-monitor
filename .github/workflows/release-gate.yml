@@ -1,6 +1,8 @@
 name: Release gate
 
 on:
+  push:
+    branches: [ci/release-gate-skeleton]
   pull_request:
     branches: [main]
   workflow_dispatch:
