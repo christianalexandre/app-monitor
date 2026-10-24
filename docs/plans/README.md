@@ -37,16 +37,12 @@ record of how the milestone was actually built once it is done.
 | [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
 | [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
 | [0004](0004-release-gate.md) | M3 | Release gate | Done |
+| [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M4 — KMP SDK
-
-`sdk/ktor` HttpClient plugin (all targets), correlation header and dedupe with
-the Swift SDK (ADR-0003), KMP sample app.
 
 ### M5 — Persistence and runs
 
