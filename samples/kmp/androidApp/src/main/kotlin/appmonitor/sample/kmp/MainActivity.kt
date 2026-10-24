@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
             (application as SampleApplication).applyLaunchExtras(host, intent.getIntExtra(EXTRA_PORT, AppMonitorOptions().port))
         }
         val runAll = savedInstanceState == null && intent.getBooleanExtra(EXTRA_RUN_ALL, false)
-        setContent { App(runAll) }
+        setContent { App(runAll, intent.getStringExtra(EXTRA_TARGET)) }
     }
 }
 
@@ -21,3 +21,4 @@ class MainActivity : ComponentActivity() {
 private const val EXTRA_HOST = "host"
 private const val EXTRA_PORT = "port"
 private const val EXTRA_RUN_ALL = "runAll"
+private const val EXTRA_TARGET = "target"

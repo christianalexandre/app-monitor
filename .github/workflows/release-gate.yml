@@ -155,7 +155,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build the sample and the server
-        run: ./gradlew :samples:android:assembleDebug :desktop:server:installDist
+        run: ./gradlew :samples:android:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
       - name: Android end to end
         uses: reactivecircus/android-emulator-runner@v2
         with:

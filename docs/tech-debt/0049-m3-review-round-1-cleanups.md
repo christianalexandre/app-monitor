@@ -3,7 +3,7 @@ id: DEBT-0049
 title: Non-correctness findings of the first M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `e2e_android.sh`, `e2e_lib.sh`, `publish_dry_run.sh`, `release-gate.yml` or `desktop/app/build.gradle.kts`, or M10's first published desktop package
+trigger: The next PR that touches `desktop/app/build.gradle.kts`, the first Android 17 preview image in use, PLAN-0005 M4.10, or M10's first published desktop package
 paid_date:
 ---
 
@@ -39,14 +39,14 @@ today. The duplicate builds cost minutes, not correctness.
 ## Trigger
 
 The next PR that touches `e2e_android.sh`, `e2e_lib.sh`,
-`publish_dry_run.sh` or `release-gate.yml` pays that file's item. The
+`publish_dry_run.sh` or `release-gate.yml` pays that file's item; since
+`test/hermetic-end-to-end`, the first Android 17 preview image in use pays
+the `e2e_android.sh` item and PLAN-0005 M4.10 the `release-gate.yml` one. The
 `packageVersion` item is paid by the next PR that touches
 `desktop/app/build.gradle.kts`, or before M10's first published desktop
 package.
 
 ## How it was paid
-
-> Filled when closing. What the solution taught, and what is left of it.
 
 Partly paid: the `scripts/debt_check.sh` item, in `fix/debt-check-unknown-base`
 (ADR-0061): paths match by whole segments anywhere, and a name that is a
@@ -55,3 +55,11 @@ file's whole basename never matches by stem.
 The `scripts/publish_dry_run.sh` item, in `build/sdk-ktor-no-op-publication`
 (ADR-0072): every artifact's `-iosarm64` and `-iossimulatorarm64` POMs are
 checked, `appmonitor-protocol`'s included.
+
+`test/hermetic-end-to-end` (ADR-0074) touched `e2e_lib.sh`, `e2e_android.sh`
+and `release-gate.yml`: `missing` declares its variables `local`. The
+`e2e_android.sh` grant stays on the SDK level: the API 37 emulator image's
+`pm list permissions` does not list `ACCESS_LOCAL_NETWORK`, so there is no
+presence check to use; it moves to the first Android 17 preview image the gate
+or the Mac runs. The `release-gate.yml` double builds move to M4.10, which
+adds the KMP end to end beside the two jobs and reshapes their builds.

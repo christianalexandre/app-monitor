@@ -72,15 +72,21 @@ the device need internet.
 ### The Android sample end to end, scripted
 
 `make e2e-android` (ADR-0056) needs a booted emulator in `adb devices`
-(`ANDROID_SERIAL` picks one when a phone is attached too) and the internet.
-It builds the debug APK and the server's `installDist`, starts the headless
-server on a free port, installs the APK, grants `ACCESS_LOCAL_NETWORK` on
-API 37+, and launches the sample with launch extras:
+(`ANDROID_SERIAL` picks one when a phone is attached too); the internet only
+for the first build. It builds the debug APK and the `installDist` of the
+server and of `tools/e2e-target`, starts both on free ports, installs the
+APK, grants `ACCESS_LOCAL_NETWORK` on API 37+, and launches the sample with
+launch extras:
 
 ```sh
 adb shell am start -S -W --activity-clear-task -n appmonitor.sample/.MainActivity \
-  --es host 10.0.2.2 --ei port <port> --ez runAll true
+  --es host 10.0.2.2 --ei port <port> --es target http://10.0.2.2:<target port> --ez runAll true
 ```
+
+`tools/e2e-target` (ADR-0074) serves, on `127.0.0.1` only, the httpbin.org
+paths the samples call and a WebSocket echo on `/ws`; `target` replaces
+`https://httpbin.org` and `wss://echo.websocket.org` with it. Without
+`target` the samples call the public services.
 
 `host` and `port` restart the SDK on that desktop only, and again only when
 they change, so a rotation keeps the connection, a new launch on another port
@@ -88,8 +94,8 @@ moves to it and a process death reconnects to the same desktop; `runAll`
 runs every button in turn, on first launch only. The script then waits up to
 `E2E_TIMEOUT` seconds (120) for each call's `RequestStarted`, its response or
 failure, and the WebSocket's sent, received and close frames, and prints one
-`ok` or `missing` line per call. Server log and logcat in
-`build/e2e-android/`. A sample button added or renamed needs its line in the
+`ok` or `missing` line per call, and fails when a request went anywhere but
+the target. Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
 script's expected list.
 
 ### The iOS sample against a desktop
@@ -114,20 +120,21 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 
 ### The iOS sample end to end, scripted
 
-`make e2e-ios` (ADR-0057) needs macOS with Xcode, XcodeGen and the
-internet. It uses the booted iPhone simulator, or boots the first available
+`make e2e-ios` (ADR-0057) needs macOS with Xcode and XcodeGen; the
+internet only for the first build. It uses the booted iPhone simulator, or boots the first available
 one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample through
-`make ios-sample` and the server's `installDist`, starts the headless server
-on a free port and launches the Debug app:
+`make ios-sample` and the `installDist` of the server and of
+`tools/e2e-target`, starts both on free ports and launches the Debug app:
 
 ```sh
-xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> -runAll YES
+xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -runAll YES
 ```
 
 It then waits up to `E2E_TIMEOUT` seconds (120) for the seven calls as
 `make e2e-android` does (the upload's `PUT` and the background download
-included; the WebSocket's URL is logged as `https://echo.websocket.org`).
-Server log and the sample's simulator log in `build/e2e-ios/`. Both scripts
+included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
+Server log, target log and the sample's simulator log in `build/e2e-ios/`. Both scripts
 source `scripts/e2e_lib.sh`.
 
 ### The KMP sample against a desktop
@@ -148,7 +155,9 @@ xcrun simctl install booted build/kmp-sample/Build/Products/Debug-iphonesimulato
 xcrun simctl launch booted dev.appmonitor.kmpsample -host 127.0.0.1 -runAll YES
 ```
 
-The five calls (GET, POST, 404, timeout, WebSocket echo) go through Ktor
+`--es target URL` on Android and `-target URL` on iOS point the calls at
+`tools/e2e-target`, as for the other samples. The five calls (GET, POST,
+404, timeout, WebSocket echo) go through Ktor
 (OkHttp on Android, Darwin on iOS). On iOS the Swift SDK runs too: the
 desktop shows two sessions of one app, and each exchange once, on the
 Kotlin one (ADR-0064).
@@ -215,7 +224,8 @@ freshness, swift-format, `swift test` with the fixture tests, public API,
 simulator tests, sample) and `./gradlew :protocol:allTests`
 (`iosSimulatorArm64Test` included); the simulator and sample logs and the
 protocol reports are uploaded on failure. The `e2e-android` job, on ubuntu,
-enables KVM, builds the debug APK and the server's `installDist`, then
+enables KVM, builds the debug APK and the `installDist` of the server and
+of `tools/e2e-target`, then
 boots an API 36 `google_apis` x86_64 emulator with
 `reactivecircus/android-emulator-runner` and runs `make e2e-android` in it;
 `build/e2e-android/` (server log, logcat) is uploaded on failure.
