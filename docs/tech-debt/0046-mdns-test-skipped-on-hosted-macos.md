@@ -41,6 +41,8 @@ The runner image grants local network access
 `release-gate.yml` to add a job that needs Bonjour on macOS: M3.8's iOS end
 to end will hit the same wall if the simulator discovers the desktop by
 Bonjour instead of a direct host.
+M3.8 did not fire it: the `e2e-ios` job launches the sample with `-host
+127.0.0.1`, loopback only.
 
 ## How it was paid
 
