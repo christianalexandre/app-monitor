@@ -107,6 +107,13 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   in-memory store does today); a `WebSocketFrame` increments `frame_count`.
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
+- Runs take the same queue (ADR-0084): `newRun()` ends the current run and
+  opens a new one, returning its id once written; `rename(runId, name)`
+  sets the name, blank is null. Each `Connected` keeps the run current when
+  the writer reached it, so a session stays in its run whatever comes after.
+  `currentRun` (a `StateFlow`) is the writer's current run after each batch.
+  A lost batch puts back the run current before it, and a session that
+  arrived in it joins that run when it is written again.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
   `forget(deviceId, appId)` and `forgetAll()` delete; queued in click order,
@@ -152,7 +159,8 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
 - Lists are pages by key, never by `OFFSET`: exchanges of a run or session
   ordered by `id`, `PAGE_SIZE` 200, the next page `WHERE id > :last`. The
   window observes the first N rows (`observeExchangesOfSession`, N grown by
-  a page as the list nears its end) and the sessions (`observeSessions`)
+  a page as the list nears its end), the runs newest first (`observeRuns`)
+  and the sessions of one run or of all (`observeSessions(runId)`)
   through SQLDelight's `Query` listeners (`coroutines-extensions`), which
   re-run them after each commit, conflated so a burst of batches is one
   refresh.
@@ -185,9 +193,9 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
-| A 10k-request session ingested in bounded time, restart shows it, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
+| A 10k-request session ingested in bounded time, restart shows it one click away in the run picker (M5.6), the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5), and in `desktop/app` across three launches with a real server |
-| Sessions grouped by run, runs named | `RunsTest` (M5.6) |
+| Sessions grouped by run, runs named | `RunsTest` (M5.6): a session spanning "New run" stays in its run, names kept across a restart, a lost "New run" keeps the earlier run |
 | One case per filter and their combination | `SearchTest` (M5.7) |
 | Age and size bounds, oldest session first, connected and named kept, secure delete | `RetentionTest` (M5.8) |
 

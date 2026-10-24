@@ -2,9 +2,6 @@ package appmonitor.desktop.storage
 
 import app.cash.sqldelight.Query
 import appmonitor.v1.ResponseReceived
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -12,7 +9,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.sql.SQLException
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -146,24 +142,4 @@ class WriteQueueTest {
                 assertEquals(12, lost, "Connected, ten envelopes and the run's end")
             }
         }
-
-    private class Held(
-        private val latch: CountDownLatch,
-    ) {
-        fun release() = latch.countDown()
-    }
-
-    // Blocks the writer thread until released, so what is enqueued meanwhile waits in the queue.
-    private suspend fun holdWriter(storage: Storage): Held {
-        val latch = CountDownLatch(1)
-        val running = CompletableDeferred<Unit>()
-        CoroutineScope(Dispatchers.Default).launch {
-            storage.onWriter {
-                running.complete(Unit)
-                latch.await()
-            }
-        }
-        running.await()
-        return Held(latch)
-    }
 }

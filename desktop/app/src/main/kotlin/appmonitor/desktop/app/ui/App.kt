@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -37,6 +38,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,7 @@ import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredApproval
 import appmonitor.desktop.storage.StoredExchange
+import appmonitor.desktop.storage.StoredRun
 import appmonitor.desktop.storage.StoredSession
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
@@ -64,15 +67,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
- * Stored sessions, then the selected one's requests, then the selected request; above them, the first device to
- * approve, or the settings listing [answered] pairs. [onForget] gets null for every pair. Every pane reads [storage]
- * and follows its commits (SDD 09).
+ * The shown run's sessions, then the selected one's requests, then the selected request; above them, the first device
+ * to approve, the runs, or the settings listing [answered] pairs. [onForget] gets null for every pair. Every pane reads
+ * [storage] and follows its commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -83,14 +88,26 @@ internal fun AppMonitorApp(
     answered: List<StoredApproval> = emptyList(),
     onForget: (DeviceKey?) -> Unit = {},
 ) {
-    val sessions by remember(storage) { storage.observeSessions() }.collectAsState(emptyList())
+    val currentRun by storage.currentRun.collectAsState()
+    val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
+    var shown by remember { mutableStateOf<ShownRun>(ShownRun.Current) }
+    val shownRunId =
+        when (val choice = shown) {
+            ShownRun.Current -> currentRun
+            ShownRun.All -> null
+            is ShownRun.Earlier -> choice.id
+        }
+    val sessions by remember(storage, shownRunId) { storage.observeSessions(shownRunId) }.collectAsState(emptyList())
     val health by storage.health.collectAsState()
+    val scope = rememberCoroutineScope()
     var selectedSession by remember { mutableStateOf<Long?>(null) }
     var selectedRequest by remember { mutableStateOf<Long?>(null) }
     val session = sessions.firstOrNull { it.id == selectedSession } ?: sessions.firstOrNull()
     val pages = key(session?.id) { rememberExchangePages(storage, session?.id) }
     val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
     var settingsOpen by remember { mutableStateOf(false) }
+    var runsOpen by remember { mutableStateOf(false) }
+    val runTitle = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -102,6 +119,8 @@ internal fun AppMonitorApp(
                     health,
                     Modifier.width(240.dp).fillMaxHeight(),
                     onSettings = { settingsOpen = true },
+                    runTitle = runTitle,
+                    onRuns = { runsOpen = true },
                 ) {
                     selectedSession = it.id
                 }
@@ -120,6 +139,30 @@ internal fun AppMonitorApp(
                 }
             }
             if (settingsOpen) DeviceSettings(answered, onForget) { settingsOpen = false }
+            if (runsOpen) {
+                RunList(
+                    runs,
+                    currentRun,
+                    shownRunId,
+                    onShow = {
+                        shown =
+                            if (it == null) {
+                                ShownRun.All
+                            } else if (it == currentRun) {
+                                ShownRun.Current
+                            } else {
+                                ShownRun.Earlier(it)
+                            }
+                        runsOpen = false
+                    },
+                    onNewRun = {
+                        scope.launch { storage.newRun() }
+                        shown = ShownRun.Current
+                        runsOpen = false
+                    },
+                    onRename = { id, name -> scope.launch { storage.rename(id, name) } },
+                ) { runsOpen = false }
+            }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
@@ -204,6 +247,73 @@ private fun ApprovalDialog(
     }
 }
 
+/** Which run the window shows (ADR-0084 C.1); [Current] follows "New run". */
+private sealed interface ShownRun {
+    data object Current : ShownRun
+
+    data object All : ShownRun
+
+    data class Earlier(
+        val id: Long,
+    ) : ShownRun
+}
+
+/** Every run, newest first, and "All runs"; [onShow] gets null for all of them. A blank name makes a run unnamed. */
+@Composable
+private fun RunList(
+    runs: List<StoredRun>,
+    currentRun: Long,
+    shownRunId: Long?,
+    onShow: (Long?) -> Unit,
+    onNewRun: () -> Unit,
+    onRename: (Long, String) -> Unit,
+    onClose: () -> Unit,
+) {
+    var editing by remember { mutableStateOf<Long?>(null) }
+    var draft by remember { mutableStateOf("") }
+    Overlay {
+        Card(Modifier.width(520.dp), elevation = 8.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Runs", style = MaterialTheme.typography.h6)
+                Text(
+                    "All runs",
+                    Modifier.fillMaxWidth().selectable(shownRunId == null) { onShow(null) }.padding(vertical = 8.dp),
+                    fontWeight = FontWeight.Medium,
+                )
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(runs, key = { it.id }) { run ->
+                        Row(
+                            Modifier.fillMaxWidth().selectable(run.id == shownRunId) { onShow(run.id) }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (run.id == editing) {
+                                OutlinedTextField(draft, { draft = it }, Modifier.weight(1f).testTag(RUN_NAME), singleLine = true)
+                                TextButton(onClick = {
+                                    onRename(run.id, draft)
+                                    editing = null
+                                }) { Text("Save") }
+                            } else {
+                                Column(Modifier.weight(1f)) {
+                                    Text(titleOf(run), fontWeight = FontWeight.Medium)
+                                    Text(spanOf(run, current = run.id == currentRun), style = MaterialTheme.typography.caption)
+                                }
+                                TextButton(onClick = {
+                                    draft = run.name.orEmpty()
+                                    editing = run.id
+                                }) { Text("Rename") }
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onNewRun) { Text("New run") }
+                    TextButton(onClick = onClose) { Text("Close") }
+                }
+            }
+        }
+    }
+}
+
 /** The settings' "Devices" section: every answered pair, each with "Forget", and "Forget all" (ADR-0083 C.1). */
 @Composable
 private fun DeviceSettings(
@@ -264,9 +374,14 @@ private fun DeviceList(
     health: StorageHealth,
     modifier: Modifier,
     onSettings: () -> Unit,
+    runTitle: String,
+    onRuns: () -> Unit,
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
+        TextButton(onClick = onRuns, Modifier.padding(horizontal = 4.dp)) {
+            Text("$runTitle ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Devices") }
             TextButton(onClick = onSettings) { Text("Settings") }
@@ -519,6 +634,8 @@ private const val PREVIEW_BYTES = 512
 
 internal const val REQUEST_LIST = "requests"
 
+internal const val RUN_NAME = "run-name"
+
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50
 
@@ -558,5 +675,22 @@ private fun Modifier.selectable(
 private val SELECTED = Color(0x1F2196F3)
 
 private val SCRIM = Color(0x66000000)
+
+/** A run's name, or its start time while it has none (ADR-0084 B.1). */
+private fun titleOf(run: StoredRun): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
+
+private fun spanOf(
+    run: StoredRun,
+    current: Boolean,
+): String =
+    listOfNotNull(
+        RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs)) +
+            (run.endedAtMs?.let { " – ${TIME_FORMAT.format(Instant.ofEpochMilli(it))}" } ?: ""),
+        if (current) "current" else null,
+    ).joinToString(" · ")
+
+private val RUN_FORMAT = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH).withZone(ZoneId.systemDefault())
+
+private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())

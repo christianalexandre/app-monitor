@@ -42,6 +42,22 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Ends the current run and opens a new unnamed one; [done] gets the run current after its batch. */
+    data class NewRun(
+        val atMs: Long,
+    ) : StorageItem {
+        val done = CompletableDeferred<Long>()
+        override val sessionId: String? get() = null
+    }
+
+    /** Names a run, or makes it unnamed again when [name] is null (ADR-0084 B.1). */
+    data class Renamed(
+        val runId: Long,
+        val name: String?,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     data class Decided(
         val hello: Hello,
         val approved: Boolean,
@@ -68,15 +84,21 @@ internal sealed interface StorageItem {
 /** Turns [StorageItem]s into rows. Writer thread only; [write] is one transaction. */
 internal class Ingest(
     private val database: AppMonitorDatabase,
-    private val runId: Long,
+    runId: Long,
     private val beforeCommit: (List<StorageItem>) -> Unit = {},
 ) {
+    /** The run new sessions join: the launch's, then each [StorageItem.NewRun]'s. */
+    var currentRun: Long = runId
+        private set
+
     // `connections` outlive a rolled back batch, `rows` do not: a lost session row is inserted again.
-    private val connections = mutableMapOf<String, StorageItem.Connected>()
+    // Each connection keeps the run current when it arrived (ADR-0084 A.1).
+    private val connections = mutableMapOf<String, Pair<StorageItem.Connected, Long>>()
     private var rows = mapOf<String, Long>()
 
     fun write(batch: List<StorageItem>) {
         val before = rows
+        val beforeRun = currentRun
         try {
             database.transaction {
                 batch.forEach(::apply)
@@ -84,6 +106,9 @@ internal class Ingest(
             }
         } catch (e: Exception) {
             rows = before.filterKeys { it in connections }
+            // Runs opened by the lost batch are gone; the current run is always the highest id.
+            currentRun = beforeRun
+            connections.replaceAll { _, (connected, run) -> connected to minOf(run, beforeRun) }
             throw e
         }
     }
@@ -91,7 +116,7 @@ internal class Ingest(
     private fun apply(item: StorageItem) {
         when (item) {
             is StorageItem.Connected -> {
-                connections[item.sessionId] = item
+                connections[item.sessionId] = item to currentRun
                 sessionRow(item.sessionId)
             }
 
@@ -108,7 +133,17 @@ internal class Ingest(
             }
 
             is StorageItem.EndRun -> {
-                database.runQueries.end(item.atMs, runId)
+                database.runQueries.end(item.atMs, currentRun)
+            }
+
+            is StorageItem.NewRun -> {
+                database.runQueries.end(item.atMs, currentRun)
+                database.runQueries.insert(item.atMs)
+                currentRun = database.runQueries.lastId().executeAsOne()
+            }
+
+            is StorageItem.Renamed -> {
+                database.runQueries.rename(item.name, item.runId)
             }
 
             is StorageItem.Decided -> {
@@ -140,14 +175,14 @@ internal class Ingest(
 
     private fun sessionRow(sessionId: String): Long? {
         rows[sessionId]?.let { return it }
-        val connected = connections[sessionId] ?: return null
+        val (connected, run) = connections[sessionId] ?: return null
         val hello = connected.hello
         database.deviceQueries.upsert(hello.device_id, hello.platform.value.toLong(), hello.device_name, hello.os_version)
         val device = database.deviceQueries.idOf(hello.device_id).executeAsOne()
         database.appQueries.insertIfAbsent(hello.app_id)
         val app = database.appQueries.idOf(hello.app_id).executeAsOne()
         database.sessionQueries.insert(
-            run_id = runId,
+            run_id = run,
             device_ref = device,
             app_ref = app,
             server_session_id = sessionId,

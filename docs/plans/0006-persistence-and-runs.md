@@ -71,7 +71,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   closed at once, the developer can revoke.
   Accept: `./gradlew :desktop:app:test` — a pair approved, the store
   reopened, the device let in with no prompt; revoked, asked again.
-- [ ] **M5.6 Named runs.** Runs per M5.1 (d): opened, named and switched
+- [x] **M5.6 Named runs.** (run changes ride the write queue, so a session keeps the run it connected in; the picker opens a run list overlay, like the settings, rather than a dropdown; the UI test also renames, switches and opens a run) Runs per M5.1 (d): opened, named and switched
   in the UI, the list of runs, exchanges grouped under their run.
   Accept: `./gradlew :desktop:app:test` — storage tests for run grouping
   and an offscreen screenshot of the run list with two named runs.
