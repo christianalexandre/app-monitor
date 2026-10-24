@@ -167,7 +167,11 @@ ADR-0051 references, DEBT-0049's paid item). Two were rejected, with the
 reason in DEBT-0050.
 
 - [x] **M3.R5 The Android sample loses its launch extras after process
-  death.** (`fix/android-sample-extras-process-death`; `applyLaunchExtras` once per process in `SampleApplication`; through a forwarder on the extras' port, the `origin/dev` build made no connection to it after `am kill`, the fix one; two rotations, one connection) M3.R3 guards `restartMonitor` with `savedInstanceState == null`,
+  death.** (`fix/android-sample-extras-process-death`; `applyLaunchExtras`
+  once per process in `SampleApplication`; through a forwarder on the
+  extras' port, the `origin/dev` build made no connection to it after
+  `am kill`, the fix one; two rotations, one connection) M3.R3 guards
+  `restartMonitor` with `savedInstanceState == null`,
   but after process death the activity is restored with a saved state while
   the new process's `SampleApplication` has started the monitor with
   default options. `--es host … --ei port N` is then ignored and the monitor
@@ -186,8 +190,12 @@ Three went to DEBT-0051 (no automated rotation or process-death check,
 DEBT-0050's `Makefile` trigger, line wrapping). Two were rejected, with the
 reason in DEBT-0051. This is the last review round (ADR-0016).
 
-- [ ] **M3.R6 The Android sample ignores new launch extras while its
-  process lives.** M3.R5's once-per-process boolean drops a fresh launch
+- [x] **M3.R6 The Android sample ignores new launch extras while its
+  process lives.** (`fix/android-sample-extras-per-target`; the applied host
+  and port kept, set after `start` returns; two servers on an API 37
+  emulator: a second `am start` without `-S` reached B with 5 calls, the
+  `origin/dev` build sent them to A; two rotations, no new connection; after
+  `am kill`, one reconnection to B; DEBT-0051's wrapping item paid) M3.R5's once-per-process boolean drops a fresh launch
   that points at another desktop: `am start --activity-clear-task … --es
   host H --ei port B` without `-S`, after an earlier launch on port A, keeps
   the monitor on A, and `runAll` sends every call there. The flag is also
