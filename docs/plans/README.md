@@ -38,16 +38,12 @@ record of how the milestone was actually built once it is done.
 | [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
 | [0004](0004-release-gate.md) | M3 | Release gate | Done |
 | [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Done |
+| [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M5 — Persistence and runs
-
-`desktop/storage` with SQLDelight (devices, apps, runs, requests, bodies
-compressed), named runs, search and filters, retention settings.
 
 ### M6 — MCP server
 
