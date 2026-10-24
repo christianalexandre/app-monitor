@@ -142,7 +142,7 @@ ran green on every job (run 40058097609).
   file", hiding every committed change. Fail when the base does not resolve.
   Accept: `make scripts-test` with a case where an unknown base exits
   non-zero and prints no "no open DEBT" line.
-- [ ] **M3.R3 The Android sample restarts the monitor on every recreation.**
+- [x] **M3.R3 The Android sample restarts the monitor on every recreation.** (`fix/android-sample-restart-guard`; two rotations: 3 connections before, 1 after; after process death the extras are no longer applied and the monitor falls back to discovery)
   `MainActivity.onCreate` calls `restartMonitor` whenever the launch intent
   has `host`, rotation and process recreation included, unlike `runAll`,
   which checks `savedInstanceState == null`. Each rotation stops the client,
