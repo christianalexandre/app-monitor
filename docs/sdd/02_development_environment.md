@@ -126,6 +126,21 @@ included; the WebSocket's URL is logged as `https://echo.websocket.org`).
 Server log and the sample's simulator log in `build/e2e-ios/`. Both scripts
 source `scripts/e2e_lib.sh`.
 
+## Desktop packages
+
+`./gradlew :desktop:app:packageDmg` (macOS), `packageMsi` (windows) or
+`packageDeb` (linux) builds an installer for the host OS only, with
+jpackage from the JDK 21 toolchain (the Compose plugin downloads WiX for
+`.msi`); output in `desktop/app/build/compose/binaries/main/<format>/`, e.g.
+`App Monitor-1.0.0.dmg` (≈75 MB, ≈2.5 min cold). Names, bundle id
+`io.github.christianalexandre.appmonitor.desktop`, Linux package
+`app-monitor` and the Windows `upgradeUuid` are ADR-0055's; the bundled
+runtime adds the modules `./gradlew :desktop:app:suggestRuntimeModules`
+prints, so rerun it after adding a dependency. The packages are **unsigned
+build proof**, not releases: macOS Gatekeeper and Windows SmartScreen block
+them until the user overrides (ADR-0055). The app inside listens on 47474
+like `make desktop`.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin
@@ -164,6 +179,9 @@ which boots the runner's first available iPhone simulator; the sample
 reaches the server on `127.0.0.1`, so the runner's missing local network
 access (DEBT-0046) does not apply. `build/e2e-ios/` (server and simulator
 logs) and `build/ios-sample.log` are uploaded on failure.
+The `package` job builds the unsigned `.dmg` on macOS, `.msi` on windows
+and `.deb` on ubuntu, one matrix entry each, and uploads each as the
+`desktop-<format>` artifact for 7 days.
 
 ## Limits
 
