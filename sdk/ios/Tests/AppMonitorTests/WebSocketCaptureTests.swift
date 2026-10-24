@@ -70,6 +70,28 @@ extension URLSessionCaptureTests {
         #expect(echo.received == [Data("hi".utf8), Data([1, 2, 3])])
     }
 
+    @Test func aWebSocketMarkedBySdkKtorIsNotCapturedAndAnUnmarkedRequestIs() async throws {
+        let echo = TestEchoServer()
+        try await echo.start()
+        defer { echo.stop() }
+        capture()
+        var request = URLRequest(url: echo.url("/marked"))
+        request.setValue("ktor", forHTTPHeaderField: "X-AppMonitor-Capture")
+        for request in [request, URLRequest(url: echo.url("/plain"))] {
+            let task = URLSession.shared.webSocketTask(with: request)
+            task.resume()
+            try await task.send(.string("hi"))
+            _ = try await task.receive()
+            task.cancel(with: .goingAway, reason: nil)
+        }
+
+        let (started, _) = try await sink.exchange(echo.httpURL("/plain"))
+        let captured = try sink.all.filter { $0.type == "WebSocketFrame" }
+            .map { try Appmonitor_V1_WebSocketFrame(serializedBytes: $0.payload).requestID }
+        #expect(Set(captured) == [started.requestID])
+        #expect(sink.all.filter { $0.type == "RequestStarted" }.count == 1)
+    }
+
     @Test func aFrameOverTheLimitIsCutAndSentWhole() async throws {
         let echo = TestEchoServer()
         try await echo.start()

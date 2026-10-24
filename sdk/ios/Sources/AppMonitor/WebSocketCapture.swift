@@ -114,19 +114,20 @@ enum WebSocketHooks {
         return true
     }
 
-    /// The first resume of a task while the monitor runs; Foundation has made its `ws` URL `http` already.
-    static func started(_ task: URLSessionWebSocketTask, options: AppMonitorOptions) {
-        let request = task.currentRequest ?? task.originalRequest
-        let capture = WebSocketCapture(sink: URLSessionCapture.sink, options: options, requestURL: request?.url)
+    /// The first resume of a task while the monitor runs; its URL as Foundation rewrites a `ws` one given as a
+    /// URL, the same scheme whether the task was made from a URL or from a `URLRequest`.
+    static func started(_ task: URLSessionWebSocketTask, sink: CaptureSink, options: AppMonitorOptions) {
+        var request = task.currentRequest ?? task.originalRequest
+        if let url = request?.url, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let scheme = ["ws": "http", "wss": "https"][parts.scheme?.lowercased() ?? ""]
+        {
+            parts.scheme = scheme
+            request?.url = parts.url
+        }
+        let capture = WebSocketCapture(sink: sink, options: options, requestURL: request?.url)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
-        emit(capture.sink, "RequestStarted") {
-            var event = Appmonitor_V1_RequestStarted()
-            event.requestID = capture.id
-            event.method = request?.httpMethod ?? "GET"
-            event.url = capture.masking.url(request?.url?.absoluteString ?? "")
-            event.headers = capture.masking.headers(sortedHeaders(request?.allHTTPHeaderFields ?? [:]))
-            event.captureLayer = .platform
-            return try event.serializedBytes()
+        emit(sink, "RequestStarted") {
+            try requestStarted(request, id: capture.id, masking: capture.masking, limit: capture.limit)
         }
     }
 

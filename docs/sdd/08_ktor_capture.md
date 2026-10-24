@@ -24,6 +24,11 @@ app ── HttpClient { install(AppMonitorKtor) }
   their own exchange. Headers set by the app, `DefaultRequest` or
   `HttpCookies` are seen (`AppMonitorKtorTest`); headers the engine adds (Darwin's
   `NSURLSession`, OkHttp) are not.
+- **Marked on iOS.** Each hop captured on iOS is sent with
+  `X-AppMonitor-Capture: ktor` (`Protocol.CAPTURE_HEADER`), set at
+  `Monitoring` and shown in its `RequestStarted`; the Swift SDK skips a task
+  carrying it, so a Darwin call is captured once (SDD 07, ADR-0064,
+  ADR-0071). A hop not captured has it removed. JVM and Android never add it.
 - **Masking** is the rule of SDD 05, member for member, pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a

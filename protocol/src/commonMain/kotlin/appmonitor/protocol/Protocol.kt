@@ -23,4 +23,10 @@ object Protocol {
 
     /** Largest frame the desktop reads: one body plus URL, headers and envelope (ADR-0021). */
     const val MAX_FRAME_BYTES: Long = MAX_BODY_BYTES + (256L shl 10)
+
+    /** Header `sdk/ktor` adds on iOS to each request it captures; the Swift SDK skips a task carrying it (ADR-0064). */
+    const val CAPTURE_HEADER: String = "X-AppMonitor-Capture"
+
+    /** The only value of [CAPTURE_HEADER]: nothing about the device or the app (ADR-0064). */
+    const val CAPTURE_HEADER_KTOR: String = "ktor"
 }

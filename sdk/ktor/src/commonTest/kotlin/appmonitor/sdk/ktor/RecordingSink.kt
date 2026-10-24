@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 
 /** Records envelopes as the running monitor would buffer them; every event is sent before the call returns. */
 internal class RecordingSink(
-    override val options: AppMonitorOptions? = AppMonitorOptions(),
+    override var options: AppMonitorOptions? = AppMonitorOptions(),
 ) : CaptureSink {
     private val envelopes = ArrayDeque<Envelope>()
 

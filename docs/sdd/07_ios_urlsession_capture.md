@@ -51,6 +51,10 @@ app ── any URLSession ── task.resume() ──────────►
 | `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. |
 | `RequestFailed` | `_didFinishWithError:` without a response, a cancelled task included | `error` is `NSURLErrorDomain <code>: <description>`, never the error's `userInfo`. |
 
+A task whose request carries `X-AppMonitor-Capture` (any value) is not
+captured, WebSocket tasks included: `sdk/ktor` sets it on what it already
+captured through Ktor's Darwin engine (SDD 08, ADR-0064, ADR-0071).
+
 A request id is a random UUID kept on the task with its body and masking
 (an associated object), so it lives as long as the task.
 
@@ -58,8 +62,9 @@ A request id is a random UUID kept on the task with its body and masking
 
 Hooks on `__NSURLSessionWebSocketTask`'s own methods (ADR-0045); the capture
 is kept on the task under its own key, so the connection hooks above never
-see it. Foundation has already turned `ws` into `http` in the task's
-request, so the captured URL is `http` or `https`, as on Android.
+see it. Foundation turns `ws` into `http` in the request of a task made
+from a URL, not from a `URLRequest`; the capture does the same for the
+latter, so the captured URL is `http` or `https`, as on Android (ADR-0071).
 
 | Event | Sent when |
 | --- | --- |

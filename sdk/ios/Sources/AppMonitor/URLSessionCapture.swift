@@ -82,11 +82,7 @@ final class TaskCapture: @unchecked Sendable {
 
     /// A background download's body: the file `nsurlsessiond` wrote, read up to the limit.
     func didDownload(_ file: URL) {
-        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { $0 }
-        let head = (try? FileHandle(forReadingFrom: file)).flatMap { handle in
-            defer { try? handle.close() }
-            return try? handle.read(upToCount: limit)
-        }
+        let (head, size) = fileHead(file, limit: limit)
         lock.withLock {
             body = head ?? Data()
             received = Int64(size ?? body.count)
@@ -151,27 +147,39 @@ func sortedHeaders(_ fields: [AnyHashable: Any]) -> [(name: String, value: Strin
         .sorted { $0.name.lowercased() < $1.name.lowercased() }
 }
 
-/// The request as the task holds it at resume, body cut at the limit (ADR-0036 C).
-func requestStarted(_ task: URLSessionTask, capture: TaskCapture, upload: UploadBody?) throws -> Data {
-    let request = task.currentRequest ?? task.originalRequest
+/// The first `limit` bytes of `file` and its size, each nil when it cannot be read.
+func fileHead(_ file: URL, limit: Int) -> (head: Data?, size: Int?) {
+    let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { $0 }
+    let head = (try? FileHandle(forReadingFrom: file)).flatMap { handle in
+        defer { try? handle.close() }
+        return try? handle.read(upToCount: limit)
+    }
+    return (head, size)
+}
+
+/// The request as the task holds it at resume, body cut at the limit (ADR-0036 C); `streamed` marks a
+/// body sent from a stream the capture never reads.
+func requestStarted(
+    _ request: URLRequest?,
+    id: String,
+    masking: Masking,
+    limit: Int,
+    upload: UploadBody? = nil,
+    streamed: Bool = false
+) throws -> Data {
     var event = Appmonitor_V1_RequestStarted()
-    event.requestID = capture.id
+    event.requestID = id
     event.method = request?.httpMethod ?? "GET"
-    event.url = capture.masking.url(request?.url?.absoluteString ?? "")
-    event.headers = capture.masking.headers(sortedHeaders(request?.allHTTPHeaderFields ?? [:]))
+    event.url = masking.url(request?.url?.absoluteString ?? "")
+    event.headers = masking.headers(sortedHeaders(request?.allHTTPHeaderFields ?? [:]))
     event.captureLayer = .platform
-    let limit = capture.limit
     switch (upload, request?.httpBody, request?.httpBodyStream) {
     case (.data(let data), _, _), (nil, .some(let data), _):
         event.body = data.prefix(limit)
         event.bodyTruncated = data.count > limit
         event.bodySize = Int64(data.count)
     case (.file(let file), _, _):
-        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { $0 }
-        let head = (try? FileHandle(forReadingFrom: file)).flatMap { handle in
-            defer { try? handle.close() }
-            return try? handle.read(upToCount: limit)
-        }
+        let (head, size) = fileHead(file, limit: limit)
         if let head, let size {
             event.body = head
             event.bodyTruncated = size > limit
@@ -180,7 +188,7 @@ func requestStarted(_ task: URLSessionTask, capture: TaskCapture, upload: Upload
             event.bodyTruncated = true
             if let size { event.bodySize = Int64(size) }
         }
-    case (nil, nil, let stream) where stream != nil || task is URLSessionUploadTask:
+    case (nil, nil, let stream) where stream != nil || streamed:
         event.bodyTruncated = true  // a stream is never consumed by the capture
     default:
         break
@@ -260,19 +268,31 @@ enum Hooks {
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
-    /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks are never captured.
+    /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks and tasks `sdk/ktor`
+    /// marks as captured (ADR-0064) are not.
     private static func started(_ task: URLSessionTask) {
+        let sink = URLSessionCapture.sink
         guard capture(of: task) == nil, WebSocketHooks.capture(of: task) == nil,
-            let options = URLSessionCapture.sink.options, !(task is URLSessionStreamTask)
+            let options = sink.options, !(task is URLSessionStreamTask)
         else { return }
         let request = task.currentRequest ?? task.originalRequest
-        guard let scheme = request?.url?.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return }
-        if let task = task as? URLSessionWebSocketTask { return WebSocketHooks.started(task, options: options) }
-        let capture = TaskCapture(sink: URLSessionCapture.sink, options: options, requestURL: request?.url)
+        guard let scheme = request?.url?.scheme?.lowercased(),
+            request?.value(forHTTPHeaderField: ProtocolConstants.captureHeader) == nil
+        else { return }
+        if let task = task as? URLSessionWebSocketTask {
+            guard ["http", "https", "ws", "wss"].contains(scheme) else { return }
+            return WebSocketHooks.started(task, sink: sink, options: options)
+        }
+        guard scheme == "http" || scheme == "https" else { return }
+        let capture = TaskCapture(sink: sink, options: options, requestURL: request?.url)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         BackgroundHooks.started(task, capture)
         let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
-        emit(capture.sink, "RequestStarted") { try requestStarted(task, capture: capture, upload: upload?.body) }
+        emit(sink, "RequestStarted") {
+            try requestStarted(
+                request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload?.body,
+                streamed: task is URLSessionUploadTask)
+        }
     }
 
     private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {
