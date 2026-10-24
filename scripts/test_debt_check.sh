@@ -47,6 +47,7 @@ debt 0003 Open 'The next PR that touches one of the files listed below' \
 debt 0004 Open 'The next PR that touches `MonitorClient` or its stop path'
 debt 0005 Open '`make check` over 3 minutes, or `gradle/libs.versions.toml` changes'
 debt 0006 Open 'A developer reports a bug'
+debt 0007 Open 'The next PR that touches `Makefile` or `ios/Sources`'
 touch "$tmp/repo/sdk/core/src/Client.kt" "$tmp/repo/sdk/core/src/MonitorClient.kt" \
   "$tmp/repo/sdk/no-op/build.gradle.kts" "$tmp/repo/Makefile"
 git -C "$tmp/repo" add -A
@@ -59,12 +60,19 @@ code=$?
 check "exits 0" test "$code" -eq 0
 check "says no trigger fired" has "no open DEBT trigger names a changed file"
 
+echo "test-debt-check: unknown base"
+(cd "$tmp/repo" && "$here/debt_check.sh" orign/dev) >"$tmp/out" 2>&1
+code=$?
+check "exits non-zero" test "$code" -ne 0
+check "names the base" has "base 'orign/dev' does not resolve"
+check "no no-trigger line" lacks "no open DEBT trigger"
+
 echo "test-debt-check: committed, unstaged and untracked changes"
 echo x >>"$tmp/repo/sdk/core/src/Client.kt"
 git -C "$tmp/repo" commit -qam client
 echo x >>"$tmp/repo/sdk/core/src/MonitorClient.kt"
-mkdir -p "$tmp/repo/sdk/ios"
-touch "$tmp/repo/sdk/ios/Masking.swift" "$tmp/repo/Makefile.bak"
+mkdir -p "$tmp/repo/sdk/ios/Sources"
+touch "$tmp/repo/sdk/ios/Masking.swift" "$tmp/repo/Makefile.bak" "$tmp/repo/sdk/ios/Sources/Client.swift"
 echo x >>"$tmp/repo/Makefile"
 (cd "$tmp/repo/sdk" && "$here/debt_check.sh" dev) >"$tmp/out"
 code=$?
@@ -76,6 +84,8 @@ check "unstaged file by stem" has "DEBT-0004 Fake 0004: sdk/core/src/MonitorClie
 check "basename does not match a longer name" not_line "^DEBT-0001 .*MonitorClient.kt"
 check "command in backticks is not a file" lacks "DEBT-0005"
 check "trigger without a file never fires" lacks "DEBT-0006"
+check "inner path segment" has "sdk/ios/Sources/Client.swift"
+check "whole basename never matches by stem" test "$(grep '^DEBT-0007 ' "$tmp/out")" = "DEBT-0007 Fake 0007: Makefile sdk/ios/Sources/Client.swift"
 check "no-trigger line absent" lacks "no open DEBT trigger"
 
 echo "test-debt-check: directory and path names"

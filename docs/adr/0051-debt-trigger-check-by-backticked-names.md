@@ -1,9 +1,9 @@
 ---
 id: ADR-0051
 title: Open DEBT triggers are matched against changed files by their backticked names
-status: Accepted
+status: Superseded
 date: 2026-10-23
-superseded_by:
+superseded_by: ADR-0061
 ---
 
 # ADR-0051 — Open DEBT triggers are matched against changed files by their backticked names
