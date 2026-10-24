@@ -1,10 +1,10 @@
 ---
 id: DEBT-0057
 title: The release gate's macOS jobs run close to their timeouts
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: A release gate run where `contract` or `e2e-kmp-ios` in `release-gate.yml` times out or takes more than 50 minutes
-paid_date:
+paid_date: 2026-10-24
 ---
 
 # DEBT-0057 — The release gate's macOS jobs run close to their timeouts
@@ -32,4 +32,7 @@ times out or takes more than 50 minutes.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+ADR-0076 moved `make kmp-sample` out of `contract` into a parallel
+`samples` job (`make samples`), so `contract` runs only the Swift host gates,
+the simulator tests and `:protocol:allTests`. Left: `e2e-kmp-ios` still
+builds the Kotlin/Native framework cold (22.0 min in run 40113961385).

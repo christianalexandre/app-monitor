@@ -78,6 +78,13 @@ always work from `origin/dev`, never `git switch dev`.
 ## 6. Verify
 
 - Run the Accept command and `make check`. Fix and rerun.
+- `make check` skips the slow suites (ADR-0076). When the task changes what
+  one covers, run that target too: `make swift-sim` (iOS SDK hosted tests),
+  `make samples` (sample apps), `make e2e-android`, `make e2e-ios` or
+  `make e2e-kmp` (end to ends, release gate jobs included).
+- **Never dispatch the release gate** (`gh workflow run release-gate.yml`):
+  it runs on the `dev` → `main` PR only. Its jobs call `make` targets; run
+  those locally instead.
 - **Same failure three times in a row** → mark `[!]` with a DEBT id, commit
   what is useful, open a draft PR explaining the wall, **stop**.
 - Missing tool, credential or device → **stop** and say exactly what is

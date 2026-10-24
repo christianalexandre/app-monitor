@@ -17,6 +17,9 @@ What "done" means for a task.
 - **No test depends on a host outside the machine.** Unit, contract and end
   to end tests talk to servers the test or its script starts; a public
   service is never a test target.
+- **Two suites (ADR-0076).** `make check` is the fast suite every PR to
+  `dev` runs; simulator tests, sample apps and end to ends run in the
+  release gate, and locally when a change touches them.
 - **Flaky is broken.** A test that fails intermittently becomes a `fix/` task
   or a tech-debt item with a trigger — never a retry loop.
 - **Say what did not run.** If iOS tests could not run (no macOS, no

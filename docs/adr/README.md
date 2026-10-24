@@ -93,3 +93,4 @@ Rules:
 | [0073](0073-kmp-sample-layout-and-release-swap.md) | KMP sample in three modules, the release swap per platform and compileSdk 37 | Accepted |
 | [0074](0074-local-e2e-target-in-kotlin.md) | The end to ends call a local Ktor target passed to the samples at launch | Accepted |
 | [0075](0075-kmp-end-to-end-one-script-and-captured-once.md) | The KMP end to end is one script per platform argument, and every end to end asserts each exchange once | Accepted |
+| [0076](0076-fast-pr-suite-slow-suites-in-the-release-gate.md) | PRs to dev run a fast suite; slow suites run only in the release gate | Accepted |
