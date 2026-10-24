@@ -74,3 +74,4 @@ Rules:
 | [0054](0054-sdk-publication-coordinates.md) | SDK publication coordinates and tag scheme | Accepted |
 | [0055](0055-desktop-package-names.md) | Desktop package names, bundle id and unsigned dry-run packages | Accepted |
 | [0056](0056-android-end-to-end-by-launch-extras.md) | Android end to end driven by launch extras, asserted on the headless server log | Accepted |
+| [0057](0057-ios-end-to-end-by-launch-arguments.md) | iOS end to end driven by launch arguments, sharing the Android assertions | Accepted |

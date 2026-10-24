@@ -105,7 +105,26 @@ For the screenshots, run
 in the background instead of the server (the seven buttons, one exchange
 each), wait for "waiting for a device", then install and launch as above.
 Calls made before the approval wait in the SDK's buffer, so `-runAll` can
-start before the click.
+start before the click. `-host H -port N` pin the SDK to that desktop, as
+`make e2e-ios` does.
+
+### The iOS sample end to end, scripted
+
+`make e2e-ios` (ADR-0057) needs macOS with Xcode, XcodeGen and the
+internet. It uses the booted iPhone simulator, or boots the first available
+one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample through
+`make ios-sample` and the server's `installDist`, starts the headless server
+on a free port and launches the Debug app:
+
+```sh
+xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> -runAll YES
+```
+
+It then waits up to `E2E_TIMEOUT` seconds (120) for the seven calls as
+`make e2e-android` does (the upload's `PUT` and the background download
+included; the WebSocket's URL is logged as `https://echo.websocket.org`).
+Server log and the sample's simulator log in `build/e2e-ios/`. Both scripts
+source `scripts/e2e_lib.sh`.
 
 ## CI
 

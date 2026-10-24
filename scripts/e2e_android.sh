@@ -9,11 +9,8 @@ out=build/e2e-android
 server_log=$out/server.log
 timeout="${E2E_TIMEOUT:-120}"
 app=appmonitor.sample
-
-fail() {
-  echo "e2e-android: $*" >&2
-  exit 1
-}
+tag=e2e-android
+source scripts/e2e_lib.sh
 
 PATH="$PATH:${ANDROID_HOME:-}/platform-tools"
 command -v adb >/dev/null 2>&1 || fail "adb not found (ANDROID_HOME/platform-tools, or adb on PATH)"
@@ -28,19 +25,8 @@ done
 
 ./gradlew -q :samples:android:assembleDebug :desktop:server:installDist
 mkdir -p "$out"
-: >"$server_log"
-
-desktop/server/build/install/server/bin/server --port 0 >"$server_log" 2>&1 &
-server_pid=$!
-trap 'kill "$server_pid" 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
-port=
-for _ in $(seq 1 60); do
-  port="$(sed -n 's/^Listening on port \([0-9]*\).*/\1/p' "$server_log")"
-  [[ -n "$port" ]] && break
-  kill -0 "$server_pid" 2>/dev/null || { cat "$server_log" >&2; fail "server exited before listening"; }
-  sleep 1
-done
-[[ -n "$port" ]] || fail "server did not print its port, log in $server_log"
+trap 'kill "${server_pid:-}" 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
+start_server
 
 adb install -r samples/android/build/outputs/apk/debug/android-debug.apk >/dev/null
 # The local network prompt (ADR-0030) would wait for a hand; grant it up front.
@@ -53,39 +39,11 @@ adb shell am start -S -W --activity-clear-task -n "$app/.MainActivity" \
   --es host "${E2E_HOST:-10.0.2.2}" --ei port "$port" --ez runAll true >/dev/null
 echo "e2e-android: sample on $serial, server on port $port"
 
-# One expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
-# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT.
+# One expectation per line, as `missing` in scripts/e2e_lib.sh reads them.
 expected="GET https://httpbin.org/json ResponseReceived
 POST https://httpbin.org/post ResponseReceived
 GET https://httpbin.org/status/404 ResponseReceived
 GET https://httpbin.org/delay/10 RequestFailed
 GET https://echo.websocket.org/ ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE"
 
-# Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
-missing() {
-  grep -q "\] connected: .* $app " "$server_log" || echo "no device connected with app id $app"
-  while read -r method url terminal frames; do
-    id="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { print $3; exit }' "$server_log")"
-    if [[ -z "$id" ]]; then
-      echo "$method $url: no RequestStarted"
-      continue
-    fi
-    grep -q " network/$terminal $id " "$server_log" || echo "$method $url: no $terminal for $id"
-    for frame in $frames; do
-      grep -q " network/WebSocketFrame $id ${frame%%:*} ${frame#*:}," "$server_log" \
-        || echo "$method $url: no WebSocketFrame ${frame%%:*} ${frame#*:} for $id"
-    done
-  done <<<"$expected"
-}
-
-deadline=$((SECONDS + timeout))
-while [[ -n "$(missing)" ]] && ((SECONDS < deadline)); do sleep 2; done
-gaps="$(missing)"
-if [[ -n "$gaps" ]]; then
-  echo "$gaps" | sed 's/^/e2e-android: missing: /' >&2
-  fail "failed after ${timeout}s, server log in $server_log, logcat in $out/logcat.txt"
-fi
-while read -r method url terminal frames; do
-  echo "e2e-android: ok $method $url $terminal${frames:+ $frames}"
-done <<<"$expected"
-echo "e2e-android: passed, $(grep -c ' network/' "$server_log") envelopes"
+assert_envelopes "$app" "$expected" "$timeout" "logcat in $out/logcat.txt"

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample e2e-android swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample e2e-android e2e-ios swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -34,6 +34,9 @@ ios-sample: ## Build samples/ios in Debug and Release, keys and SDK in Debug onl
 
 e2e-android: ## Sample on a booted emulator against the headless server, envelopes asserted (ANDROID_SERIAL, ADR-0056)
 	@scripts/e2e_android.sh
+
+e2e-ios: ## Sample on an iPhone simulator against the headless server, envelopes asserted (SIM_DEVICE, ADR-0057)
+	@scripts/e2e_ios.sh
 
 swift-proto: ## Regenerate sdk/ios swift-protobuf code from protocol/proto (ADR-0039)
 	@scripts/swift_proto_gen.sh

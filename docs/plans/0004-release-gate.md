@@ -80,7 +80,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   on the runner M3.2 (a) picks and runs `make e2e-android`; server log and
   logcat uploaded on failure.
   Accept: the gate run green with the job's assertion lines in its log.
-- [ ] **M3.7 iOS end to end, locally.** A `make e2e-ios` target: headless
+- [x] **M3.7 iOS end to end, locally.** (`test/ios-end-to-end`; ADR-0057: `-host`, `-port` launch arguments, `scripts/e2e_ios.sh` boots a simulator when none is; assertions moved to `scripts/e2e_lib.sh`, `make e2e-android` rerun green on an API 36 emulator; DEBT-0047 widened to iOS; DEBT-0041 not fired, it fires at the release PR) A `make e2e-ios` target: headless
   server, `make ios-sample`'s Debug app on a booted simulator launched with
   `-runAll YES`, the server log asserted as in M3.5 (URLSession calls,
   WebSocket, background download). DEBT-0041's trigger is the first release
