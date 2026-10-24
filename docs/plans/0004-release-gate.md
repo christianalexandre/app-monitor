@@ -111,7 +111,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   the command in SDD 02); otherwise a DEBT with a trigger.
   Accept: `gh api repos/{owner}/{repo}/rules/branches/main` (or the
   protection endpoint) lists the gate's checks as required, or the DEBT.
-- [x] **M3.12 Docs sync and first release PR.** (`docs/release-gate-docs`; SDD 01 *Verification*, README status; AGENTS.md already listed every command; draft release PR #132 opened, not merged; DEBT-0041 fired and re-triggered to M10's first tag, no iPhone) SDD 01/02 describe the gate,
+- [x] **M3.12 Docs sync and first release PR.** (`docs/release-gate-docs`; SDD 01 *Verification*, README status; AGENTS.md already listed every command; draft release PR #132 opened, not merged; DEBT-0041 fired and re-triggered to M10's first tag, no iPhone; #132's `conventions` failed on a GitHub squash trailer in #95, fixed in `ci/release-pr-trailer-check`, ADR-0059) SDD 01/02 describe the gate,
   `AGENTS.md` lists the new commands, README status updated; a draft PR
   `dev` → `main` opened so the gate runs for real. The loop does not merge
   it.
