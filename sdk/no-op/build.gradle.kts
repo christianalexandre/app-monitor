@@ -1,5 +1,6 @@
 plugins {
     id("appmonitor.kmp-sdk")
+    id("appmonitor.publish")
 }
 
 kotlin {

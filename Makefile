@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample e2e-android e2e-ios swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample e2e-android e2e-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -37,6 +37,9 @@ e2e-android: ## Sample on a booted emulator against the headless server, envelop
 
 e2e-ios: ## Sample on an iPhone simulator against the headless server, envelopes asserted (SIM_DEVICE, ADR-0057)
 	@scripts/e2e_ios.sh
+
+publish-dry-run: ## SDKs to build/maven-dry-run, POMs checked; SwiftPM consumer in debug and release (ADR-0058)
+	@scripts/publish_dry_run.sh
 
 swift-proto: ## Regenerate sdk/ios swift-protobuf code from protocol/proto (ADR-0039)
 	@scripts/swift_proto_gen.sh
