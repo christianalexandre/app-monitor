@@ -81,8 +81,9 @@ adb shell am start -S -W --activity-clear-task -n appmonitor.sample/.MainActivit
   --es host 10.0.2.2 --ei port <port> --ez runAll true
 ```
 
-`host` and `port` restart the SDK on that desktop only; `runAll` runs every
-button in turn. The script then waits up to `E2E_TIMEOUT` seconds (120) for
+`host` and `port` restart the SDK on that desktop only, once per process,
+so a rotation keeps the connection and a process death reconnects to the same
+desktop; `runAll` runs every button in turn, on first launch only. The script then waits up to `E2E_TIMEOUT` seconds (120) for
 each call's `RequestStarted`, its response or failure, and the WebSocket's
 sent, received and close frames, and prints one `ok` or `missing` line per
 call. Server log and logcat in `build/e2e-android/`. A sample button added
