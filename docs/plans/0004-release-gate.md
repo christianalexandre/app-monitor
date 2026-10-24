@@ -1,10 +1,10 @@
 ---
 id: PLAN-0004
 title: Release gate
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M3
 started: 2026-10-23
-finished:
+finished: 2026-10-24
 ---
 
 # PLAN-0004 — Release gate (M3)
@@ -209,10 +209,36 @@ reason in DEBT-0051. This is the last review round (ADR-0016).
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#117); M3.1 DEBT trigger check in the loop (#118);
+  M3.2 release gate decisions (#119); M3.2a MIT license and public
+  repository (#120, #121); M3.3 gate skeleton and desktop matrix (#122);
+  M3.4 Swift contract job (#123); M3.5 Android end to end locally (#124);
+  M3.6 in the gate (#125); M3.7 iOS end to end locally (#126); M3.8 in the
+  gate (#127); M3.9 unsigned desktop packages (#128); M3.10 SDK publication
+  dry-run (#129); M3.11 gate required on `main` by ruleset (#131); M3.12
+  docs sync and the first release PR #132, left open for the owner, its
+  gate green on every job (run 40058097609), with the trailer fix it
+  needed (#134). Three review rounds: plan updates #135, #140, #142 and
+  this PR; fixes M3.R1 (#136), M3.R2 (#137), M3.R3 (#138), M3.R4 (#139),
+  M3.R5 (#141), M3.R6 (#143).
+- **Decisions**: ADR-0051 to ADR-0061; ADR-0060 supersedes ADR-0059 and
+  ADR-0061 supersedes ADR-0051.
+- **Debt**: DEBT-0045 to DEBT-0051 created. DEBT-0002 re-triggered by
+  M3.5; DEBT-0040 and DEBT-0041 fired and were re-triggered to M10's first
+  tag; DEBT-0049's `debt_check.sh` item paid by M3.R2, DEBT-0051's wrapping
+  item by M3.R6. Review findings left open are only non-correctness ones,
+  in DEBT-0049, DEBT-0050 and DEBT-0051. No correctness finding is left
+  open.
+- **Deviations**: M3.2 added M3.2a, the owner choosing a public repository
+  over paid runners (ADR-0052); M3.12's release PR failed `conventions` on
+  a GitHub squash trailer and needed #134 before the gate could run. The
+  three reviews added M3.R1–M3.R6; three of them (R3, R5, R6) were the same
+  Android sample guard, each fix opening the next case.
+- **Lessons**: measured runner time beat ADR-0052's estimates on every job
+  but iOS end to end (≈14 against ≈10 min). Running each end to end as a
+  `make` target first made every gate job green on its first or second
+  run. The launch extras guard took three rounds because no test drives
+  rotation, process death or a second launch (DEBT-0051): the next plan
+  that touches lifecycle code should write its cases down, and a check for
+  them, before the code. `make debt-check` caught triggers the M2 loop
+  missed.
