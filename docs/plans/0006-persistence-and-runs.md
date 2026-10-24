@@ -157,6 +157,52 @@ rejected.
   deleted) and with a failing `clearAll` (its error stays in
   `retentionStatus`).
 
+### Second milestone review
+
+Findings of the `code-review` of `055c62b..66c4154`. Four are correctness
+findings and became three tasks (the stale storage status rides with the
+lost disconnect it comes from). Five went to DEBT-0067 (rollback rebuilt by
+hand, two allocations on the write path, cleanup on every retention pass,
+the `/tmp` test). One was rejected: an existing data directory kept at its
+mode is what ADR-0081 C.1 ("created `0700`") and SDD 09 state, so it is no
+new privacy decision.
+
+- [ ] **M5.R6 One failing lost disconnect blocks every later write.**
+  `Ingest.write` applies `lostDisconnects` inside every next batch's
+  transaction with no limit, so a disconnect whose write fails each time
+  (its session row cannot be inserted) rolls back every later batch: the
+  store writes nothing more for the rest of the launch. Its status is also
+  wrong once the retry succeeds: the disconnect stays counted in
+  `notSaved`, and a retry riding a batch with no counted item (a `flush()`
+  barrier alone) leaves `lastError` set. Retry a lost disconnect so its
+  failure cannot fail the batch it rides with, and clear the error once it
+  is written.
+  Accept: `./gradlew :desktop:storage:test` with a disconnect that fails on
+  every write followed by good batches (they are stored), and a lost
+  disconnect retried by a lone `flush()` (`lastError` cleared).
+- [ ] **M5.R7 Calls racing `Storage.close` throw or touch a closed driver.**
+  `close` shuts the writer dispatcher and the driver once the writer job
+  completes, but `clearAll`, `applyRetention` and `setRetention` dispatch
+  onto that executor themselves: after `close`, `withContext` on the shut
+  executor cancels the call (`CancellationException`), and during a timed
+  out `close` a call already queued on the writer thread runs after
+  `driver.close()`, where `clearAll`'s `fileBytes()` throws outside its
+  `try`. Make them return once the store is closed, and never run on a
+  closed driver.
+  Accept: `./gradlew :desktop:storage:test` with `clearAll`,
+  `applyRetention` and `setRetention` after `close` returning, and one
+  queued behind a stalled writer during a `close` that times out returning
+  without touching the driver.
+- [ ] **M5.R8 A forgotten handshake may close with 1000, not 1008.**
+  `AppMonitorServer`'s handshake returns when `disconnect` already removed
+  it and relies on the `close(1008)` that `disconnect` launched; Ktor's
+  close when the handler returns can win the race, so the device sees a
+  normal close (`MonitorClient` reads it as `Lost`, not `Rejected`) and
+  `DeviceApprovalTest`'s 1008 assertion can fail by scheduling. Close with
+  1008 in the handler before returning.
+  Accept: `./gradlew :desktop:server:test` with the forgotten handshake
+  test repeated (20 times) always seeing 1008.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
