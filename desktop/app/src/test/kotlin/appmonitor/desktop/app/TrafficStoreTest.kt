@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.REQUEST_LIST
+import appmonitor.desktop.app.ui.RUNS
 import appmonitor.desktop.storage.Storage
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.RequestStarted
@@ -60,7 +61,7 @@ class TrafficStoreTest {
 
                     // The launch's run is shown; the earlier one, ended, is one click away (ADR-0084 C.1).
                     awaitText("No requests yet")
-                    onNodeWithText("▾", substring = true).performClick()
+                    onNodeWithTag(RUNS).performClick()
                     onNodeWithText(" – ", substring = true).performClick()
                     awaitText("Pixel 9 (emulator)")
                     onNodeWithText("Android 16 · disconnected").assertExists()
