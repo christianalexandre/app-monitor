@@ -15,7 +15,7 @@ source scripts/e2e_lib.sh
 command -v xcrun >/dev/null 2>&1 || fail "xcrun not found (needs macOS with Xcode; ADR-0047)"
 # Prints "<udid> <name>" of the simulators `simctl list` shows in state $1, iPhones only.
 simulators() {
-  xcrun simctl list devices "$1" | sed -n 's/^ *\(iPhone[^(]*\) (\([0-9A-F-]*\)) .*/\2 \1/p' | sed 's/ *$//'
+  xcrun simctl list devices "$1" | scripts/sim_list.sh
 }
 pick="$(simulators booted | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
 if [[ -z "$pick" ]]; then

@@ -30,8 +30,6 @@ results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
 - `samples/ios/Sample/SampleCalls.swift`: `BackgroundDownload.bytes` is not
   reset between runs, so a run whose download callback never fires reports
   the previous run's size.
-- `scripts/ios_sample_check.sh`: the simulator selection and the Info.plist
-  key loop are copied from `scripts/swift_sim_check.sh`.
 
 ## Why it was accepted
 
@@ -41,9 +39,12 @@ each is a contained change best made beside the next edit of its file.
 ## Trigger
 
 The next PR that touches `MonitorClient.swift`, `URLSessionCapture.swift`,
-`WebSocketCapture.swift`, `SampleCalls.swift`, `ios_sample_check.sh` or
-`swift_sim_check.sh` pays that file's items.
+`WebSocketCapture.swift` or `SampleCalls.swift` pays that file's items.
 
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
+
+`ios_sample_check.sh`'s item paid in `fix/e2e-ios-simulator-names`: the tool
+check, the simulator selection and the Info.plist key check moved to
+`scripts/ios_lib.sh`, sourced by both scripts. The other items are open.
