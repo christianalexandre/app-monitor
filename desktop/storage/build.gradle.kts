@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("appmonitor.kotlin-jvm")
     id("app.cash.sqldelight")
@@ -22,4 +24,8 @@ sqldelight {
             verifyMigrations = true
         }
     }
+}
+
+tasks.test {
+    testLogging.exceptionFormat = TestExceptionFormat.FULL
 }
