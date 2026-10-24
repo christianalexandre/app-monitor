@@ -17,6 +17,7 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -24,7 +25,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Not a unit test: run by `liveScreenshots` only, against a real device running the sample (ADR-0031).
@@ -41,16 +44,17 @@ class LiveDeviceScreenshots {
     fun `approve a real device and show its traffic`() {
         val approvals = DeviceApprovals()
         val server = AppMonitorServer(ServerConfig(advertise = advertise), approval = approvals)
-        val store = TrafficStore()
+        val dir = createTempDirectory("live-screenshots")
+        val storage = Storage.open(dir)
+        val store = TrafficStore(storage)
         val scope = CoroutineScope(Dispatchers.Default)
         val port = runBlocking { server.start() }
         scope.launch { store.collect(server.sessions) }
         try {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
-                    val state by store.state.collectAsState()
                     val pending by approvals.pending.collectAsState()
-                    AppMonitorApp(state, "Listening on port $port", pending, approvals::decide)
+                    AppMonitorApp(storage, "Listening on port $port", pending, approvals::decide)
                 }
                 println("liveScreenshots: listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")
                 waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText("Approve").fetchSemanticsNodes().isNotEmpty() }
@@ -59,8 +63,7 @@ class LiveDeviceScreenshots {
 
                 println("liveScreenshots: approved, waiting for $exchanges finished exchanges")
                 waitUntil(timeoutMillis = timeoutMs) {
-                    store.state.value.exchanges
-                        .count { it.statusCode != null || it.error != null } >= exchanges
+                    runBlocking { storage.allExchanges() }.count { it.statusCode != null || it.failed } >= exchanges
                 }
                 onAllNodesWithText("/json", substring = true).onFirst().performClick()
                 waitUntil(
@@ -75,7 +78,10 @@ class LiveDeviceScreenshots {
             }
         } finally {
             scope.cancel()
-            runBlocking { server.stop() }
+            runBlocking {
+                server.stop()
+                storage.close(5.seconds)
+            }
         }
     }
 

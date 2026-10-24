@@ -9,6 +9,7 @@ dependencies {
     api(project(":protocol"))
     api(libs.kotlinx.coroutines.core)
     implementation(libs.sqldelight.sqlite.driver)
+    implementation(libs.sqldelight.coroutines.extensions)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)

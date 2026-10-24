@@ -3,7 +3,7 @@ id: DEBT-0028
 title: The fake client gives up on HelloAck after 10 s, approval included
 status: Open # Open | Paid | Dropped
 date: 2026-10-22
-trigger: The first `make fake-traffic` against the desktop app that fails because the approval took longer than 10 s, or a script runs the fake client against the app unattended
+trigger: M5.5 merged (an approved pair then skips the dialog), or a script runs the fake client against the app unattended
 paid_date:
 ---
 
@@ -26,9 +26,14 @@ a tool change with no user asking for it yet.
 
 ## Trigger
 
-The first `make fake-traffic` against the desktop app that fails because
-the approval took longer than 10 s, or a script that runs the fake client
-against the app unattended.
+M5.5 merged, or a script that runs the fake client against the app
+unattended.
+
+Fired in M5.4: the agent's hand run of `make fake-traffic` against
+`make desktop` timed out, as nobody could click Approve. Re-triggered on
+M5.5: once an approved pair is stored, a pair approved once by hand replays
+with no dialog, which may be all the fake client needs; M5.5 decides
+between that and a longer wait.
 
 ## How it was paid
 

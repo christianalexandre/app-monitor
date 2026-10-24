@@ -45,3 +45,6 @@ JOIN devices ON devices.id = sessions.device_ref
 JOIN apps ON apps.id = sessions.app_ref
 WHERE sessions.run_id = ?
 ORDER BY sessions.id;
+
+all:
+SELECT * FROM sessions ORDER BY id;

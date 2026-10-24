@@ -1,9 +1,12 @@
 package appmonitor.desktop.storage
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import appmonitor.desktop.storage.db.AppMonitorDatabase
+import appmonitor.desktop.storage.db.Sessions
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
@@ -13,7 +16,9 @@ import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okio.ByteString
@@ -68,6 +73,9 @@ class Storage private constructor(
     /** The most encoded envelope bytes waiting at once since the store opened (DEBT-0022). */
     val queueHighWaterBytes: Long get() = queue.highWaterBytes
 
+    /** How many times a session waited for room in the full queue since the store opened (DEBT-0022). */
+    val queueFullWaits: Long get() = queue.fullWaits
+
     /** Queues a session's start; call before its first [received]. Suspends only while the queue is full. */
     suspend fun connected(
         sessionId: String,
@@ -97,6 +105,7 @@ class Storage private constructor(
         withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
+        if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
         writerDispatcher.close()
         driver.close()
         return lost
@@ -106,6 +115,24 @@ class Storage private constructor(
         read {
             runQueries.all { id, name, started, ended -> StoredRun(id, name, started, ended) }.executeAsList()
         }
+
+    /** Every stored session, oldest first, again after each commit that changes one. */
+    fun observeSessions(): Flow<List<StoredSession>> =
+        database.sessionQueries
+            .all()
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+            .map { rows -> rows.map { it.toStored() } }
+
+    /** The first [limit] exchanges of a session in arrival order, again after each commit that changes one. */
+    fun observeExchangesOfSession(
+        sessionId: Long,
+        limit: Long = PAGE_SIZE,
+    ): Flow<List<StoredExchange>> =
+        database.exchangeQueries
+            .pageOfSession(sessionId, 0, limit, ::StoredExchange)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     suspend fun sessions(runId: Long): List<StoredSession> =
         read {
@@ -205,7 +232,7 @@ class Storage private constructor(
     internal fun pragma(name: String): Long? = driver.longQuery("PRAGMA $name")
 
     /** Returns once everything queued before it is written or counted as lost. */
-    internal suspend fun flush() {
+    suspend fun flush() {
         val barrier = StorageItem.Barrier()
         queue.enqueue(barrier)
         barrier.done.await()
@@ -311,6 +338,18 @@ class Storage private constructor(
             ).value
     }
 }
+
+private fun Sessions.toStored() =
+    StoredSession(
+        id = id,
+        runId = run_id,
+        serverSessionId = server_session_id,
+        hello = Hello.ADAPTER.decode(hello),
+        peerAddress = peer_address,
+        connectedAtMs = connected_at_ms,
+        disconnectedAtMs = disconnected_at_ms,
+        lastEnvelopeAtMs = last_envelope_at_ms,
+    )
 
 /** `appmonitor.db` was written by a newer App Monitor; nothing was written to it. */
 class NewerDatabaseException(

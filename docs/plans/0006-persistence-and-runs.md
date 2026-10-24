@@ -58,7 +58,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   needs.
   Accept: `./gradlew :desktop:storage:test` (in `make build`) with M5.2's
   cases, schema verification included.
-- [ ] **M5.4 Desktop app on storage.** `TrafficStore` writes to
+- [x] **M5.4 Desktop app on storage.** (DEBT-0004 paid; DEBT-0022 re-triggered on `queueFullWaits`, 10k requests peaked at 2.5 MiB of 64; until M5.6 the device list shows every stored session, all runs, since ADR-0084 C.1's picker is M5.6; the storage-failure window has no "Clear all data" until M5.8; the hand run stopped at the approval dialog, no screen access for the agent, so a real restart was checked on the database and the UI restart by `TrafficStoreTest`, DEBT-0028 re-triggered on M5.5; M5.9 repeats it by hand) `TrafficStore` writes to
   `desktop/storage` and the UI reads its paged queries; a restart shows
   the earlier traffic; DEBT-0004 paid, DEBT-0022 paid or re-triggered per
   M5.2.

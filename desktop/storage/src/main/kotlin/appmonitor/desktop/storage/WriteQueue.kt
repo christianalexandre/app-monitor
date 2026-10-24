@@ -44,12 +44,18 @@ internal class WriteQueue<T>(
     var highWaterBytes = 0L
         private set
 
+    /** How many [enqueue]s found the queue full and waited. */
+    @Volatile
+    var fullWaits = 0L
+        private set
+
     private val writer: Job = CoroutineScope(dispatcher).launch { drain() }
 
     /** Suspends while the queue holds [maxBytes]; an item bigger than that waits for an empty queue. Returns false once closed. */
     suspend fun enqueue(item: T): Boolean {
         val size = sizeOf(item)
         return admission.withLock {
+            queuedBytes.value.let { if (it != 0L && it + size > maxBytes) fullWaits++ }
             queuedBytes.first { it == 0L || it + size <= maxBytes }
             if (items.trySend(item).isFailure) return@withLock false
             if (counted(item)) pending.incrementAndGet()

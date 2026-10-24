@@ -1,30 +1,30 @@
 package appmonitor.desktop.app.store
 
 import appmonitor.desktop.server.DeviceSession
+import appmonitor.desktop.server.STOP_TIMEOUT
+import appmonitor.desktop.storage.Storage
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
-/** In-memory store the UI observes. Holds everything since the app started. */
-internal class TrafficStore {
-    private val mutableState = MutableStateFlow(TrafficState())
-
-    val state: StateFlow<TrafficState> = mutableState.asStateFlow()
-
+/** Feeds [storage] with every session and its envelopes, in the order each session produced them (SDD 09). */
+internal class TrafficStore(
+    private val storage: Storage,
+) {
     /** Collects every session and its envelopes until [sessions] completes and every session closes. */
     suspend fun collect(sessions: Flow<DeviceSession>): Unit =
         coroutineScope {
             sessions.collect { session ->
-                mutableState.update { it.connected(session.id, session.hello) }
+                storage.connected(session.id, session.hello, session.peerAddress)
                 launch {
                     try {
-                        session.envelopes.collect { envelope -> mutableState.update { it.received(session.id, envelope) } }
+                        session.envelopes.collect { storage.received(session.id, it) }
                     } finally {
-                        mutableState.update { it.disconnected(session.id) }
+                        // A full queue on a stalled disk must not hold the exit; the next open closes the session.
+                        withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { storage.disconnected(session.id) } }
                     }
                 }
             }

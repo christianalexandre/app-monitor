@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Card
@@ -27,6 +28,9 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -36,60 +40,122 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.CapturedFrame
-import appmonitor.desktop.app.store.Device
 import appmonitor.desktop.app.store.HttpExchange
-import appmonitor.desktop.app.store.TrafficState
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
+import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.storage.StoredExchange
+import appmonitor.desktop.storage.StoredSession
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
-/** Devices, then the selected device's requests, then the selected request; above them, the first device to approve. */
+/**
+ * Stored sessions, then the selected one's requests, then the selected request; above them, the first device to
+ * approve. Every pane reads [storage] and follows its commits (SDD 09).
+ */
 @Composable
 internal fun AppMonitorApp(
-    state: TrafficState,
+    storage: Storage,
     status: String,
     pending: List<PendingDevice> = emptyList(),
     onDecide: (DeviceKey, approved: Boolean) -> Unit = { _, _ -> },
 ) {
-    var selectedDevice by remember { mutableStateOf<String?>(null) }
-    var selectedRequest by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val device = state.devices.firstOrNull { it.sessionId == selectedDevice } ?: state.devices.firstOrNull()
-    val exchanges = device?.let { state.exchangesOf(it.sessionId) }.orEmpty()
-    val exchange = exchanges.firstOrNull { it.sessionId to it.requestId == selectedRequest }
+    val sessions by remember(storage) { storage.observeSessions() }.collectAsState(emptyList())
+    val health by storage.health.collectAsState()
+    var selectedSession by remember { mutableStateOf<Long?>(null) }
+    var selectedRequest by remember { mutableStateOf<Long?>(null) }
+    val session = sessions.firstOrNull { it.id == selectedSession } ?: sessions.firstOrNull()
+    val pages = key(session?.id) { rememberExchangePages(storage, session?.id) }
+    val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize()) {
-                DeviceList(state.devices, device, status, Modifier.width(240.dp).fillMaxHeight()) {
-                    selectedDevice = it.sessionId
+                DeviceList(sessions, session, status, health, Modifier.width(240.dp).fillMaxHeight()) {
+                    selectedSession = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
-                RequestList(exchanges, exchange, Modifier.weight(1f).fillMaxHeight()) {
-                    selectedRequest = it.sessionId to it.requestId
+                RequestList(pages, row, Modifier.weight(1f).fillMaxHeight()) {
+                    selectedRequest = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    if (exchange == null) {
+                    if (row == null) {
                         Placeholder("Select a request")
                     } else {
                         // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
-                        key(exchange.sessionId, exchange.requestId) { RequestDetail(exchange) }
+                        key(row.id) { StoredRequestDetail(storage, row) }
                     }
                 }
             }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
+}
+
+/** What the window shows when the store did not open: no server runs behind it (SDD 09). */
+@Composable
+internal fun StorageUnavailable(
+    file: String,
+    error: String,
+) {
+    MaterialTheme {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("App Monitor could not open its data", style = MaterialTheme.typography.h6)
+                Text(error, color = MaterialTheme.colors.error)
+                Text(file, fontFamily = FontFamily.Monospace)
+                Text("No device is admitted until the file opens.", style = MaterialTheme.typography.caption)
+            }
+        }
+    }
+}
+
+/** The first rows of a session's requests; [loadMore] asks for one more page once the last one is full. */
+private class ExchangePages(
+    val rows: List<StoredExchange>,
+    val loadMore: () -> Unit,
+)
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@Composable
+private fun rememberExchangePages(
+    storage: Storage,
+    sessionId: Long?,
+): ExchangePages {
+    val limit = remember(sessionId) { MutableStateFlow(Storage.PAGE_SIZE) }
+    val rows by remember(storage, sessionId) {
+        if (sessionId == null) flowOf(emptyList()) else limit.flatMapLatest { storage.observeExchangesOfSession(sessionId, it) }
+    }.collectAsState(emptyList())
+    return ExchangePages(rows) { if (rows.size >= limit.value) limit.value += Storage.PAGE_SIZE }
+}
+
+/** Reads one exchange, its bodies and its first frames again whenever its [row] changes. */
+@Composable
+private fun StoredRequestDetail(
+    storage: Storage,
+    row: StoredExchange,
+) {
+    var frameLimit by remember { mutableStateOf(Storage.PAGE_SIZE) }
+    val exchange by produceState<HttpExchange?>(null, row, frameLimit) {
+        value = storage.exchange(row.id)?.let { HttpExchange(it, storage.frames(row.id, limit = frameLimit)) }
+    }
+    exchange?.let { RequestDetail(it) { frameLimit += Storage.PAGE_SIZE } } ?: Placeholder("Loading…")
 }
 
 @Composable
@@ -126,22 +192,32 @@ private fun ApprovalDialog(
 
 @Composable
 private fun DeviceList(
-    devices: List<Device>,
-    selected: Device?,
+    sessions: List<StoredSession>,
+    selected: StoredSession?,
     status: String,
+    health: StorageHealth,
     modifier: Modifier,
-    onSelect: (Device) -> Unit,
+    onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
         PaneTitle("Devices")
         Text(status, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.caption)
+        health.lastError?.let {
+            Text(
+                "${health.notSaved} events not saved: $it",
+                Modifier.padding(horizontal = 12.dp),
+                color = MaterialTheme.colors.error,
+                style = MaterialTheme.typography.caption,
+            )
+        }
         LazyColumn {
-            items(devices, key = { it.sessionId }) { device ->
-                Column(Modifier.fillMaxWidth().selectable(device == selected) { onSelect(device) }.padding(12.dp)) {
-                    Text(device.name, fontWeight = FontWeight.Medium)
-                    Text("${device.appId} ${device.appVersion}", style = MaterialTheme.typography.caption)
+            items(sessions, key = { it.id }) { session ->
+                val hello = session.hello
+                Column(Modifier.fillMaxWidth().selectable(session.id == selected?.id) { onSelect(session) }.padding(12.dp)) {
+                    Text(hello.device_name, fontWeight = FontWeight.Medium)
+                    Text("${hello.app_id} ${hello.app_version}", style = MaterialTheme.typography.caption)
                     Text(
-                        "${device.osVersion} · ${if (device.connected) "connected" else "disconnected"}",
+                        "${hello.os_version} · ${if (session.disconnectedAtMs == null) "connected" else "disconnected"}",
                         style = MaterialTheme.typography.caption,
                     )
                 }
@@ -152,18 +228,30 @@ private fun DeviceList(
 
 @Composable
 private fun RequestList(
-    exchanges: List<HttpExchange>,
-    selected: HttpExchange?,
+    pages: ExchangePages,
+    selected: StoredExchange?,
     modifier: Modifier,
-    onSelect: (HttpExchange) -> Unit,
+    onSelect: (StoredExchange) -> Unit,
 ) {
+    val exchanges = pages.rows
+    val list = rememberLazyListState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val last =
+                list.layoutInfo.visibleItemsInfo
+                    .lastOrNull()
+                    ?.index ?: -1
+            last >= list.layoutInfo.totalItemsCount - LOAD_AHEAD
+        }
+    }
+    LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) pages.loadMore() }
     Column(modifier) {
         PaneTitle("Requests")
         if (exchanges.isEmpty()) Placeholder("No requests yet")
-        LazyColumn {
-            items(exchanges, key = { it.sessionId to it.requestId }) { exchange ->
+        LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
+            items(exchanges, key = { it.id }) { exchange ->
                 Row(
-                    Modifier.fillMaxWidth().selectable(exchange == selected) { onSelect(exchange) }.padding(12.dp),
+                    Modifier.fillMaxWidth().selectable(exchange.id == selected?.id) { onSelect(exchange) }.padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(exchange.method ?: "—", Modifier.width(64.dp), fontWeight = FontWeight.Medium)
@@ -174,7 +262,7 @@ private fun RequestList(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(statusOf(exchange), Modifier.width(56.dp))
-                    Text(exchange.durationMs?.let(::formatDuration) ?: "", Modifier.width(72.dp))
+                    Text(durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "", Modifier.width(72.dp))
                 }
             }
         }
@@ -182,7 +270,10 @@ private fun RequestList(
 }
 
 @Composable
-private fun RequestDetail(exchange: HttpExchange) {
+private fun RequestDetail(
+    exchange: HttpExchange,
+    onMoreFrames: () -> Unit,
+) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
     var openFrame by remember { mutableStateOf<Int?>(null) }
@@ -207,8 +298,8 @@ private fun RequestDetail(exchange: HttpExchange) {
             item { Section("Response headers") { Headers(exchange.responseHeaders) } }
             item { Section("Response body") {} }
             body(responseBody)
-            if (exchange.frames.isNotEmpty()) {
-                item { Section("WebSocket frames (${exchange.frames.size})") {} }
+            if (exchange.frameCount > 0) {
+                item { Section("WebSocket frames (${exchange.frameCount})") {} }
                 exchange.frames.forEachIndexed { index, frame ->
                     item {
                         FrameRow(frame, exchange.startedAtMs, open = index == openFrame) {
@@ -217,6 +308,7 @@ private fun RequestDetail(exchange: HttpExchange) {
                     }
                     if (index == openFrame && frameBody != null) body(frameBody)
                 }
+                if (exchange.frames.size < exchange.frameCount) item { TextButton(onClick = onMoreFrames) { Text("Show more frames") } }
             }
         }
     }
@@ -355,6 +447,11 @@ private fun framePreview(frame: CapturedFrame): String? {
 
 private const val PREVIEW_BYTES = 512
 
+internal const val REQUEST_LIST = "requests"
+
+// Rows from the end of the loaded ones at which the request list asks for the next page.
+private const val LOAD_AHEAD = 50
+
 private fun layerOf(layer: CaptureLayer): String =
     when (layer) {
         CaptureLayer.CAPTURE_LAYER_PLATFORM -> "Platform layer"
@@ -370,6 +467,18 @@ private fun statusOf(exchange: HttpExchange): String =
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
+
+private fun statusOf(exchange: StoredExchange): String =
+    when {
+        exchange.failed -> "failed"
+        exchange.statusCode != null -> exchange.statusCode.toString()
+        else -> "…"
+    }
+
+private fun durationOf(
+    startedAtMs: Long?,
+    endedAtMs: Long?,
+): Long? = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
 
 private fun Modifier.selectable(
     selected: Boolean,

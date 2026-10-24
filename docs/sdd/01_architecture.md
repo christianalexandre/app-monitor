@@ -16,7 +16,7 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
+Built: `protocol`, `desktop/server`, `desktop/storage`, `desktop/app` (on SQLite),
 `tools/fake-client`, `tools/e2e-target`, `sdk/core` (JVM, Android, iOS),
 `sdk/android-okhttp`, the Ktor plugin (`sdk/ktor`, HTTP and WebSocket
 frames), the no-op modules (`sdk/*-no-op`), the iOS SDK (`sdk/ios`) and the
@@ -235,12 +235,15 @@ is a feature module owning a `channel` **(planned)**. See ADR-0005.
 `desktop/app` today (ADR-0011):
 
 ```
-AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<TrafficState> ──► AppMonitorApp
-                                 one coroutine per session;     devices + HTTP exchanges,
-                                 TrafficState.received(envelope) immutable snapshots
+AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 09) ──► query flows ──► AppMonitorApp
+                                 one coroutine per session;   write queue,     sessions, a page
+                                 connected / received /       one writer       of exchanges, one
+                                 disconnected enqueued        thread           exchange's detail
 ```
 
-- `main` starts `AppMonitorServer` with the default config and feeds
+- `main` opens `Storage` in `dataDirectory()` first; when that fails the
+  window shows the error and the file's path and no server starts (SDD 09).
+  Then it starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
   "Server stopped" when `sessions` completes because someone else stopped
   the server, or "Server failed" with any startup or session failure, `Error`s included
@@ -263,13 +266,25 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   The app's hook and `runServer` share one `once(server::stop)`: whichever
   runs first stops the server and the other returns at once, so a hanging
   `stop()` delays the exit by one `STOP_TIMEOUT` and is reported once.
-- `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
-  `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
-  duration is the difference of the envelopes' `timestamp_ms`. Each
-  `WebSocketFrame` is appended, in arrival order, to the `frames` of the
-  exchange of its `request_id` (the upgrade request). Other
-  channels, other types and undecodable payloads leave the state unchanged.
-- A device stays in the list after it disconnects, with its traffic.
+  After the server, `once { storage.close(STOP_TIMEOUT) }` ends the run and
+  drains the write queue, from `main` or from the hook, whose bound is
+  then two `STOP_TIMEOUT`s. A session's `Disconnected` waits at most
+  `STOP_TIMEOUT` for room in the queue, so a stalled disk cannot hold the exit.
+- Storage turns `RequestStarted` / `ResponseReceived` / `RequestFailed`
+  into one exchange per `(session, request_id)` and each `WebSocketFrame`
+  into a frame of the exchange of its `request_id` (SDD 09); duration is the
+  difference of the envelopes' `timestamp_ms`. Other channels, other types
+  and undecodable payloads are kept apart and not shown.
+- The device list is every stored session, earlier launches included, oldest
+  first, "connected" until its `disconnected_at_ms` is written; M5.6 narrows
+  it to the current run with a run picker (ADR-0084 C.1).
+- Reading: every pane follows SQLDelight query flows, re-run after each
+  commit that touches their table. The request list is the session's first
+  `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that
+  limit by one page. The detail reads the selected exchange, its bodies and
+  its first `PAGE_SIZE` frames ("Show more frames" reads one more page)
+  again whenever its list row changes. A write failure shows
+  "N events not saved: <error>" under the status.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call

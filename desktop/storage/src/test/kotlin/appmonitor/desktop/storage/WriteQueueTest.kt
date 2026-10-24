@@ -74,6 +74,7 @@ class WriteQueueTest {
                 val fourth = launch { storage.received("s1", envelope(started("r3", body = random(6_000)))) }
                 delay(200.milliseconds)
                 assertFalse(fourth.isCompleted, "the bound is reached, enqueue waits")
+                assertEquals(1, storage.queueFullWaits)
                 held.release()
                 withTimeout(5.seconds) { fourth.join() }
                 storage.flush()
