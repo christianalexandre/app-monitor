@@ -181,9 +181,14 @@ every `RETENTION_INTERVAL` (10 minutes) from a coroutine `close` cancels:
    without sessions.
 3. Devices and apps no session refers to are deleted, and the free pages
    handed back with `PRAGMA incremental_vacuum`, one page per statement (the
-   driver steps a statement once), 1 000 per transaction.
+   driver steps a statement once), 1 000 per transaction. Every pass runs
+   this step, so one that deleted nothing still cleans up after a superseded
+   one.
 
 The writer yields between transactions, so batches pass during a long pass.
+A pass whose settings changed (`setRetention`, which runs its own pass with
+the new ones) or that a `clearAll()` ran under stops at the next chunk and
+leaves `retentionStatus` to the newer one.
 `retentionStatus` holds the file's size, how many sessions the last pass
 deleted, `keptOverBound` when what is kept (named runs, connected sessions)
 still passes the limit, and the last error; a failed pass is reported
@@ -269,6 +274,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Size bound, oldest first until under 90 %, the file shrinks, what is kept past the bound reported | `RetentionTest.sizeBoundDeletesOldestFirstUntilUnderNinetyPercent` (M5.8) |
 | Settings kept across restarts, a pass at open | `RetentionTest.settingsKeptAcrossRestartsAndAppliedAtOpen` (M5.8) |
 | "Clear all data" leaves one new run, no row and no deleted byte in the files | `RetentionTest.clearAllDeletesEverythingAndRewritesTheFile` (M5.8) |
+| A pass stops when the bound is raised under it, and leaves a failed `clearAll()`'s error | `RetentionTest.aRaisedBoundStopsAPassAlreadyRunning`, `RetentionTest.aClearAllFailingDuringAPassKeepsItsError` (M5.R5) |
 | The settings change retention and clear after a confirmation | `AppMonitorAppTest` in `desktop/app`, `settings.png` (M5.8) |
 
 ## Limits
