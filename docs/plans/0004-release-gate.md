@@ -61,7 +61,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   Accept: a `gh workflow run release-gate.yml --ref <branch>` run green on
   the three OSes, linked in the PR; a run with a non-`dev` head fails at the
   branch job.
-- [ ] **M3.4 Contract tests Kotlin ↔ Swift in the gate.** A macOS job runs
+- [~] **M3.4 Contract tests Kotlin ↔ Swift in the gate.** (`ci/release-gate-contract`) A macOS job runs
   `make swift` (fixtures decode and re-encode in Swift, proto freshness,
   public API dump, simulator tests) and `./gradlew :protocol:allTests` (iOS
   simulator target included). Fixes what only shows on a clean runner.
