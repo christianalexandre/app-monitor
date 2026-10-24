@@ -1,7 +1,7 @@
 ---
 id: ADR-0054
 title: SDK publication coordinates and tag scheme
-status: Proposed # Proposed | Accepted | Superseded | Rejected
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -71,8 +71,16 @@ Tag scheme:
 
 ## Decision
 
-Empty while `Proposed`: these are the names an app developer types, i.e.
-the SDKs' public API (`AGENTS.md`).
+Options 1, 3 and 5, decided by the owner on 2026-10-23. The owner holds
+no project domain and wants the free tools an open-source project gets, so
+every identifier is under the GitHub account:
+
+- Maven group `io.github.christianalexandre`, artifacts `appmonitor-core`,
+  `appmonitor-okhttp`, `appmonitor-no-op`.
+- A root `Package.swift`, product `AppMonitor`.
+- One `X.Y.Z` tag for every SDK.
+- Reverse-DNS ids elsewhere (bundle ids of the samples and the test host)
+  use `io.github.christianalexandre.appmonitor`; `dev.appmonitor` goes.
 
 ## Consequences
 
@@ -81,3 +89,6 @@ the SDKs' public API (`AGENTS.md`).
 - Remote SwiftPM resolution and Maven Central need the repository to be
   public or the consumer to have access; that is M10's question.
 - DEBT-0040 is not decided here: M3.10 measures it.
+- The `dev.appmonitor` bundle prefix of `samples/ios` and `sdk/ios/TestHost`
+  is renamed by the next task that touches either project (M3.7 at the
+  latest).

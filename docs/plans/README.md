@@ -78,8 +78,9 @@ the OkHttp interceptor automatically.
 
 ### M10 — Distribution
 
-Signed desktop packages via GitHub Releases, Homebrew cask, Maven Central,
-SwiftPM tags, docs site, README with GIFs.
+Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
+owner's, with the steps to let them run (ADR-0055: no signing cost), Maven
+Central, SwiftPM tags, docs site, README with GIFs.
 
 ### Later — more debug channels
 

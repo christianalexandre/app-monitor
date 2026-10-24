@@ -35,7 +35,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   template and, if scripted, `scripts/` with a bash test.
   Accept: `make scripts-test` (if scripted) and `make docs-check`; the PR of
   this task lists its own DEBT check.
-- [!] **M3.2 Release gate decisions.** (`docs/release-gate-decisions`; ADR-0052 to ADR-0055 `Proposed`, waiting for the owner) `Proposed` ADRs, one stop:
+- [x] **M3.2 Release gate decisions.** (`docs/release-gate-decisions`; ADR-0052 to ADR-0055 `Accepted` by the owner: the repository goes public instead of paying for runners, every id under `io.github.christianalexandre`, packages unsigned at M10 too; M3.2a added) `Proposed` ADRs, one stop:
   (a) cost — runner minutes per gate run (macOS 10×, windows 2× on a private
   repo, ADR-0012), measured or estimated per job, and which jobs run on
   which runner; (b) branch protection or a ruleset on `main` requiring the
@@ -46,11 +46,17 @@ into `main`: the last task opens the release PR, the owner merges it.
   (d) packaging — unsigned dry-run packages only until M10, the bundle id
   and package names.
   Accept: the ADRs merged by the owner with `status: Accepted`.
+- [ ] **M3.2a Public repository.** (added by M3.2, ADR-0052) A `LICENSE`
+  with the license the owner picks, the README's license line, and the
+  repository made public by the owner. No gate job runs on a GitHub-hosted
+  runner before this.
+  Accept: `gh repo view --json visibility` prints `PUBLIC` and `gh repo view
+  --json licenseInfo` names the license.
 - [ ] **M3.3 Gate skeleton and desktop matrix.** `release-gate.yml` on
   `pull_request` to `main` plus `workflow_dispatch`; a first job fails when
   the head branch is not `dev`; desktop build and tests
   (`:desktop:app:test`, `:desktop:server:test`, `:protocol:jvmTest`) on
-  ubuntu, macOS and windows, as M3.2 (a) decides. `pr-conventions.yml` and
+  ubuntu, macOS and windows, one job per check (ADR-0052). `pr-conventions.yml` and
   `ci.yml` unchanged on PRs to `dev`.
   Accept: a `gh workflow run release-gate.yml --ref <branch>` run green on
   the three OSes, linked in the PR; a run with a non-`dev` head fails at the

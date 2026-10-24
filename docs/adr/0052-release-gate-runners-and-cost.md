@@ -1,7 +1,7 @@
 ---
 id: ADR-0052
 title: Release gate jobs, runners and minutes per run
-status: Proposed # Proposed | Accepted | Superseded | Rejected
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -67,12 +67,23 @@ Evidence, read on 2026-10-23:
 
 ## Decision
 
-Empty while `Proposed`: cost is the owner's (`AGENTS.md`, "Licensing /
-cost").
+Option 5, decided by the owner on 2026-10-23: the repository goes public
+(it would for M10 anyway), so standard GitHub-hosted runners cost nothing,
+macOS included. With that, the jobs follow Option 1 — one job per check,
+parallel, a clear red or green for each.
+
+- **No CI spend, ever.** The account has no budget beyond the included
+  minutes; a job blocked for lack of quota is a stop for the owner, never a
+  reason to add a payment method or a paid runner.
+- The repository is public (M3.2a) before the gate's first run (M3.3);
+  until then no gate job runs on a GitHub-hosted runner.
 
 ## Consequences
 
 - Whichever option: every job has `timeout-minutes`, the gate runs only on
   PRs to `main` and `workflow_dispatch`, and M3.3–M3.10 report the measured
   minutes per job in their PRs so this estimate is replaced by data.
-- Options 1–3 keep `ci.yml` on PRs to `dev` unchanged (ADR-0012).
+- `ci.yml` on PRs to `dev` stays as ADR-0012 has it; once public it costs
+  nothing either.
+- Everything in the repository is world-readable from M3.2a on: history,
+  docs, ADRs and DEBTs included.

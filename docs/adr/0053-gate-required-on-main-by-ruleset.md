@@ -1,7 +1,7 @@
 ---
 id: ADR-0053
 title: The release gate is required on main through the existing ruleset
-status: Proposed # Proposed | Accepted | Superseded | Rejected
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -51,8 +51,9 @@ Evidence, read on 2026-10-23 with `gh api`:
 
 ## Decision
 
-Empty while `Proposed`: changing what guards `main` is a repository
-security setting the owner owns (`AGENTS.md`, "Security / privacy").
+Option 1, decided by the owner on 2026-10-23: the gate's jobs (ADR-0052)
+join `protect-main`'s required status checks, and the ruleset JSON is kept
+in the repository. M3.11 proves a red gate blocks the merge.
 
 ## Consequences
 

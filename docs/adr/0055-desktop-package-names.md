@@ -1,7 +1,7 @@
 ---
 id: ADR-0055
 title: Desktop package names, bundle id and unsigned dry-run packages
-status: Proposed # Proposed | Accepted | Superseded | Rejected
+status: Accepted
 date: 2026-10-23
 superseded_by:
 ---
@@ -50,11 +50,23 @@ once and kept in the build file, since changing it breaks Windows upgrades.
 
 ## Decision
 
-Empty while `Proposed`: the bundle id and package names are what users
-install and what M10 signs; the owner picks them with ADR-0054's group.
+Option 2, decided by the owner on 2026-10-23: `packageName = "App
+Monitor"`, Linux package `app-monitor`, `bundleID =
+"io.github.christianalexandre.appmonitor.desktop"`.
+
+The packages stay **unsigned**, at M3 and at M10: signing and notarizing
+cost money (Apple Developer Program), which the project does not spend.
+Distribution uses free channels only — GitHub Releases and a Homebrew tap
+of the owner's — and the README tells the user how to let an unsigned app
+run on macOS and Windows.
 
 ## Consequences
 
-- A bundle id chosen now is kept at M10 signing; changing it later is a
-  new app for macOS.
+- A bundle id chosen now is kept; changing it later is a new app for
+  macOS, which loses its preferences and permissions.
+- The official `homebrew/cask` tap announced, in Homebrew 5.0 (November
+  2025), the removal of casks that fail Gatekeeper by 2026-09-01, and
+  deprecated `--no-quarantine`; an unsigned app therefore ships in a tap of
+  the owner's, and the user clears the quarantine attribute by hand. M10
+  checks what Homebrew enforces then.
 - Unsigned dry-runs are build proof only; SDD 02 must say so.

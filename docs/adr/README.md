@@ -69,7 +69,7 @@ Rules:
 | [0049](0049-local-network-keys-script.md) | Local network keys added to the built Info.plist by a Run Script phase | Accepted |
 | [0050](0050-ios-sample-app.md) | iOS sample app from an XcodeGen spec, checked by a symbol scan of its release build | Accepted |
 | [0051](0051-debt-trigger-check-by-backticked-names.md) | Open DEBT triggers are matched against changed files by their backticked names | Accepted |
-| [0052](0052-release-gate-runners-and-cost.md) | Release gate jobs, runners and minutes per run | Proposed |
-| [0053](0053-gate-required-on-main-by-ruleset.md) | The release gate is required on main through the existing ruleset | Proposed |
-| [0054](0054-sdk-publication-coordinates.md) | SDK publication coordinates and tag scheme | Proposed |
-| [0055](0055-desktop-package-names.md) | Desktop package names, bundle id and unsigned dry-run packages | Proposed |
+| [0052](0052-release-gate-runners-and-cost.md) | Release gate jobs, runners and minutes per run | Accepted |
+| [0053](0053-gate-required-on-main-by-ruleset.md) | The release gate is required on main through the existing ruleset | Accepted |
+| [0054](0054-sdk-publication-coordinates.md) | SDK publication coordinates and tag scheme | Accepted |
+| [0055](0055-desktop-package-names.md) | Desktop package names, bundle id and unsigned dry-run packages | Accepted |
