@@ -26,7 +26,7 @@ before the code; every end to end runs locally as a `make` target before it
 runs in the release gate; `make debt-check` decides how each fired DEBT is
 handled (DEBT-0027 fires on any `MonitorClient` change).
 
-- [ ] **M4.1 KMP SDK API, privacy and dedupe decisions.** `Proposed` ADRs,
+- [!] **M4.1 KMP SDK API, privacy and dedupe decisions.** (`docs/kmp-sdk-decisions`; waiting for the owner on ADR-0062, ADR-0063, ADR-0064, ADR-0065) `Proposed` ADRs,
   one stop: (a) the public API a KMP developer touches — how the Ktor
   plugin is installed and configured, how `AppMonitor.start` looks from
   common and iOS code (ADR-0017's shape), the Maven artifacts and their

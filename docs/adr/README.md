@@ -79,3 +79,7 @@ Rules:
 | [0059](0059-no-trailer-check-on-release-prs.md) | The attribution trailer check runs on PRs to dev only | Superseded by [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) |
 | [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) | The attribution trailer check is skipped only on dev → main PRs | Accepted |
 | [0061](0061-debt-check-fails-on-unresolved-base.md) | The DEBT trigger check fails when its base does not resolve | Accepted |
+| [0062](0062-kmp-sdk-public-api.md) | KMP SDK public API, artifacts, no-op and iOS targets | Proposed |
+| [0063](0063-ktor-capture-masking-and-ios-keys.md) | What the Ktor plugin captures and masks, and the keys a KMP iOS app needs | Proposed |
+| [0064](0064-ktor-swift-dedupe-by-correlation-header.md) | How the Ktor plugin and the Swift SDK avoid capturing one exchange twice | Proposed |
+| [0065](0065-kmp-sample-app.md) | KMP sample app, its UI toolkit, targets and place in the release gate | Proposed |
