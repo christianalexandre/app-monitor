@@ -120,6 +120,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | iOS Bonjour discovery against a running desktop | `APPMONITOR_LIVE_DISCOVERY=1 swift test --package-path sdk/ios --filter LiveServerTests` | active; `make server` or `make desktop` running on the LAN; skipped without the variable |
 | Regenerate the iOS SDK protobuf code | `make swift-proto` | active; after any `protocol/proto` change; builds `protoc` from swift-protobuf (~1 min cold) |
 | Desktop app (Compose), listens for devices | `make desktop` | active; port 47474 |
+| Unsigned desktop package for the host OS | `./gradlew :desktop:app:packageDmg` (`packageMsi`, `packageDeb`) | active; output in `desktop/app/build/compose/binaries/main/`; SDD 02, ADR-0055 |
 | Desktop app tests (store, body formats, offscreen UI) | `./gradlew :desktop:app:test` | active; screenshots in `desktop/app/build/screenshots/` (`app.png`, `approval.png`, `frames.png`) |
 | End to end screenshots from a real device or emulator | `./gradlew :desktop:app:liveScreenshots -PliveName=device` | active; real server on 47474, approves the first device, writes `docs/screenshots/<name>-*.png`; `-PliveAdvertise=false` forces the emulator's `10.0.2.2`; drive the sample by hand, SDD 02, ADR-0031 |
 | Headless desktop server, logs envelopes to stdout | `make server` | active; `ARGS="--port N"` |

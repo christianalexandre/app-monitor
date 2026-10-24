@@ -91,7 +91,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   per M3.2 (a)) runs `make e2e-ios`; server log and simulator log uploaded
   on failure.
   Accept: the gate run green with the job's assertion lines in its log.
-- [ ] **M3.9 Packaging dry-run.** Compose Desktop `nativeDistributions` for
+- [x] **M3.9 Packaging dry-run.** (`ci/release-gate-packaging`; `package` job ×3 OS, run 40053289077 green with `desktop-dmg`, `desktop-msi`, `desktop-deb` artifacts; measured ≈5.7 macOS, ≈3.7 windows, ≈3.6 ubuntu min against ≈5 each; runtime modules from `suggestRuntimeModules`; no `.deb` maintainer e-mail, a public package would expose it) Compose Desktop `nativeDistributions` for
   `desktop/app` with the names M3.2 (d) decides; the gate builds `.dmg` on
   macOS, `.msi` on windows and `.deb` on ubuntu, unsigned, and uploads them
   as short-lived artifacts. SDD 02 says how to build one locally.

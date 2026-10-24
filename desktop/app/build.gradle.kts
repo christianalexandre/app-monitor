@@ -1,3 +1,5 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     id("appmonitor.compose-desktop")
 }
@@ -17,6 +19,26 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
+
+        // ADR-0055: bundleID and upgradeUuid are kept once released.
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            modules("java.instrument", "java.management", "jdk.unsupported")
+            packageName = "App Monitor"
+            packageVersion = "1.0.0"
+            description = "Network monitor and debug toolkit for mobile apps"
+            vendor = "Christian Alexandre"
+            macOS {
+                bundleID = "io.github.christianalexandre.appmonitor.desktop"
+            }
+            windows {
+                upgradeUuid = "8f77d24f-b78d-495b-80a0-9139348c95b8"
+                menuGroup = "App Monitor"
+            }
+            linux {
+                packageName = "app-monitor"
+            }
+        }
     }
 }
 
