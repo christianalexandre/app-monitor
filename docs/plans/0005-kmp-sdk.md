@@ -138,6 +138,61 @@ ADR.
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
 
+### First milestone review
+
+Findings of the `code-review` of `c93bd2a..ad3e5a7`. Five are correctness
+findings and became tasks. Two went to DEBT-0058 (two comment blocks over
+4 lines, the `ws://` scheme of `sdk/ktor` against the others' `http(s)://`).
+One was rejected: `BonjourBrowser` answering a cached address after the
+desktop moves, since `discovery` opens a new browser on every round, so the
+cache lives for one bounded browse.
+
+- [ ] **M4.R1 `make e2e-kmp-ios` stays green with an exchange captured
+  twice.** `repeated` in `scripts/e2e_lib.sh` matches method and URL
+  exactly, but `sdk/ktor` logs the upgrade as `ws://host:port/ws` and the
+  Swift SDK as `http://host:port/ws` (`WebSocketHooks.started`): a second
+  capture of the socket by the Swift SDK counts 1 under each URL. And the
+  two sessions check counts `connected:` lines, so `sdk/core` reconnecting
+  once passes it with no Swift SDK session. Compare URLs scheme-blind
+  (`ws`↔`http`, `wss`↔`https`) and count sessions by SDK name.
+  Accept: `make scripts-test` with a crafted log holding the same socket
+  under `ws://` and `http://` (fails) and two `sdk/core` sessions and no
+  Swift one (fails); `make e2e-kmp-ios` green.
+- [ ] **M4.R2 Both SDKs starting together can write two device ids.**
+  `deviceId` in `sdk/core` truncates and writes the shared
+  `appmonitor-device-id` file non-atomically, with no coordination with the
+  Swift SDK: on a first launch that starts both (`KmpSampleApp.init`), each
+  can generate its own UUID, and the Swift SDK can read the truncated file
+  and make a third. The desktop then sees one install under two ids,
+  against ADR-0064 B.1.
+  Accept: `./gradlew :sdk:core:allTests` and `swift test --package-path
+  sdk/ios`, with a test where two writers race on an empty directory and
+  both return the id left in the file; the write is atomic on both sides.
+- [ ] **M4.R3 A response body that fails to read leaves its request
+  pending.** `AppMonitorKtor`'s send interceptor returns on an exception
+  from `response.capture`, after `RequestStarted` was sent, so neither
+  `ResponseReceived` nor `RequestFailed` follows and the desktop shows the
+  exchange pending forever although the app got its response.
+  Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response whose
+  body read throws, ending in exactly one terminal envelope.
+- [ ] **M4.R4 A rejected session can be retried as lost.** In
+  `MonitorClient.connectAndServe`, an exception from the `call` coroutine's
+  teardown after `outcome` completed (e.g. `Rejected` on close 1008) fails
+  the `coroutineScope`, and the catch returns `Outcome.Lost`: backoff is not
+  exhausted and the client keeps retrying a desktop that rejected it.
+  DEBT-0027 fires (`MonitorClient` change).
+  Accept: `./gradlew :sdk:core:allTests` with a session that completes
+  `Rejected` and whose close throws, ending rejected, not lost.
+- [ ] **M4.R5 The peer's close is lost when `incoming` closes with a
+  cause.** `RecordingReceiveChannel` records the peer's close only on
+  `ClosedReceiveChannelException` or `hasNext() == false`; a channel closed
+  with a cause rethrows it from `receive()` and `hasNext()`, so the
+  `DIRECTION_RECEIVED:OPCODE_CLOSE` frame is never emitted (Darwin may fail
+  the session on the peer's close, M4.6).
+  Accept: `./gradlew :sdk:ktor:allTests` with an `incoming` closed with a
+  cause after a close frame, read by `receive()` and by `for`, both
+  recording the close once.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
