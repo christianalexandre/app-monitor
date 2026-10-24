@@ -58,6 +58,10 @@ class TrafficStoreTest {
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     setContent { AppMonitorApp(reopened, "Listening on port 47474") }
 
+                    // The launch's run is shown; the earlier one, ended, is one click away (ADR-0084 C.1).
+                    awaitText("No requests yet")
+                    onNodeWithText("▾", substring = true).performClick()
+                    onNodeWithText(" – ", substring = true).performClick()
                     awaitText("Pixel 9 (emulator)")
                     onNodeWithText("Android 16 · disconnected").assertExists()
                     awaitText(URL)

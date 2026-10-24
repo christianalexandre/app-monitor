@@ -278,9 +278,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   into a frame of the exchange of its `request_id` (SDD 09); duration is the
   difference of the envelopes' `timestamp_ms`. Other channels, other types
   and undecodable payloads are kept apart and not shown.
-- The device list is every stored session, earlier launches included, oldest
-  first, "connected" until its `disconnected_at_ms` is written; M5.6 narrows
-  it to the current run with a run picker (ADR-0084 C.1).
+- Runs (ADR-0084): the device list shows the sessions of one run, oldest
+  first, "connected" until its `disconnected_at_ms` is written; by default
+  the current run, which a launch opens. The run picker above it (the run's
+  name or start time, "▾") opens the runs, newest first: pick one, or
+  "All runs"; "Rename" names a run (blank makes it unnamed again); "New run"
+  ends the current one, opens another and shows it. A session connected
+  before "New run" stays in its run.
 - Reading: every pane follows SQLDelight query flows, re-run after each
   commit that touches their table. The request list is the session's first
   `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that

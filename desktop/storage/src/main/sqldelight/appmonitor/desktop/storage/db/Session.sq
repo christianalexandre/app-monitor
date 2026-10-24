@@ -48,3 +48,6 @@ ORDER BY sessions.id;
 
 all:
 SELECT * FROM sessions ORDER BY id;
+
+inRun:
+SELECT * FROM sessions WHERE run_id = ? ORDER BY id;

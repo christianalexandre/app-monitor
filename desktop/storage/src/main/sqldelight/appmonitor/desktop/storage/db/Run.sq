@@ -25,8 +25,14 @@ SET ended_at_ms = coalesce(
 )
 WHERE ended_at_ms IS NULL;
 
+rename:
+UPDATE runs SET name = :name WHERE id = :id;
+
 byId:
 SELECT * FROM runs WHERE id = ?;
 
 all:
 SELECT * FROM runs ORDER BY id;
+
+newestFirst:
+SELECT * FROM runs ORDER BY id DESC;

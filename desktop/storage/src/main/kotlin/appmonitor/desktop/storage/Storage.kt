@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -54,6 +56,11 @@ class Storage private constructor(
 
     private val ingest = Ingest(database, runId, beforeCommit)
 
+    private val mutableCurrentRun = MutableStateFlow(runId)
+
+    /** The run new sessions join (ADR-0084 A.1): [runId], then the one each [newRun] opened. */
+    val currentRun: StateFlow<Long> = mutableCurrentRun.asStateFlow()
+
     private val queue =
         WriteQueue(
             maxBytes = maxQueueBytes,
@@ -64,7 +71,13 @@ class Storage private constructor(
             },
             counted = { it !is StorageItem.Barrier },
             write = ingest::write,
-            written = { batch -> batch.forEach { if (it is StorageItem.Barrier) it.done.complete(Unit) } },
+            written = { batch ->
+                mutableCurrentRun.value = ingest.currentRun
+                batch.forEach {
+                    if (it is StorageItem.Barrier) it.done.complete(Unit)
+                    if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
+                }
+            },
         )
 
     /** Items lost to write failures, and the last one's error while it lasts. */
@@ -94,6 +107,24 @@ class Storage private constructor(
 
     suspend fun disconnected(sessionId: String) {
         queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
+    }
+
+    /**
+     * Ends the current run and opens a new unnamed one; sessions already connected stay in theirs.
+     * Returns the run current once it is written, the earlier one if its batch was lost.
+     */
+    suspend fun newRun(): Long {
+        val item = StorageItem.NewRun(clock())
+        queue.enqueue(item)
+        return item.done.await()
+    }
+
+    /** Queues naming [runId]; a blank [name] makes it unnamed again (ADR-0084 B.1). */
+    suspend fun rename(
+        runId: Long,
+        name: String,
+    ) {
+        queue.enqueue(StorageItem.Renamed(runId, name.trim().ifEmpty { null }))
     }
 
     /** Queues the developer's answer for [hello]'s (`device_id`, `app_id`), replacing an earlier one (ADR-0083). */
@@ -132,10 +163,14 @@ class Storage private constructor(
         return lost
     }
 
-    suspend fun runs(): List<StoredRun> =
-        read {
-            runQueries.all { id, name, started, ended -> StoredRun(id, name, started, ended) }.executeAsList()
-        }
+    suspend fun runs(): List<StoredRun> = read { runQueries.all(::StoredRun).executeAsList() }
+
+    /** Every run, newest first, again after each commit that changes one. */
+    fun observeRuns(): Flow<List<StoredRun>> =
+        database.runQueries
+            .newestFirst(::StoredRun)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
 
     /** Every stored answer, oldest first. */
     suspend fun approvals(): List<StoredApproval> = read { approvalQueries.all(::StoredApproval).executeAsList() }
@@ -147,10 +182,9 @@ class Storage private constructor(
             .asFlow()
             .mapToList(Dispatchers.IO)
 
-    /** Every stored session, oldest first, again after each commit that changes one. */
-    fun observeSessions(): Flow<List<StoredSession>> =
-        database.sessionQueries
-            .all()
+    /** The sessions of [runId], or every stored one when null, oldest first, again after each commit that changes one. */
+    fun observeSessions(runId: Long? = null): Flow<List<StoredSession>> =
+        (if (runId == null) database.sessionQueries.all() else database.sessionQueries.inRun(runId))
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { rows -> rows.map { it.toStored() } }

@@ -5,11 +5,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.app.ui.RUN_NAME
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
@@ -242,6 +245,55 @@ class AppMonitorAppTest {
             }
 
             assertEquals(listOf(DeviceKey("d2", "app.a"), null), forgotten)
+        }
+
+    @Test
+    fun `the run list switches between named runs and all of them`() =
+        withStorage { storage ->
+            storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+            val second = runBlocking { storage.newRun() }
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/cart")),
+                sessionId = "s2",
+                hello = HELLO.copy(device_id = "d2", device_name = "iPhone", os_version = "iOS 26"),
+            )
+            runBlocking {
+                storage.rename(storage.runId, "Login on Pixel")
+                storage.flush()
+            }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
+
+                awaitText("iPhone")
+                onNodeWithText("Pixel").assertDoesNotExist()
+                onNodeWithText("▾", substring = true).performClick()
+                onAllNodesWithText("Rename")[0].performClick()
+                onNodeWithTag(RUN_NAME).performTextReplacement("Checkout on iPhone")
+                onNodeWithText("Save").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.runs() }.first { it.id == second }.name != null }
+                awaitText("Checkout on iPhone")
+                onNodeWithText("Login on Pixel").assertExists()
+                onNodeWithText("current", substring = true).assertExists()
+                screenshot("runs.png")
+
+                onNodeWithText("Login on Pixel").performClick()
+                awaitText("Pixel")
+                onNodeWithText("iPhone").assertDoesNotExist()
+                onNodeWithText("Login on Pixel ▾").assertExists()
+                awaitText("https://a.example/login")
+
+                onNodeWithText("▾", substring = true).performClick()
+                onNodeWithText("All runs").performClick()
+                awaitText("iPhone")
+                onNodeWithText("Pixel").assertExists()
+
+                onNodeWithText("▾", substring = true).performClick()
+                onNodeWithText("New run").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { storage.currentRun.value > second }
+                awaitText("No requests yet")
+                onNodeWithText("iPhone").assertDoesNotExist()
+            }
         }
 
     @Test

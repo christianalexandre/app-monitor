@@ -8,11 +8,16 @@ import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
 import com.squareup.wire.Message
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
 import okio.ByteString.Companion.toByteString
 import java.nio.file.Path
 import java.sql.DriverManager
+import java.util.concurrent.CountDownLatch
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 
@@ -81,3 +86,23 @@ internal fun Path.queryStrings(sql: String): List<String> =
             statement.executeQuery(sql).use { buildList { while (it.next()) add(it.getString(1)) } }
         }
     }
+
+internal class Held(
+    private val latch: CountDownLatch,
+) {
+    fun release() = latch.countDown()
+}
+
+// Blocks the writer thread until released, so what is enqueued meanwhile waits in the queue.
+internal suspend fun holdWriter(storage: Storage): Held {
+    val latch = CountDownLatch(1)
+    val running = CompletableDeferred<Unit>()
+    CoroutineScope(Dispatchers.Default).launch {
+        storage.onWriter {
+            running.complete(Unit)
+            latch.await()
+        }
+    }
+    running.await()
+    return Held(latch)
+}
