@@ -83,7 +83,9 @@ ADR.
   layer `ADAPTER` (ADR-0038); SDD chapter for the module.
   Accept: `./gradlew :sdk:ktor:allTests` — the plugin against Ktor's
   `MockEngine` and the masking vector, on JVM and the iOS simulator.
-- [ ] **M4.6 `sdk/ktor` WebSocket capture.** Frames both ways and the close,
+- [x] **M4.6 `sdk/ktor` WebSocket capture.** (`feat/sdk-ktor-websocket-capture`; ADR-0070. Deviations: frames are
+  also proven on OkHttp (JVM) and Darwin (simulator), the engines ADR-0063 named; a first relay coroutine lost Darwin's
+  close and was replaced; Ktor's Darwin engine itself may fail a session on the peer's close, capture or not) Frames both ways and the close,
   truncation as ADR-0028, if M4.1 (b) keeps it in scope.
   Accept: `./gradlew :sdk:ktor:allTests` — frames captured against an
   in-process echo server on JVM.

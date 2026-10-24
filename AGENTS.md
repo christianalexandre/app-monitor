@@ -107,7 +107,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | SDK core on the iOS simulator against a running desktop | `APPMONITOR_LIVE_HOST=127.0.0.1 ./gradlew :sdk:core:iosSimulatorArm64Test --tests '*LiveServerTest*'` | active; `make server` or `make desktop` running; skipped without the variable; ADR-0067 |
 | SDK core on the iOS simulator finding a running desktop by Bonjour | `APPMONITOR_LIVE_DISCOVERY=1 ./gradlew :sdk:core:iosSimulatorArm64Test --tests '*LiveServerTest*'` | active; `make server` or `make desktop` running on the LAN; skipped without the variable; connects to the first desktop answered; ADR-0068 |
 | OkHttp capture tests (interceptor + WebSocket factory + masking vector) | `./gradlew :sdk:android-okhttp:allTests` | active; JVM against `mockwebserver3` and `protocol/fixtures/masking.json`, Android host has no tests |
-| Ktor capture tests (plugin against `MockEngine` + masking vector) | `./gradlew :sdk:ktor:allTests` | active; JVM, Android host and iOS simulator (macOS with Xcode); ADR-0069 |
+| Ktor capture tests (plugin against `MockEngine` + masking vector + WebSocket frames against an in-process echo server) | `./gradlew :sdk:ktor:allTests` | active; JVM, Android host and iOS simulator (macOS with Xcode); frames through CIO everywhere, OkHttp on JVM, Darwin on the simulator; ADR-0069, ADR-0070 |
 | No-op SDK check (API matches the real SDK, defaults) | `./gradlew :sdk:no-op:check` | active; compares `sdk/*/api/` dumps, ADR-0026 |
 | Update SDK public API dumps | `./gradlew updateKotlinAbi` | active; after a deliberate public API change, then align `sdk/no-op` |
 | Desktop server tests (WebSocket + mDNS) | `./gradlew :desktop:server:test` | active; needs a multicast-capable LAN interface |
