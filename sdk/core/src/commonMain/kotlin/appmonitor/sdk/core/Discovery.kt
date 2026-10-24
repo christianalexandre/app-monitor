@@ -28,10 +28,8 @@ internal data class DiscoveryConfig(
 )
 
 /**
- * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host is the only source; else
- * mDNS through [mdns] (null when it may not run), then [fallbackHost]: [EMULATOR_HOST] on the
- * emulator, [SIMULATOR_HOST] on the simulator, null elsewhere.
- */
+ * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only; else mDNS through [mdns] (null
+ * when it may not run), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
 internal fun discovery(
     options: AppMonitorOptions,
     mdns: () -> MdnsBrowser?,

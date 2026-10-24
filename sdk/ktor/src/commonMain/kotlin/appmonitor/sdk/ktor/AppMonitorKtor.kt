@@ -51,7 +51,7 @@ internal fun appMonitorKtor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    return@intercept
+                    response.unread()
                 }
             sink.emit("ResponseReceived") { responseReceived(id, response, masking, body) }
         }

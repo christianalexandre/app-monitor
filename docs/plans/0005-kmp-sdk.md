@@ -170,8 +170,9 @@ cache lives for one bounded browse.
   Accept: `./gradlew :sdk:core:allTests` and `swift test --package-path
   sdk/ios`, with a test where two writers race on an empty directory and
   both return the id left in the file; the write is atomic on both sides.
-- [ ] **M4.R3 A response body that fails to read leaves its request
-  pending.** `AppMonitorKtor`'s send interceptor returns on an exception
+- [x] **M4.R3 A response body that fails to read leaves its request
+  pending.** (`fix/ktor-body-read-failure`; pays DEBT-0058's comment blocks, re-triggers its scheme item. Deviation: Ktor saves the body again in `fetchResponse`, so the
+  app's call throws too; the exchange ends `ResponseReceived` with the body unread, as a streamed one) `AppMonitorKtor`'s send interceptor returns on an exception
   from `response.capture`, after `RequestStarted` was sent, so neither
   `ResponseReceived` nor `RequestFailed` follows and the desktop shows the
   exchange pending forever although the app got its response.

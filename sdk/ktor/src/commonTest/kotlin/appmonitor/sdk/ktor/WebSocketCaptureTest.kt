@@ -29,10 +29,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Frames of a session against [EchoServer] through [engine], one subclass per engine (ADR-0070). [answersCloseItself]:
- * the engine replies to the peer's close without a frame the plugin sees (OkHttp). [losesClose]: the engine may end
- * the session by cancellation before the peer's close reaches it, capture on or off (Darwin).
- */
+ * Frames against [EchoServer] through [engine], one subclass per engine (ADR-0070). [answersCloseItself]: the engine
+ * answers the peer's close with no frame the plugin sees (OkHttp). [losesClose]: it may end the session by
+ * cancellation before the peer's close reaches it, capture on or off (Darwin). */
 abstract class WebSocketCaptureTest(
     private val engine: HttpClientEngineFactory<*>,
     private val answersCloseItself: Boolean = false,
