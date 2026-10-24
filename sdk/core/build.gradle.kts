@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+
 plugins {
     id("appmonitor.kmp-sdk-ios")
     id("appmonitor.publish")
@@ -6,6 +8,15 @@ plugins {
 kotlin {
     android {
         namespace = "appmonitor.sdk.core"
+    }
+    // jvmAndAndroidMain: java.io code both targets share.
+    applyDefaultHierarchyTemplate {
+        common {
+            group("jvmAndAndroid") {
+                withJvm()
+                withCompilations { it.platformType == KotlinPlatformType.androidJvm }
+            }
+        }
     }
     sourceSets {
         commonMain.dependencies {

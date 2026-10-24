@@ -232,8 +232,8 @@ rejected:
   and exceptionally on `onFailure`, which records nothing
   (`OkHttpWebsocketSession.kt`, `ktor-client-okhttp-jvm` 3.5.1 sources).
 
-- [ ] **M4.R7 Android writers race on the device id with no exclusive
-  link.** SELinux denies `link` to every untrusted app
+- [x] **M4.R7 Android writers race on the device id with no exclusive
+  link.** (`fix/android-device-id-without-link`; ADR-0080) SELinux denies `link` to every untrusted app
   (`neverallow … file_type:file link` in AOSP's
   `private/app_neverallows.te`), so on a real Android device
   `linkExclusive` throws, `publish` falls back to `atomicMove`, and two
