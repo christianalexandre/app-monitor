@@ -17,8 +17,10 @@ built are marked **(planned)**; see `../plans/` for their milestone.
 ```
 
 Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
-`tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`),
-the no-op modules (`sdk/*-no-op`), the Ktor plugin (`sdk/ktor`, HTTP), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
+`tools/fake-client`, `tools/e2e-target`, `sdk/core` (JVM, Android, iOS),
+`sdk/android-okhttp`, the Ktor plugin (`sdk/ktor`, HTTP and WebSocket
+frames), the no-op modules (`sdk/*-no-op`), the iOS SDK (`sdk/ios`) and the
+samples (`samples/android`, `samples/ios`, `samples/kmp`).
 Everything else is **(planned)**.
 
 ## Protocol
@@ -175,7 +177,9 @@ a stack trace (DEBT-0010). See ADR-0010.
   shared `protocol/fixtures/masking.json` vector (ADR-0036). Debug builds
   need the local network keys, which
   `sdk/ios/scripts/add_local_network_keys.sh` adds (ADR-0049).
-- **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); the
+- **Android / KMP**: `sdk/core` in KMP (JVM, Android `minSdk` 24, `iosArm64`
+  and `iosSimulatorArm64`; Kotlin/Native specifics in SDD 04, ADR-0066 to
+  ADR-0068); the
   OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor plugin
   `sdk/ktor` on JVM, Android and iOS, HTTP and WebSocket frames (SDD 08, ADR-0069, ADR-0070). Connection states, offline buffer and `stop()`: SDD 04
   (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
@@ -185,6 +189,16 @@ a stack trace (DEBT-0010). See ADR-0010.
   `masking` switch (ADR-0034). Masking
   and the body limit run on the device, before the wire (ADR-0018). Capture:
   `AppMonitorInterceptor` and `AppMonitorWebSocketFactory`.
+- **KMP entry point** (ADR-0062): `install(AppMonitorKtor)` on each
+  `HttpClient`, no configuration block, options from the running monitor;
+  `AppMonitor.start(context, options)` on Android and
+  `AppMonitor.start(options)` from `iosMain`, no common `expect`. Ktor 3.6.0
+  or newer. Masking as ADR-0063.
+- **Dedupe on iOS** (ADR-0003, ADR-0064, ADR-0071): an app running both
+  `sdk/ktor` and the Swift SDK shares one device id, so the desktop keeps two
+  sessions for one (`device_id`, `app_id`); `sdk/ktor` sets
+  `X-AppMonitor-Capture` on what it captured and the Swift SDK's hooks skip
+  those tasks, so each exchange shows once.
 - **Release builds** swap each SDK module for its no-op twin
   (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
   same public types doing nothing, kept identical by comparing the committed
@@ -202,6 +216,13 @@ a stack trace (DEBT-0010). See ADR-0010.
 - `samples/ios` uses the same product in both configurations; its Release
   app names nothing of the `AppMonitor` module but the two stubs, and only
   its Debug app has the local network keys (`make ios-sample`, ADR-0050).
+- `samples/kmp` (Compose Multiplatform, Android and iOS) calls through Ktor
+  with `install(AppMonitorKtor)`; its iOS host also starts the Swift SDK.
+  Release builds swap the SDK for its no-ops (ADR-0062 D.1): on iOS the
+  shared module's Gradle script picks `sdk/ktor-no-op` from Xcode's
+  `CONFIGURATION`, on Android the release app substitutes `sdk/ktor` and
+  `sdk/core`; `make kmp-sample` checks both releases hold no SDK name
+  (ADR-0073).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 
@@ -290,9 +311,10 @@ Two levels guard the branches (details and commands in SDD 02, *CI*):
   `release/x.y.z` as head, then proves the whole system: desktop tests on
   ubuntu, macOS and windows; the Kotlin ↔ Swift contract (`make swift`,
   `make swift-sim`, `:protocol:allTests`); every sample app in debug and
-  release (`make samples`, ADR-0076); the Android sample on an emulator and the iOS
-  sample on a simulator, each against the headless server, every envelope
-  asserted (ADR-0056, ADR-0057); unsigned `.dmg`, `.msi`, `.deb` (ADR-0055);
+  release (`make samples`, ADR-0076); the Android sample on an emulator, the iOS
+  sample on a simulator and the KMP sample on both, each against the
+  headless server and `tools/e2e-target`, every envelope asserted and every
+  exchange captured once (ADR-0056, ADR-0057, ADR-0074, ADR-0075); unsigned `.dmg`, `.msi`, `.deb` (ADR-0055);
   the SDK publication dry-run (ADR-0058). The `protect-main` ruleset makes
   every gate job a required check (ADR-0053).
 
