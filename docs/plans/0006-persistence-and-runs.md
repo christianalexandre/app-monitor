@@ -145,7 +145,7 @@ rejected.
   Accept: `./gradlew :desktop:storage:test` with a batch holding a
   `Disconnected` failing in `beforeCommit`, then a good batch: the session
   is stored as disconnected.
-- [x] **M5.R5 A retention pass runs on with settings changed under it.** (a pass checks after each chunk and stops, status untouched, once its settings changed or a `clearAll` ran; `setRetention` already runs its own pass; the unused-device cleanup and page release now run on every pass so a superseded one's leftovers go with the next; the superseded pass's deletions are not counted in any status; a test hook after each chunk makes the interleaving deterministic; CI's run list UI test failed once and passed on rerun, DEBT-0065 widened)
+- [x] **M5.R5 A retention pass runs on with settings changed under it.** (a pass checks after each chunk and stops, status untouched, once its settings changed or a `clearAll` ran; `setRetention` already runs its own pass; the unused-device cleanup and page release now run on every pass so a superseded one's leftovers go with the next; the superseded pass's deletions are not counted in any status; a test hook after each chunk makes the interleaving deterministic; CI's run list UI test failed once and passed on rerun, DEBT-0065 widened; `ServerHardeningTest`'s oversized frame test hit EOF once, DEBT-0066)
   `applyRetention` reads the settings once and `yield()`s between chunks
   on the writer thread, so `setRetention` and `clearAll` can run in the
   middle of a pass. A pass started with a 7-day bound goes on deleting
