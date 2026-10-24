@@ -106,7 +106,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   Accept: `./gradlew publishAllPublicationsToDryRunRepository` (or the
   plugin's equivalent) and the SwiftPM consumer build in the gate, green;
   the published file list in the PR.
-- [ ] **M3.11 Gate required on `main`.** Branch protection or a ruleset as
+- [x] **M3.11 Gate required on `main`.** (`ci/release-gate-required`; `protect-main` ruleset updated with the 11 gate checks, JSON in `.github/rulesets/protect-main.json`; probe PR #130 from a non-`dev` branch `BLOCKED`, closed unmerged; DEBT-0048 check names not matched to jobs) Branch protection or a ruleset as
   M3.2 (b) decides, set with `gh api` and recorded (the JSON in the repo, or
   the command in SDD 02); otherwise a DEBT with a trigger.
   Accept: `gh api repos/{owner}/{repo}/rules/branches/main` (or the

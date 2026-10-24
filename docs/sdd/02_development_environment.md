@@ -199,6 +199,19 @@ and `.deb` on ubuntu, one matrix entry each, and uploads each as the
 The `publish` job, on macOS, runs `make publish-dry-run` and uploads
 `build/maven-dry-run/` as the `maven-dry-run` artifact for 7 days.
 
+`main` requires the gate through the `protect-main` repository ruleset
+(ADR-0053): no deletion, no force-push, merge through a PR only, and every
+gate job plus `pr-conventions.yml`'s `conventions` and `docs` as required
+checks, matrix entries by their full check name. The ruleset lives in
+`.github/rulesets/protect-main.json`; after editing it, apply it with
+`gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604903 --input .github/rulesets/protect-main.json`
+and read what GitHub enforces with
+`gh api repos/christianalexandre/app-monitor/rules/branches/main`. A gate
+job renamed, or a matrix changed, must change the file in the same PR
+(DEBT-0048). When `branch` fails, the other jobs are skipped and a skipped
+matrix job reports under its bare name (`desktop`), not a required one; the
+failed `branch` check is what blocks the merge (seen on the probe PR #130).
+
 ## Limits
 
 iOS targets build only on macOS. On Linux/Windows the desktop app and the
