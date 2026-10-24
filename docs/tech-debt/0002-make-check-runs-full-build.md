@@ -3,7 +3,7 @@ id: DEBT-0002
 title: make check runs the full Gradle build
 status: Open
 date: 2026-10-21
-trigger: make check takes more than 3 minutes on a warm cache, or the first emulator or simulator e2e test suite lands
+trigger: make check takes more than 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check`
 paid_date:
 ---
 
@@ -22,8 +22,8 @@ guessing which tests are slow.
 
 ## Trigger
 
-`make check` takes more than 3 minutes on a warm cache, or the first emulator
-or simulator end-to-end test suite lands (M1, M2). Then split into a fast
+`make check` takes more than 3 minutes on a warm cache, or an end to end
+target (`e2e_android.sh`, M3.7's iOS one) joins `make check`. Then split into a fast
 `make check` (lint, compile, JVM unit tests) and a full `make check-full` run
 before opening the PR.
 
@@ -33,6 +33,12 @@ M0.5 and was evaluated on 2026-10-21 on an Apple Silicon Mac: warm
 UI test itself 0.65 s on an offscreen surface.
 A split would still be guessing, so the UI half was removed from the
 trigger.
+
+The emulator half fired with PLAN-0004 M3.5 on 2026-10-23: `make e2e-android`
+landed as its own target, outside `make check`, because it needs a booted
+emulator and the internet. `make check` on that branch took 66 s with the
+simulator tests of `make swift-sim` already in it, so the trigger now names
+the event that would slow it: an end to end target added to it.
 
 ## How it was paid
 
