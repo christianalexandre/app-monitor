@@ -97,7 +97,10 @@ ADR.
   Accept: `./gradlew :sdk:ktor:allTests` and `swift test --package-path
   sdk/ios` — a request with the header yields no Swift capture, one
   without it still does.
-- [ ] **M4.8 `sdk/ktor` no-op and publication.** The no-op M4.1 (a) picks
+- [x] **M4.8 `sdk/ktor` no-op and publication.** (`build/sdk-ktor-no-op-publication`; ADR-0072 supersedes ADR-0026. Deviations:
+  `sdk/no-op` split into `sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op` per ADR-0062 C.1 and became the
+  unpublished check project; `sdk/ktor` itself was not published yet and joins the dry-run; the no-op iOS dumps M4.3
+  deferred land here) The no-op M4.1 (a) picks
   joins the ABI comparison (ADR-0026); the artifacts join `make
   publish-dry-run` (ADR-0058).
   Accept: `./gradlew :sdk:no-op:check` and `make publish-dry-run` list the

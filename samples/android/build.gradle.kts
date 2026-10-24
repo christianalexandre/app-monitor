@@ -21,7 +21,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.okhttp)
     debugImplementation(project(":sdk:android-okhttp"))
-    releaseImplementation(project(":sdk:no-op"))
+    releaseImplementation(project(":sdk:okhttp-no-op"))
     testImplementation(kotlin("test-junit"))
 }
 
@@ -37,7 +37,7 @@ fun projectPaths(root: ResolvedComponentResult): Set<String> {
     return seen.mapNotNull { (it.id as? ProjectComponentIdentifier)?.projectPath }.toSet()
 }
 
-// ADR-0030: the release APK ships sdk/no-op, never the real SDK.
+// ADR-0030, ADR-0072: the release APK ships the no-op modules, never the real SDK.
 val checkReleaseHasNoSdk by tasks.registering {
     val paths =
         configurations
@@ -46,7 +46,7 @@ val checkReleaseHasNoSdk by tasks.registering {
             .map(::projectPaths)
     inputs.property("projects", paths)
     doLast {
-        val leaked = paths.get().filter { it.startsWith(":sdk:") && it != ":sdk:no-op" }
+        val leaked = paths.get().filter { it.startsWith(":sdk:") && !it.endsWith("-no-op") }
         check(leaked.isEmpty()) { "release runtime classpath contains $leaked" }
     }
 }

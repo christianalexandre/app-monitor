@@ -41,8 +41,8 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.lint` | every module (applied by the others) | Spotless + ktlint on `src/**/*.kt` and `*.gradle.kts` |
 | `appmonitor.kotlin-jvm` | JVM-only modules (desktop, tools) | Kotlin JVM, toolchain 21, JUnit Platform |
 | `appmonitor.kmp-library` | shared KMP code (protocol) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007) |
-| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/android-okhttp`, `sdk/no-op`; through `kmp-sdk-ios`, `sdk/core`) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on) (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0026) |
-| `appmonitor.kmp-sdk-ios` | SDK modules a KMP app links on iOS (`sdk/core`) | `appmonitor.kmp-sdk` plus `iosArm64`, `iosSimulatorArm64` (ADR-0062 E.1, ADR-0067); the klib dump `api/<module>.klib.api` |
+| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/android-okhttp`, `sdk/okhttp-no-op`; through `kmp-sdk-ios`, the others) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on) (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0072) |
+| `appmonitor.kmp-sdk-ios` | SDK modules a KMP app links on iOS (`sdk/core`, `sdk/ktor`, `sdk/core-no-op`, `sdk/ktor-no-op`) | `appmonitor.kmp-sdk` plus `iosArm64`, `iosSimulatorArm64` (ADR-0062 E.1, ADR-0067); the klib dump `api/<module>.klib.api` |
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
@@ -148,12 +148,16 @@ like `make desktop`.
 ## SDK publication dry-run
 
 `make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058) publishes
-`sdk/core`, `sdk/android-okhttp`, `sdk/no-op` and the `protocol` they
-depend on to `build/maven-dry-run`, group `io.github.christianalexandre`,
-artifacts `appmonitor-core`, `appmonitor-okhttp`, `appmonitor-no-op`,
-`appmonitor-protocol` with their `-jvm` and `-android` variants (ADR-0054),
+`sdk/core`, `sdk/android-okhttp`, `sdk/ktor`, their no-op twins and the
+`protocol` they depend on to `build/maven-dry-run`, group
+`io.github.christianalexandre`, artifacts `appmonitor-core`,
+`appmonitor-okhttp`, `appmonitor-ktor`, `appmonitor-core-no-op`,
+`appmonitor-okhttp-no-op`, `appmonitor-ktor-no-op`, `appmonitor-protocol`
+with their `-jvm` and `-android` variants, and `-iosarm64` and
+`-iossimulatorarm64` for all but the OkHttp ones (ADR-0054, ADR-0062),
 version `VERSION_NAME` from `gradle.properties`; it fails when a POM lacks
-name, description, URL, license, developer or SCM. On macOS it then builds
+name, description, URL, license, developer or SCM, or when a no-op POM
+depends on an `appmonitor-*` artifact that is not a no-op (ADR-0072). On macOS it then builds
 `build/spm-consumer`, a throwaway executable that adds the root
 `Package.swift` by path, in debug and release, and prints the binary size
 and `SwiftProtobuf` symbol count (DEBT-0040). ≈35 s cold. Nothing is
