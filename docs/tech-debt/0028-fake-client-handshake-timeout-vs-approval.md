@@ -3,7 +3,7 @@ id: DEBT-0028
 title: The fake client gives up on HelloAck after 10 s, approval included
 status: Open # Open | Paid | Dropped
 date: 2026-10-22
-trigger: M5.5 merged (an approved pair then skips the dialog), or a script runs the fake client against the app unattended
+trigger: A script runs the fake client against the desktop app unattended
 paid_date:
 ---
 
@@ -26,14 +26,20 @@ a tool change with no user asking for it yet.
 
 ## Trigger
 
-M5.5 merged, or a script that runs the fake client against the app
-unattended.
+A script that runs the fake client against the desktop app unattended.
 
 Fired in M5.4: the agent's hand run of `make fake-traffic` against
 `make desktop` timed out, as nobody could click Approve. Re-triggered on
 M5.5: once an approved pair is stored, a pair approved once by hand replays
 with no dialog, which may be all the fake client needs; M5.5 decides
 between that and a longer wait.
+
+Decided in M5.5: the stored pair is enough. `Fixtures.hello` always sends
+the same (`device_id`, `app_id`), so after one approval by hand, within the
+10 s, every later `make fake-traffic` is admitted with no dialog, across
+restarts, until the pair is forgotten. A longer wait is a tool change no
+one needs while a person approves once; the unattended case is the trigger
+left.
 
 ## How it was paid
 

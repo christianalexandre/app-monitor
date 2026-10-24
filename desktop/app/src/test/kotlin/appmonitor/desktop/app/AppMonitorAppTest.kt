@@ -15,6 +15,7 @@ import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.StoredApproval
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
@@ -170,7 +171,7 @@ class AppMonitorAppTest {
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         setContent {
                             val pending by approvals.pending.collectAsState()
-                            AppMonitorApp(storage, "Listening", pending, approvals::decide)
+                            AppMonitorApp(storage, "Listening", pending, { device, approved -> approvals.decide(device.key, approved) })
                         }
 
                         waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
@@ -206,7 +207,7 @@ class AppMonitorAppTest {
             val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", pending) { key, approved -> decisions += key to approved } }
+                setContent { AppMonitorApp(storage, "Listening", pending, { device, approved -> decisions += device.key to approved }) }
 
                 onNodeWithText("Pixel — app.a wants to connect").assertExists()
                 onNodeWithText("1 more waiting").assertExists()
@@ -215,6 +216,32 @@ class AppMonitorAppTest {
             }
 
             assertEquals(listOf(DeviceKey("d1", "app.a") to false), decisions)
+        }
+
+    @Test
+    fun `the settings list every answered pair and forget one or all`() =
+        withStorage { storage ->
+            val answered =
+                listOf(
+                    StoredApproval("d1", "app.a", true, 1_790_000_000_000, "Pixel", "Android 16", "1.0"),
+                    StoredApproval("d2", "app.a", false, 1_790_000_600_000, "iPhone", "iOS 26", "1.1"),
+                )
+            val forgotten = mutableListOf<DeviceKey?>()
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", answered = answered, onForget = { forgotten += it }) }
+
+                onNodeWithText("Settings").performClick()
+                onNodeWithText("Pixel — app.a").assertExists()
+                onNodeWithText("iPhone — app.a").assertExists()
+                screenshot("settings.png")
+                onAllNodesWithText("Forget")[1].performClick()
+                onNodeWithText("Forget all").performClick()
+                onNodeWithText("Close").performClick()
+                onNodeWithText("Pixel — app.a").assertDoesNotExist()
+            }
+
+            assertEquals(listOf(DeviceKey("d2", "app.a"), null), forgotten)
         }
 
     @Test

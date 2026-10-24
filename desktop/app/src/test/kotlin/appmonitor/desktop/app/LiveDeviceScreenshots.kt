@@ -54,7 +54,12 @@ class LiveDeviceScreenshots {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
                     val pending by approvals.pending.collectAsState()
-                    AppMonitorApp(storage, "Listening on port $port", pending, approvals::decide)
+                    AppMonitorApp(
+                        storage,
+                        "Listening on port $port",
+                        pending,
+                        { device, approved -> approvals.decide(device.key, approved) },
+                    )
                 }
                 println("liveScreenshots: listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")
                 waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText("Approve").fetchSemanticsNodes().isNotEmpty() }

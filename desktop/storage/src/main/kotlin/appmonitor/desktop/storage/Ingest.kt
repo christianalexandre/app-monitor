@@ -42,6 +42,22 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    data class Decided(
+        val hello: Hello,
+        val approved: Boolean,
+        val atMs: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
+    /** Forgets one (`device_id`, `app_id`) pair, or every pair when [deviceId] is null. */
+    data class Forgot(
+        val deviceId: String?,
+        val appId: String?,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
@@ -93,6 +109,27 @@ internal class Ingest(
 
             is StorageItem.EndRun -> {
                 database.runQueries.end(item.atMs, runId)
+            }
+
+            is StorageItem.Decided -> {
+                val hello = item.hello
+                database.approvalQueries.upsert(
+                    deviceId = hello.device_id,
+                    appId = hello.app_id,
+                    approved = if (item.approved) 1 else 0,
+                    decidedAtMs = item.atMs,
+                    deviceName = hello.device_name,
+                    osVersion = hello.os_version,
+                    appVersion = hello.app_version,
+                )
+            }
+
+            is StorageItem.Forgot -> {
+                if (item.deviceId == null || item.appId == null) {
+                    database.approvalQueries.forgetAll()
+                } else {
+                    database.approvalQueries.forget(item.deviceId, item.appId)
+                }
             }
 
             is StorageItem.Barrier -> {

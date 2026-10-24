@@ -66,7 +66,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   10k-request session in a bounded time and an offscreen screenshot after
   a reopen; `make fake-traffic` against `make desktop`, quit, relaunch,
   the requests still listed.
-- [ ] **M5.5 Approvals persisted.** `DeviceApprovals` per M5.1 (c): an
+- [x] **M5.5 Approvals persisted.** (approvals queued to storage like envelopes; "Settings" above the device list opens the "Devices" section until M5.8 adds retention to it; `AppMonitorServer.disconnect` closes a forgotten pair; DEBT-0028 decided: the fake client's fixed pair, approved once, is enough, trigger narrowed to unattended scripts) `DeviceApprovals` per M5.1 (c): an
   answered pair is not asked again after a restart, a rejected one is
   closed at once, the developer can revoke.
   Accept: `./gradlew :desktop:app:test` — a pair approved, the store

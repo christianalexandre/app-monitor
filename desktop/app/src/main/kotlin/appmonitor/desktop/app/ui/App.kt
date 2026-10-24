@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,6 +53,7 @@ import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.storage.StoredApproval
 import appmonitor.desktop.storage.StoredExchange
 import appmonitor.desktop.storage.StoredSession
 import appmonitor.v1.CaptureLayer
@@ -63,17 +65,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Stored sessions, then the selected one's requests, then the selected request; above them, the first device to
- * approve. Every pane reads [storage] and follows its commits (SDD 09).
+ * approve, or the settings listing [answered] pairs. [onForget] gets null for every pair. Every pane reads [storage]
+ * and follows its commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
     storage: Storage,
     status: String,
     pending: List<PendingDevice> = emptyList(),
-    onDecide: (DeviceKey, approved: Boolean) -> Unit = { _, _ -> },
+    onDecide: (PendingDevice, approved: Boolean) -> Unit = { _, _ -> },
+    answered: List<StoredApproval> = emptyList(),
+    onForget: (DeviceKey?) -> Unit = {},
 ) {
     val sessions by remember(storage) { storage.observeSessions() }.collectAsState(emptyList())
     val health by storage.health.collectAsState()
@@ -82,11 +90,19 @@ internal fun AppMonitorApp(
     val session = sessions.firstOrNull { it.id == selectedSession } ?: sessions.firstOrNull()
     val pages = key(session?.id) { rememberExchangePages(storage, session?.id) }
     val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
+    var settingsOpen by remember { mutableStateOf(false) }
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize()) {
-                DeviceList(sessions, session, status, health, Modifier.width(240.dp).fillMaxHeight()) {
+                DeviceList(
+                    sessions,
+                    session,
+                    status,
+                    health,
+                    Modifier.width(240.dp).fillMaxHeight(),
+                    onSettings = { settingsOpen = true },
+                ) {
                     selectedSession = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
@@ -103,6 +119,7 @@ internal fun AppMonitorApp(
                     }
                 }
             }
+            if (settingsOpen) DeviceSettings(answered, onForget) { settingsOpen = false }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
@@ -162,12 +179,9 @@ private fun StoredRequestDetail(
 private fun ApprovalDialog(
     device: PendingDevice,
     waiting: Int,
-    onDecide: (DeviceKey, approved: Boolean) -> Unit,
+    onDecide: (PendingDevice, approved: Boolean) -> Unit,
 ) {
-    Box(
-        Modifier.fillMaxSize().background(SCRIM).clickable(remember { MutableInteractionSource() }, indication = null) {},
-        contentAlignment = Alignment.Center,
-    ) {
+    Overlay {
         Card(Modifier.width(420.dp), elevation = 8.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -182,11 +196,63 @@ private fun ApprovalDialog(
                 )
                 if (waiting > 0) Text("$waiting more waiting", style = MaterialTheme.typography.caption)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onDecide(device.key, false) }) { Text("Reject") }
-                    TextButton(onClick = { onDecide(device.key, true) }) { Text("Approve") }
+                    TextButton(onClick = { onDecide(device, false) }) { Text("Reject") }
+                    TextButton(onClick = { onDecide(device, true) }) { Text("Approve") }
                 }
             }
         }
+    }
+}
+
+/** The settings' "Devices" section: every answered pair, each with "Forget", and "Forget all" (ADR-0083 C.1). */
+@Composable
+private fun DeviceSettings(
+    answered: List<StoredApproval>,
+    onForget: (DeviceKey?) -> Unit,
+    onClose: () -> Unit,
+) {
+    Overlay {
+        Card(Modifier.width(520.dp), elevation = 8.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Settings", style = MaterialTheme.typography.h6)
+                Text("Devices", style = MaterialTheme.typography.subtitle2)
+                if (answered.isEmpty()) Text("No device answered yet", style = MaterialTheme.typography.caption)
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(answered, key = { "${it.deviceId}/${it.appId}" }) { pair ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("${pair.deviceName.ifEmpty { "Unnamed device" }} — ${pair.appId}", fontWeight = FontWeight.Medium)
+                                Text(
+                                    listOf(
+                                        if (pair.approved) "Approved" else "Rejected",
+                                        DATE_FORMAT.format(Instant.ofEpochMilli(pair.decidedAtMs)),
+                                        pair.osVersion,
+                                        pair.appVersion,
+                                    ).filter { it.isNotEmpty() }.joinToString(" · "),
+                                    style = MaterialTheme.typography.caption,
+                                )
+                            }
+                            TextButton(onClick = { onForget(DeviceKey(pair.deviceId, pair.appId)) }) { Text("Forget") }
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { onForget(null) }, enabled = answered.isNotEmpty()) { Text("Forget all") }
+                    TextButton(onClick = onClose) { Text("Close") }
+                }
+            }
+        }
+    }
+}
+
+/** Dims the window and takes its clicks; [content] is centred. */
+@Composable
+private fun Overlay(content: @Composable () -> Unit) {
+    Box(
+        Modifier.fillMaxSize().background(SCRIM).clickable(remember { MutableInteractionSource() }, indication = null) {},
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
     }
 }
 
@@ -197,10 +263,14 @@ private fun DeviceList(
     status: String,
     health: StorageHealth,
     modifier: Modifier,
+    onSettings: () -> Unit,
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
-        PaneTitle("Devices")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { PaneTitle("Devices") }
+            TextButton(onClick = onSettings) { Text("Settings") }
+        }
         Text(status, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.caption)
         health.lastError?.let {
             Text(
@@ -488,3 +558,5 @@ private fun Modifier.selectable(
 private val SELECTED = Color(0x1F2196F3)
 
 private val SCRIM = Color(0x66000000)
+
+private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())
