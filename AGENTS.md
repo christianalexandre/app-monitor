@@ -128,6 +128,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Android sample APKs (debug with the SDK, release with `sdk/no-op`) | `./gradlew :samples:android:assembleDebug :samples:android:assembleRelease` | active; `:samples:android:checkReleaseHasNoSdk` in `check`, ADR-0030 |
 | Sample host tests (WebSocket echo listener) | `./gradlew :samples:android:testDebugUnitTest` | active; JVM, no device |
 | Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
+| Release gate on any ref (branch job, desktop tests on ubuntu, macOS, windows) | `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]` | active; also on every PR to `main`; `head` (default `dev`) is the branch checked as the PR head; ADR-0052, DEBT-0046 |
 | Loop script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh` and `scripts/test_debt_check.sh`, ADR-0013 |
 | Branch name check | `make branch-check` | active |
 | Open DEBTs whose trigger names a file the branch changes | `make debt-check` | active; `BASE=<ref>` (default `origin/dev`), committed and uncommitted changes, always exits 0; `/next` self-check, ADR-0051 |

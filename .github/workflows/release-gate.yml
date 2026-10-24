@@ -1,0 +1,64 @@
+name: Release gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      head:
+        description: Head branch checked as if a PR to main came from it
+        default: dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.head_ref || github.ref }}-${{ inputs.head }}
+  cancel-in-progress: true
+
+jobs:
+  branch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Head branch may target main
+        env:
+          HEAD_REF: ${{ github.head_ref || inputs.head }}
+        run: scripts/branch_check.sh "$HEAD_REF" main
+
+  desktop:
+    needs: branch
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic # ADR-0012
+      - name: Desktop app tests
+        run: ./gradlew :desktop:app:test
+      - name: Desktop server tests
+        env:
+          APPMONITOR_NO_LOCAL_NETWORK: ${{ runner.os == 'macOS' && '1' || '' }} # DEBT-0046
+        run: ./gradlew :desktop:server:test
+      - name: Protocol JVM tests
+        run: ./gradlew :protocol:jvmTest
+      - name: Test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-test-reports-${{ matrix.os }}
+          path: '**/build/reports/tests/'
+          retention-days: 7

@@ -52,7 +52,7 @@ into `main`: the last task opens the release PR, the owner merges it.
   runner before this.
   Accept: `gh repo view --json visibility` prints `PUBLIC` and `gh repo view
   --json licenseInfo` names the license.
-- [ ] **M3.3 Gate skeleton and desktop matrix.** `release-gate.yml` on
+- [x] **M3.3 Gate skeleton and desktop matrix.** (`ci/release-gate-skeleton`; branch job reuses `scripts/branch_check.sh`, so `release/x.y.z` passes too as guidelines 03 allow; dispatch takes a `head` input; mDNS round trip skipped on hosted macOS, DEBT-0046; measured ≈3.5 macOS, ≈4 ubuntu, ≈4.6 windows min) `release-gate.yml` on
   `pull_request` to `main` plus `workflow_dispatch`; a first job fails when
   the head branch is not `dev`; desktop build and tests
   (`:desktop:app:test`, `:desktop:server:test`, `:protocol:jvmTest`) on

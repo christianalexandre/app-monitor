@@ -99,6 +99,19 @@ gate (M3). See
 ADR-0012. `pr-conventions.yml` checks branch name, PR title, attribution
 trailers and `make docs-check`.
 
+`.github/workflows/release-gate.yml` runs on every PR to `main` and on
+`workflow_dispatch` (ADR-0052). Its `branch` job runs
+`scripts/branch_check.sh <head> main`, so only `dev` or `release/x.y.z` pass
+(guidelines 03); every other job needs it. A dispatch checks its `head`
+input (default `dev`) instead of a PR head, so the gate can be run on any
+ref: `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]`.
+The workflow must exist on `dev` for a dispatch to find it. The `desktop`
+job runs `:desktop:app:test`, `:desktop:server:test` and
+`:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
+(`fail-fast: false`, reports uploaded on failure). On macOS it sets
+`APPMONITOR_NO_LOCAL_NETWORK=1`, which drops the mDNS round trip test: the
+hosted runner has no local network access (DEBT-0046).
+
 ## Limits
 
 iOS targets build only on macOS. On Linux/Windows the desktop app and the
