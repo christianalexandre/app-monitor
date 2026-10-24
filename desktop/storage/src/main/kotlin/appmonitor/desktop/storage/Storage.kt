@@ -14,6 +14,7 @@ import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
@@ -21,7 +22,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -85,6 +88,9 @@ class Storage private constructor(
 
     // Writer thread only: a retention pass that sees it change was overtaken by a clearAll.
     private var clears = 0L
+
+    @Volatile
+    private var closing = false
 
     private val queue =
         WriteQueue(
@@ -199,10 +205,11 @@ class Storage private constructor(
     /**
      * Deletes ended sessions outside named runs, oldest last envelope first: older than the age bound, then while the
      * file passes the size bound, until it is under 90 % of it (ADR-0082). Runs on the writer thread between batches,
-     * one transaction per chunk; a failure is kept in [retentionStatus], not thrown.
+     * one transaction per chunk; a failure is kept in [retentionStatus], not thrown. Once the store is closing it returns
+     * the last status.
      */
     suspend fun applyRetention(): RetentionStatus =
-        withContext(writerDispatcher) {
+        whileOpen {
             val now = clock()
             val settings = ingest.retention
             val clearsAtStart = clears
@@ -221,7 +228,7 @@ class Storage private constructor(
                             deleted += ids.size
                             afterRetentionChunk()
                             yield()
-                            if (superseded()) return@withContext mutableRetentionStatus.value
+                            if (superseded()) return@whileOpen mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(before)
                     }
@@ -233,7 +240,7 @@ class Storage private constructor(
                             deleted++
                             afterRetentionChunk()
                             yield()
-                            if (superseded()) return@withContext mutableRetentionStatus.value
+                            if (superseded()) return@whileOpen mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(Long.MAX_VALUE)
                     }
@@ -249,19 +256,19 @@ class Storage private constructor(
                 } catch (e: Exception) {
                     RetentionStatus(mutableRetentionStatus.value.usedBytes, false, now, deleted, e.toString())
                 }
-            if (superseded()) return@withContext mutableRetentionStatus.value
+            if (superseded()) return@whileOpen mutableRetentionStatus.value
             mutableRetentionStatus.value = status
             status
-        }
+        } ?: mutableRetentionStatus.value
 
     /**
      * Deletes everything, named runs, approvals and settings included, rewrites the file and opens a new run (ADR-0082
      * D.1, ADR-0088). Connected sessions are forgotten, so close them first; what they send next is dropped. A failure
-     * is kept in [retentionStatus], not thrown.
+     * is kept in [retentionStatus], not thrown; nothing is done once the store is closing.
      */
     suspend fun clearAll() {
         flush()
-        withContext(writerDispatcher) {
+        whileOpen {
             clears++
             val error =
                 try {
@@ -299,17 +306,36 @@ class Storage private constructor(
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
+        closing = true
         retentionJob?.cancelAndJoin()
         withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
         if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
+        // On the writer thread, behind what is queued there: no call runs on a closed driver.
+        val driverClosed = CompletableDeferred<Unit>()
         queue.afterWriter {
+            writerDispatcher.executor.execute {
+                try {
+                    driver.close()
+                } finally {
+                    driverClosed.complete(Unit)
+                }
+            }
             writerDispatcher.close()
-            driver.close()
         }
+        withTimeoutOrNull(timeout - start.elapsedNow()) { driverClosed.await() }
         return lost
     }
+
+    // Null once the store is closing, even for a call already queued on the writer; a shut writer rejects it.
+    private suspend fun <R> whileOpen(block: suspend () -> R): R? =
+        try {
+            withContext(writerDispatcher) { if (closing) null else block() }
+        } catch (e: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            null
+        }
 
     suspend fun runs(): List<StoredRun> = read { runQueries.all(::StoredRun).executeAsList() }
 
