@@ -210,6 +210,49 @@ cache lives for one bounded browse.
   Accept: `./gradlew :sdk:core:iosSimulatorArm64Test --tests '*DeviceIdTest*' --rerun`
   green 10 runs in a row.
 
+### Second milestone review
+
+Findings of the `code-review` of `ad3e5a7..97038e3`. Two are correctness
+findings and became tasks. Four went to DEBT-0060 (the
+`createParentDirectories` KDoc, the JVM and Android `Platform` copies, the
+`MonitorClientTest` helper's two branches, `sessions` in
+`scripts/e2e_lib.sh` matching the app id in any field). Three were
+rejected:
+
+- the Swift SDK renaming over the file when `link` fails with something
+  other than `EEXIST`: the temp file sits in the same directory of the app
+  container, so `EXDEV` cannot happen, and `ENOSPC` or `EIO` fail the temp
+  file's write first;
+- racing writers both replacing a corrupt file: the SDKs now only publish
+  whole files (ADR-0078), so a corrupt one needs outside tampering and a
+  first-launch race together;
+- `sdk/ktor` recording a locally filled `closeReason` as a received close:
+  `CapturingDefaultSession` wraps OkHttp's session only, whose
+  `closeReason` completes from `onClosing` or `onClosed` (the peer's code)
+  and exceptionally on `onFailure`, which records nothing
+  (`OkHttpWebsocketSession.kt`, `ktor-client-okhttp-jvm` 3.5.1 sources).
+
+- [ ] **M4.R7 Android writers race on the device id with no exclusive
+  link.** SELinux denies `link` to every untrusted app
+  (`neverallow … file_type:file link` in AOSP's
+  `private/app_neverallows.te`), so on a real Android device
+  `linkExclusive` throws, `publish` falls back to `atomicMove`, and two
+  writers on a first launch (`sdk/android-okhttp` and `sdk/ktor` in one
+  app, or two processes) each move their own file: the first can re-read
+  its own id before the second move lands, and the install shows two ids
+  (ADR-0064 B.1, ADR-0078). The JVM host test links, so it never sees it.
+  Accept: `./gradlew :sdk:core:allTests` with a racing-writers test where
+  the link is refused, every writer returning the id left in the file;
+  the Android path no longer needs `link`.
+- [ ] **M4.R8 A cancelled body read leaves its request pending.**
+  `AppMonitorKtor`'s send interceptor rethrows a `CancellationException`
+  from `response.capture` with no terminal envelope, after
+  `RequestStarted`; `proceed()` emits `RequestFailed` for the same
+  cancellation, so a caller cancelled while its body is read (screen
+  closed, timeout) leaves the exchange pending on the desktop forever.
+  Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response
+  whose body read is cancelled, ending in exactly one `RequestFailed`.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
