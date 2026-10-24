@@ -277,6 +277,22 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   and reason). Clicking a row opens its payload with the body view and format
   buttons; one frame is open at a time.
 
+## Verification
+
+Two levels guard the branches (details and commands in SDD 02, *CI*):
+
+- **PRs to `dev`**: `ci.yml` runs `make check` on ubuntu (ADR-0012) and
+  `pr-conventions.yml` checks branch, title, trailers and docs. iOS gates
+  run only locally on this level.
+- **PRs to `main`**: `release-gate.yml` (ADR-0052) accepts only `dev` or
+  `release/x.y.z` as head, then proves the whole system: desktop tests on
+  ubuntu, macOS and windows; the Kotlin ↔ Swift contract (`make swift`,
+  `:protocol:allTests`); the Android sample on an emulator and the iOS
+  sample on a simulator, each against the headless server, every envelope
+  asserted (ADR-0056, ADR-0057); unsigned `.dmg`, `.msi`, `.deb` (ADR-0055);
+  the SDK publication dry-run (ADR-0058). The `protect-main` ruleset makes
+  every gate job a required check (ADR-0053).
+
 ## Limits
 
 - The desktop store is in memory and unbounded; it lives until the app
