@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -111,6 +112,34 @@ class WriteQueueTest {
                 assertEquals(2, storage.health.value.notSaved)
                 assertEquals(1, storage.sessions(storage.runId).size, "the session is written again from its Hello")
                 assertEquals(200, storage.exchangesOfRun(storage.runId).single().statusCode, "created by its next event")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aLostDisconnectIsWrittenWithTheNextBatch() =
+        withDataDir { dir ->
+            var failNext = true
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES) { batch ->
+                    if (failNext && batch.any { it is StorageItem.Disconnected }) {
+                        failNext = false
+                        throw SQLException("disk I/O error")
+                    }
+                }
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.flush()
+                storage.disconnected("s1")
+                withTimeout(5.seconds) { storage.health.first { it.notSaved > 0 } }
+                assertNull(storage.sessions(storage.runId).single().disconnectedAtMs, "rolled back with the batch")
+
+                storage.connected("s2", hello("device-2"), null)
+                storage.flush()
+                assertNull(storage.health.value.lastError)
+                val sessions = storage.sessions(storage.runId).associateBy { it.serverSessionId }
+                assertNotNull(sessions.getValue("s1").disconnectedAtMs, "written again by the next batch")
+                assertNull(sessions.getValue("s2").disconnectedAtMs)
                 storage.close(5.seconds)
             }
         }

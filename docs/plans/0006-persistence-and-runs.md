@@ -135,7 +135,7 @@ rejected.
   Accept: `./gradlew :desktop:storage:test` with `newRun()` and `flush()`
   after `close` returning, and a `close` that times out on a stalled
   `beforeCommit` not closing the driver under the writer.
-- [ ] **M5.R4 A rolled back `Disconnected` leaves the session connected.**
+- [x] **M5.R4 A rolled back `Disconnected` leaves the session connected.** (the writer keeps a lost `Disconnected` and its connection, and applies it ahead of the next batch; a session connected and disconnected in the same lost batch is restored from that batch's `Connected`; CI's UI retention test timed out once and passed on rerun, DEBT-0065)
   `Ingest.apply` removes the connection and its row from memory before the
   transaction commits; when the batch rolls back nothing restores them,
   so the row keeps `disconnected_at_ms` NULL for the rest of the launch:
