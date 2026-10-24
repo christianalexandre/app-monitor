@@ -90,7 +90,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   (`packageDmg`) opens its database.
   Accept: `docs/screenshots/` updated; the packaged app run shown in the
   PR.
-- [ ] **M5.10 Docs sync.** README status, SDD 01 and 03 (the planned
+- [x] **M5.10 Docs sync.** (SDD 01's storage moved out of planned and its in-memory limit dropped; SDD 09's stale "built in part" line removed, it cited ADR-0066 by mistake; retention added to SDD 03 and the storage test command; no new command since M5.9, every one already in `AGENTS.md`) README status, SDD 01 and 03 (the planned
   `desktop/storage` moves to "Today"), `AGENTS.md` commands.
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
