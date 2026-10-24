@@ -73,6 +73,8 @@ internal class MonitorClient(
     private val cleartextPermitted: (host: String) -> Boolean = ::isCleartextPermitted,
     private val log: (String) -> Unit = ::platformLog,
     random: Random = Random.Default,
+    private val openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
+        { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val buffer = EventBuffer(config.bufferCount, config.bufferBytes)
@@ -187,6 +189,7 @@ internal class MonitorClient(
         mutableState.value = ClientState.Connecting
         val http = checkNotNull(client)
         val upgraded = CompletableDeferred<Unit>()
+        val outcome = CompletableDeferred<Outcome>()
         return try {
             coroutineScope {
                 val watchdog =
@@ -194,10 +197,9 @@ internal class MonitorClient(
                         withTimeoutOrNull(config.connectTimeout) { upgraded.await() }
                             ?: throw IOException("No WebSocket upgrade within ${config.connectTimeout}")
                     }
-                val outcome = CompletableDeferred<Outcome>()
                 val call =
                     launch {
-                        http.webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path) {
+                        http.openSession(endpoint) {
                             upgraded.complete(Unit)
                             outcome.complete(session(this))
                         }
@@ -214,7 +216,7 @@ internal class MonitorClient(
         } catch (e: CancellationException) {
             // Ktor cancels the session's channels when the connection drops.
             currentCoroutineContext().ensureActive()
-            Outcome.Lost
+            settled(outcome)
         } catch (e: Exception) {
             if (!upgraded.isCompleted && !connectFailureLogged) {
                 connectFailureLogged = true
@@ -223,9 +225,12 @@ internal class MonitorClient(
                         "retrying with backoff. $CONNECT_FAILURE_HINT",
                 )
             }
-            Outcome.Lost
+            settled(outcome)
         }
     }
+
+    /** The session's outcome when it ended before the call's teardown failed, else [Outcome.Lost]. */
+    private suspend fun settled(outcome: CompletableDeferred<Outcome>): Outcome = if (outcome.isCompleted) outcome.await() else Outcome.Lost
 
     private suspend fun session(ws: DefaultClientWebSocketSession): Outcome {
         if (stopRequested.isCompleted) return closeNormally(ws)
