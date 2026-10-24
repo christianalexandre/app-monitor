@@ -61,7 +61,7 @@ GET ws://$host:$target_port/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIREC
 assert_envelopes "$app" "$expected" "$timeout" "$device_log" "$host:$target_port"
 if [[ "$platform" == ios ]]; then
   # The dedupe proves nothing unless the Swift SDK's session was there to capture twice (ADR-0064).
-  sessions="$(grep -c "\] connected: .* $app " "$server_log" || true)"
-  ((sessions >= 2)) || fail "$sessions session(s) for $app, the Swift SDK's and sdk/core's expected; server log in $server_log"
-  echo "$tag: $sessions sessions, each exchange captured once"
+  swift="$(sessions "$app" swift)" kotlin="$(sessions "$app" kotlin)"
+  ((swift >= 1 && kotlin >= 1)) || fail "$swift Swift SDK and $kotlin sdk/core session(s) for $app, one of each expected; server log in $server_log"
+  echo "$tag: $swift Swift SDK and $kotlin sdk/core session(s), each exchange captured once"
 fi

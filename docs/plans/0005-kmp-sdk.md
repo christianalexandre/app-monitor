@@ -147,8 +147,9 @@ One was rejected: `BonjourBrowser` answering a cached address after the
 desktop moves, since `discovery` opens a new browser on every round, so the
 cache lives for one bounded browse.
 
-- [ ] **M4.R1 `make e2e-kmp-ios` stays green with an exchange captured
-  twice.** `repeated` in `scripts/e2e_lib.sh` matches method and URL
+- [x] **M4.R1 `make e2e-kmp-ios` stays green with an exchange captured
+  twice.** (`test/e2e-dedupe-scheme-blind`; ADR-0077. Deviation: `Hello` had no field telling the SDKs apart,
+  so it gains `sdk_name`, printed by the headless server) `repeated` in `scripts/e2e_lib.sh` matches method and URL
   exactly, but `sdk/ktor` logs the upgrade as `ws://host:port/ws` and the
   Swift SDK as `http://host:port/ws` (`WebSocketHooks.started`): a second
   capture of the socket by the Swift SDK counts 1 under each URL. And the

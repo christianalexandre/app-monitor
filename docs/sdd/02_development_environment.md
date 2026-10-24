@@ -177,9 +177,11 @@ builds only the sample's debug app (Release and the SDK name scan stay in
 and launches the sample with `host`, `port`, `target` and `runAll`, as
 `make e2e-android` and `make e2e-ios` do. It asserts the five calls; the
 WebSocket's URL is logged as `ws://<host>:<target port>/ws`, Ktor's own.
-On iOS it also fails unless the desktop saw two sessions of
-`dev.appmonitor.kmpsample`, the Swift SDK's and `sdk/core`'s, so "captured
-once" means the Swift SDK skipped Ktor's requests (ADR-0064, ADR-0071).
+"Captured once" compares URLs with `ws` as `http` and `wss` as `https`,
+since the Swift SDK logs a socket's upgrade under the HTTP scheme. On iOS it
+also fails unless `dev.appmonitor.kmpsample` opened a session with
+`sdk_name` `swift` and one with `kotlin` (ADR-0077), so "captured once"
+means the Swift SDK skipped Ktor's requests (ADR-0064, ADR-0071).
 Logs in `build/e2e-kmp-android/` and `build/e2e-kmp-ios/` (`build.log`
 holds the iOS build).
 

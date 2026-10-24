@@ -2,6 +2,8 @@
 import Foundation
 
 let sdkVersion = "0.1.0-dev"
+// ADR-0077
+let sdkName = "swift"
 
 #if targetEnvironment(simulator)
 let isSimulator = true
@@ -62,6 +64,7 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     hello.sdkVersion = sdkVersion
     hello.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
+    hello.sdkName = sdkName
     return hello
 }
 #endif

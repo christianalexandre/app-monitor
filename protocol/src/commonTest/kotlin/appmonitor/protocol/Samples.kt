@@ -30,6 +30,7 @@ object Samples {
             app_version = "1.0.0",
             sdk_version = "0.1.0",
             channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+            sdk_name = "kotlin",
         )
 
     val helloAck =
