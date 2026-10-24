@@ -177,7 +177,7 @@ a stack trace (DEBT-0010). See ADR-0010.
   `sdk/ios/scripts/add_local_network_keys.sh` adds (ADR-0049).
 - **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); the
   OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor plugin
-  `sdk/ktor` on JVM, Android and iOS, HTTP only so far (SDD 08, ADR-0069). Connection states, offline buffer and `stop()`: SDD 04
+  `sdk/ktor` on JVM, Android and iOS, HTTP and WebSocket frames (SDD 08, ADR-0069, ADR-0070). Connection states, offline buffer and `stop()`: SDD 04
   (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
 - **Android entry point** (ADR-0017): `AppMonitor.start(context, options)` /
   `stop()`; `AppMonitorOptions` holds the enabled flag, manual host and port,

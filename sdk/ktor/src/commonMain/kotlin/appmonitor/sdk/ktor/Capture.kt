@@ -9,6 +9,7 @@ import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
 import com.squareup.wire.Message
 import io.ktor.client.plugins.isSaved
 import io.ktor.client.request.HttpRequestBuilder
@@ -20,6 +21,8 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentLength
 import io.ktor.http.decodeURLQueryComponent
 import io.ktor.util.StringValues
+import io.ktor.websocket.Frame
+import io.ktor.websocket.FrameType
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import kotlin.time.Clock
@@ -286,6 +289,32 @@ internal fun requestFailed(
     id: String,
     error: Throwable,
 ): RequestFailed = RequestFailed(request_id = id, error = error.toString())
+
+/** [frame] as sent on the wire, payload cut at [limit] (ADR-0028); a close payload is its code and reason. */
+internal fun webSocketFrame(
+    id: String,
+    direction: WebSocketFrame.Direction,
+    frame: Frame,
+    limit: Int,
+): WebSocketFrame {
+    val payload = frame.data.captured(limit)
+    val opcode =
+        when (frame.frameType) {
+            FrameType.TEXT -> WebSocketFrame.Opcode.OPCODE_TEXT
+            FrameType.BINARY -> WebSocketFrame.Opcode.OPCODE_BINARY
+            FrameType.CLOSE -> WebSocketFrame.Opcode.OPCODE_CLOSE
+            FrameType.PING -> WebSocketFrame.Opcode.OPCODE_PING
+            FrameType.PONG -> WebSocketFrame.Opcode.OPCODE_PONG
+        }
+    return WebSocketFrame(
+        request_id = id,
+        direction = direction,
+        opcode = opcode,
+        payload = payload.bytes,
+        payload_truncated = payload.truncated,
+        payload_size = payload.size,
+    )
+}
 
 /** Wraps [message] for the `network` channel as [type]; capture never throws into the app's call. */
 internal fun CaptureSink.emit(
