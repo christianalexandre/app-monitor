@@ -20,8 +20,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
- * Items for one writer on [dispatcher], [maxBatch] at a time, bounded by [maxBytes] (SDD 09): a failed
- * batch's [counted] items go to [health], [written] sees each batch after, [dropped] what [close] left.
+ * Items for one writer on [dispatcher], [maxBatch] at a time, bounded by [maxBytes] (SDD 09): a failed batch's
+ * [counted] items go to [health], [retry] returns how many it wrote after all, [written] sees each batch, [dropped] what [close] left.
  */
 internal class WriteQueue<T>(
     private val maxBytes: Long,
@@ -30,6 +30,7 @@ internal class WriteQueue<T>(
     private val sizeOf: (T) -> Long,
     private val counted: (T) -> Boolean,
     private val write: (List<T>) -> Unit,
+    private val retry: () -> Int = { 0 },
     private val written: (List<T>) -> Unit = {},
     private val dropped: (List<T>) -> Unit = {},
 ) {
@@ -102,6 +103,8 @@ internal class WriteQueue<T>(
         val batch = mutableListOf(first)
         while (batch.size < maxBatch) batch += items.tryReceive().getOrNull() ?: break
         val count = batch.count(counted)
+        val recovered = retry()
+        if (recovered > 0) mutableHealth.update { StorageHealth(notSaved = it.notSaved - recovered) }
         try {
             write(batch)
             if (count > 0) mutableHealth.update { it.copy(lastError = null) }
@@ -116,7 +119,7 @@ internal class WriteQueue<T>(
     }
 }
 
-/** Items lost to failed writes since the store opened; [lastError] is cleared by the next batch written. */
+/** Items lost to failed writes since the store opened; [lastError] is cleared by the next batch or retry written. */
 data class StorageHealth(
     val notSaved: Long = 0,
     val lastError: String? = null,

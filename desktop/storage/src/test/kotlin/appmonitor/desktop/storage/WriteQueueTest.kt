@@ -140,6 +140,60 @@ class WriteQueueTest {
                 val sessions = storage.sessions(storage.runId).associateBy { it.serverSessionId }
                 assertNotNull(sessions.getValue("s1").disconnectedAtMs, "written again by the next batch")
                 assertNull(sessions.getValue("s2").disconnectedAtMs)
+                assertEquals(StorageHealth(), storage.health.value, "written after all, no longer counted")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aLostDisconnectRetriedByALoneFlushClearsTheError() =
+        withDataDir { dir ->
+            var failNext = true
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES) { batch ->
+                    if (failNext && batch.any { it is StorageItem.Disconnected }) {
+                        failNext = false
+                        throw SQLException("disk I/O error")
+                    }
+                }
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.flush()
+                storage.disconnected("s1")
+                withTimeout(5.seconds) { storage.health.first { it.notSaved > 0 } }
+
+                storage.flush()
+                assertEquals(StorageHealth(), storage.health.value)
+                assertNotNull(storage.sessions(storage.runId).single().disconnectedAtMs)
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aDisconnectThatAlwaysFailsDoesNotBlockLaterBatches() =
+        withDataDir { dir ->
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES) { batch ->
+                    if (batch.any { it is StorageItem.Disconnected && it.sessionId == "s1" }) throw SQLException("constraint failed")
+                }
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.flush()
+                storage.disconnected("s1")
+                withTimeout(5.seconds) { storage.health.first { it.notSaved > 0 } }
+
+                storage.connected("s2", hello("device-2"), null)
+                repeat(3) {
+                    storage.received("s2", envelope(started("r$it")))
+                    storage.flush()
+                }
+                storage.disconnected("s2")
+                storage.flush()
+                val sessions = storage.sessions(storage.runId).associateBy { it.serverSessionId }
+                assertNull(sessions.getValue("s1").disconnectedAtMs, "still lost")
+                assertNotNull(sessions.getValue("s2").disconnectedAtMs)
+                assertEquals(3, storage.exchangesOfSession(sessions.getValue("s2").id).size)
+                assertEquals(StorageHealth(notSaved = 1), storage.health.value, "the later batches cleared the error")
                 storage.close(5.seconds)
             }
         }

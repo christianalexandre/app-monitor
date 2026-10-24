@@ -167,7 +167,7 @@ the `/tmp` test). One was rejected: an existing data directory kept at its
 mode is what ADR-0081 C.1 ("created `0700`") and SDD 09 state, so it is no
 new privacy decision.
 
-- [ ] **M5.R6 One failing lost disconnect blocks every later write.**
+- [x] **M5.R6 One failing lost disconnect blocks every later write.** (`Ingest.retryLost` runs before each batch in its own transaction, called by `WriteQueue` through a `retry` hook that takes the written ones off `notSaved` and clears `lastError`; a disconnect that never writes is retried before every batch for the rest of the launch, a small failed transaction each time)
   `Ingest.write` applies `lostDisconnects` inside every next batch's
   transaction with no limit, so a disconnect whose write fails each time
   (its session row cannot be inserted) rolls back every later batch: the
