@@ -20,7 +20,7 @@ private fun publish(
     id: String,
     file: Path,
 ) {
-    file.parent?.let { runCatching { SystemFileSystem.createDirectories(it) } }
+    runCatching { createParentDirectories(file) }
     val temp = Path("$file.${Uuid.random()}")
     try {
         SystemFileSystem.sink(temp).buffered().use { it.writeString(id) }
@@ -35,6 +35,9 @@ private fun storedDeviceId(file: Path): String? {
     val stored = runCatching { SystemFileSystem.source(file).buffered().use { it.readString().trim() } }.getOrNull()
     return stored?.takeIf { runCatching { Uuid.parse(it) }.isSuccess }
 }
+
+/** Creates [file]'s missing parent directories; a racing writer creating them too is not an error. */
+internal expect fun createParentDirectories(file: Path)
 
 /** Creates [target] as a hard link to [existing]; false when [target] already exists, throws when the file system cannot link. */
 internal expect fun linkExclusive(
