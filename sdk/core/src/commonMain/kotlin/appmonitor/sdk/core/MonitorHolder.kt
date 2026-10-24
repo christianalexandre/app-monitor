@@ -1,5 +1,8 @@
 package appmonitor.sdk.core
 
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+
 /**
  * The `start` / `stop` of SDD 04 around one [MonitorClient] at a time: idle until started, a second
  * `start()` ignored while a client runs, a new client after `stop()`.
@@ -10,25 +13,26 @@ internal class MonitorHolder {
         val client: MonitorClient,
     )
 
+    private val lock = SynchronizedObject()
     private var current: Running? = null
 
-    val client: MonitorClient? get() = synchronized(this) { current?.client }
+    val client: MonitorClient? get() = synchronized(lock) { current?.client }
 
     /** The options of the running client; null when idle or stopped. */
-    val options: AppMonitorOptions? get() = synchronized(this) { current?.options }
+    val options: AppMonitorOptions? get() = synchronized(lock) { current?.options }
 
     fun start(
         options: AppMonitorOptions,
         newClient: (AppMonitorOptions) -> MonitorClient,
     ) {
-        synchronized(this) {
+        synchronized(lock) {
             if (!options.enabled || current != null) return
             current = Running(options, newClient(options).also { it.start() })
         }
     }
 
     fun stop() {
-        val stopping = synchronized(this) { current.also { current = null } }
+        val stopping = synchronized(lock) { current.also { current = null } }
         stopping?.client?.stop()
     }
 }

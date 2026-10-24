@@ -11,8 +11,8 @@ val ktlintVersion =
 
 spotless {
     kotlin {
-        target("src/**/*.kt")
-        targetExclude("**/build/**")
+        // A pattern walks the module dir, build/ included, and fails on files a parallel compile is writing.
+        target(fileTree("src") { include("**/*.kt") })
         ktlint(ktlintVersion)
     }
     kotlinGradle {

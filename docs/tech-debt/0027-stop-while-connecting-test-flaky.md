@@ -1,10 +1,10 @@
 ---
 id: DEBT-0027
 title: `stopWhileConnectingClosesTheHalfOpenSocket` fails intermittently
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: CI fails on `MonitorClientTest`, or the next PR that touches `MonitorClient` or its stop path
-paid_date:
+paid_date: 2026-10-24
 ---
 
 # DEBT-0027 — `stopWhileConnectingClosesTheHalfOpenSocket` fails intermittently
@@ -31,4 +31,12 @@ or its stop path — whichever comes first.
 
 ## How it was paid
 
-> Filled when closing.
+In `feat/sdk-core-ios-targets` (ADR-0067). The socket was never closed, not
+closed late: on the iOS simulator the test failed 1 run in 8, the desktop's
+side read 0 bytes and no end of stream, while a bare ktor-network socket
+closed by its owner ends at once. CIO's `Endpoint.connect` wraps the TCP
+connect in `withTimeoutOrNull`, and a cancellation landing as it returns
+drops the socket. `stop()` no longer cancels a connect; it lets it end
+itself within the 1 s release bound. After the change: 16 of 16 full
+`MonitorClientTest` runs green on the simulator, 12 of 12 on the JVM. What
+is left, a connect still in its TCP phase at the bound, is DEBT-0053.

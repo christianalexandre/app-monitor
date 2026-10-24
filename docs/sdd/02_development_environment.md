@@ -41,7 +41,8 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.lint` | every module (applied by the others) | Spotless + ktlint on `src/**/*.kt` and `*.gradle.kts` |
 | `appmonitor.kotlin-jvm` | JVM-only modules (desktop, tools) | Kotlin JVM, toolchain 21, JUnit Platform |
 | `appmonitor.kmp-library` | shared KMP code (protocol) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007) |
-| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/core`, `sdk/android-okhttp`, `sdk/no-op`) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on); no iOS (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0026) |
+| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/android-okhttp`, `sdk/no-op`; through `kmp-sdk-ios`, `sdk/core`) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on) (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0026) |
+| `appmonitor.kmp-sdk-ios` | SDK modules a KMP app links on iOS (`sdk/core`) | `appmonitor.kmp-sdk` plus `iosArm64`, `iosSimulatorArm64` (ADR-0062 E.1, ADR-0067); the klib dump `api/<module>.klib.api` |
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 

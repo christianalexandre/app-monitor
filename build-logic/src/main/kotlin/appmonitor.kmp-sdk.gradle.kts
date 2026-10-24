@@ -15,7 +15,7 @@ fun catalogVersion(name: String): Int =
         .requiredVersion
         .toInt()
 
-// ADR-0023: SDK modules run on Android and the JVM only; iOS is the Swift SDK (ADR-0003).
+// ADR-0023: Android and the JVM; appmonitor.kmp-sdk-ios adds iOS (ADR-0067).
 kotlin {
     explicitApi()
     jvmToolchain(21)
