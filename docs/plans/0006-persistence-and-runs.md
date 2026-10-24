@@ -85,7 +85,7 @@ lesson); `make debt-check` decides how each fired DEBT is handled
   applied at startup and while the app runs, clear everything.
   Accept: `./gradlew :desktop:storage:test` with a controlled clock and
   size, the oldest data deleted first and what M5.1 (b) keeps kept.
-- [ ] **M5.9 Live check.** `liveScreenshots` (ADR-0031) and a hand run of
+- [x] **M5.9 Live check.** (`liveScreenshots` now uses an `ApprovalStore`, keeps its store in `-PliveDataDir` and ends with a `<name>-reopen.png` after reopening it; emulator (API 37, `10.0.2.2`) and iPhone 17 Pro simulator (mDNS) refreshed, no phone attached so `device-*.png` kept from M1; the packaged app, run from the mounted DMG on the simulator's store with `APPMONITOR_DATA_DIR`, let the approved device in with no prompt and stored its 7 exchanges in its own run, then reopened the 14 after a quit; no Screen Recording permission, so shown in the PR by its database rows, not a window capture) `liveScreenshots` (ADR-0031) and a hand run of
   a sample against `make desktop` across a restart; the packaged app
   (`packageDmg`) opens its database.
   Accept: `docs/screenshots/` updated; the packaged app run shown in the

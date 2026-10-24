@@ -53,10 +53,13 @@ Module scripts apply one convention plugin from `build-logic/`:
 
 `./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
 `AppMonitorServer` on port 47474 with the desktop window's composable rendered
-offscreen. It waits up to 5 minutes for a device, screenshots the approval
-panel, approves it, waits for 5 finished exchanges, then screenshots the GET
-JSON and the WebSocket exchanges into `docs/screenshots/<liveName>-*.png`.
-`make desktop` must not be running (same port). The sample is driven by hand:
+offscreen, on a store and approvals like `Main.kt`'s. It waits up to 5
+minutes for a device, screenshots the approval panel, approves it (the answer
+is stored), waits for 5 finished exchanges, then screenshots the GET JSON and
+the WebSocket exchanges; it then closes the store, reopens it, picks the
+earlier run and screenshots its GET JSON again (`<liveName>-reopen.png`). All
+go into `docs/screenshots/<liveName>-*.png`. `make desktop` must not be
+running (same port). The sample is driven by hand:
 
 1. `./gradlew :samples:android:assembleDebug`, then
    `adb -s <serial> install -r samples/android/build/outputs/apk/debug/android-debug.apk`.
@@ -69,7 +72,8 @@ JSON and the WebSocket exchanges into `docs/screenshots/<liveName>-*.png`.
    `adb shell uiautomator dump`); the task ends by itself.
 
 Properties: `liveName`, `liveExchanges` (5), `liveTimeoutMs` (300000),
-`liveAdvertise` (true). The buttons call public services, so the machine and
+`liveAdvertise` (true), `liveDataDir` (a temporary directory; an empty one
+for the approval to be asked). The buttons call public services, so the machine and
 the device need internet.
 
 ### The Android sample end to end, scripted
@@ -199,6 +203,15 @@ prints, so rerun it after adding a dependency. The packages are **unsigned
 build proof**, not releases: macOS Gatekeeper and Windows SmartScreen block
 them until the user overrides (ADR-0055). The app inside listens on 47474
 like `make desktop`.
+
+To check the packaged app on a store a live run left (no Gatekeeper prompt,
+no copy to `/Applications`): mount the image with
+`hdiutil attach -readonly -nobrowse -mountpoint build/live/dmg <dmg>` and run
+`APPMONITOR_DATA_DIR=<liveDataDir> "build/live/dmg/App Monitor.app/Contents/MacOS/App Monitor"`.
+The launch opens a run of its own in the `runs` table, a device approved in
+the live run connects with no prompt and its exchanges land under that run;
+`sqlite3 <liveDataDir>/appmonitor.db` reads them, and a SIGTERM closes the run
+and the sessions. `hdiutil detach build/live/dmg` afterwards.
 
 ## SDK publication dry-run
 
