@@ -72,8 +72,9 @@ macOS and uploads the repository for 7 days. It is not in `make check`.
 
 ## Consequences
 
-- `make check` and PR CI unchanged; the gate gains one macOS job of ≈2 min
-  (free on a public repository, ADR-0052).
+- `make check` and PR CI unchanged; the gate gains one macOS job, ≈6.3
+  min in its first run (40055218483), free on a public repository
+  (ADR-0052).
 - The root `Package.swift` lists the same sources as `sdk/ios/Package.swift`
   and `make swift` lints it; a change to targets or dependencies goes in
   both.
