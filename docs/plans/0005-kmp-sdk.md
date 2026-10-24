@@ -26,6 +26,11 @@ before the code; every end to end runs locally as a `make` target before it
 runs in the release gate; `make debt-check` decides how each fired DEBT is
 handled (DEBT-0027 fires on any `MonitorClient` change).
 
+Owner's requirement for every task: setting the SDK up is adding the
+dependency (Gradle or SwiftPM) and calling `AppMonitor.start` once at the
+app's entry point. A step beyond that — a build script snippet for ADR-0062
+D.1 included — is hidden by the SDK or goes to a `Proposed` ADR.
+
 - [x] **M4.1 KMP SDK API, privacy and dedupe decisions.** (ADR-0062, ADR-0063, ADR-0064, ADR-0065 `Accepted`: the owner took every recommendation) `Proposed` ADRs,
   one stop: (a) the public API a KMP developer touches — how the Ktor
   plugin is installed and configured, how `AppMonitor.start` looks from
