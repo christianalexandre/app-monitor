@@ -112,7 +112,10 @@ ADR.
   default for hand runs. M4.9 and M4.10 reuse it.
   Accept: `make e2e-android` and `make e2e-ios` pass and every URL in their
   server logs is the local target; DEBT-0047 `Paid`.
-- [ ] **M4.9 KMP sample app.** `samples/kmp` per M4.1 (d): every call of
+- [x] **M4.9 KMP sample app.** (`feat/kmp-sample-app`; ADR-0073: ADR-0062 D.1 proven on iOS by `CONFIGURATION`, on Android by
+  substituting the no-ops in the app's release configurations. Deviations: the sample's Android modules need compileSdk 37,
+  Compose Multiplatform 1.12 and Ktor's OkHttp 5.5 require it; `make kmp-sample` joins `make swift`;
+  done before M4.8a, added while it ran, so the sample calls the public URLs and M4.8a takes `samples/kmp` too) `samples/kmp` per M4.1 (d): every call of
   the other samples (GET, POST, failure, WebSocket if M4.6 ships) through
   Ktor, a `runAll` launch path as ADR-0056 and ADR-0057, the release build
   without the SDK.

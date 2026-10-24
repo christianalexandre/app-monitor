@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample e2e-android e2e-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check docs-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -33,6 +33,9 @@ swift-sim: ## iOS SDK tests hosted in an app on an iPhone simulator (SIM_DEVICE=
 ios-sample: ## Build samples/ios in Debug and Release, keys and SDK in Debug only (ADR-0050)
 	@scripts/ios_sample_check.sh
 
+kmp-sample: ## Build samples/kmp, Android and iOS, debug and release, SDK in debug only (ADR-0073)
+	@scripts/kmp_sample_check.sh
+
 e2e-android: ## Sample on a booted emulator against the headless server, envelopes asserted (ANDROID_SERIAL, ADR-0056)
 	@scripts/e2e_android.sh
 
@@ -57,7 +60,7 @@ fake-traffic: ## Replay protocol fixtures to a desktop (ARGS="--host H --port N 
 branch-check: ## Current branch follows <type>/<kebab-slug>
 	@scripts/branch_check.sh
 
-debt-check: ## Open DEBTs whose trigger names a file this branch changes (BASE=origin/dev, ADR-0051)
+debt-check: ## Open DEBTs whose trigger names a file this branch changes (BASE=origin/dev; exit 2 if it does not resolve, ADR-0061)
 	@scripts/debt_check.sh $(or $(BASE),origin/dev)
 
 loop: ## Run /next in fresh sessions in ../app-monitor-loop until it stops

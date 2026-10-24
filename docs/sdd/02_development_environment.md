@@ -130,6 +130,29 @@ included; the WebSocket's URL is logged as `https://echo.websocket.org`).
 Server log and the sample's simulator log in `build/e2e-ios/`. Both scripts
 source `scripts/e2e_lib.sh`.
 
+### The KMP sample against a desktop
+
+`make kmp-sample` (ADR-0073, in `make swift`) builds `samples/kmp`: the
+Android app in debug and release, then, on macOS with XcodeGen, the iOS host
+in Debug and Release into `build/kmp-sample/`; its Run Script phase calls
+`./gradlew :samples:kmp:shared:embedAndSignAppleFrameworkForXcode`, which
+needs a JDK on the `PATH` Xcode sees. Release links `sdk/ktor-no-op` and
+`sdk/core-no-op` on both platforms; the script fails when a release holds
+any other SDK name. Log in `build/kmp-sample.log`. With `make server` or
+`make desktop` running, the same launch paths as the other samples:
+
+```sh
+adb install -r samples/kmp/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+adb shell am start -S -W -n appmonitor.sample.kmp/.MainActivity --es host 10.0.2.2 --ez runAll true
+xcrun simctl install booted build/kmp-sample/Build/Products/Debug-iphonesimulator/KmpSample.app
+xcrun simctl launch booted dev.appmonitor.kmpsample -host 127.0.0.1 -runAll YES
+```
+
+The five calls (GET, POST, 404, timeout, WebSocket echo) go through Ktor
+(OkHttp on Android, Darwin on iOS). On iOS the Swift SDK runs too: the
+desktop shows two sessions of one app, and each exchange once, on the
+Kotlin one (ADR-0064).
+
 ## Desktop packages
 
 `./gradlew :desktop:app:packageDmg` (macOS), `packageMsi` (windows) or
