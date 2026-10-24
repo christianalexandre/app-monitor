@@ -1,7 +1,7 @@
 ---
 id: ADR-0081
 title: What the desktop stores on disk, where, and how it is protected
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -121,7 +121,11 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (everything the desktop
+receives, as received, unknown envelopes kept raw), B.1 (the OS per-user
+data directory, `APPMONITOR_DATA_DIR` overrides it, path shown in the
+settings), C.1 (no encryption, `0700` directory and `0600` files on macOS
+and Linux) and D.1 (`PRAGMA secure_delete = ON`).
 
 ## Consequences
 

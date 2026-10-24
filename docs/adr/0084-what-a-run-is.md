@@ -1,7 +1,7 @@
 ---
 id: ADR-0084
 title: What a run is for the developer, and what the window shows by default
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -63,7 +63,10 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (a run is a time window on
+the desktop, across devices, opened by hand and at each launch), B.1
+(unnamed by default, shown as its start time, named at any time) and C.1
+(the window shows the current run, with a picker for earlier ones).
 
 ## Consequences
 

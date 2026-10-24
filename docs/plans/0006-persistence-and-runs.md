@@ -29,7 +29,7 @@ written down with the tests that will drive them before the code (M3's
 lesson); `make debt-check` decides how each fired DEBT is handled
 (DEBT-0004 and DEBT-0022 fire on this milestone).
 
-- [!] **M5.1 Storage privacy, retention and run decisions.** (`docs/storage-decisions`; waiting for the owner on ADR-0081, ADR-0082, ADR-0083, ADR-0084) `Proposed`
+- [x] **M5.1 Storage privacy, retention and run decisions.** (ADR-0081, ADR-0082, ADR-0083, ADR-0084 `Accepted`: the owner took every recommendation) `Proposed`
   ADRs, one stop: (a) what the desktop writes to disk — every envelope
   field, bodies and frames as received (masked on the device unless
   `masking = false`, ADR-0034), where the file lives on each OS, its

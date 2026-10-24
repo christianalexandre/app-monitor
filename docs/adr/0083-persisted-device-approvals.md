@@ -1,7 +1,7 @@
 ---
 id: ADR-0083
 title: Device approvals survive a restart, and how one is revoked
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -65,7 +65,10 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (approved and rejected
+pairs), B.1 (until revoked, no expiry; the forgery window stays as long as
+the pair is stored, DEBT-0020) and C.1 (a "Devices" section in the
+settings that forgets one pair or all of them).
 
 ## Consequences
 

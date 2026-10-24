@@ -1,7 +1,7 @@
 ---
 id: ADR-0082
 title: How long the desktop keeps captured traffic, and how it is cleared
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -87,7 +87,11 @@ installed".
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (7 days and 1 GiB, both
+editable), B.1 (whole sessions, oldest first, never a connected one), C.1
+(named runs kept past both bounds) and D.1 (at startup and every 10
+minutes). "Clear all data" deletes approvals too, so the button means "as
+if never installed".
 
 ## Consequences
 
