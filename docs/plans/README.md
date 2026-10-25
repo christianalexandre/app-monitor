@@ -43,17 +43,12 @@ record of how the milestone was actually built once it is done.
 | [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Done |
 | [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Done |
 | [0007](0007-mcp-server.md) | M6 | MCP server | Done |
+| [0008](0008-issues-benchmarks-export.md) | M7 | Issues, benchmarks, export | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M7 — Issues, benchmarks, export
-
-Issues (requests + note + tags + status, also via MCP `save_issue` /
-`list_issues`), per-endpoint p50/p95/p99, error rate, bytes, run-to-run diff,
-HAR and cURL export in the UI.
 
 ### M8 — iOS deep capture (layers 2–4)
 
