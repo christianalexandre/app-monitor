@@ -99,7 +99,7 @@ class RunDiffUiTest {
         withStorage { storage ->
             val runs = storage.seed()
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
                 onNodeWithTag(RUNS).performClick()
                 onNodeWithTag(COMPARE_RUNS).performClick()

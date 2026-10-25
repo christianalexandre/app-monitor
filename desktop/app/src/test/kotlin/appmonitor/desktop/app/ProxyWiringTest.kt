@@ -129,7 +129,7 @@ class ProxyWiringTest {
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
-                    AppMonitorApp(storage, "Listening", proxy = proxy)
+                    AppMonitorApp(storage, "Listening", appearance = TestAppearance, proxy = proxy)
                 }
 
                 onNodeWithText("Settings").performClick()

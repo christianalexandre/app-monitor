@@ -1,5 +1,6 @@
 package appmonitor.desktop.app.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -20,6 +21,7 @@ import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.AppSurface
 import appmonitor.desktop.domain.AnsweredDeviceRepository
+import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.DeviceConnectionRepository
 import appmonitor.desktop.domain.Exchange
@@ -27,6 +29,7 @@ import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.McpRepository
 import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.RunRepository
+import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.feature.breakpoints.BreakpointList
 import appmonitor.desktop.feature.breakpoints.BreakpointsViewModel
@@ -60,7 +63,7 @@ import java.io.File
 
 /**
  * The traffic panes under the device to approve ([approvals] when given) with Disconnect ([connections] when given), the runs or the
- * settings ([answered], [mcp] and [proxy] when given). Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
+ * settings ([answered], [mcp], [proxy] and [appearance] when given; light without [appearance]). Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -75,6 +78,7 @@ internal fun AppMonitorApp(
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
     heldCalls: HeldCalls? = null,
     replays: Replays? = null,
+    appearance: AppearanceRepository? = null,
     live: LiveTraffic = remember { LiveTraffic() },
     runRepository: RunRepository = remember(storage) { storage.runRepository() },
     traffic: TrafficRepository = remember(storage, live) { storage.trafficRepository(live) },
@@ -92,10 +96,24 @@ internal fun AppMonitorApp(
             connections,
             mcp,
             proxy,
+            appearance,
         ) {
             koinApplication {
                 modules(
-                    appModule(storage, live, runRepository, traffic, replays, heldCalls, approvals, answered, connections, mcp, proxy),
+                    appModule(
+                        storage,
+                        live,
+                        runRepository,
+                        traffic,
+                        replays,
+                        heldCalls,
+                        approvals,
+                        answered,
+                        connections,
+                        mcp,
+                        proxy,
+                        appearance,
+                    ),
                 )
             }
         }
@@ -105,7 +123,7 @@ internal fun AppMonitorApp(
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
     CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
         KoinIsolatedContext(koin) {
-            AppMonitorWindow(status, onClearAll, pickHarFile, traffic)
+            AppMonitorWindow(status, onClearAll, pickHarFile, traffic, appearance)
         }
     }
 }
@@ -120,7 +138,9 @@ private fun AppMonitorWindow(
     onClearAll: () -> Unit,
     pickHarFile: (suggested: String) -> File?,
     traffic: TrafficRepository,
+    appearance: AppearanceRepository?,
 ) {
+    val theme = appearance?.theme?.collectAsState()?.value ?: ThemeMode.Light
     val viewModel = koinViewModel<TrafficViewModel>()
     val state by viewModel.state.collectAsState()
     val shownRunId = state.runs.shownRunId
@@ -151,7 +171,7 @@ private fun AppMonitorWindow(
             .value.exportNote
     val runTitle = state.runs.title
 
-    AppMonitorTheme {
+    AppMonitorTheme(dark = if (theme == ThemeMode.System) isSystemInDarkTheme() else theme == ThemeMode.Dark) {
         AppSurface {
             TrafficScreen(
                 TrafficLinks(

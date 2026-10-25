@@ -69,7 +69,7 @@ class ExportUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
                     CompositionLocalProvider(LocalClipboardManager provides clipboard) {
-                        AppMonitorApp(storage, "Listening", live = live, pickHarFile = { file })
+                        AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, pickHarFile = { file })
                     }
                 }
 

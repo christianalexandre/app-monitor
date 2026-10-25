@@ -73,7 +73,7 @@ class ReplayTest {
                 device.send("ResponseReceived", ResponseReceived(request_id = "req-1", status_code = 200))
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                    setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
+                    setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, replays = store.replays, live = list) }
                     awaitText(original.url)
                     onNodeWithText(original.url).performClick()
                     onNodeWithTag(SEND_AGAIN).performClick()
@@ -109,7 +109,8 @@ class ReplayTest {
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { sessionsNow().size == 2 }
+                // The live list gets the session before Replays does; its exchange is read only after.
+                device.await { sessionsNow().size == 2 && searchNow().size == 2 }
                 assertEquals(ReplaySent.SESSION_ENDED, store.replays.send(sessionId, "req-1"))
                 val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplaySent.SENT, store.replays.send(live, "req-1"))
@@ -145,7 +146,15 @@ class ReplayTest {
                     assertEquals(ReplayRequest("marker"), ReplayRequest.ADAPTER.decode(device.next("ReplayRequest").payload))
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                        setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
+                        setContent {
+                            AppMonitorApp(
+                                storage,
+                                "Listening",
+                                appearance = TestAppearance,
+                                replays = store.replays,
+                                live = list,
+                            )
+                        }
                         awaitText("An agent asks to send this request again")
                         awaitText("GET ${original.url}")
                         screenshot("replay-asked.png")
@@ -185,7 +194,8 @@ class ReplayTest {
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { sessionsNow().size == 2 }
+                // The live list gets the session before Replays does; its exchange is read only after.
+                device.await { sessionsNow().size == 2 && searchNow().size == 2 }
                 assertEquals(ReplayAnswer.SESSION_ENDED, store.replays.ask(asked(ended, 1)))
                 val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplayAnswer.WAITING, store.replays.ask(asked(live, 1)))

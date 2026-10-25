@@ -100,7 +100,7 @@ class MocksUiTest {
                     }
 
                     runDesktopComposeUiTest(width = 1280, height = 800) {
-                        setContent { AppMonitorApp(storage, "Listening", live = live) }
+                        setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
                         awaitText("Recorded")
                         onNodeWithText("Recorded").performClick()
                         awaitText(URL)
@@ -160,7 +160,7 @@ class MocksUiTest {
             val agent = runBlocking { storage.mocks() }.single { it.source == MockSource.MCP }.id
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
                 awaitText("Mocks (1 to confirm)")
                 onNodeWithTag(MOCKS).performClick()
                 awaitText("orders offline")

@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.settings
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +37,7 @@ import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.ui.formatDateTime
 import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
@@ -52,7 +54,7 @@ fun StorageUnavailable(
 ) {
     var confirming by remember { mutableStateOf(false) }
     var cleared by remember { mutableStateOf<String?>(null) }
-    AppMonitorTheme {
+    AppMonitorTheme(isSystemInDarkTheme()) {
         AppSurface {
             Column(Modifier.padding(Spacing.xxl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text("App Monitor could not open its data", role = TextRole.Title)
@@ -90,7 +92,7 @@ fun claudeMcpAdd(
 ): String = "claude mcp add --transport http app-monitor http://127.0.0.1:$port$path --header \"Authorization: Bearer $token\""
 
 /**
- * Retention with "Clear all data" behind a confirmation (ADR-0082), the MCP server's switch, state and command
+ * The theme (ADR-0145), retention with "Clear all data" behind a confirmation (ADR-0082), the MCP server's switch, state and command
  * (ADR-0090), the proxy's (ADR-0101), and every answered pair with "Forget" and "Forget all" (ADR-0083 C.1).
  */
 @Composable
@@ -105,6 +107,11 @@ fun Settings(
     var confirming by remember { mutableStateOf(false) }
     DialogCard(DialogWidth.Medium, scrollable = true) {
         Text("Settings", role = TextRole.Title)
+        state.theme?.let { theme ->
+            Text("Appearance", role = TextRole.Heading)
+            Choice("Theme", theme, ThemeMode.entries, { it.name }, any = null) { if (it != null) viewModel.setTheme(it) }
+            Divider()
+        }
         Text("Retention", role = TextRole.Heading)
         if (retention != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {

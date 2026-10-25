@@ -16,6 +16,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.data.appearanceRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.ApprovalRepository
@@ -23,6 +24,7 @@ import appmonitor.desktop.domain.DeviceConnectionRepository
 import appmonitor.desktop.domain.DisconnectedDevice
 import appmonitor.desktop.domain.PendingApproval
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.CLEAR_ALL
 import appmonitor.desktop.feature.settings.CONFIRM_CLEAR
 import appmonitor.desktop.feature.settings.MCP_STATUS
@@ -97,7 +99,7 @@ class AppMonitorAppTest {
             live.receive(storage)
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening on port 47474", live = live) }
+                setContent { AppMonitorApp(storage, "Listening on port 47474", appearance = TestAppearance, live = live) }
 
                 awaitText("Pixel 9 (emulator)")
                 onNodeWithText("Android 16 · disconnected").assertExists()
@@ -149,7 +151,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("wss://a.example/ws")
                 onNodeWithText("wss://a.example/ws").performClick()
@@ -185,7 +187,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/big")
                 val opened =
@@ -211,7 +213,15 @@ class AppMonitorAppTest {
                 val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
                 try {
                     runDesktopComposeUiTest(width = 1280, height = 800) {
-                        setContent { AppMonitorApp(storage, "Listening", approvals = ServerApprovals(approvals), live = live) }
+                        setContent {
+                            AppMonitorApp(
+                                storage,
+                                "Listening",
+                                appearance = TestAppearance,
+                                approvals = ServerApprovals(approvals),
+                                live = live,
+                            )
+                        }
 
                         waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
                         onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
@@ -256,7 +266,7 @@ class AppMonitorAppTest {
                 }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", connections = connections, live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, connections = connections, live = live) }
 
                 awaitText("Android 16 · connected")
                 onNodeWithText("Disconnect").performClick()
@@ -283,7 +293,7 @@ class AppMonitorAppTest {
                 )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", approvals = approvals) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, approvals = approvals) }
 
                 onNodeWithText("Pixel — app.a wants to connect").assertExists()
                 onNodeWithText("1 more waiting").assertExists()
@@ -292,6 +302,37 @@ class AppMonitorAppTest {
             }
 
             assertEquals(listOf(DeviceKey("d1", "app.a") to false), approvals.decisions)
+        }
+
+    @Test
+    fun `the theme chosen in the settings repaints the window and is stored`() =
+        withStorage { storage ->
+            val appearance = runBlocking { storage.settingRepository().appearanceRepository() }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = appearance) }
+                runBlocking { appearance.setTheme(ThemeMode.Light) }
+                waitForIdle()
+                assertTrue(cornerLuminance() > 0.9, "light window")
+
+                onNodeWithText("Settings").performClick()
+                onNodeWithText("Theme: Light ▾").performClick()
+                onNodeWithText("Dark").performClick()
+                onNodeWithText("Close").performClick()
+                waitForIdle()
+
+                assertEquals(ThemeMode.Dark, appearance.theme.value)
+                assertTrue(cornerLuminance() < 0.1, "dark window")
+            }
+            runBlocking {
+                storage.flush()
+                assertEquals(
+                    ThemeMode.Dark,
+                    storage
+                        .settingRepository()
+                        .appearanceRepository()
+                        .theme.value,
+                )
+            }
         }
 
     @Test
@@ -311,6 +352,7 @@ class AppMonitorAppTest {
                     AppMonitorApp(
                         storage,
                         "Listening",
+                        appearance = TestAppearance,
                         answered = answered,
                         mcp = mcp,
                     )
@@ -343,7 +385,7 @@ class AppMonitorAppTest {
                 runBlocking { controller.start() }
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent { AppMonitorApp(storage, "Listening", live = live, mcp = controller) }
+                    setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, mcp = controller) }
 
                     awaitText("Pixel")
                     onNodeWithText("Settings").performClick()
@@ -362,7 +404,7 @@ class AppMonitorAppTest {
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
-                    AppMonitorApp(storage, "Listening", live = live, onClearAll = {
+                    AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, onClearAll = {
                         runBlocking { storage.clearAll() }
                         live.clear()
                     })
@@ -413,7 +455,7 @@ class AppMonitorAppTest {
             }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("Galaxy")
                 onNodeWithText("Live ▾").assertExists()
@@ -456,7 +498,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/login")
                 onNodeWithText("https://a.example/cart").assertExists()
@@ -490,7 +532,7 @@ class AppMonitorAppTest {
             }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/before")
                 onNodeWithTag(RECORD).performClick()
@@ -543,7 +585,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/keep")
                 onNodeWithTag(MARK + "r1").performClick()
@@ -556,7 +598,7 @@ class AppMonitorAppTest {
                 onNodeWithTag(RUNS).performClick()
                 onNodeWithTag(SAVED_RUN).performClick()
                 awaitText("Saved ▾")
-                onNodeWithText("https://a.example/also").assertExists()
+                awaitText("https://a.example/also")
                 onNodeWithText("https://a.example/drop").assertDoesNotExist()
                 onNodeWithTag(SAVE).assertDoesNotExist()
                 onNodeWithTag(CLEAR).assertDoesNotExist()
@@ -591,7 +633,7 @@ class AppMonitorAppTest {
             val url = { path: String -> "https://api.example.com/$path" }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText(url("feed"))
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
@@ -647,7 +689,7 @@ class AppMonitorAppTest {
             live.record(post("r1", "json", "application/json"), post("r2", "text", "text/plain"))
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/json")
                 onNodeWithText("https://a.example/json").performClick()
@@ -669,7 +711,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/upload")
                 onNodeWithText("https://a.example/upload").performClick()

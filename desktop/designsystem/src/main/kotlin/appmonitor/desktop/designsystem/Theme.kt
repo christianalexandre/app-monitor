@@ -2,12 +2,11 @@ package appmonitor.desktop.designsystem
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Colors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Shapes
 import androidx.compose.material.Surface
 import androidx.compose.material.Typography
-import androidx.compose.material.darkColors
-import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -32,12 +31,30 @@ fun AppMonitorTheme(
     dark: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalAppColors provides if (dark) DarkAppColors else LightAppColors) {
-        MaterialTheme(colors = if (dark) darkColors() else lightColors(), typography = Typography(), shapes = AppShapes) {
+    val colors = if (dark) DarkAppColors else LightAppColors
+    CompositionLocalProvider(LocalAppColors provides colors) {
+        MaterialTheme(colors = colors.toMaterial(!dark), typography = Typography(), shapes = AppShapes) {
             content()
         }
     }
 }
+
+private fun AppColors.toMaterial(isLight: Boolean) =
+    Colors(
+        primary = primary,
+        primaryVariant = primaryVariant,
+        secondary = secondary,
+        secondaryVariant = secondaryVariant,
+        background = background,
+        surface = surface,
+        error = error,
+        onPrimary = onPrimary,
+        onSecondary = onSecondary,
+        onBackground = onSurface,
+        onSurface = onSurface,
+        onError = onError,
+        isLight = isLight,
+    )
 
 object AppMonitorTheme {
     val colors: AppColors

@@ -60,7 +60,7 @@ class TrafficStoreTest {
             try {
                 assertEquals(2, runBlocking { reopened.runs() }.size, "the launch opened a run of its own")
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent { AppMonitorApp(reopened, "Listening on port 47474") }
+                    setContent { AppMonitorApp(reopened, "Listening on port 47474", appearance = TestAppearance) }
 
                     // The live list starts empty; the stored run, ended, is one click away (ADR-0140).
                     awaitText("No requests yet")
@@ -91,7 +91,7 @@ class TrafficStoreTest {
             live.record(*requests.toTypedArray())
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://a.example/0")
                 // An index past the rows read so far is refused, so each one waits for the page before it.

@@ -17,7 +17,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
 - **No Material outside the design system**: no
   `androidx.compose.material*` import, no `MaterialTheme`. A component
   the design system lacks is added there first, then used.
-- **No raw color, spacing or radius in a screen**: no `Color(0x…)`, no
+- **No raw color, spacing or radius in a screen**: no `Color(0x…)` or `Color.White`, no
   `.dp` in `padding`, `spacedBy`, `Spacer` or `RoundedCornerShape`. A
   value missing from `Spacing` or `Radius` is added there. Sizes
   (`width`, `heightIn`, `size`) may stay in the screen.
@@ -62,6 +62,11 @@ ADR-0133 join this chapter as they land (PLAN-0012).
 - **Every component is in the gallery.** A new one is added to
   `GalleryTest`, which renders it in light and dark
   (`desktop/designsystem/build/screenshots/gallery-*.png`).
+- **Every color is a token with a light and a dark value** in `AppColors`
+  (ADR-0145); a screen reads it through `AppMonitorTheme.colors` or a
+  component, never `Color(0x…)` or `Color.White`. A screen test's
+  `screenshot("x.png")` writes `x.png` and `x-dark.png` when the window
+  gets `TestAppearance`.
 
 ## Examples
 

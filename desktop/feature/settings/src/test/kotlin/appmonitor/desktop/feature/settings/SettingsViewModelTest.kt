@@ -2,11 +2,13 @@ package appmonitor.desktop.feature.settings
 
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.AnsweredDeviceRepository
+import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.McpRepository
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.domain.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +45,20 @@ class SettingsViewModelTest {
             assertEquals(RetentionState(4096, true), viewModel.state.value.retentionState)
             assertNull(viewModel.state.value.mcp, "no MCP server, no section")
             assertNull(viewModel.state.value.proxy)
+            assertNull(viewModel.state.value.theme)
+        }
+
+    @Test
+    fun `the theme is read and chosen through the repository`() =
+        runTest {
+            val appearance = FakeAppearance()
+            val viewModel = SettingsViewModel(retention, appearance = appearance)
+            assertEquals(ThemeMode.System, viewModel.state.value.theme)
+
+            viewModel.setTheme(ThemeMode.Dark)
+
+            assertEquals(ThemeMode.Dark, viewModel.state.value.theme)
+            assertEquals(listOf(ThemeMode.Dark), appearance.written)
         }
 
     @Test
@@ -72,6 +88,16 @@ class SettingsViewModelTest {
 
             assertEquals(McpSettings(ServiceStatus.PortTaken(47475), false, 47475, "/mcp", "t2"), viewModel.state.value.mcp)
         }
+}
+
+private class FakeAppearance : AppearanceRepository {
+    override val theme = MutableStateFlow(ThemeMode.System)
+    val written = mutableListOf<ThemeMode>()
+
+    override suspend fun setTheme(theme: ThemeMode) {
+        written += theme
+        this.theme.value = theme
+    }
 }
 
 private class FakeRetention : RetentionRepository {

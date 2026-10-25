@@ -37,7 +37,7 @@ class MockedExchangeUiTest {
                 envelope(ResponseReceived(request_id = "d", status_code = 200), 3_001),
             )
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://api.example.com/v1/items")
                 onNodeWithTag(MOCKED + "m", useUnmergedTree = true).assertExists()

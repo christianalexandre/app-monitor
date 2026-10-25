@@ -30,7 +30,7 @@ class GrpcStatusUiTest {
                 envelope(ended("p", 5, "no such thing"), 2_010),
             )
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://api.example.com/test.Echo/Unary")
                 onNodeWithText("grpc 13").assertExists()

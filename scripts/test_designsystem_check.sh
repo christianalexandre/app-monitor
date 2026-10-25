@@ -25,7 +25,7 @@ echo "designsystem_check.sh"
 screen 'Modifier.width(240.dp).padding(Spacing.lg)'
 run
 check "design system itself and sizes pass" test $? -eq 0
-for bad in 'Color(0x1F2196F3)' 'MaterialTheme.typography.caption' 'import androidx.compose.material.Text' \
+for bad in 'Color(0x1F2196F3)' 'Color.White' 'MaterialTheme.typography.caption' 'import androidx.compose.material.Text' \
   'import androidx.compose.material3.Button' 'Modifier.padding(horizontal = 12.dp)' 'Arrangement.spacedBy(8.dp)' \
   'Spacer(Modifier.height(16.dp))' 'RoundedCornerShape(4.dp)'; do
   screen "$bad"
