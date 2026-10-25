@@ -203,6 +203,42 @@ new privacy decision.
   Accept: `./gradlew :desktop:server:test` with the forgotten handshake
   test repeated (20 times) always seeing 1008.
 
+### Third milestone review
+
+Findings of the `code-review` of `66c4154..81fed8e`. Two are correctness
+findings and became tasks. Seven went to DEBT-0068 (a failed retry left
+out of `lastError`, a retry clearing another batch's error, close's lost
+count without the pending disconnects, `whileOpen` swallowing
+cancellation, the copied rollback, the three-state `published`, one
+closing guard per method). One was rejected: a retention pass already
+running when `close` starts deletes only what its unchanged settings
+ask, and the shut writer rejects its next `yield`, so it never reaches
+the closed driver.
+
+- [ ] **M5.R9 One lost disconnect that keeps failing keeps the others
+  connected.**
+  `Ingest.retryLost` writes every lost disconnect in one transaction, so
+  a disconnect whose write always fails rolls back the others on every
+  retry: their sessions stay connected for the rest of the launch, which
+  SDD 09 says a lost disconnect does not do. Retry each lost disconnect
+  in its own transaction.
+  Accept: `./gradlew :desktop:storage:test` with two lost disconnects,
+  one failing on every write: the other is stored as disconnected and
+  leaves `notSaved`.
+- [ ] **M5.R10 Reads and observed queries race `Storage.close`.**
+  `read` and the `observe*` flows query on `Dispatchers.IO` with no
+  closing guard, while `close` closes the driver on the writer thread:
+  on a stop hook (SIGTERM) with the window open, the `EndRun` commit
+  makes `observeSessions` and `observeRuns` query again while the driver
+  closes, and the collector throws on a closed driver. `close`'s "no call
+  runs on a closed driver" holds for writer calls only. Make reads and
+  observed queries stop once the store is closing, and close the driver
+  only after a read in flight returns.
+  Accept: `./gradlew :desktop:storage:test` with a read held in flight
+  across a `close` (the driver closes after it returns) and an
+  `observeSessions` collector active during `close` that ends without an
+  exception.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
