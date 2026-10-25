@@ -24,7 +24,7 @@ paid". H1.1's findings that normal use hits become `H1.R*` tasks here,
 at most two; the rest go into one DEBT (ADR-0094). Non-correctness review
 DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
 
-- [x] **H1.1 Review the field-test path.** (`docs/review-field-test-path`) `code-review` at `medium` over
+- [x] **H1.1 Review the field-test path.** (#254) `code-review` at `medium` over
   what a real app runs, not one milestone's diff: the setup steps of the
   README and SDD 02 (dependency, Gradle block or plugin, Run Script,
   start), discovery and approval, the transport, and the capture in
