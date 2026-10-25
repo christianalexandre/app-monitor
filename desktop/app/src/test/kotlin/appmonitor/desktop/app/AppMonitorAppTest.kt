@@ -13,17 +13,17 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
-import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.CLEAR_ALL
-import appmonitor.desktop.app.ui.CONFIRM_CLEAR
-import appmonitor.desktop.app.ui.MCP_STATUS
-import appmonitor.desktop.app.ui.MCP_SWITCH
-import appmonitor.desktop.app.ui.McpSettings
-import appmonitor.desktop.app.ui.claudeMcpAdd
+import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.PendingApproval
+import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.feature.settings.CLEAR_ALL
+import appmonitor.desktop.feature.settings.CONFIRM_CLEAR
+import appmonitor.desktop.feature.settings.MCP_STATUS
+import appmonitor.desktop.feature.settings.MCP_SWITCH
+import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
@@ -33,7 +33,6 @@ import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.RetentionSettings
-import appmonitor.desktop.storage.StoredApproval
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
@@ -240,14 +239,13 @@ class AppMonitorAppTest {
     fun `the settings list every answered pair and forget one or all`() =
         withStorage { storage ->
             val answered =
-                listOf(
-                    StoredApproval("d1", "app.a", true, 1_790_000_000_000, "Pixel", "Android 16", "1.0"),
-                    StoredApproval("d2", "app.a", false, 1_790_000_600_000, "iPhone", "iOS 26", "1.1"),
+                FakeAnswered(
+                    listOf(
+                        AnsweredDevice("d1", "app.a", true, 1_790_000_000_000, "Pixel", "Android 16", "1.0"),
+                        AnsweredDevice("d2", "app.a", false, 1_790_000_600_000, "iPhone", "iOS 26", "1.1"),
+                    ),
                 )
-            val forgotten = mutableListOf<DeviceKey?>()
-
-            val mcp = McpSettings(McpStatus.Running(47475), enabled = true, port = 47475, token = "3q2-7w")
-            val switched = mutableListOf<Boolean>()
+            val mcp = FakeMcp(ServiceStatus.Running(47475), port = 47475, token = "3q2-7w")
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
@@ -255,15 +253,13 @@ class AppMonitorAppTest {
                         storage,
                         "Listening",
                         answered = answered,
-                        onForget = { forgotten += it },
                         mcp = mcp,
-                        onMcpEnabled = { switched += it },
                     )
                 }
 
                 onNodeWithText("Settings").performClick()
                 onNodeWithTag(MCP_STATUS, useUnmergedTree = true).assertTextEquals("Listening on http://127.0.0.1:47475/mcp")
-                onNodeWithText(claudeMcpAdd(47475, "3q2-7w")).assertExists()
+                onNodeWithText(claudeMcpAdd(47475, "/mcp", "3q2-7w")).assertExists()
                 onNodeWithText("Pixel — app.a").assertExists()
                 onNodeWithText("iPhone — app.a").assertExists()
                 screenshot("settings.png")
@@ -274,8 +270,8 @@ class AppMonitorAppTest {
                 onNodeWithText("Pixel — app.a").assertDoesNotExist()
             }
 
-            assertEquals(listOf(DeviceKey("d2", "app.a"), null), forgotten)
-            assertEquals(listOf(false), switched)
+            assertEquals(listOf("d2" to "app.a", null), answered.forgotten)
+            assertEquals(listOf(false), mcp.switched)
         }
 
     @Test
@@ -287,12 +283,7 @@ class AppMonitorAppTest {
                 runBlocking { controller.start() }
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent {
-                        val status by controller.status.collectAsState()
-                        val enabled by controller.enabled.collectAsState()
-                        val token by controller.token.collectAsState()
-                        AppMonitorApp(storage, "Listening", mcp = McpSettings(status, enabled, controller.port, token))
-                    }
+                    setContent { AppMonitorApp(storage, "Listening", mcp = controller) }
 
                     awaitText("Pixel")
                     onNodeWithText("Settings").performClick()

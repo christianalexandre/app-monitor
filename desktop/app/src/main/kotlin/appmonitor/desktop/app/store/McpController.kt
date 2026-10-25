@@ -1,5 +1,7 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.McpRepository
+import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.mcp.ReplayAsks
@@ -15,25 +17,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.BindException
 
-/** What the settings show about the MCP server (SDD 10). */
-internal sealed interface McpStatus {
-    data object Off : McpStatus
-
-    data object Starting : McpStatus
-
-    data class Running(
-        val port: Int,
-    ) : McpStatus
-
-    data class PortTaken(
-        val port: Int,
-    ) : McpStatus
-
-    data class Failed(
-        val message: String,
-    ) : McpStatus
-}
-
 /**
  * Starts and stops the MCP server with the `mcp.enabled` switch (missing = on, ADR-0090 C.1); a server is single use,
  * so each start builds one. A taken port or any start failure is a [status], never a throw. Once [close]d it stays off.
@@ -42,21 +25,22 @@ internal sealed interface McpStatus {
 internal class McpController(
     private val storage: Storage,
     private val access: McpAccess,
-    val port: Int = mcpPort(),
+    override val port: Int = mcpPort(),
     private val replays: ReplayAsks? = null,
     private val readSwitch: suspend () -> String? = { storage.setting(KEY_ENABLED) },
-) {
+) : McpRepository {
     private val lock = Mutex()
     private var server: McpServer? = null
     private var closed = false
     private val switchLock = Any()
     private var switched = false
-    private val mutableStatus = MutableStateFlow<McpStatus>(McpStatus.Off)
+    private val mutableStatus = MutableStateFlow<ServiceStatus>(ServiceStatus.Off)
     private val mutableEnabled = MutableStateFlow(true)
 
-    val status: StateFlow<McpStatus> = mutableStatus.asStateFlow()
-    val enabled: StateFlow<Boolean> = mutableEnabled.asStateFlow()
-    val token: StateFlow<String> get() = access.token
+    override val status: StateFlow<ServiceStatus> = mutableStatus.asStateFlow()
+    override val enabled: StateFlow<Boolean> = mutableEnabled.asStateFlow()
+    override val token: StateFlow<String> get() = access.token
+    override val path: String get() = McpServer.PATH
 
     /** Reads the switch and starts the server when it is on. */
     suspend fun start() {
@@ -72,7 +56,7 @@ internal class McpController(
     }
 
     /** Persists the switch, then starts or stops the server. */
-    suspend fun setEnabled(on: Boolean) {
+    override suspend fun setEnabled(on: Boolean) {
         synchronized(switchLock) {
             switched = true
             mutableEnabled.value = on
@@ -83,7 +67,7 @@ internal class McpController(
     }
 
     /** A new token at once; clients with the old one get `401`. */
-    suspend fun regenerate() {
+    override suspend fun regenerate() {
         access.regenerate()
     }
 
@@ -104,28 +88,28 @@ internal class McpController(
 
     private suspend fun startLocked() {
         if (closed || server != null) return
-        mutableStatus.value = McpStatus.Starting
+        mutableStatus.value = ServiceStatus.Starting
         val next = McpServer(storage, access, port, replays = replays)
         mutableStatus.value =
             try {
-                McpStatus.Running(next.start()).also { server = next }
+                ServiceStatus.Running(next.start()).also { server = next }
             } catch (e: CancellationException) {
                 next.stop()
-                mutableStatus.value = McpStatus.Off
+                mutableStatus.value = ServiceStatus.Off
                 throw e
             } catch (e: BindException) {
                 next.stop()
-                McpStatus.PortTaken(port)
+                ServiceStatus.PortTaken(port)
             } catch (e: Exception) {
                 next.stop()
-                McpStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
+                ServiceStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
             }
     }
 
     private suspend fun stopLocked() {
         server?.stop()
         server = null
-        mutableStatus.value = McpStatus.Off
+        mutableStatus.value = ServiceStatus.Off
     }
 
     companion object {

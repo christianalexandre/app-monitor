@@ -8,12 +8,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.ProxyController
-import appmonitor.desktop.app.store.ProxyStatus
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.PROXY_RESET_CA
-import appmonitor.desktop.app.ui.PROXY_STATUS
-import appmonitor.desktop.app.ui.PROXY_SWITCH
-import appmonitor.desktop.app.ui.ProxySettings
+import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.feature.settings.PROXY_RESET_CA
+import appmonitor.desktop.feature.settings.PROXY_STATUS
+import appmonitor.desktop.feature.settings.PROXY_SWITCH
 import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.delay
@@ -38,18 +37,18 @@ class ProxyWiringTest {
             try {
                 val proxy = ProxyController(storage, dir, port = 0)
                 runBlocking { proxy.start() }
-                assertEquals(ProxyStatus.Off, proxy.status.value)
-                assertFalse(Files.exists(proxy.caFile), "no CA before the first start")
+                assertEquals(ServiceStatus.Off, proxy.status.value)
+                assertFalse(Files.exists(proxy.caPath), "no CA before the first start")
 
                 runBlocking { proxy.setEnabled(true) }
-                val port = assertIs<ProxyStatus.Running>(proxy.status.value).port
+                val port = assertIs<ServiceStatus.Running>(proxy.status.value).port
                 val origin = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
                 curl("--proxy", "http://127.0.0.1:$port", "http://127.0.0.1:$origin/none")
                 runBlocking {
                     proxy.setEnabled(false)
                     storage.flush()
                 }
-                assertEquals(ProxyStatus.Off, proxy.status.value)
+                assertEquals(ServiceStatus.Off, proxy.status.value)
 
                 val session = runBlocking { storage.sessions(storage.runId) }.single()
                 assertEquals(ProxyRecording.HELLO.device_name, session.hello.device_name)
@@ -60,7 +59,7 @@ class ProxyWiringTest {
 
                 val relaunched = ProxyController(storage, dir, port = 0)
                 runBlocking { relaunched.start() }
-                assertEquals(ProxyStatus.Off, relaunched.status.value, "the switch is kept off")
+                assertEquals(ServiceStatus.Off, relaunched.status.value, "the switch is kept off")
                 runBlocking { relaunched.close() }
                 runBlocking { proxy.close() }
             } finally {
@@ -75,8 +74,10 @@ class ProxyWiringTest {
                 withDataDir { dir ->
                     val proxy = ProxyController(storage, dir, port = taken.localPort)
                     runBlocking { proxy.setEnabled(true) }
-                    assertEquals(ProxyStatus.PortTaken(taken.localPort), proxy.status.value)
+                    assertEquals(ServiceStatus.PortTaken(taken.localPort), proxy.status.value)
                     runBlocking { proxy.close() }
+                    runBlocking { storage.flush() }
+                    assertEquals(emptyList(), runBlocking { storage.sessions(storage.currentRun.value) }, "no session for a failed start")
                 }
             }
         }
@@ -88,18 +89,18 @@ class ProxyWiringTest {
             try {
                 val proxy = ProxyController(storage, dir, port = 0)
                 runBlocking { proxy.setEnabled(true) }
-                val first = Files.readString(proxy.caFile)
+                val first = Files.readString(proxy.caPath)
 
                 runBlocking { proxy.resetCa() }
-                val second = Files.readString(proxy.caFile)
+                val second = Files.readString(proxy.caPath)
                 assertNotEquals(first, second)
-                assertIs<ProxyStatus.Running>(proxy.status.value)
+                assertIs<ServiceStatus.Running>(proxy.status.value)
 
                 runBlocking {
                     storage.clearAll()
                     proxy.afterClearAll()
                 }
-                assertNotEquals(second, Files.readString(proxy.caFile))
+                assertNotEquals(second, Files.readString(proxy.caPath))
                 assertEquals(true.toString(), runBlocking { storage.setting(ProxyController.KEY_ENABLED) })
                 assertEquals(
                     1,
@@ -109,7 +110,7 @@ class ProxyWiringTest {
 
                 runBlocking { proxy.close() }
                 runBlocking { proxy.setEnabled(true) }
-                assertEquals(ProxyStatus.Off, proxy.status.value, "closed stays off")
+                assertEquals(ServiceStatus.Off, proxy.status.value, "closed stays off")
             } finally {
                 runBlocking { storage.close(kotlin.time.Duration.parse("5s")) }
             }
@@ -119,13 +120,11 @@ class ProxyWiringTest {
     @Test
     fun `the settings show the proxy switch, state and launch command`() =
         withStorage { storage ->
-            val switched = mutableListOf<Boolean>()
-            var resets = 0
-            val proxy = ProxySettings(ProxyStatus.Running(47476), enabled = true, port = 47476, caFile = "/data/proxy-ca.pem")
+            val proxy = FakeProxy(ServiceStatus.Running(47476), port = 47476, caFile = "/data/proxy-ca.pem")
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
-                    AppMonitorApp(storage, "Listening", proxy = proxy, onProxyEnabled = { switched += it }, onResetProxyCa = { resets++ })
+                    AppMonitorApp(storage, "Listening", proxy = proxy)
                 }
 
                 onNodeWithText("Settings").performClick()
@@ -143,8 +142,8 @@ class ProxyWiringTest {
                 onNodeWithTag(PROXY_SWITCH).performClick()
             }
 
-            assertEquals(listOf(false), switched)
-            assertEquals(1, resets)
+            assertEquals(listOf(false), proxy.switched)
+            assertEquals(1, proxy.resets)
         }
 
     private suspend fun sessionsAfterFlush(storage: Storage): List<*> {

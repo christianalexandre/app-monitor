@@ -1,6 +1,5 @@
 package appmonitor.desktop.app.ui
 
-import appmonitor.desktop.data.toStored
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HarRepository
@@ -38,7 +37,7 @@ internal class StorageExports(
     ): HarWrite =
         withContext(Dispatchers.IO) {
             try {
-                val har = Exports.har(storage, filter.toStored())
+                val har = Exports.har(storage, filter)
                 file.writeText(har.text)
                 HarWrite.Written(har.entries, har.more, Exports.MAX_ENTRIES, har.connections)
             } catch (e: ExportRefused) {

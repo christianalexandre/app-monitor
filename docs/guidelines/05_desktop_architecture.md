@@ -31,9 +31,10 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   (`RunRepository`, `TrafficRepository`, `ReplayRepository`,
   `ExportRepository`, `MockRepository`, `BreakpointRepository`,
   `HeldCallRepository`, `ApprovalRepository`, `AskedReplayRepository`,
-  `BenchmarkRepository`, `HarRepository`, `IssueRepository`),
-  never `desktop/storage`'s types; a pane not moved yet (PLAN-0012) is
-  the exception, not the model (ADR-0135).
+  `BenchmarkRepository`, `HarRepository`, `IssueRepository`,
+  `RetentionRepository`, `AnsweredDeviceRepository`, `McpRepository`,
+  `ProxyRepository`),
+  never `desktop/storage`'s types (ADR-0135).
 - **A screen lives in a feature module**, `desktop/feature/<name>`, which
   depends on `desktop/domain`, `desktop/ui` and `desktop/designsystem`
   only: never on `desktop/data`, `desktop/storage`, `desktop/server`,
@@ -47,7 +48,8 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   constructor. A dialog's open flag and a text being typed may stay in
   `remember`.
 - **A view model is declared in its feature's Koin module**
-  (`trafficModule`, `mocksModule`, `breakpointsModule`, `insightsModule`) and read with `koinViewModel()`; `desktop/app`'s
+  (`trafficModule`, `mocksModule`, `breakpointsModule`, `insightsModule`,
+  `settingsModule`) and read with `koinViewModel()`; `desktop/app`'s
   `appModule` includes the module and binds the repositories (ADR-0136).
   A view model test sets `Dispatchers.Main` and runs over fake
   repositories.

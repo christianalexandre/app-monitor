@@ -129,6 +129,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Desktop data tests (the domain's repositories over a real store, mappers) | `./gradlew :desktop:data:test` | active; JVM, in `make build`; store in a temporary directory; ADR-0135 |
 | Desktop traffic feature tests (its view model over fake repositories, body formats) | `./gradlew :desktop:feature:traffic:test` | active; JVM, in `make build`; the panes against a real store run in `:desktop:app:test`; ADR-0136 |
 | Desktop insights feature tests (its view model over fake repositories: benchmarks, run diff, HAR export line) | `./gradlew :desktop:feature:insights:test` | active; JVM, in `make build`; the dialogs against a real store run in `:desktop:app:test`; ADR-0136 |
+| Desktop settings feature tests (its view model over fake repositories: retention, answered devices, MCP section) | `./gradlew :desktop:feature:settings:test` | active; JVM, in `make build`; the dialog against a real store, the MCP and proxy controllers runs in `:desktop:app:test`; ADR-0136 |
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |

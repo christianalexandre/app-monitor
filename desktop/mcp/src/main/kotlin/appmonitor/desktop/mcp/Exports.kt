@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.storage.StatusClass
 import appmonitor.desktop.storage.Storage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -18,7 +19,7 @@ object Exports {
         filter: ExchangeFilter,
         version: String = "dev",
     ): Har {
-        val har = refusals { ExportHar.log(storage, filter, MAX_ENTRIES, ExportHar.FULL, version) }
+        val har = refusals { ExportHar.log(storage, filter.toStored(), MAX_ENTRIES, ExportHar.FULL, version) }
         return Har(pretty.encodeToString(JsonObject.serializer(), har.json), har.entries, har.more, har.connections)
     }
 
@@ -27,6 +28,18 @@ object Exports {
         storage: Storage,
         id: Long,
     ): String = refusals { ToCurl.command(storage, id) }
+
+    private fun ExchangeFilter.toStored() =
+        appmonitor.desktop.storage.ExchangeFilter(
+            text = text,
+            method = method,
+            statusClass = statusClass?.let { StatusClass.valueOf(it.name) },
+            failedOnly = failedOnly,
+            deviceId = deviceId,
+            appId = appId,
+            runId = runId,
+            sessionId = sessionId,
+        )
 
     private inline fun <T> refusals(block: () -> T): T =
         try {

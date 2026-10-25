@@ -14,6 +14,7 @@ import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
@@ -243,6 +244,17 @@ class StoredRepositoriesTest {
             issues.delete(id)
             storage.flush()
             assertEquals(emptyList(), issues.observeIssues().first())
+        }
+
+    @Test
+    fun `retention is read and written through the repository`() =
+        withStorage { storage ->
+            val retention = storage.retentionRepository()
+            assertEquals(Retention(7, 1L shl 30), retention.retention.first())
+            retention.setRetention(Retention(null, 2L shl 30))
+            assertEquals(Retention(null, 2L shl 30), retention.retention.first())
+            assertEquals(storage.retentionStatus.value.usedBytes, retention.state.first().usedBytes)
+            assertNull(retention.state.first().lastError)
         }
 }
 

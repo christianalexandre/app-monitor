@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import appmonitor.desktop.domain.ExchangeFilter as WindowFilter
 
 // M8.4: the `CONNECTION` fixtures through every tool that reads an exchange (ADR-0103, ADR-0104).
 class ConnectionToolsTest {
@@ -99,7 +100,7 @@ class ConnectionToolsTest {
                 },
             )
             assertEquals("1 connections left out: HAR holds HTTP exchanges only", log["comment"]!!.jsonPrimitive.content)
-            val har = Exports.har(running.storage, ExchangeFilter(runId = stored.run))
+            val har = Exports.har(running.storage, WindowFilter(runId = stored.run))
             assertEquals(1 to 1, har.entries to har.connections)
             assertTrue(!har.more)
             assertHar12(

@@ -19,6 +19,9 @@ import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.Retention
+import appmonitor.desktop.domain.RetentionRepository
+import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.Session
@@ -52,6 +55,9 @@ fun Storage.issueRepository(): IssueRepository = StoredIssueRepository(this)
 
 /** The per endpoint numbers of this store. */
 fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
+
+/** The retention of this store. */
+fun Storage.retentionRepository(): RetentionRepository = StoredRetentionRepository(this)
 
 internal class StoredRunRepository(
     private val storage: Storage,
@@ -171,4 +177,14 @@ internal class StoredIssueRepository(
     ): IssueWrite = storage.updateIssue(id, change.toStored()).toDomain()
 
     override suspend fun delete(id: Long) = storage.deleteIssue(id)
+}
+
+internal class StoredRetentionRepository(
+    private val storage: Storage,
+) : RetentionRepository {
+    override val retention: Flow<Retention> = storage.retention.map { it.toDomain() }
+
+    override val state: Flow<RetentionState> = storage.retentionStatus.map { it.toDomain() }
+
+    override suspend fun setRetention(retention: Retention) = storage.setRetention(retention.toStored())
 }

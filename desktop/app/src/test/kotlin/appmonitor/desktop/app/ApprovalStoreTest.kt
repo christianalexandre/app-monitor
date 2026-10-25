@@ -57,10 +57,10 @@ class ApprovalStoreTest {
                 val rejected = runCatching { replay(Target(HOST, port)) }.exceptionOrNull()
                 assertTrue(rejected?.message.orEmpty().contains("VIOLATED_POLICY"), "closed at once: $rejected")
                 assertEquals(emptyList(), approvals.approvals.pending.value)
-                assertEquals(listOf(false), approvals.stored.first().map { it.approved })
+                assertEquals(listOf(false), approvals.answered.first().map { it.approved })
 
                 approvals.forgetAll()
-                assertEquals(emptyList(), approvals.stored.first { it.isEmpty() })
+                assertEquals(emptyList(), approvals.answered.first { it.isEmpty() })
             }
         }
 
