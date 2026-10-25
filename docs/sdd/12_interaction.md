@@ -15,9 +15,10 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
 (ADR-0119). Replays in `store/Replays.kt`, sent from the request
 detail in `ui/App.kt` or asked by MCP's `replay_request` and confirmed in
-its dialog (ADR-0121); no SDK holds a call or replays one yet (PLAN-0010). The Kotlin SDKs list the channel and
-serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
-(SDD 06, 07, ADR-0117).
+its dialog (ADR-0121). The Kotlin SDKs list the channel, serve the
+rules (SDD 04, 05, 08, ADR-0115) and send a request again (ADR-0122);
+the Swift SDK serves the rules (SDD 06, 07, ADR-0117). No SDK holds a
+call yet, and the Swift SDK replays none (PLAN-0010).
 
 ## How it works
 
@@ -30,8 +31,9 @@ serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
   closed. The server writes the queue in order, only after `HelloAck`,
   so an envelope queued as the session is published still comes second.
 - The headless server (`make server`) accepts the channel and sends on it
-  only `--mocks FILE`'s rules; a call its device holds goes on at its
-  timeout.
+  only `--mocks FILE`'s rules and, with `--replay PATH`, a `ReplayRequest`
+  for each session's first request to that URL path (ADR-0122 D.1); a
+  call its device holds goes on at its timeout.
 
 ### Messages
 
@@ -175,7 +177,8 @@ does. The editor sends the name and the whole rule; "Turn on" and
 
 The device sends the request again through the app's own client and
 captures the new call as usual, `RequestStarted.replay_of` set to the
-original's request id (fixture `replay_started.bin`). The store keeps it
+original's request id (fixture `replay_started.bin`); in the Kotlin SDKs,
+from the last 200 requests of the session (SDD 04, 05, 08, ADR-0122). The store keeps it
 in `exchanges.replay_of` (SDD 09); `ExchangeDetail.replayOfId` is the
 original's row in the same session, null once it is gone.
 
@@ -265,6 +268,10 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | `replay_of` kept in every list reader, linked only within its session; a version-6 file migrates | `ReplayedExchangeTest` in `desktop/storage` |
 | "Send again" reaches a stand-in device; its replay marked, linked to the original; a refusal shown | `ReplayTest` in `desktop/app` (`replay.png`) |
 | No replay to a device without `interaction` or to an ended session; a new send clears a refusal | `ReplayTest` |
+| A device sends a kept request again and refuses an unknown one, with a module's reason; forgets them when the session ends | `MonitorClientReplayTest` in `sdk/core` |
+| OkHttp and Ktor send a call again through the app's client, every interceptor or plugin once, marked `replay_of`; a body sent only once refused | `ReplayTest` in `sdk/android-okhttp` and `sdk/ktor` |
+| A real OkHttp call on an emulator sent again on the headless server's `ReplayRequest` | `make e2e-android` |
+| The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `desktop/server` |
 | A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
 | An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
@@ -276,8 +283,9 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
-- No SDK holds a call or replays one yet: both read `BreakpointRules`
-  and `ReplayRequest` as envelopes they drop, so "Send again" says "Sent"
-  and nothing follows (PLAN-0010 M9.10, M9.11).
+- No SDK holds a call yet: both read `BreakpointRules` as an envelope
+  they drop (PLAN-0010 M9.14, M9.11).
+- The Swift SDK drops `ReplayRequest`, so "Send again" to an iOS app
+  using it says "Sent" and nothing follows (PLAN-0010 M9.11).
 - The held call's dialog covers the window while the call waits
   (ADR-0119).

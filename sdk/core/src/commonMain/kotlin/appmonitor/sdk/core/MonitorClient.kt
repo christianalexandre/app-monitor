@@ -5,6 +5,8 @@ import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
 import appmonitor.v1.MockRules
+import appmonitor.v1.ReplayRefused
+import appmonitor.v1.ReplayRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
@@ -98,6 +100,9 @@ internal class MonitorClient(
 
     /** The desktop's mock rules while a session that accepted `interaction` is up. */
     val mocks: MockRuleSet = MockRuleSet()
+
+    /** The requests a `ReplayRequest` can name, kept by the capture modules; emptied when a session ends. */
+    val replays: RecentRequests = RecentRequests()
 
     /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
     val dropped: Long get() = buffer.dropped + synchronized(lock) { oversized }
@@ -285,6 +290,7 @@ internal class MonitorClient(
                 for (frame in ws.incoming) receive(frame, accepted)
             } finally {
                 mocks.clear()
+                replays.clear()
             }
             sender.cancel()
         }
@@ -298,9 +304,24 @@ internal class MonitorClient(
     ) {
         val envelope = (frame as? Frame.Binary)?.let { runCatching { Envelope.ADAPTER.decode(it.readBytes()) }.getOrNull() } ?: return
         if (envelope.channel !in accepted) return
-        if (envelope.channel == Protocol.CHANNEL_INTERACTION && envelope.type == "MockRules") {
-            runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
+        if (envelope.channel != Protocol.CHANNEL_INTERACTION) return
+        when (envelope.type) {
+            "MockRules" -> runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
+            "ReplayRequest" -> runCatching { ReplayRequest.ADAPTER.decode(envelope.payload) }.onSuccess { replay(it.request_id) }
         }
+    }
+
+    /** ADR-0120 A.1: a request not sent again is answered with `ReplayRefused`. */
+    private fun replay(requestId: String) {
+        val reason = replays.replay(requestId) ?: return
+        send(
+            Envelope(
+                channel = Protocol.CHANNEL_INTERACTION,
+                type = "ReplayRefused",
+                payload = ReplayRefused(request_id = requestId, reason = reason).encodeByteString(),
+                timestamp_ms = Clock.System.now().toEpochMilliseconds(),
+            ),
+        )
     }
 
     /** The `HelloAck`, or null when the connection ended or broke the handshake (then closed 1002). */

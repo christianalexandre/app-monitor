@@ -139,3 +139,4 @@ Rules:
 | [0119](0119-breakpoints-in-the-window.md) | A held call opens on its own; breakpoints get their own panel | Accepted |
 | [0120](0120-replay-messages-and-send-again.md) | Replay named by request id, refused by the device, linked within its session | Accepted |
 | [0121](0121-replay-from-mcp.md) | A replay an agent asks waits in memory for a click, and the tool answers at once | Accepted |
+| [0122](0122-replay-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep and send a request again | Accepted |

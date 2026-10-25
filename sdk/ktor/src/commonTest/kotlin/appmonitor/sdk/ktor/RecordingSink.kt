@@ -29,6 +29,16 @@ internal class RecordingSink(
         url: String,
     ): MockRule? = mocks.firstOrNull { url.substringAfter("://").substringAfter('/').substringBefore('?') == it.path.removePrefix("/") }
 
+    /** What [keepForReplay] kept, by request id. */
+    val replays: MutableMap<String, () -> String?> = mutableMapOf()
+
+    override fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) {
+        replays[requestId] = replay
+    }
+
     val pending: Int get() = envelopes.size
 
     fun next(): Envelope {

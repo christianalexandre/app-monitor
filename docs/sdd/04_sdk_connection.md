@@ -34,7 +34,7 @@ it. The client is a state machine; exactly one state is current.
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
 | **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
 | **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
-| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, anything else is ignored ([Mock rules](#mock-rules)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
+| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, a `ReplayRequest` sends a kept request again, anything else is ignored ([Mock rules](#mock-rules), [Replays](#replays)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
 | **stopped** | Nothing; every resource released, buffer discarded. Events are dropped. | `start()` → a new client in discovering, empty buffer. |
 
@@ -59,6 +59,24 @@ it. The client is a state machine; exactly one state is current.
 - Tests: `MonitorClientMocksTest` against `StandInDesktop` (replaced,
   emptied by an empty set and by a lost desktop, ignored when not
   accepted or malformed).
+
+### Replays
+
+- A capture module hands each request it captures to
+  `MonitorBridge.keepForReplay(id, replay)`: a closure that sends the
+  call again, marked `replay_of`, and returns null once it is on its
+  way, else the reason (ADR-0122 A.1). Nothing is kept while no monitor
+  runs.
+- `MonitorClient.replays` (`RecentRequests`) keeps the last 200 by
+  request id, a kept id moved last, and is emptied when the session ends,
+  as the mock rules are.
+- A `ReplayRequest` on an accepted `interaction` channel runs the
+  request's closure on the receive loop. An id not kept, a closure's
+  reason or its exception becomes a `ReplayRefused` on `interaction`
+  (ADR-0120 A.1).
+- Tests: `MonitorClientReplayTest` against `StandInDesktop` (sent again,
+  refused when unknown, with a module's reason or its exception,
+  forgotten when the session ends, only the last kept).
 
 ### Discovery
 

@@ -1,6 +1,8 @@
 package appmonitor.sdk.okhttp
 
 import appmonitor.v1.MockRule
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -13,19 +15,24 @@ import okio.Buffer
 import okio.BufferedSource
 import okio.ForwardingSource
 import okio.Source
+import okio.blackholeSink
 import okio.buffer
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Sends each call's request, response and failure to the running `AppMonitor` (ADR-0017, ADR-0018), and
- * answers a call the desktop's mock rule matches (ADR-0110). Add it with `addInterceptor`, one event set per
- * call; `addNetworkInterceptor` gives one per network hop, with bodies still compressed as on the wire. It
- * captures nothing until `AppMonitor.start` runs.
+ * Sends each call's request, response and failure to the running `AppMonitor` (ADR-0017, ADR-0018), answers a
+ * call the desktop's mock rule matches (ADR-0110), and sends a call again when the desktop asks (ADR-0111). Add
+ * it with `addInterceptor`, one event set per call; `addNetworkInterceptor` gives one per network hop, with
+ * bodies still compressed as on the wire. It captures nothing until `AppMonitor.start` runs.
  */
 public class AppMonitorInterceptor : Interceptor {
     private val sink: CaptureSink
+
+    // The replays in flight, by their cloned call, to the request id each sends again.
+    private val replays = ConcurrentHashMap<Call, String>()
 
     // ADR-0026: beside an internal primary constructor, this one would be missing from the ABI dump.
     public constructor() {
@@ -43,7 +50,12 @@ public class AppMonitorInterceptor : Interceptor {
         val id = newRequestId()
         val masking = Masking(options)
         val mock = sink.mockFor(request.method, request.url.toString())
-        sink.emit("RequestStarted") { requestStarted(id, request, masking, request.body.capture(options.maxBodyBytes), mock?.id) }
+        val call = chain.call()
+        val replayOf = replays[call]
+        sink.emit("RequestStarted") {
+            requestStarted(id, request, masking, request.body.capture(options.maxBodyBytes), mock?.id, replayOf)
+        }
+        sink.keepForReplay(id) { replay(call, id) }
         if (mock != null) return answer(chain, request, mock, id, masking)
         val response =
             try {
@@ -63,6 +75,40 @@ public class AppMonitorInterceptor : Interceptor {
                 sink.emit("ResponseReceived") { responseReceived(id, response, masking, captured) }
             }
         return response.newBuilder().body(capturing).build()
+    }
+
+    /** ADR-0122 B.1: a clone of the app's call through its own client, read to the end so its response is captured whole. */
+    private fun replay(
+        call: Call,
+        id: String,
+    ): String? {
+        val body = call.request().body
+        if (body != null && (body.isOneShot() || body.isDuplex())) return "Its body could be sent only once"
+        val clone = call.clone()
+        replays[clone] = id
+        clone.enqueue(
+            object : Callback {
+                override fun onFailure(
+                    call: Call,
+                    e: IOException,
+                ) {
+                    replays.remove(call)
+                }
+
+                override fun onResponse(
+                    call: Call,
+                    response: Response,
+                ) {
+                    replays.remove(call)
+                    try {
+                        response.use { it.body.source().readAll(blackholeSink()) }
+                    } catch (e: IOException) {
+                        // Captured as the call's end by CapturingSource.
+                    }
+                }
+            },
+        )
+        return null
     }
 
     /** ADR-0110 C.1: the rule's answer after its delay, without the network; a failure is an [IOException]. */

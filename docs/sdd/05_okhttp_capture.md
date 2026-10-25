@@ -64,6 +64,23 @@ interceptor answers without `chain.proceed` (ADR-0115):
 - Tests: `MockAnswerTest` against `mockwebserver3` (no request reaches
   it, delay kept, failure, unmatched call untouched).
 
+### A call sent again
+
+Every captured call, mocked or not, is kept for a replay (SDD 04,
+ADR-0122 B.1):
+
+- On the desktop's request the interceptor clones `chain.call()` and
+  enqueues the clone on the app's client: every application and network
+  interceptor runs again from the call's original request.
+- The clone is marked in the interceptor's own map until it ends, so its
+  `RequestStarted` (each hop's, under `addNetworkInterceptor`) carries
+  `replay_of`; its response is read to the end and closed, so it is
+  captured whole.
+- A one-shot or duplex request body is refused with a reason.
+- Tests: `ReplayTest` against `mockwebserver3` (sent again with the
+  header an earlier interceptor adds and the same body, marked, kept in
+  turn; one-shot body refused).
+
 ### One WebSocket
 
 `AppMonitorWebSocketFactory` wraps any `WebSocket.Factory` (the

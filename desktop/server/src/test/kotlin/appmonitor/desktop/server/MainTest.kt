@@ -6,6 +6,7 @@ import appmonitor.v1.Header
 import appmonitor.v1.MockFailure
 import appmonitor.v1.MockResponse
 import appmonitor.v1.MockRule
+import appmonitor.v1.ReplayRefused
 import appmonitor.v1.RequestStarted
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -98,6 +99,31 @@ class MainTest {
             "network/RequestStarted r1 GET http://h/x",
             describe(envelope.copy(payload = started.copy(mock_rule_id = null).encodeByteString())),
         )
+    }
+
+    @Test
+    fun `the replay path is read with the other options`() {
+        assertEquals(ServerArgs(0, replayPath = "/json"), parseOptions("--port", "0", "--replay", "/json").first)
+        assertNull(parseOptions("--replay", "json").first)
+    }
+
+    @Test
+    fun `the first request of an app to the replay path is asked again, not its replay`() {
+        val started = RequestStarted(request_id = "r1", method = "GET", url = "http://h:8080/json?x=1")
+        val envelope = Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = started.encodeByteString())
+        assertEquals("r1", replayTarget(envelope, "/json"))
+        assertNull(replayTarget(envelope, "/post"))
+        val replay = envelope.copy(payload = started.copy(request_id = "r2", replay_of = "r1").encodeByteString())
+        assertNull(replayTarget(replay, "/json"))
+        assertEquals("network/RequestStarted r2 GET http://h:8080/json?x=1 replay_of r1", describe(replay))
+        assertEquals("interaction/ReplayRequest", replayRequestEnvelope("r1", 0).run { "$channel/$type" })
+    }
+
+    @Test
+    fun `a refused replay is logged with its reason`() {
+        val refused = ReplayRefused(request_id = "r1", reason = "not kept")
+        val envelope = Envelope(channel = Protocol.CHANNEL_INTERACTION, type = "ReplayRefused", payload = refused.encodeByteString())
+        assertEquals("interaction/ReplayRefused r1 not kept", describe(envelope))
     }
 
     @Test

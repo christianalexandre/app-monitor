@@ -26,7 +26,8 @@ mkdir -p "$out" && cat >"$out/mocks.json" <<JSON
 {"rules": [{"id": 1, "method": "GET", "host": "$host", "path": "/status/418",
   "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}}]}
 JSON
-start_server --mocks "$out/mocks.json"
+# The first call of runAll is asked again, through the app's OkHttp client (ADR-0122).
+start_server --mocks "$out/mocks.json" --replay /json
 start_target
 target="http://$host:$target_port"
 
@@ -39,7 +40,7 @@ adb shell am start -S -W --activity-clear-task -n "$app/.MainActivity" \
 echo "e2e-android: sample on $serial, server on port $port, target $target"
 
 # One expectation per line, as `missing` in scripts/e2e_lib.sh reads them.
-expected="GET $target/json ResponseReceived
+expected="GET $target/json ResponseReceived replay
 POST $target/post ResponseReceived
 GET $target/status/404 ResponseReceived
 GET $target/delay/10 RequestFailed
