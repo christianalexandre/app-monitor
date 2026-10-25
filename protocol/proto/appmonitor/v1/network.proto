@@ -46,6 +46,9 @@ message ResponseReceived {
   bytes body = 4;
   bool body_truncated = 5;
   optional int64 body_size = 6;
+  // CAPTURE_LAYER_CONNECTION only: bytes the app wrote, body_size the bytes it
+  // read; status_code 0 and no body (ADR-0103).
+  optional int64 sent_size = 7;
 }
 
 message RequestFailed {

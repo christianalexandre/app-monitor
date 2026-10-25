@@ -15,7 +15,12 @@ let package = Package(
     targets: [
         .target(
             name: "AppMonitor",
-            dependencies: [.product(name: "SwiftProtobuf", package: "swift-protobuf")]
+            dependencies: ["AppMonitorConnections", .product(name: "SwiftProtobuf", package: "swift-protobuf")]
+        ),
+        .target(
+            name: "AppMonitorConnections",
+            exclude: ["fishhook"],
+            cSettings: [.define("APPMONITOR_DEBUG", .when(configuration: .debug))]
         ),
         .target(
             name: "AppMonitorGRPC",

@@ -124,13 +124,13 @@ final class TaskCapture: @unchecked Sendable {
 }
 
 /// Wraps the event for the `network` channel; a failure drops it and never reaches the app's call.
-func emit(_ sink: CaptureSink, _ type: String, _ payload: () throws -> Data) {
+func emit(_ sink: CaptureSink, _ type: String, at timestampMs: Int64? = nil, _ payload: () throws -> Data) {
     guard let payload = try? payload() else { return }
     var envelope = Appmonitor_V1_Envelope()
     envelope.channel = ProtocolConstants.channelNetwork
     envelope.type = type
     envelope.payload = payload
-    envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
+    envelope.timestampMs = timestampMs ?? Int64(Date().timeIntervalSince1970 * 1000)
     sink.send(envelope)
 }
 

@@ -43,4 +43,17 @@ if [[ "$release_names" != "AppMonitor AppMonitorOptions " ]]; then
   echo "ios-sample: Release app holds AppMonitor names other than the stubs: $release_names(ADR-0048)" >&2
   exit 1
 fi
+# The C target of the connection layer (SDD 07) has no Swift names.
+c_symbols() {
+  find "$1" -maxdepth 1 -type f \( -name Sample -o -name '*.dylib' \) -exec nm {} + 2>/dev/null |
+    grep -c appmonitor_connections_install || true
+}
+if [[ "$(c_symbols "$products/Debug-iphonesimulator/Sample.app")" == 0 ]]; then
+  echo "ios-sample: no appmonitor_connections_install in the Debug app; the C symbol check sees nothing" >&2
+  exit 1
+fi
+if [[ "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; then
+  echo "ios-sample: Release app holds the connection layer's C code (ADR-0048)" >&2
+  exit 1
+fi
 echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only"

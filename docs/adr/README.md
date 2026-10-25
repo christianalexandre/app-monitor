@@ -120,3 +120,4 @@ Rules:
 | [0100](0100-connection-metadata-layer.md) | What the connection layer captures on iOS, and when it is on | Accepted |
 | [0101](0101-desktop-proxy-mode.md) | How the desktop proxy mode is exposed, trusted and fed | Accepted |
 | [0102](0102-grpc-call-events.md) | How a grpc-swift call maps onto the network events | Accepted |
+| [0103](0103-connection-events.md) | How a rebound socket maps onto the network events | Accepted |

@@ -11,7 +11,10 @@ public enum AppMonitor {
     public static func start(_ options: AppMonitorOptions = AppMonitorOptions()) {
         options.check()
         #if DEBUG
-        if options.enabled { _ = URLSessionCapture.install() }
+        if options.enabled {
+            _ = URLSessionCapture.install()
+            if options.captureConnections { _ = ConnectionCapture.install() }
+        }
         monitor.start(options) { options in
             let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").info("\($0)") }
             return MonitorClient(
@@ -37,6 +40,7 @@ public enum AppMonitor {
 /// Capture (ADR-0036): `Authorization`, `Proxy-Authorization`, `Cookie` and `Set-Cookie` are always
 /// masked; `maskedHeaders` and `maskedQueryParameters` add names, compared case-insensitively. `masking`
 /// false sends every value in clear. Each body is captured up to `maxBodyBytes`, at most 1 MiB.
+/// `captureConnections` false: the sockets `URLSession` does not open are not reported (ADR-0100).
 public struct AppMonitorOptions: Sendable {
     public var enabled: Bool
     public var host: String?
@@ -46,6 +50,7 @@ public struct AppMonitorOptions: Sendable {
     public var maskedQueryParameters: Set<String>
     public var maxBodyBytes: Int
     public var masking: Bool
+    public var captureConnections: Bool
 
     /// Stops the app when `port` is outside 1...65535 or `maxBodyBytes` outside 0...1 MiB.
     public init(
@@ -56,7 +61,8 @@ public struct AppMonitorOptions: Sendable {
         maskedHeaders: Set<String> = [],
         maskedQueryParameters: Set<String> = [],
         maxBodyBytes: Int = 1_048_576,
-        masking: Bool = true
+        masking: Bool = true,
+        captureConnections: Bool = true
     ) {
         self.enabled = enabled
         self.host = host
@@ -66,6 +72,7 @@ public struct AppMonitorOptions: Sendable {
         self.maskedQueryParameters = maskedQueryParameters
         self.maxBodyBytes = maxBodyBytes
         self.masking = masking
+        self.captureConnections = captureConnections
         check()
     }
 
