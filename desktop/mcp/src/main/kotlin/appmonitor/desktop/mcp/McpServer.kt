@@ -52,6 +52,7 @@ class McpServer internal constructor(
             tool(SearchRequests.NAME, SearchRequests.description, SearchRequests.inputSchema) { SearchRequests.call(storage, it) }
             tool(GetRequest.NAME, GetRequest.description, GetRequest.inputSchema) { GetRequest.call(storage, it) }
             tool(EndpointStats.NAME, EndpointStats.description, EndpointStats.inputSchema) { EndpointStats.call(storage, it) }
+            tool(DiffRuns.NAME, DiffRuns.description, DiffRuns.inputSchema) { DiffRuns.call(storage, it) }
         }
 
     private val lock = Mutex()

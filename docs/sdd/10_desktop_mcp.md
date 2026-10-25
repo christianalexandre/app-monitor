@@ -2,9 +2,9 @@
 
 > **Partly built** (ADR-0066). Built: the server, access checks, token,
 > lifecycle, `list_runs` (M6.3), `search_requests` and `get_request` (M6.4),
-> `endpoint_stats` (M6.5). Not built yet: `diff_runs`, `export_har`,
-> `to_curl` (M6.6, M6.7) and the app wiring and switch (M6.8); each removes
-> its mark.
+> `endpoint_stats` (M6.5), `diff_runs` (M6.6). Not built yet: `export_har`,
+> `to_curl` (M6.7) and the app wiring and switch (M6.8); each removes its
+> mark.
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
 from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
@@ -144,7 +144,7 @@ return (`capture_layer` as `platform`, `adapter`, `connection`, `proxy`,
 | `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
 | `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). `part` leaves the other side `null`; `body_offset` applies to both bodies, frame payloads start at 0. Frames: `direction` `sent`/`received`, `opcode` `text`, `binary`, `ping`, `pong`, `close`. The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame; `next_after_id` is set when it stopped early or is full to `frames_limit`. Unknown id: "no exchange with id N". | `exchange(id)`, `frames(id, afterId, limit)` |
 | `endpoint_stats` | filter fields, `limit` (1–500, 50) | `endpoints[]` by count, descending, then by key: `method`, `host`, `path`, `count`, `status` (`1xx`…`5xx`, `failed`: counts), `error_rate`, `duration_ms` (`min`, `p50`, `p95`, `max`; null when no exchange has both times), `request_bytes`, `response_bytes` (totals); `endpoint_count` (before `limit`), `exchanges_read`, `truncated` | `searchExchangeSizes(filter, afterId, limit)`: the rows with their stored body sizes, 0 when none |
-| `diff_runs` | `base_run_id`, `run_id` (required), filter fields but `run_id` | `added[]` and `gone[]` (endpoint stats), `changed[]` (`method`, `host`, `path`, and `base`, `run`, `delta` for `count`, `error_rate`, `p50_ms`, `p95_ms`), `unchanged` (a count) | `endpoint_stats`' grouping, once per run |
+| `diff_runs` | `base_run_id`, `run_id` (required), filter fields, `limit` (1–500, 50, per list) | `base_run_id`, `run_id`; `added[]` (in `run_id` only) and `gone[]` (in `base_run_id` only), as `endpoint_stats`' endpoints; `changed[]` (`method`, `host`, `path`, and `count`, `error_rate`, `p50_ms`, `p95_ms`, each `base`, `run`, `delta`); `added_count`, `gone_count`, `changed_count` (before `limit`); `unchanged` (a count); `truncated` (either run hit the read cap). Unknown run: "no run with id N". | `runs()`, then `endpoint_stats`' grouping once per run |
 | `export_har` | filter fields, `max_entries` (1–1 000, 100), `bodies` (`none`, `capped`, `full`; `capped`) | HAR 1.2 JSON as the text; `capped` bodies at 16 KiB each | `searchExchanges`, `exchange(id)`, `frames` |
 | `to_curl` | `id` (required) | a POSIX shell command as the text | `exchange(id)` |
 
@@ -163,9 +163,12 @@ Details the table leaves out:
   Kotlin (`EndpointStats.group`, which `diff_runs` reuses); `truncated` is
   true when a matching exchange is left past that. Code: `EndpointStats.kt`.
 - **Changed** (`diff_runs`): an endpoint in both runs whose count or
-  error rate differs, or whose p50 or p95 moved by at least 20 % and
-  10 ms; the others are counted in `unchanged`. `changed` is sorted by the
-  error rate's change, then p95's, largest first.
+  error rate differs, or whose p50 or p95 moved by at least 20 % of the
+  base and 10 ms, or is known in one run only (`delta` null); the others
+  are counted in `unchanged`. `changed` is sorted by the error rate's
+  change, then p95's, in absolute value, largest first, then by key. The
+  filter fields apply to both runs; `run_id` is the compared run. Code:
+  `DiffRuns.kt`.
 - **HAR** (`export_har`): `log.creator` is App Monitor and its version; an
   entry per exchange with `startedDateTime`, `time`, `request` (`method`,
   `url`, `httpVersion` `"unknown"`, `headers`, `queryString` parsed from
@@ -211,7 +214,7 @@ writes) and a hook run before each tool (a call held in flight).
 | `search_requests` | `SearchRequestsTest`: one case per filter, combined filters, a page boundary | M6.4 |
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, nearest rank; `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` in `desktop/storage` | M6.5 |
-| `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it | M6.6 |
+| `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store | M6.6 |
 | `export_har` | `ExportHarTest`: every HAR 1.2 required field, base64 body, frames, the 32 MiB refusal | M6.7 |
 | `to_curl` | `ToCurlTest`: the command run against a local server receives the stored method, URL, headers and body; quotes escaped; binary body | M6.7 |
 

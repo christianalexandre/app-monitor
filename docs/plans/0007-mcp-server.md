@@ -65,7 +65,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   error rate, duration and bytes. DEBT-0058 fires (grouping by URL).
   Accept: `./gradlew :desktop:mcp:test` (or `:desktop:storage:test` for
   the query) on a crafted run with known numbers.
-- [ ] **M6.6 `diff_runs`.** Two runs compared per endpoint: added, gone,
+- [x] **M6.6 `diff_runs`.** (`feat/mcp-diff-runs`; `limit` per list and `added_count`, `gone_count`, `changed_count`, `truncated` added to the output, as `endpoint_stats`' `endpoint_count`.) Two runs compared per endpoint: added, gone,
   and the changes in count, error rate and duration.
   Accept: `./gradlew :desktop:mcp:test` on two crafted runs with known
   differences.

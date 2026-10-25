@@ -1,13 +1,13 @@
 ---
 id: DEBT-0065
-title: Offscreen UI tests failed once each on CI
+title: Settings UI test timed out once on CI
 status: Open
 date: 2026-10-24
-trigger: "A test of `AppMonitorAppTest` (`desktop/app/src/test/kotlin/appmonitor/desktop/app/AppMonitorAppTest.kt`) fails on CI a third time"
+trigger: "A test of `AppMonitorAppTest` (`desktop/app/src/test/kotlin/appmonitor/desktop/app/AppMonitorAppTest.kt`) fails on CI again"
 paid_date:
 ---
 
-# DEBT-0065 — Offscreen UI tests failed once each on CI
+# DEBT-0065 — Settings UI test timed out once on CI
 
 ## What is missing
 
@@ -20,10 +20,16 @@ the storage writer and read back through a `Flow`, and a slow runner may
 need longer than the timeout, or an emission may be missed.
 
 A second test, `the run list switches between named runs and all of
-them`, failed at line 303 (`onNodeWithText("Pixel").assertDoesNotExist()`
-right after `awaitText("iPhone")`) in the `check` job of PR #188, run
-40142472448, on ubuntu. The rerun passed, as did three local reruns and
-`make check`. That PR changes only the retention pass in `desktop/storage`.
+them`, failed twice, in the `check` job of PR #188 (run 40142472448) and
+of PR #203 (run 40153393931), both on ubuntu, with the same report:
+`onNodeWithText("iPhone").assertDoesNotExist()` at line 333, after "New
+run", found the iPhone session. Line 303, noted here before, was the
+`runDesktopComposeUiTest` call the stack also names. The race: "New run"
+shows the current run at once, the second one until the new run is
+written, and the iPhone session's first page loads empty, so
+`awaitText("No requests yet")` could pass before the new run showed. PR
+#203 waits for the iPhone session to go instead. Only the settings timeout
+is left, with one sample.
 
 ## Why it was accepted
 
@@ -36,10 +42,10 @@ would hide the second.
 
 A test of `AppMonitorAppTest`
 (`desktop/app/src/test/kotlin/appmonitor/desktop/app/AppMonitorAppTest.kt`)
-fails on CI a third time. Re-triggered by PR #188: the second failure was a
-different test, so neither has a second sample yet. Then keep the test
-report and the timing of its first wait, and decide between a longer bound
-and a fix.
+fails on CI again. Re-triggered by PR #203: the run list failures were one
+race, fixed there; the settings timeout still has one sample. Then keep the
+test report (the `test-reports` artifact, line and node of the failed
+assertion) and decide between a longer bound and a fix.
 
 ## How it was paid
 
