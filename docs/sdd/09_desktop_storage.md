@@ -50,7 +50,7 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
 | `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms` | `run_id`; `last_envelope_at_ms` |
-| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
+| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
 | `bodies` | `exchange_ref`, `part` (request or response), `codec`, `data`, `size` | primary key (`exchange_ref`, `part`) |
 | `frames` | `exchange_ref`, `at_ms`, `direction`, `opcode`, `payload_truncated`, `payload_size`, `stored_size` | (`exchange_ref`, `id`) |
 | `frame_payloads` | `frame_ref`, `codec`, `data` | primary key `frame_ref` |
@@ -87,7 +87,8 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
   trimmed, blank ones dropped, line breaks turned to spaces, each once.
 
 Migrations are `.sqm` files in `src/main/sqldelight/migrations/`, one per
-schema version: `1.sqm` (version 1 to 2) adds the issue tables. The `.sq`
+schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
+(version 2 to 3) `exchanges.grpc_status`. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -119,6 +120,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   in-memory store does today); a `WebSocketFrame` increments `frame_count`.
 - A `ResponseReceived` with status 0, what a closed `CONNECTION` sends
   (ADR-0103), stores `status_code` null: no status (ADR-0104).
+- A `ResponseReceived` stores its last `grpc-status` header as a number in
+  `grpc_status`, null without one; rows written before version 3 keep null
+  (ADR-0107). `StoredExchange.isError` is failed, status 400 and up, or
+  `grpc_status` other than 0: what endpoint tallies count as errors.
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
 - Runs take the same queue (ADR-0084): `newRun()` ends the current run and
@@ -352,6 +357,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |
 | Stored body sizes per row under a filter, 0 without a body | `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` (M6.5) |
 | The `CONNECTION` fixtures: no status, byte counts in the detail and the sizes, text search, no status class; endpoints per host and port, a refused one as failed, the run diff | `ConnectionTest` (M8.4) |
+| A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
 | The filter bar narrows the list and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7) |

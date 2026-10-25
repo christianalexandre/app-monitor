@@ -7,6 +7,7 @@ import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
+import appmonitor.v1.ResponseReceived
 import com.squareup.wire.Message
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -106,3 +107,18 @@ internal suspend fun holdWriter(storage: Storage): Held {
     running.await()
     return Held(latch)
 }
+
+/** An accepted gRPC call that ended with [status], headers as `GRPCCaptureTests.statusAfterMessagesEndsTheResponse` expects. */
+internal fun grpcEnded(
+    requestId: String,
+    status: Int,
+) = ResponseReceived(
+    request_id = requestId,
+    status_code = 200,
+    headers =
+        listOfNotNull(
+            Header("content-type", "application/grpc"),
+            Header("grpc-status", "$status"),
+            if (status != 0) Header("grpc-message", "broke") else null,
+        ),
+)

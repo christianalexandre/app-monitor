@@ -552,6 +552,7 @@ class Storage private constructor(
                         row.capture_layer,
                         row.error,
                         row.frame_count,
+                        row.grpc_status,
                     ),
                 request = row.request_meta?.let { RequestStarted.ADAPTER.decode(it).copy(body = body(Ingest.PART_REQUEST)) },
                 response = row.response_meta?.let { ResponseReceived.ADAPTER.decode(it).copy(body = body(Ingest.PART_RESPONSE)) },
@@ -829,9 +830,13 @@ data class StoredExchange(
     val captureLayer: CaptureLayer,
     val error: String?,
     val frameCount: Long,
+    val grpcStatus: Int? = null,
 ) {
     /** A socket the connection layer saw (ADR-0103): no status, no headers, no body. */
     val isConnection: Boolean get() = captureLayer == CaptureLayer.CAPTURE_LAYER_CONNECTION
+
+    /** Failed, status 400 and up, or a `grpc-status` other than OK (ADR-0107). */
+    val isError: Boolean get() = failed || (statusCode ?: 0) >= 400 || (grpcStatus ?: 0) != 0
 
     internal constructor(
         id: Long,
@@ -847,6 +852,7 @@ data class StoredExchange(
         captureLayer: Long?,
         error: String?,
         frameCount: Long,
+        grpcStatus: Long?,
     ) : this(
         id,
         sessionRef,
@@ -861,6 +867,7 @@ data class StoredExchange(
         captureLayer?.let { CaptureLayer.fromValue(it.toInt()) } ?: CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
         error,
         frameCount,
+        grpcStatus?.toInt(),
     )
 }
 

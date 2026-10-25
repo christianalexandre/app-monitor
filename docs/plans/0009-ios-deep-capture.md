@@ -81,7 +81,7 @@ evidence before the code.
   Accept: `./gradlew :desktop:proxy:test` — curl `--http2` and a grpc-java
   client through the proxy, a unary and a streaming call stored with
   their messages and `grpc-status`.
-- [ ] **M8.7 The desktop reads grpc-status.** DEBT-0075: a call with
+- [x] **M8.7 The desktop reads grpc-status.** (`feat/desktop-grpc-status`; ADR-0107; a `grpc_status` column, migration `2.sqm`; the list shows `grpc N`; `failed_only` unchanged) DEBT-0075: a call with
   `grpc-status` other than 0 in its response headers counts as an error
   wherever `status_code` decides one (list, issues, benchmarks, run diff,
   MCP), from both writers: the `AppMonitorGRPC` adapter's fixture and

@@ -1143,6 +1143,7 @@ private fun statusOf(exchange: HttpExchange): String =
     when {
         exchange.error != null -> "failed"
         exchange.connection != null -> if (exchange.endedAtMs != null) "closed" else "open"
+        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
@@ -1151,6 +1152,7 @@ internal fun statusOf(exchange: StoredExchange): String =
     when {
         exchange.failed -> "failed"
         exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
+        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }

@@ -25,8 +25,8 @@ internal object EndpointStats {
     val description =
         "Per endpoint (method, host and path without query; http/https and ws/wss together; no path templating; a " +
             "connection's path is :port) of the stored exchanges a filter matches, most called first: count, status " +
-            "classes, error rate (status 400 and up or failed), duration percentiles and stored body bytes (a " +
-            "connection's bytes sent and received). Reads at most $MAX_EXCHANGES exchanges, oldest " +
+            "classes, error rate (status 400 and up, failed, or a grpc-status other than 0), duration percentiles and " +
+            "stored body bytes (a connection's bytes sent and received). Reads at most $MAX_EXCHANGES exchanges, oldest " +
             "first; truncated says it stopped there. Unset filters match all. $DATA_NOTE"
 
     val inputSchema =

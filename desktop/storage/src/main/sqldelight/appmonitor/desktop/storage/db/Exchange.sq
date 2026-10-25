@@ -15,6 +15,7 @@ CREATE TABLE exchanges (
   response_meta BLOB,
   error TEXT,
   frame_count INTEGER NOT NULL DEFAULT 0,
+  grpc_status INTEGER,
   UNIQUE (session_ref, request_id)
 );
 
@@ -35,7 +36,7 @@ SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_l
 WHERE id = :id;
 
 responded:
-UPDATE exchanges SET status_code = :statusCode, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
+UPDATE exchanges SET status_code = :statusCode, grpc_status = :grpcStatus, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
 
 failed:
 UPDATE exchanges SET failed = 1, error = :error, ended_at_ms = :atMs WHERE id = :id;
@@ -45,7 +46,7 @@ UPDATE exchanges SET frame_count = frame_count + 1 WHERE id = :id;
 
 -- Pages by key (SDD 09): the next page starts after the last id of the previous one.
 pageOfSession:
-SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count
+SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count, grpc_status
 FROM exchanges
 WHERE session_ref = :sessionRef AND id > :afterId
 ORDER BY id
@@ -57,7 +58,7 @@ SELECT count(*) FROM exchanges JOIN sessions ON sessions.id = exchanges.session_
 pageOfRun:
 SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
   exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
-  exchanges.error, exchanges.frame_count
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status
 FROM exchanges
 JOIN sessions ON sessions.id = exchanges.session_ref
 WHERE sessions.run_id = :runId AND exchanges.id > :afterId
@@ -73,7 +74,7 @@ SELECT count(*) FROM exchanges WHERE id = ?;
 ofIssue:
 SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
   exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
-  exchanges.error, exchanges.frame_count
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status
 FROM exchanges
 JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
 WHERE issue_exchanges.issue_ref = ?

@@ -43,7 +43,7 @@ data class Durations(
     val max: Long,
 )
 
-/** One endpoint's numbers: an exchange in flight counts in [count] only; an error is status 400 and up or failed. */
+/** One endpoint's numbers: an exchange in flight counts in [count] only; an error is [StoredExchange.isError]. */
 class EndpointTally(
     val endpoint: Endpoint,
 ) {
@@ -80,7 +80,7 @@ class EndpointTally(
         count++
         exchange.statusCode?.let { status -> if (status in 100..599) classes[status / 100 - 1]++ }
         if (exchange.failed) failed++
-        if (exchange.failed || (exchange.statusCode ?: 0) >= 400) errors++
+        if (exchange.isError) errors++
         val start = exchange.startedAtMs
         val end = exchange.endedAtMs
         if (start != null && end != null) durations += end - start

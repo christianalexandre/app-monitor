@@ -77,6 +77,12 @@ ADR-0104): the session touch, the size loop and the `lastId` copies are
 untouched, and reworking them in a reader PR mixes a write-path risk into
 it. Narrowed to the code the items name.
 
+Fired by PLAN-0009 M8.7 (`feat/desktop-grpc-status`), whose `Ingest`
+change is again one column in `ResponseReceived`'s branch (ADR-0107), and
+which adds that column to `Storage.exchange()`'s mapping: the touch, the
+size loop and the `lastId` copies stay, for the reason M8.4 gives; the
+mapping item is unchanged in kind. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

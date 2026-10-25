@@ -56,6 +56,7 @@ class SearchRequestsTest {
                     "method",
                     "url",
                     "status_code",
+                    "grpc_status",
                     "failed",
                     "error",
                     "started_at",

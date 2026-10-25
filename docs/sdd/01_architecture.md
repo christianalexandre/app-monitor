@@ -336,6 +336,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   detail shows the layer caption, then bytes sent and received instead of
   headers and bodies, with no "Copy as cURL". Benchmarks and the run diff
   list it as `CONNECT host:port` (`connections.png`).
+- gRPC status (ADR-0107): a call whose `grpc_status` is other than 0 shows
+  `grpc N` as its status in the row and the detail, and counts as an error
+  in benchmarks and the run diff.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call
