@@ -71,7 +71,7 @@ root="$PWD"
 identity="$(basename "$root" | tr '[:upper:]' '[:lower:]')"
 consumer=build/spm-consumer
 rm -rf "$consumer"
-mkdir -p "$consumer/Sources/Consumer"
+mkdir -p "$consumer/Sources/Consumer" "$consumer/Sources/GRPCConsumer"
 cat >"$consumer/Package.swift" <<EOF
 // swift-tools-version: 6.2
 import PackageDescription
@@ -81,7 +81,14 @@ let package = Package(
     platforms: [.macOS(.v12)],
     dependencies: [.package(path: "$root")],
     targets: [
-        .executableTarget(name: "Consumer", dependencies: [.product(name: "AppMonitor", package: "$identity")])
+        .executableTarget(name: "Consumer", dependencies: [.product(name: "AppMonitor", package: "$identity")]),
+        .executableTarget(
+            name: "GRPCConsumer",
+            dependencies: [
+                .product(name: "AppMonitor", package: "$identity"),
+                .product(name: "AppMonitorGRPC", package: "$identity"),
+            ]
+        ),
     ]
 )
 EOF
@@ -91,13 +98,30 @@ import AppMonitor
 AppMonitor.start(AppMonitorOptions(enabled: false))
 AppMonitor.stop()
 EOF
-for config in debug release; do
-  swift build --package-path "$consumer" -c "$config" >"build/spm-consumer-$config.log" 2>&1 || {
-    cat "build/spm-consumer-$config.log" >&2
-    echo "publish-swift: consumer $config build failed" >&2
-    exit 1
-  }
-  bin="$consumer/.build/$config/Consumer"
-  echo "publish-swift: $config Consumer $(wc -c <"$bin" | tr -d ' ') bytes," \
-    "$(nm "$bin" | grep -c SwiftProtobuf || true) SwiftProtobuf symbols (DEBT-0040)"
+cat >"$consumer/Sources/GRPCConsumer/main.swift" <<'EOF'
+import AppMonitor
+import AppMonitorGRPC
+
+AppMonitor.start(AppMonitorOptions(enabled: false))
+if #available(macOS 15.0, *) { print(AppMonitorGRPCInterceptor()) }
+AppMonitor.stop()
+EOF
+# One product at a time: without the adapter, no grpc-swift is linked (ADR-0099 B.1).
+for product in Consumer GRPCConsumer; do
+  for config in debug release; do
+    log="build/spm-consumer-$product-$config.log"
+    swift build --package-path "$consumer" -c "$config" --product "$product" >"$log" 2>&1 || {
+      cat "$log" >&2
+      echo "publish-swift: $product $config build failed" >&2
+      exit 1
+    }
+    bin="$consumer/.build/$config/$product"
+    grpc="$(nm "$bin" | grep -c GRPCCore || true)"
+    if [[ "$product" == Consumer && "$grpc" -ne 0 ]]; then
+      echo "publish-swift: Consumer $config links $grpc GRPCCore symbols without the adapter" >&2
+      exit 1
+    fi
+    echo "publish-swift: $config $product $(wc -c <"$bin" | tr -d ' ') bytes," \
+      "$(nm "$bin" | grep -c SwiftProtobuf || true) SwiftProtobuf symbols (DEBT-0040), $grpc GRPCCore symbols"
+  done
 done

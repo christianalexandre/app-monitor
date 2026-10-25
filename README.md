@@ -83,7 +83,8 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | --- | --- | --- | --- |
 | Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
 | iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
-| iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
+| iOS | `sdk/ios` product `AppMonitorGRPC` (iOS 18) | gRPC Swift 2 calls in full, one interceptor | works in host tests, unpublished — M8 |
+| iOS | `sdk/ios` | Third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
 | Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals, MCP server on `127.0.0.1` — M1, M5, M6 |
 
@@ -141,6 +142,17 @@ product compiles to stubs in configurations whose name lacks `Debug`, and
 the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in
 [`samples/ios`](samples/ios).
+
+```swift
+// iOS with gRPC Swift 2 — add the AppMonitorGRPC product too
+import AppMonitorGRPC
+
+let client = GRPCClient(transport: transport, interceptors: [AppMonitorGRPCInterceptor()])
+```
+
+Each call shows as one exchange, messages as bytes
+([ADR-0099](docs/adr/0099-grpc-swift-adapter.md)); gRPC Swift 1 is not
+covered.
 
 ```kotlin
 // KMP — commonMain, every HttpClient you want to see

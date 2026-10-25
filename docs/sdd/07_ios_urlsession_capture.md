@@ -5,7 +5,8 @@ envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
 `BackgroundCapture.swift` and `Masking.swift`; the mechanism is ADR-0043
 (WebSocket tasks ADR-0045, background sessions ADR-0046), what is masked and
-bounded ADR-0036.
+bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
+the last section (ADR-0099).
 
 ## How it works
 
@@ -98,6 +99,46 @@ Missing one of the three session methods leaves background tasks with only
 `xctest` process, so these cases are tested hosted in an app on the
 simulator (`make swift-sim`, ADR-0047).
 
+## The grpc-swift adapter
+
+`AppMonitorGRPC`, a second product of the same package (both manifests,
+ADR-0054), holds `AppMonitorGRPCInterceptor`, a gRPC Swift 2
+`ClientInterceptor` (`grpc-swift-2` from 2.3.0, Apache-2.0, iOS 18 and
+macOS 15; ADR-0099 A.1). The app passes it once in the client's
+`interceptors`; an app without the product resolves `grpc-swift-2` but
+never builds or links it (`make publish-dry-run` checks the binary). Code in
+`sdk/ios/Sources/AppMonitorGRPC/`, events built by `AdapterExchange`
+(`package` access, `AppMonitor/AdapterCapture.swift`) so the protobuf types
+stay `internal`. In release the interceptor only calls `next` (ADR-0048,
+its own `api/AppMonitorGRPC.swiftinterface`).
+
+One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
+
+| Part of the call | Event |
+| --- | --- |
+| Start | `RequestStarted`: method `POST`, URL `grpc://<authority>/<package.Service>/<Method>`, request metadata as headers (`-bin` values in base64), masked like `URLSession`'s |
+| Authority | the client's `remotePeer`: `ipv4:` and `ipv6:` keep address and port; another peer its kind (`in-process`, `unix`) |
+| Request message, unary or server streaming | `RequestStarted.body`; the producer runs once before the call and the same messages are replayed to the transport |
+| Request messages, client or bidirectional streaming | one sent binary `WebSocketFrame` each, before the transport gets it |
+| Response message, unary or client streaming | `ResponseReceived.body` |
+| Response messages, server or bidirectional streaming | one received binary `WebSocketFrame` each, before the app gets it |
+| End with a status (OK, or an error after the server accepted the call) | `ResponseReceived`: status 200, headers = initial metadata, trailers, then `grpc-status` and `grpc-message` (when not empty) |
+| Call the server never accepted, or an error that is not a status | `RequestFailed`: `grpc-status N (name): message`, or the error's description |
+| Call dropped before its status (response stream left unread, cancelled) | `RequestFailed`: `call ended before its status` |
+
+- **Which side streams** comes from `MethodDescriptor.type` (set by
+  `protoc-gen-grpc-swift-2`); a descriptor without one counts as
+  bidirectional, so every message is a frame.
+- **A message** is serialized again with SwiftProtobuf when it is a
+  `SwiftProtobuf.Message`; any other type is sent empty with
+  `body_truncated` and no size. Bodies and frames are cut at
+  `maxBodyBytes` like every body (ADR-0020).
+- **gRPC Swift 1** apps and grpc-swift calls without the interceptor are
+  left to layers 3 and 4 (PLAN-0009).
+- **Tests**: `GRPCCaptureTests` runs a unary, a server-streaming, a
+  rejected and a failing call against an in-process `GRPCServer`
+  (`GRPCInProcessTransport`), and an idle monitor that sends nothing.
+
 ## Limits
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
@@ -112,3 +153,6 @@ simulator (`make swift-sim`, ADR-0047).
   on iOS by M2.12 and M2.13.
 - An event whose URL and headers exceed 256 KiB is dropped whole by
   `MonitorClient` (DEBT-0023).
+- The desktop shows a gRPC message as bytes; it has no `.proto` to decode
+  fields (ADR-0099 C.1). A status other than OK after the server accepted
+  the call is still status 200, the code only in `grpc-status` (DEBT-0075).
