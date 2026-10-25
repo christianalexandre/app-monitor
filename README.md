@@ -101,7 +101,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M6 — MCP server](docs/plans/0007-mcp-server.md) | Traffic, runs and stats queryable by AI agents |
 | [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md) | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md) | gRPC adapters, connection metadata, desktop MITM proxy mode |
-| M9 — Interaction | Mocks, breakpoints, replay |
+| [M9 — Interaction](docs/plans/0010-interaction.md) | Mocks, breakpoints, replay, OkHttp injection by the Gradle plugin |
 | M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
