@@ -1,7 +1,6 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.mcp.Filters.putFilterProperties
-import appmonitor.desktop.storage.Storage
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -40,14 +39,14 @@ internal object SearchRequests {
         )
 
     suspend fun call(
-        storage: Storage,
+        repositories: McpRepositories,
         arguments: JsonObject?,
     ): JsonObject {
         val filter = Filters.filter(arguments)
         val afterId = arguments.long("after_id", 0..Long.MAX_VALUE, 0)!!
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
-        val exchanges = storage.searchExchanges(filter, afterId, limit)
-        val originals = storage.replayOriginals(exchanges)
+        val exchanges = repositories.queries.search(filter, afterId, limit)
+        val originals = repositories.queries.replayOriginals(exchanges)
         return buildJsonObject {
             put("requests", JsonArray(exchanges.map { it.toRowJson(originals[it.id]) }))
             put("next_after_id", (if (exchanges.size.toLong() == limit) exchanges.last().id else null).json())

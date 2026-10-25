@@ -1,12 +1,7 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.MAX_GROUPED_EXCHANGES
 import appmonitor.desktop.mcp.Filters.putFilterProperties
-import appmonitor.desktop.storage.EndpointGroups
-import appmonitor.desktop.storage.EndpointTally
-import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.MAX_GROUPED_EXCHANGES
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.groupByEndpoint
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -14,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import appmonitor.desktop.domain.EndpointStats as Stats
 
 /** `endpoint_stats` (SDD 10): the exchanges a filter matches, grouped by method, host and path. */
 internal object EndpointStats {
@@ -45,13 +41,13 @@ internal object EndpointStats {
         )
 
     suspend fun call(
-        storage: Storage,
+        repositories: McpRepositories,
         arguments: JsonObject?,
         maxExchanges: Long = MAX_EXCHANGES,
     ): JsonObject {
         val filter = Filters.filter(arguments)
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
-        val grouped = group(storage, filter, maxExchanges)
+        val grouped = repositories.benchmarks.endpoints(filter, maxExchanges)
         return buildJsonObject {
             put("endpoints", JsonArray(grouped.endpoints.take(limit.toInt()).map { it.toJson() }))
             put("endpoint_count", grouped.endpoints.size)
@@ -60,18 +56,7 @@ internal object EndpointStats {
         }
     }
 
-    /** [groupByEndpoint], an error once the store closes: a read then may have stopped early. */
-    suspend fun group(
-        storage: Storage,
-        filter: ExchangeFilter,
-        maxExchanges: Long = MAX_EXCHANGES,
-    ): EndpointGroups {
-        val groups = storage.groupByEndpoint(filter, maxExchanges)
-        if (storage.isClosing) throw ToolError(CLOSING)
-        return groups
-    }
-
-    fun EndpointTally.toJson(): JsonObject =
+    fun Stats.toJson(): JsonObject =
         buildJsonObject {
             put("method", endpoint.method.json())
             put("host", endpoint.host.json())
@@ -82,7 +67,7 @@ internal object EndpointStats {
                 put("failed", failed)
             }
             put("error_rate", errorRate)
-            val durations = durationStats
+            val durations = durations
             if (durations == null) {
                 put("duration_ms", JsonNull)
             } else {

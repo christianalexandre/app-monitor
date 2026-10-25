@@ -155,3 +155,4 @@ Rules:
 | [0135](0135-desktop-domain-models-mirror-the-store-and-keep-protocol-messages.md) | Desktop domain models mirror the store's and keep the protocol's messages | Accepted |
 | [0136](0136-desktop-view-models-are-wired-by-a-koin-dsl-module-per-window.md) | Desktop view models are wired by a Koin DSL module per window | Accepted |
 | [0137](0137-what-desktop-features-share-lives-in-desktop-ui.md) | What desktop features share lives in desktop/ui | Accepted |
+| [0138](0138-mcp-reads-through-a-paged-query-repository.md) | MCP reads through a paged query repository beside the window's | Accepted |

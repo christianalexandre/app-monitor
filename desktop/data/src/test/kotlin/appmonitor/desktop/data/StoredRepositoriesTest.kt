@@ -11,6 +11,9 @@ import appmonitor.desktop.domain.IssueChange
 import appmonitor.desktop.domain.IssueSource
 import appmonitor.desktop.domain.IssueStatus
 import appmonitor.desktop.domain.IssueWrite
+import appmonitor.desktop.domain.MAX_GROUPED_EXCHANGES
+import appmonitor.desktop.domain.MIN_MOVE_MS
+import appmonitor.desktop.domain.MIN_MOVE_PERCENT
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
@@ -29,6 +32,7 @@ import appmonitor.v1.Platform
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
 import com.squareup.wire.Message
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -40,6 +44,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
+import appmonitor.desktop.storage.MAX_GROUPED_EXCHANGES as StoredMaxGrouped
+import appmonitor.desktop.storage.MIN_MOVE_MS as StoredMinMoveMs
+import appmonitor.desktop.storage.MIN_MOVE_PERCENT as StoredMinMovePercent
 
 class StoredRepositoriesTest {
     @Test
@@ -128,6 +135,62 @@ class StoredRepositoriesTest {
             assertEquals(emptyList(), diff.added)
             assertEquals(listOf(0.0 to 1.0), diff.changed.map { it.base.errorRate to it.run.errorRate })
             assertEquals(0, diff.unchanged)
+        }
+
+    @Test
+    fun `runs, a search page, replays, one exchange and its frames read through the query repository`() =
+        withStorage { storage ->
+            storage.record(
+                envelope(RequestStarted("r1", "GET", "wss://api.test/socket")),
+                envelope(
+                    WebSocketFrame("r1", WebSocketFrame.Direction.DIRECTION_SENT, WebSocketFrame.Opcode.OPCODE_TEXT, "a".encodeUtf8()),
+                ),
+                envelope(
+                    WebSocketFrame("r1", WebSocketFrame.Direction.DIRECTION_RECEIVED, WebSocketFrame.Opcode.OPCODE_TEXT, "b".encodeUtf8()),
+                ),
+                envelope(RequestStarted("r2", "GET", "https://api.test/socket", replay_of = "r1")),
+                envelope(ResponseReceived("r2", 204)),
+            )
+            val queries = storage.trafficQueryRepository()
+
+            assertEquals(listOf(storage.runId), queries.runs().map { it.id })
+            val summary = queries.runSummaries(Long.MAX_VALUE, 10).single()
+            assertEquals(2L, summary.exchangeCount)
+            assertEquals(listOf("d1" to "Pixel"), summary.sessions.map { it.deviceId to it.deviceName })
+            assertEquals(Platform.PLATFORM_ANDROID, summary.sessions.single().platform)
+
+            val (socket, replay) = queries.search(ExchangeFilter(), 0, 10)
+            assertEquals(listOf(replay), queries.search(ExchangeFilter(), socket.id, 10))
+            assertEquals(listOf(socket), queries.search(ExchangeFilter(), 0, 1))
+            assertEquals(mapOf(replay.id to socket.id), queries.replayOriginals(listOf(socket, replay)))
+
+            val detail = queries.detail(replay.id)!!
+            assertEquals(replay, detail.exchange)
+            assertEquals("r1", detail.request?.replay_of)
+            assertEquals(204, detail.response?.status_code)
+            assertEquals(socket.id, detail.replayOfId)
+            assertNull(detail.connectionBytes)
+            assertNull(queries.detail(replay.id + 1))
+
+            val frames = queries.frames(socket.id, 0, 10)
+            assertEquals(listOf("a", "b"), frames.map { it.payload.bytes.utf8() })
+            assertEquals(listOf(frames.last()), queries.frames(socket.id, frames.first().id, 10))
+            assertEquals(false, queries.isClosing)
+        }
+
+    @Test
+    fun `the grouping cap and the diff thresholds are the store's`() =
+        withStorage { storage ->
+            assertEquals(StoredMaxGrouped, MAX_GROUPED_EXCHANGES)
+            assertEquals(StoredMinMoveMs, MIN_MOVE_MS)
+            assertEquals(StoredMinMovePercent, MIN_MOVE_PERCENT)
+            storage.record(
+                envelope(RequestStarted("r1", "GET", "https://api.test/a")),
+                envelope(RequestStarted("r2", "GET", "https://api.test/b")),
+            )
+            val groups = storage.benchmarkRepository().endpoints(ExchangeFilter(), maxExchanges = 1)
+            assertEquals(1, groups.exchangesRead)
+            assertEquals(true, groups.truncated)
         }
 
     @Test

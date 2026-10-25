@@ -1,12 +1,10 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.EndpointChange
+import appmonitor.desktop.domain.MIN_MOVE_MS
+import appmonitor.desktop.domain.MIN_MOVE_PERCENT
 import appmonitor.desktop.mcp.EndpointStats.toJson
 import appmonitor.desktop.mcp.Filters.putFilterProperties
-import appmonitor.desktop.storage.EndpointChange
-import appmonitor.desktop.storage.MIN_MOVE_MS
-import appmonitor.desktop.storage.MIN_MOVE_PERCENT
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.diffEndpoints
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -19,7 +17,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-/** `diff_runs` (SDD 10): `endpoint_stats`' grouping of two runs, compared per endpoint by `diffEndpoints`. */
+/** `diff_runs` (SDD 10): `endpoint_stats`' grouping of two runs, compared per endpoint by `BenchmarkRepository.diff`. */
 internal object DiffRuns {
     const val NAME = "diff_runs"
     private const val MAX_LIMIT = 500L
@@ -52,7 +50,7 @@ internal object DiffRuns {
         )
 
     suspend fun call(
-        storage: Storage,
+        repositories: McpRepositories,
         arguments: JsonObject?,
         maxExchanges: Long = EndpointStats.MAX_EXCHANGES,
     ): JsonObject {
@@ -60,14 +58,14 @@ internal object DiffRuns {
         val filter = Filters.filter(arguments)
         val runId = filter.runId ?: throw ToolError("run_id is required")
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!.toInt()
-        val known = storage.runs().map { it.id }.toSet()
+        val known =
+            repositories.queries
+                .runs()
+                .map { it.id }
+                .toSet()
         listOf(baseRunId, runId).firstOrNull { it !in known }?.let { throw ToolError("no run with id $it") }
 
-        val diff =
-            diffEndpoints(
-                EndpointStats.group(storage, filter.copy(runId = baseRunId), maxExchanges),
-                EndpointStats.group(storage, filter, maxExchanges),
-            )
+        val diff = repositories.benchmarks.diff(filter, baseRunId, runId, maxExchanges)
         return buildJsonObject {
             put("base_run_id", baseRunId)
             put("run_id", runId)
@@ -94,8 +92,8 @@ internal object DiffRuns {
                 JsonPrimitive(run.errorRate),
                 JsonPrimitive(run.errorRate - base.errorRate),
             )
-            val (baseP50, runP50) = base.durationStats?.p50 to run.durationStats?.p50
-            val (baseP95, runP95) = base.durationStats?.p95 to run.durationStats?.p95
+            val (baseP50, runP50) = base.durations?.p50 to run.durations?.p50
+            val (baseP95, runP95) = base.durations?.p95 to run.durations?.p95
             compare("p50_ms", baseP50.json(), runP50.json(), delta(baseP50, runP50))
             compare("p95_ms", baseP95.json(), runP95.json(), delta(baseP95, runP95))
         }

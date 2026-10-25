@@ -249,7 +249,7 @@ class IssuesTest {
             val storage = Storage.open(data) { 1_000 }
             runBlocking {
                 val access = McpAccess.open(storage)
-                val server = McpServer(storage, access, 0, "test")
+                val server = McpServer(storage, storage.repositories(), access, 0, "test")
                 val port = server.start()
                 try {
                     block(data, Running(storage, access, server, port))

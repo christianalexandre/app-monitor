@@ -36,7 +36,7 @@ not hit (ADR-0094):
   "no exchange with id N".
 - **Paid by H2.4b: the issue list ran its query twice.** `IssueList` keeps an unfiltered
   `observeIssues()` beside the filtered one, only to find the open issue.
-- **`EndpointStats.group` keeps its own closing check** although the
+- **Paid by H2.5a: `EndpointStats.group` kept its own closing check** although the
   wrapper maps every closing call; two places hold one rule.
 
 ## Why it was accepted
@@ -76,6 +76,15 @@ nothing and the Save buttons are off meanwhile; the list and the open
 issue read one `observeIssues()`, the filter applied to it. Re-triggered
 on the rest, code that PR does not change: the MCP wrapper, the export
 closing check and hint, and the order of `updateIssue`'s checks.
+
+Fired by PLAN-0012 H2.5a (`refactor/mcp-read-tools-through-domain`),
+whose wrapper reads `TrafficQueryRepository.isClosing` instead of
+`Storage.isClosing`, the same flag. Paid: `endpoint_stats` and
+`diff_runs` keep no closing check of their own; the wrapper's answers a
+closing store (`EndpointStatsTest.closingStoreAndBadArgumentsAreErrors`
+through the server). Left, for the reasons above: the write answered as
+closing (a shutdown race that needs a seam to test), the export closing
+check and hint, and the order of `updateIssue`'s checks.
 
 ## How it was paid
 

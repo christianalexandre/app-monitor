@@ -56,16 +56,29 @@ data class EndpointDiff(
     val truncated: Boolean,
 )
 
+/** The exchanges one grouping reads at most, oldest first; `desktop/data`'s tests hold it to the store's. */
+const val MAX_GROUPED_EXCHANGES = 100_000L
+
+/** A p50 or p95 known on both runs moved when it changed by at least this many ms and [MIN_MOVE_PERCENT] of the base. */
+const val MIN_MOVE_MS = 10L
+
+/** See [MIN_MOVE_MS]. */
+const val MIN_MOVE_PERCENT = 20L
+
 /** Per endpoint numbers of the stored exchanges, as `endpoint_stats` and `diff_runs` read them (SDD 10). */
 interface BenchmarkRepository {
-    /** The exchanges [filter] matches, grouped per endpoint. */
-    suspend fun endpoints(filter: ExchangeFilter): EndpointGroups
+    /** The exchanges [filter] matches, at most [maxExchanges] of them, grouped per endpoint. */
+    suspend fun endpoints(
+        filter: ExchangeFilter,
+        maxExchanges: Long = MAX_GROUPED_EXCHANGES,
+    ): EndpointGroups
 
     /** Run [runId] against run [baseRunId], [filter] applied to both; its own run id is ignored. */
     suspend fun diff(
         filter: ExchangeFilter,
         baseRunId: Long,
         runId: Long,
+        maxExchanges: Long = MAX_GROUPED_EXCHANGES,
     ): EndpointDiff
 }
 

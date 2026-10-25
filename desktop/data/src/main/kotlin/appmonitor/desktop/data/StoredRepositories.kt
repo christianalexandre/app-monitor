@@ -5,9 +5,11 @@ import appmonitor.desktop.domain.Breakpoint
 import appmonitor.desktop.domain.BreakpointChange
 import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.BreakpointWrite
+import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.EndpointDiff
 import appmonitor.desktop.domain.EndpointGroups
 import appmonitor.desktop.domain.Exchange
+import appmonitor.desktop.domain.ExchangeDetail
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Issue
@@ -24,8 +26,10 @@ import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunRepository
+import appmonitor.desktop.domain.RunSummary
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
@@ -52,6 +56,9 @@ fun Storage.breakpointRepository(): BreakpointRepository = StoredBreakpointRepos
 
 /** The issues of this store. */
 fun Storage.issueRepository(): IssueRepository = StoredIssueRepository(this)
+
+/** The paged reads of this store, as the MCP tools make them. */
+fun Storage.trafficQueryRepository(): TrafficQueryRepository = StoredTrafficQueryRepository(this)
 
 /** The per endpoint numbers of this store. */
 fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
@@ -140,19 +147,53 @@ internal class StoredBreakpointRepository(
 internal class StoredBenchmarkRepository(
     private val storage: Storage,
 ) : BenchmarkRepository {
-    override suspend fun endpoints(filter: ExchangeFilter): EndpointGroups = storage.groupByEndpoint(filter.toStored()).toDomain()
+    override suspend fun endpoints(
+        filter: ExchangeFilter,
+        maxExchanges: Long,
+    ): EndpointGroups = storage.groupByEndpoint(filter.toStored(), maxExchanges).toDomain()
 
     override suspend fun diff(
         filter: ExchangeFilter,
         baseRunId: Long,
         runId: Long,
+        maxExchanges: Long,
     ): EndpointDiff {
         val stored = filter.toStored()
         return diffEndpoints(
-            storage.groupByEndpoint(stored.copy(runId = baseRunId)),
-            storage.groupByEndpoint(stored.copy(runId = runId)),
+            storage.groupByEndpoint(stored.copy(runId = baseRunId), maxExchanges),
+            storage.groupByEndpoint(stored.copy(runId = runId), maxExchanges),
         ).toDomain()
     }
+}
+
+internal class StoredTrafficQueryRepository(
+    private val storage: Storage,
+) : TrafficQueryRepository {
+    override val isClosing: Boolean get() = storage.isClosing
+
+    override suspend fun runs(): List<Run> = storage.runs().map { it.toDomain() }
+
+    override suspend fun runSummaries(
+        beforeId: Long,
+        limit: Long,
+    ): List<RunSummary> = storage.runSummaries(beforeId, limit).map { it.toDomain() }
+
+    override suspend fun search(
+        filter: ExchangeFilter,
+        afterId: Long,
+        limit: Long,
+    ): List<Exchange> = storage.searchExchanges(filter.toStored(), afterId, limit).map { it.toDomain() }
+
+    override suspend fun replayOriginals(exchanges: List<Exchange>): Map<Long, Long> =
+        storage.replayOriginals(exchanges.map { it.toStored() })
+
+    override suspend fun detail(id: Long): ExchangeDetail? = storage.exchange(id)?.toDomain()
+
+    override suspend fun frames(
+        exchangeId: Long,
+        afterId: Long,
+        limit: Long,
+    ): List<CapturedFrame> = storage.frames(exchangeId, afterId, limit).map { it.toDomain() }
 }
 
 internal class StoredIssueRepository(

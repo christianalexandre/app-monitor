@@ -1,8 +1,7 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.RunSummary
-import appmonitor.desktop.storage.SessionSummary
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.domain.RunSummary
+import appmonitor.desktop.domain.SessionSummary
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -40,13 +39,13 @@ internal object ListRuns {
         )
 
     suspend fun call(
-        storage: Storage,
+        repositories: McpRepositories,
         arguments: JsonObject?,
     ): JsonObject {
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val beforeId = arguments.long("before_id", 1..Long.MAX_VALUE, null) ?: Long.MAX_VALUE
-        val runs = storage.runSummaries(beforeId, limit)
-        val current = storage.currentRun.value
+        val runs = repositories.queries.runSummaries(beforeId, limit)
+        val current = repositories.runs.currentRun.value
         return buildJsonObject {
             put("runs", JsonArray(runs.map { it.toJson(current) }))
             put("next_before_id", (if (runs.size.toLong() == limit) runs.last().run.id else null).json())

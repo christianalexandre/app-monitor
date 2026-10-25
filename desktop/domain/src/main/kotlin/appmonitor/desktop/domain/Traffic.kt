@@ -84,8 +84,9 @@ data class CapturedBody(
     val originalSize: Long? = null,
 )
 
-/** One WebSocket frame, in the order the device sent it. */
+/** One WebSocket frame, in the order the device sent it; [id] orders the frames of its exchange. */
 data class CapturedFrame(
+    val id: Long,
     val direction: WebSocketFrame.Direction,
     val opcode: WebSocketFrame.Opcode,
     val payload: CapturedBody,
