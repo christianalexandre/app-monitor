@@ -38,7 +38,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   switched on in the settings, its port; (c) which clients — Streamable
   HTTP only or a stdio shim too (ADR-0005), and what the setup docs cover.
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M6.2 MCP design on paper.** SDD chapter for `desktop/mcp`: each
+- [x] **M6.2 MCP design on paper.** SDD 10, ADR-0092 (`docs/mcp-design`). SDD chapter for `desktop/mcp`: each
   tool's input and output schema, paging and limits, how it maps to
   `ExchangeFilter` and the store's reads; the lifecycle table (call class
   × state, M5's lesson) with the test that pins each cell; whether
