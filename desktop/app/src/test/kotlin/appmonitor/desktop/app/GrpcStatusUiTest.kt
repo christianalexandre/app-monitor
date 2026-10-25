@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.BENCHMARKS
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.RequestStarted
@@ -21,14 +22,15 @@ class GrpcStatusUiTest {
     @Test
     fun `a failed grpc call from each writer shows its grpc status and counts as an error`() =
         withStorage { storage ->
-            storage.record(
+            val live = LiveTraffic()
+            live.record(
                 envelope(call("a", "https://api.example.com/test.Echo/Unary", CaptureLayer.CAPTURE_LAYER_ADAPTER), 1_000),
                 envelope(ended("a", 13, "broke"), 1_010),
                 envelope(call("p", "http://127.0.0.1:50051/test.Echo/Missing", CaptureLayer.CAPTURE_LAYER_PROXY), 2_000),
                 envelope(ended("p", 5, "no such thing"), 2_010),
             )
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://api.example.com/test.Echo/Unary")
                 onNodeWithText("grpc 13").assertExists()

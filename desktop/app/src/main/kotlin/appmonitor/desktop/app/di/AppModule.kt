@@ -29,13 +29,15 @@ import appmonitor.desktop.feature.insights.insightsModule
 import appmonitor.desktop.feature.mocks.mocksModule
 import appmonitor.desktop.feature.settings.settingsModule
 import appmonitor.desktop.feature.traffic.trafficModule
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-/** The window's graph (ADR-0136): the repositories over one open store, and every feature's view models. */
+/** The window's graph (ADR-0136): the repositories over the [live] list and one open store, and every feature's view models. */
 internal fun appModule(
     storage: Storage,
+    live: LiveTraffic,
     runRepository: RunRepository,
     traffic: TrafficRepository,
     replays: Replays?,
@@ -49,10 +51,10 @@ internal fun appModule(
         includes(trafficModule, mocksModule, breakpointsModule, insightsModule, settingsModule)
         single<RunRepository> { runRepository }
         single<TrafficRepository> { traffic }
-        single { StorageExports(storage.trafficQueryRepository()) }
+        single { StorageExports(storage.trafficQueryRepository(live)) }
         single<ExportRepository> { get<StorageExports>() }
         single<HarRepository> { get<StorageExports>() }
-        single<BenchmarkRepository> { storage.benchmarkRepository() }
+        single<BenchmarkRepository> { storage.benchmarkRepository(live) }
         single<IssueRepository> { storage.issueRepository() }
         single<MockRepository> { storage.mockRepository() }
         single<BreakpointRepository> { storage.breakpointRepository() }

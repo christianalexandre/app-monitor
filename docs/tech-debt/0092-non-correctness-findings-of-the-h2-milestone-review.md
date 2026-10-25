@@ -3,7 +3,7 @@ id: DEBT-0092
 title: Findings of the H2 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficViewModel.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/InsightsViewModel.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt`, `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`, `desktop/domain/src/main/kotlin/appmonitor/desktop/domain/Insights.kt` or `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`"
+trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/InsightsViewModel.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt`, `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`, `desktop/domain/src/main/kotlin/appmonitor/desktop/domain/Insights.kt` or `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`"
 paid_date:
 ---
 
@@ -23,11 +23,6 @@ the next PR that touches its file:
   includes connections past the last exported entry. With `max_entries
   = 1` and rows `H1, C1, C2, H2`, the comment says "2 connections left
   out" when neither lies inside the exported span.
-- **`TrafficViewModel.kt`, a deleted original shows "Loading…".** After
-  "Show original" picks an exchange that is not in the loaded pages, the
-  sticky `original` id stays set. If retention or "Clear all" then
-  deletes that exchange, the detail pane says "Loading…" until the next
-  pick. The old screen said "Select a request".
 - **`InsightsViewModel.kt`, overlapping HAR exports race.** A second
   export does not cancel the first, so whichever finishes last writes
   `exportNote`.
@@ -54,7 +49,6 @@ None of them shows wrong data, crashes or loses data in normal use:
   rarely almost all connections.
 - The connection note only overstates when `max_entries` cuts the
   export.
-- The "Loading…" pane needs a delete in the gap between two picks.
 - The export race needs two exports in flight at once.
 - The kept issue filter is visible in the dialog.
 - The breakpoints query is a SQLDelight flow, which emits at once.
@@ -65,6 +59,12 @@ PLAN-0012 keeps its review tasks to what normal use hits (ADR-0094).
 
 The next PR that touches one of the files named above. That PR pays the
 item for its file and leaves the others here.
+
+`TrafficViewModel.kt` paid in PLAN-0013 H3.1b's PR
+(`feat/live-list-window`): a picked id read as gone (no longer listed or
+stored) leaves no request picked, so the pane says "Select a request"
+(`TrafficViewModelTest`, "an original no longer listed or stored leaves
+no request picked").
 
 ## How it was paid
 

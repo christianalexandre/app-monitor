@@ -3,6 +3,7 @@ package appmonitor.desktop.app.store
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.TrafficSink
 import appmonitor.protocol.Protocol
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -14,13 +15,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * Feeds [storage] with every session and its envelopes, in the order each session produced them (SDD 09), sends each
- * session that accepted `interaction` its app's mock rules and breakpoints, keeps the calls it holds in [heldCalls] and
- * sends it the [replays] asked for (SDD 12).
- */
+/** Feeds [sink] with each session's envelopes in order (SDD 09); pushes [storage]'s rules, holds calls, sends replays (SDD 12). */
 internal class TrafficStore(
     private val storage: Storage,
+    private val sink: TrafficSink,
     val heldCalls: HeldCalls = HeldCalls(),
     val replays: Replays = Replays(),
 ) {
@@ -28,7 +26,7 @@ internal class TrafficStore(
     suspend fun collect(sessions: Flow<DeviceSession>): Unit =
         coroutineScope {
             sessions.collect { session ->
-                storage.connected(session.id, session.hello, session.peerAddress)
+                sink.connected(session.id, session.hello, session.peerAddress)
                 launch {
                     val pushes =
                         if (Protocol.CHANNEL_INTERACTION in session.channels) {
@@ -47,7 +45,7 @@ internal class TrafficStore(
                                 }
                             }
                             replays.read(session, envelope)
-                            storage.received(session.id, envelope)
+                            sink.received(session.id, envelope)
                         }
                     } finally {
                         pushes.forEach { it.cancel() }
@@ -55,7 +53,7 @@ internal class TrafficStore(
                         heldCalls.ended(session.id)
                         replays.ended(session.id)
                         // A full queue on a stalled disk must not hold the exit; the next open closes the session.
-                        withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { storage.disconnected(session.id) } }
+                        withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { sink.disconnected(session.id) } }
                     }
                 }
             }

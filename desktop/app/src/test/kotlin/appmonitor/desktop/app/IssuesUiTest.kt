@@ -16,6 +16,7 @@ import appmonitor.desktop.feature.insights.ISSUE_TITLE
 import appmonitor.desktop.feature.insights.SAVE_ISSUE
 import appmonitor.desktop.feature.traffic.ISSUES
 import appmonitor.desktop.feature.traffic.MARK
+import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.SAVE_AS_ISSUE
 import appmonitor.desktop.storage.IssueSource
 import appmonitor.desktop.storage.IssueStatus
@@ -43,11 +44,19 @@ class IssuesUiTest {
                 envelope(RequestStarted(request_id = "r3", method = "GET", url = "https://api.example.com/feed")),
             )
             val feed = runBlocking { storage.allExchanges().single { it.requestId == "r3" }.id }
-            runBlocking { storage.createIssue("Feed never answers", "", listOf("backend"), listOf(feed), IssueSource.MCP) }
+            runBlocking {
+                storage.createIssue("Feed never answers", "", listOf("backend"), listOf(feed), IssueSource.MCP)
+                storage.rename(storage.runId, "Cart")
+                storage.flush()
+            }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening") }
 
+                // Until the live list saves (PLAN-0013 H3.2), an issue links stored exchanges only.
+                onNodeWithTag(RUNS).performClick()
+                awaitText("Cart")
+                onNodeWithText("Cart").performClick()
                 awaitText("https://api.example.com/feed")
                 onNodeWithTag(MARK + "r1").performClick()
                 onNodeWithTag(MARK + "r2").performClick()

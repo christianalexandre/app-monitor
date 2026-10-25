@@ -115,6 +115,9 @@ internal class StoredTrafficRepository(
         id: Long,
         frameLimit: Long,
     ): HttpExchange? = storage.exchange(id)?.toDomain(storage.frames(id, limit = frameLimit))
+
+    // The store holds no live list.
+    override fun clear() = Unit
 }
 
 internal class StoredMockRepository(

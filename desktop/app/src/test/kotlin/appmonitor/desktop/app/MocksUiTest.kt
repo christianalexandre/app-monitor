@@ -17,6 +17,7 @@ import appmonitor.desktop.feature.traffic.MOCKS
 import appmonitor.desktop.feature.traffic.MOCK_THIS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
 import appmonitor.protocol.Protocol
@@ -54,8 +55,9 @@ class MocksUiTest {
     @Test
     fun `a rule made from a gzip exchange in the window reaches a connected device as one envelope`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val recorded = HELLO.copy(device_id = "d2", device_name = "Recorded")
-            storage.record(
+            live.record(
                 envelope(RequestStarted(request_id = "r1", method = "GET", url = URL)),
                 envelope(
                     ResponseReceived(
@@ -75,7 +77,7 @@ class MocksUiTest {
             runBlocking {
                 val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
                 val port = server.start()
-                val collecting = launch(Dispatchers.Default) { TrafficStore(storage).collect(server.sessions) }
+                val collecting = launch(Dispatchers.Default) { TrafficStore(storage, live).collect(server.sessions) }
                 val received = Channel<Envelope>(Channel.UNLIMITED)
                 val device =
                     launch(Dispatchers.Default) {
@@ -98,7 +100,7 @@ class MocksUiTest {
                     }
 
                     runDesktopComposeUiTest(width = 1280, height = 800) {
-                        setContent { AppMonitorApp(storage, "Listening") }
+                        setContent { AppMonitorApp(storage, "Listening", live = live) }
                         awaitText("Recorded")
                         onNodeWithText("Recorded").performClick()
                         awaitText(URL)

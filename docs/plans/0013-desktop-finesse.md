@@ -32,9 +32,11 @@ task too large for one PR is split at once.
   :desktop:mcp:test` — traffic from two devices shows in one list, Clear
   empties it, the bound drops the oldest, the store gets no row of it,
   MCP tools read it when no run is given.
-- [ ] **H3.1b Live list in the window and Clear.** The device server and
-  the proxy feed the live list, not the store; no run opens at launch;
-  the window opens on it with Clear; MCP reads it by default.
+- [x] **H3.1b Live list in the window and Clear.** The device server and
+  the proxy feed the live list, not the store; the window opens on it
+  with Clear and "All devices"; MCP reads it by default. "No run opens at
+  launch" moved to H3.2, where Record opens runs; "New run" is gone until
+  Record.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test
   :desktop:storage:test` — traffic from two devices shows in one list,
   Clear empties it, the store gets no exchange row while nothing is
@@ -43,7 +45,9 @@ task too large for one PR is split at once.
   exchange that starts while recording is stored in the run, whatever
   its session; existing runs kept by a migration; runs and "Saved"
   listed apart and opened read-only; Save on selected live exchanges;
-  an issue saves its exchanges.
+  an issue saves its exchanges (until then "Save as issue" on live
+  requests is refused); no run opens at launch; `liveScreenshots` gets
+  its reopen step back on a recording.
   Accept: storage, data and traffic tests — a device connected before
   Record and one that reconnects during it are both in the run; after
   Stop new traffic is only in memory; a saved exchange survives a

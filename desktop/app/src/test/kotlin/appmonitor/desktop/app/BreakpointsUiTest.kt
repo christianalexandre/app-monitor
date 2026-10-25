@@ -22,6 +22,7 @@ import appmonitor.desktop.feature.breakpoints.TOGGLE_BREAKPOINT
 import appmonitor.desktop.feature.traffic.BREAKPOINTS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.protocol.Protocol
 import appmonitor.v1.BreakpointAbort
 import appmonitor.v1.BreakpointHit
@@ -58,7 +59,8 @@ class BreakpointsUiTest {
             runBlocking {
                 val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
                 val port = server.start()
-                val store = TrafficStore(storage)
+                val live = LiveTraffic()
+                val store = TrafficStore(storage, live)
                 val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }
                 val received = Channel<Envelope>(Channel.UNLIMITED)
                 val toSend = Channel<BreakpointHit>(Channel.UNLIMITED)
@@ -100,7 +102,7 @@ class BreakpointsUiTest {
 
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                        setContent { AppMonitorApp(storage, "Listening", heldCalls = store.heldCalls) }
+                        setContent { AppMonitorApp(storage, "Listening", heldCalls = store.heldCalls, live = live) }
                         awaitText("Pixel")
                         onNodeWithTag(BREAKPOINTS).performClick()
                         onNodeWithTag(NEW_BREAKPOINT).performClick()

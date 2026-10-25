@@ -6,6 +6,7 @@ import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -50,7 +51,8 @@ class McpWiringTest {
     fun portTakenIsAStatus() =
         withStorage { storage ->
             ServerSocket(0, 0, loopback).use { taken ->
-                val mcp = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
+                val mcp =
+                    McpController(storage, LiveTraffic(), runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
 
                 runBlocking { mcp.start() }
 
@@ -62,7 +64,7 @@ class McpWiringTest {
     @Test
     fun stopsBeforeTheStoreCloses() =
         withStorage { storage ->
-            val mcp = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, 0)
+            val mcp = McpController(storage, LiveTraffic(), runBlocking { McpAccess.open(storage.settingRepository()) }, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             val order = mutableListOf<String>()
@@ -93,7 +95,7 @@ class McpWiringTest {
     fun switchStartsAndStops() =
         withStorage { storage ->
             val access = runBlocking { McpAccess.open(storage.settingRepository()) }
-            val mcp = McpController(storage, access, 0)
+            val mcp = McpController(storage, LiveTraffic(), access, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             assertEquals(200, initialize(port, access.token.value))
@@ -105,7 +107,7 @@ class McpWiringTest {
             assertEquals(ServiceStatus.Off, mcp.status.value)
             ServerSocket(port, 0, loopback).close()
 
-            val relaunched = McpController(storage, access, 0)
+            val relaunched = McpController(storage, LiveTraffic(), access, 0)
             runBlocking { relaunched.start() }
             assertEquals(false, relaunched.enabled.value)
             assertEquals(ServiceStatus.Off, relaunched.status.value)
@@ -123,7 +125,7 @@ class McpWiringTest {
             val reading = CompletableDeferred<Unit>()
             val stored = CompletableDeferred<String?>()
             val mcp =
-                McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, 0) {
+                McpController(storage, LiveTraffic(), runBlocking { McpAccess.open(storage.settingRepository()) }, 0) {
                     reading.complete(Unit)
                     stored.await()
                 }
@@ -150,7 +152,7 @@ class McpWiringTest {
             repeat(RACE_ROUNDS) { round ->
                 val read = CountDownLatch(1)
                 val mcp =
-                    McpController(storage, access, 0) {
+                    McpController(storage, LiveTraffic(), access, 0) {
                         read.countDown()
                         null
                     }
@@ -169,7 +171,7 @@ class McpWiringTest {
     fun clearAllRegeneratesTheTokenAndKeepsTheSwitch() =
         withStorage { storage ->
             val access = runBlocking { McpAccess.open(storage.settingRepository()) }
-            val mcp = McpController(storage, access, 0)
+            val mcp = McpController(storage, LiveTraffic(), access, 0)
             runBlocking { mcp.setEnabled(false) }
             val old = access.token.value
 
@@ -188,7 +190,7 @@ class McpWiringTest {
     fun regeneratedTokenRefusesTheOldOne() =
         withStorage { storage ->
             val access = runBlocking { McpAccess.open(storage.settingRepository()) }
-            val mcp = McpController(storage, access, 0)
+            val mcp = McpController(storage, LiveTraffic(), access, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             val old = access.token.value

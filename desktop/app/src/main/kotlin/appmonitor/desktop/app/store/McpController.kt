@@ -12,6 +12,7 @@ import appmonitor.desktop.mcp.McpRepositories
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.mcp.ReplayAsks
 import appmonitor.desktop.mcp.mcpPort
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -30,14 +31,15 @@ import java.net.BindException
  */
 internal class McpController(
     private val storage: Storage,
+    live: LiveTraffic,
     private val access: McpAccess,
     override val port: Int = mcpPort(),
     private val replays: ReplayAsks? = null,
     private val repositories: McpRepositories =
         McpRepositories(
             storage.runRepository(),
-            storage.trafficQueryRepository(),
-            storage.benchmarkRepository(),
+            storage.trafficQueryRepository(live),
+            storage.benchmarkRepository(live),
             storage.issueRepository(),
             storage.mockRepository(),
         ),

@@ -14,6 +14,7 @@ import appmonitor.desktop.feature.traffic.COPY_CURL
 import appmonitor.desktop.feature.traffic.EXPORT_HAR
 import appmonitor.desktop.mcp.assertHar12
 import appmonitor.desktop.mcp.runCurl
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Header
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -46,9 +47,9 @@ class ExportUiTest {
     @Test
     fun `the HAR file passes the HAR 1_2 check and the copied cURL sends the stored request`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             storage.record(envelope(RequestStarted(request_id = "old", method = "GET", url = "https://api.example.com/old")))
-            runBlocking { storage.newRun() }
-            storage.record(
+            live.record(
                 envelope(
                     RequestStarted(
                         request_id = "r1",
@@ -68,7 +69,7 @@ class ExportUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
                     CompositionLocalProvider(LocalClipboardManager provides clipboard) {
-                        AppMonitorApp(storage, "Listening", pickHarFile = { file })
+                        AppMonitorApp(storage, "Listening", live = live, pickHarFile = { file })
                     }
                 }
 
@@ -80,7 +81,7 @@ class ExportUiTest {
                 assertEquals(
                     listOf("http://127.0.0.1:1/items?q=a%20b", "https://api.example.com/feed"),
                     entries.map { it["request"]!!.jsonObject["url"]!!.jsonPrimitive.content },
-                    "the shown run only, oldest first",
+                    "the live list only, oldest first",
                 )
                 val postData = entries[0]["request"]!!.jsonObject["postData"]!!.jsonObject
                 assertEquals(body, postData["text"]!!.jsonPrimitive.content, "bodies whole, past export_har's 16 KiB cap")

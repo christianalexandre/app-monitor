@@ -158,7 +158,9 @@ Filter fields, shared by `search_requests`, `endpoint_stats`, `diff_runs`
 and `export_har`, map one to one onto `ExchangeFilter` (ADR-0087): `text`
 (substring of the URL, ASCII case-insensitive), `method` (exact),
 `status_class` (`1xx`…`5xx`), `failed_only`, `device_id`, `app_id`,
-`run_id`, `session_id`. Unset fields match all. Code: `Filters.kt`, which
+`run_id`, `session_id`. Unset fields match all; without `run_id` or a
+stored `session_id` a tool reads the live list, as do `get_request`,
+`to_curl` and `replay_request` given a live id (ADR-0141 C). Code: `Filters.kt`, which
 also writes the exchange row both `search_requests` and `get_request`
 return (`capture_layer` as `platform`, `adapter`, `connection`, `proxy`,
 `unspecified`; `duration_ms` null unless both times are known). A

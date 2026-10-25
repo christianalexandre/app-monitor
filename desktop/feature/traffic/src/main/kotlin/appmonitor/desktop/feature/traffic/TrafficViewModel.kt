@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -30,31 +29,29 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Which run the window shows (ADR-0084 C.1); [Current] follows "New run". */
+/** What the window shows (ADR-0140): the live list, or one stored run read-only. */
 sealed interface ShownRun {
-    data object Current : ShownRun
+    data object Live : ShownRun
 
-    data object All : ShownRun
-
-    data class Earlier(
+    data class Stored(
         val id: Long,
     ) : ShownRun
 }
 
-/** The runs, and the one the window shows; [shownRunId] is null for "All runs". */
+/** The stored runs, and what the window shows; [shownRunId] is null for the live list. */
 data class RunsState(
     val runs: List<Run> = emptyList(),
     val currentRun: Long = 0,
-    val shown: ShownRun = ShownRun.Current,
+    val shown: ShownRun = ShownRun.Live,
 ) {
-    val shownRunId: Long? get() = shownRunIdOf(shown, currentRun)
+    val shownRunId: Long? get() = (shown as? ShownRun.Stored)?.id
 
-    val title: String get() = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
+    val title: String get() = shownRunId?.let { id -> runs.firstOrNull { it.id == id }?.let(::titleOf) ?: "" } ?: LIVE
 }
 
 /**
- * The shown run's sessions, the picked [session]'s first [rows] that [filter] matches, the picked [row] and its
- * [detail], and the exchanges [marked] for "Save as issue" from any session or run (ADR-0095 A.1).
+ * The shown list's sessions, the first [rows] that [filter] matches of the picked [session] or, when null, of every
+ * device, the picked [row] and its [detail], and the exchanges [marked] for "Save as issue" (ADR-0095 A.1).
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -68,16 +65,17 @@ data class TrafficState(
     val detail: DetailState = DetailState(),
 )
 
-/** The picked request [id], read again whenever its row changes; null [exchange] while it loads. */
+/** The picked request [id] of [appId], read again whenever its row changes; null [exchange] while it loads, null [id] once gone. */
 data class DetailState(
     val id: Long? = null,
+    val appId: String = "",
     val exchange: HttpExchange? = null,
     val copyNote: String? = null,
     val replayNote: String? = null,
     val canReplay: Boolean = false,
 )
 
-/** The traffic panes: devices, requests, one request and the runs (SDD 09); every list follows the store's commits. */
+/** The traffic panes: devices, requests, one request and the runs (SDD 09); every list follows the live list or the store. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrafficViewModel(
     private val runRepository: RunRepository,
@@ -85,9 +83,12 @@ class TrafficViewModel(
     private val exports: ExportRepository,
     private val replays: ReplayRepository? = null,
 ) : ViewModel() {
-    private val shown = MutableStateFlow<ShownRun>(ShownRun.Current)
+    private val shown = MutableStateFlow<ShownRun>(ShownRun.Live)
     private val selectedSession = MutableStateFlow<Long?>(null)
     private val selectedRequest = MutableStateFlow<Long?>(null)
+
+    // The picked request's session, whose app a replay goes through; "Show original" stays in it.
+    private val pickedSession = MutableStateFlow<Long?>(null)
 
     // "Show original"'s pick, read by id while its row is not among the loaded pages.
     private val original = MutableStateFlow<Long?>(null)
@@ -110,23 +111,24 @@ class TrafficViewModel(
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val session =
-        combine(sessions, selectedSession) { list, id -> list.firstOrNull { it.id == id } ?: list.firstOrNull() }
+        combine(sessions, selectedSession) { list, id -> list.firstOrNull { it.id == id } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    // A new session or filter starts again from one page, as the list did when it was rebuilt.
+    // A new list, session or filter starts again from one page, as the list did when it was rebuilt.
     private val rows =
-        combine(session.map { it?.id }.distinctUntilChanged(), filter) { id, filter -> id to filter }
-            .flatMapLatest { (id, filter) ->
-                if (id == null) {
-                    flowOf(emptyList())
-                } else {
-                    limit.value = TrafficRepository.PAGE_SIZE
-                    limit.flatMapLatest { traffic.observeExchanges(filter.copy(sessionId = id), it) }.onStart { emit(emptyList()) }
-                }
-            }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        combine(
+            runs.map { it.shownRunId }.distinctUntilChanged(),
+            session.map { it?.id }.distinctUntilChanged(),
+            filter,
+        ) { run, id, filter ->
+            filter.copy(runId = run, sessionId = id)
+        }.flatMapLatest { filter ->
+            limit.value = TrafficRepository.PAGE_SIZE
+            limit.flatMapLatest { traffic.observeExchanges(filter, it) }.onStart { emit(emptyList()) }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val row =
-        combine(rows, selectedRequest, session) { rows, id, session -> rows.firstOrNull { it.id == id && it.sessionId == session?.id } }
+        combine(rows, selectedRequest) { rows, id -> rows.firstOrNull { it.id == id } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Body state (format, scroll, frames, notes) belongs to one exchange, even if another has the same bytes.
@@ -134,20 +136,23 @@ class TrafficViewModel(
         combine(row, original) { row, original -> row?.id ?: original }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    // The id read, with what it read: null for an exchange no longer listed or stored.
     private val exchange =
         combine(row, picked, frameLimit) { row, id, limit -> Triple(row, id, limit) }
             .distinctUntilChanged()
-            .transformLatest { (_, id, limit) -> emit(id?.let { traffic.exchange(it, limit) }) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+            .transformLatest { (_, id, limit) -> emit(id to id?.let { traffic.exchange(it, limit) }) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null to null)
 
     private val refused = replays?.refused ?: MutableStateFlow(emptyMap())
 
     private val detail =
-        combine(exchange, picked, copyNote, sent, refused) { exchange, id, copyNote, sent, refused ->
-            val sessionId = session.value?.serverSessionId.orEmpty()
-            val shown = exchange?.takeIf { it.id == id }
+        combine(exchange, picked, copyNote, sent, refused) { (readId, read), id, copyNote, sent, refused ->
+            val session = pickedSessionOf()
+            val sessionId = session?.serverSessionId.orEmpty()
+            val shown = read?.takeIf { it.id == id }
             DetailState(
-                id = id,
+                id = id.takeUnless { it != null && it == readId && read == null },
+                appId = session?.hello?.app_id.orEmpty(),
                 exchange = shown,
                 copyNote = copyNote,
                 replayNote =
@@ -183,13 +188,15 @@ class TrafficViewModel(
         }
     }
 
-    fun selectSession(id: Long) {
+    /** [id] null shows every device's requests. */
+    fun selectSession(id: Long?) {
         original.value = null
         selectedSession.value = id
     }
 
     fun selectRequest(id: Long) {
         original.value = null
+        pickedSession.value = rows.value.firstOrNull { it.id == id }?.sessionId
         selectedRequest.value = id
     }
 
@@ -217,21 +224,22 @@ class TrafficViewModel(
         marked.value = emptyMap()
     }
 
-    /** [id] null shows every run. */
+    /** [id] null shows the live list; a run starts on every device of it. */
     fun showRun(id: Long?) {
         original.value = null
-        shown.value =
-            when (id) {
-                null -> ShownRun.All
-                runRepository.currentRun.value -> ShownRun.Current
-                else -> ShownRun.Earlier(id)
-            }
+        selectedSession.value = null
+        shown.value = id?.let(ShownRun::Stored) ?: ShownRun.Live
     }
 
-    fun newRun() {
-        viewModelScope.launch { runRepository.newRun() }
-        original.value = null
-        shown.value = ShownRun.Current
+    /** Empties the live list (ADR-0140 A); a pick in it goes with it. */
+    fun clear() {
+        traffic.clear()
+        if (shown.value == ShownRun.Live) {
+            selectedRequest.value = null
+            original.value = null
+            val live = sessions.value.map { it.id }.toSet()
+            marked.update { kept -> kept.filterValues { it.sessionId !in live } }
+        }
     }
 
     fun rename(
@@ -247,6 +255,8 @@ class TrafficViewModel(
         selectedRequest.value = id
         original.value = id
     }
+
+    private fun pickedSessionOf(): Session? = sessions.value.firstOrNull { it.id == pickedSession.value }
 
     fun moreFrames() {
         frameLimit.value += TrafficRepository.PAGE_SIZE
@@ -269,29 +279,26 @@ class TrafficViewModel(
 
     fun sendAgain() {
         val replays = replays ?: return
-        val requestId = exchange.value?.takeIf { it.id == picked.value }?.requestId ?: return
-        sent.value = replays.send(session.value?.serverSessionId.orEmpty(), requestId)
+        val requestId =
+            exchange.value.second
+                ?.takeIf { it.id == picked.value }
+                ?.requestId ?: return
+        sent.value = replays.send(pickedSessionOf()?.serverSessionId.orEmpty(), requestId)
     }
 
-    /** After "Clear all data": the current run, nothing picked or marked. */
+    /** After "Clear all data": the live list, nothing picked or marked. */
     fun reset() {
-        shown.value = ShownRun.Current
+        shown.value = ShownRun.Live
         selectedSession.value = null
         selectedRequest.value = null
+        pickedSession.value = null
         original.value = null
         marked.value = emptyMap()
     }
 }
 
-private fun shownRunIdOf(
-    shown: ShownRun,
-    currentRun: Long,
-): Long? =
-    when (shown) {
-        ShownRun.Current -> currentRun
-        ShownRun.All -> null
-        is ShownRun.Earlier -> shown.id
-    }
+/** The live list's title (ADR-0140 A). */
+internal const val LIVE = "Live"
 
 private fun noteOf(sent: ReplaySent): String =
     when (sent) {

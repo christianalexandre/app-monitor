@@ -56,9 +56,7 @@ Module scripts apply one convention plugin from `build-logic/`:
 offscreen, on a store and approvals like `Main.kt`'s. It waits up to 5
 minutes for a device, screenshots the approval panel, approves it (the answer
 is stored), waits for 5 finished exchanges, then screenshots the GET JSON and
-the WebSocket exchanges; it then closes the store, reopens it, picks the
-earlier run and screenshots its GET JSON again (`<liveName>-reopen.png`). All
-go into `docs/screenshots/<liveName>-*.png`. `make desktop` must not be
+the WebSocket exchanges from the live list. All go into `docs/screenshots/<liveName>-*.png`. `make desktop` must not be
 running (same port). The sample is driven by hand:
 
 1. `./gradlew :samples:android:assembleDebug`, then

@@ -7,6 +7,7 @@ import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.proxy.proxyPort
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.TrafficSink
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,7 @@ import javax.net.ssl.TrustManagerFactory
  */
 internal class ProxyController(
     private val storage: Storage,
+    private val sink: TrafficSink,
     private val directory: Path,
     override val port: Int = proxyPort(),
     private val upstreamTrust: TrustManagerFactory? = null,
@@ -105,7 +107,7 @@ internal class ProxyController(
         val next =
             try {
                 val ca = withContext(Dispatchers.IO) { ProxyCa.loadOrCreate(directory) }
-                val nextRecording = ProxyRecording(storage, scope, open = false)
+                val nextRecording = ProxyRecording(sink, scope, open = false)
                 ProxyServer(ca, nextRecording::record, port, upstreamTrust) to nextRecording
             } catch (e: CancellationException) {
                 mutableStatus.value = ServiceStatus.Off

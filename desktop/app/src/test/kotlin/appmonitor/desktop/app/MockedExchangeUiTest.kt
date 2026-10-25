@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.MOCKED
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
 import appmonitor.v1.CaptureLayer
@@ -24,9 +25,10 @@ class MockedExchangeUiTest {
     @Test
     fun `a mocked exchange is marked in the list and names its rule in the detail`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val rule = MockRule(host = "api.example.com", path = "/v1/items", response = MockResponse(status_code = 503))
             val id = assertIs<MockWrite.Saved>(runBlocking { storage.createMock(HELLO.app_id, "items down", rule, MockSource.WINDOW) }).id
-            storage.record(
+            live.record(
                 envelope(call("m", "https://api.example.com/v1/items", id), 1_000),
                 envelope(ResponseReceived(request_id = "m", status_code = 503), 1_005),
                 envelope(call("n", "https://api.example.com/v1/orders", null), 2_000),
@@ -35,7 +37,7 @@ class MockedExchangeUiTest {
                 envelope(ResponseReceived(request_id = "d", status_code = 200), 3_001),
             )
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://api.example.com/v1/items")
                 onNodeWithTag(MOCKED + "m", useUnmergedTree = true).assertExists()

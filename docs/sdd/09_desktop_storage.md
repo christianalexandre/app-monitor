@@ -281,8 +281,10 @@ closes the approved devices (ADR-0083). A failure goes to
 
 `LiveTraffic` holds the live list in memory (ADR-0140 A, ADR-0141): every
 device's sessions and exchanges since the last `clear()`, as the store's
-row types. The device server and the proxy still feed `Storage` until
-PLAN-0013's H3.1b switches them to it.
+row types. The device server (`TrafficStore`) and the proxy
+(`ProxyRecording`) feed it, not `Storage`: no exchange reaches the store
+from the window's launch on. The window, its exports and benchmarks, and
+the MCP server read through the routed repositories below.
 
 - **Fed** by `TrafficSink`'s `connected`, `received`, `disconnected`, which
   `Storage` implements too. The four `network` events are decoded as
@@ -407,7 +409,8 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
-| A 10k-request session ingested in bounded time, restart shows it one click away in the run picker (M5.6), the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4) |
+| A 10k-request session listed in bounded time and not stored, a stored run one click away after a restart, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4, H3.1b) |
+| The window on the live list: two devices in one list, a device alone, Clear empties it, no store row; stored runs read-only | `AppMonitorAppTest` in `desktop/app`, `live.png`, `runs.png` (H3.1b) |
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5), and in `desktop/app` across three launches with a real server |
 | Sessions grouped by run, runs named | `RunsTest` (M5.6): a session spanning "New run" stays in its run, names kept across a restart, a lost "New run" keeps the earlier run |
 | One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |

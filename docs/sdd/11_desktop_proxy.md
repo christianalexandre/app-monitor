@@ -117,8 +117,8 @@ exchange, its trailers after its headers.
 
 ### What is stored
 
-Each start of the proxy is one session (`ProxyRecording`), written once
-the server listens, so a start that fails stores none: `Hello` with
+Each start of the proxy is one session (`ProxyRecording`) in the live
+list (SDD 09, ADR-0140), not in the store, written once the server listens, so a start that fails stores none: `Hello` with
 `device_name` `Proxy`, no device or app id, platform unspecified,
 `sdk_name` `proxy`, peer `127.0.0.1`. Each exchange sends the events an
 SDK sends (ADR-0105 C.1): `RequestStarted` once the request is in full,

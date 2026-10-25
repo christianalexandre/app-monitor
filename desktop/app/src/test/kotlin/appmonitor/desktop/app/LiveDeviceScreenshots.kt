@@ -9,7 +9,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -17,9 +16,10 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +35,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Not a unit test: run by `liveScreenshots` only, against a real device running the sample (ADR-0031).
- * Real server on the default port with mDNS, the window's composable rendered offscreen, then the store reopened.
+ * Real server on the default port with mDNS, the window's composable rendered offscreen on the live list.
  */
 @OptIn(ExperimentalTestApi::class)
 class LiveDeviceScreenshots {
@@ -46,17 +46,15 @@ class LiveDeviceScreenshots {
     private val dir: Path = System.getProperty("liveDataDir")?.let { Path.of(it) } ?: createTempDirectory("live-screenshots")
 
     @Test
-    fun `approve a real device, show its traffic, and again after a reopen`() {
-        capture()
-        reopen()
-    }
+    fun `approve a real device and show its traffic`() = capture()
 
     private fun capture() {
         lateinit var server: AppMonitorServer
         val storage = Storage.open(dir)
         val approvals = runBlocking { ApprovalStore.open(storage) { server.disconnect(it) } }
         server = AppMonitorServer(ServerConfig(advertise = advertise), approval = approvals.approvals)
-        val store = TrafficStore(storage)
+        val live = LiveTraffic()
+        val store = TrafficStore(storage, live)
         val scope = CoroutineScope(Dispatchers.Default)
         val port = runBlocking { server.start() }
         scope.launch { store.collect(server.sessions) }
@@ -68,6 +66,7 @@ class LiveDeviceScreenshots {
                         "Listening on port $port",
                         approvals = approvals,
                         answered = approvals,
+                        live = live,
                     )
                 }
                 println("liveScreenshots: data in $dir, listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")
@@ -77,7 +76,7 @@ class LiveDeviceScreenshots {
 
                 println("liveScreenshots: approved, waiting for $exchanges finished exchanges")
                 waitUntil(timeoutMillis = timeoutMs) {
-                    runBlocking { storage.allExchanges() }.count { it.statusCode != null || it.failed } >= exchanges
+                    live.searchExchanges(ExchangeFilter()).count { it.statusCode != null || it.failed } >= exchanges
                 }
                 showJsonAndFrames()
             }
@@ -87,24 +86,6 @@ class LiveDeviceScreenshots {
                 server.stop()
                 storage.close(5.seconds)
             }
-        }
-    }
-
-    private fun reopen() {
-        val storage = Storage.open(dir)
-        try {
-            runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Reopened") }
-                println("liveScreenshots: store reopened, opening the earlier run")
-                onNodeWithTag(RUNS).performClick()
-                onAllNodesWithText(" – ", substring = true).onFirst().performClick()
-                waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText("/json", substring = true).fetchSemanticsNodes().isNotEmpty() }
-                onAllNodesWithText("/json", substring = true).onFirst().performClick()
-                waitFor("\"slideshow\"")
-                screenshot("$name-reopen.png")
-            }
-        } finally {
-            runBlocking { storage.close(5.seconds) }
         }
     }
 

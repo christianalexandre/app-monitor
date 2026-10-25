@@ -251,10 +251,10 @@ is a feature module owning a `channel` **(planned)**. See ADR-0005.
 `desktop/app` today (ADR-0011):
 
 ```
-AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 09) ──► query flows ──► AppMonitorApp
-                                 one coroutine per session;   write queue,     sessions, a page
-                                 connected / received /       one writer       of exchanges, one
-                                 disconnected enqueued        thread           exchange's detail
+AppMonitorServer.sessions ──► TrafficStore.collect ──► LiveTraffic (SDD 09) ──► observed reads ──► AppMonitorApp
+                                 one coroutine per session;   in memory,           sessions, a page
+                                 connected / received /       bounded; stored      of exchanges, one
+                                 disconnected                 runs from Storage    exchange's detail
 ```
 
 - `main` opens `Storage` in `dataDirectory()` first; when that fails the
@@ -291,16 +291,20 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   into a frame of the exchange of its `request_id` (SDD 09); duration is the
   difference of the envelopes' `timestamp_ms`. Other channels, other types
   and undecodable payloads are kept apart and not shown.
-- Runs (ADR-0084): the device list shows the sessions of one run, oldest
-  first, "connected" until its `disconnected_at_ms` is written; by default
-  the current run, which a launch opens. The run picker above it (the run's
-  name or start time, "▾") opens the runs, newest first: pick one, or
-  "All runs"; "Rename" names a run (blank makes it unnamed again); "New run"
-  ends the current one, opens another and shows it. A session connected
-  before "New run" stays in its run.
-- Reading: every pane follows SQLDelight query flows, re-run after each
-  commit that touches their table. The request list is the session's first
-  `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that
+- Live list and runs (ADR-0140): the window opens on the live list
+  ("Live ▾"), every device's traffic since the last "Clear", in memory and
+  not stored (SDD 09). The device list shows its sessions, oldest first,
+  "connected" until they end, under "All devices"; "All devices" (the
+  default) lists every device's requests in one list, a device only its
+  own. "Clear" above the request list empties the live list. The picker
+  opens "Live" and the stored runs, newest first: a run opens read-only,
+  on all its devices; "Rename" names a run (blank makes it unnamed again).
+  A launch still opens an empty run in the store, and nothing records
+  into it until PLAN-0013 H3.2's Record.
+- Reading: every pane follows the live list's reads, run again after each
+  change, or a stored run's SQLDelight query flows, re-run after each
+  commit that touches their table. The request list is the device's, or
+  every device's, first `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that
   limit by one page. The detail reads the selected exchange, its bodies and
   its first `PAGE_SIZE` frames ("Show more frames" reads one more page)
   again whenever its list row changes. A write failure shows
