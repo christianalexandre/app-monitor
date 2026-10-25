@@ -13,6 +13,7 @@ import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 
+internal const val CLIENT = "okhttp3.OkHttpClient"
 internal const val BUILDER = "okhttp3.OkHttpClient\$Builder"
 internal const val ENTRY_POINT = "appmonitor.sdk.okhttp.AppMonitorOkHttp"
 
@@ -33,7 +34,7 @@ internal fun hasSdk(root: ResolvedComponentResult): Boolean {
     return false
 }
 
-/** Calls `AppMonitorOkHttp.install(this)` on entry of `OkHttpClient.Builder.build()`, when the SDK is on the classpath. */
+/** Calls `AppMonitorOkHttp.install(builder)` on entry of `OkHttpClient(builder)`, when the SDK is on the classpath. */
 internal abstract class OkHttpInjection : AsmClassVisitorFactory<OkHttpInjection.Parameters> {
     interface Parameters : InstrumentationParameters {
         // An input, not ClassContext.loadClassData: AGP shares a dependency's transformed classes across modules,
@@ -42,7 +43,7 @@ internal abstract class OkHttpInjection : AsmClassVisitorFactory<OkHttpInjection
         val sdkOnClasspath: Property<Boolean>
     }
 
-    override fun isInstrumentable(classData: ClassData): Boolean = classData.className == BUILDER
+    override fun isInstrumentable(classData: ClassData): Boolean = classData.className == CLIENT
 
     override fun createClassVisitor(
         classContext: ClassContext,
@@ -54,11 +55,12 @@ internal abstract class OkHttpInjection : AsmClassVisitorFactory<OkHttpInjection
             )
             return nextClassVisitor
         }
-        return BuilderVisitor(nextClassVisitor)
+        return ClientVisitor(nextClassVisitor)
     }
 }
 
-internal class BuilderVisitor(
+// ADR-0127: the constructor every client goes through, `OkHttpClient()` and `Builder.build()` alike.
+internal class ClientVisitor(
     next: ClassVisitor,
 ) : ClassVisitor(Opcodes.ASM9, next) {
     override fun visitMethod(
@@ -69,11 +71,11 @@ internal class BuilderVisitor(
         exceptions: Array<out String>?,
     ): MethodVisitor {
         val method = super.visitMethod(access, name, descriptor, signature, exceptions)
-        if (name != "build" || descriptor != "()Lokhttp3/OkHttpClient;") return method
+        if (name != "<init>" || descriptor != "(L${BUILDER.replace('.', '/')};)V") return method
         return object : MethodVisitor(Opcodes.ASM9, method) {
             override fun visitCode() {
                 super.visitCode()
-                visitVarInsn(Opcodes.ALOAD, 0)
+                visitVarInsn(Opcodes.ALOAD, 1)
                 visitMethodInsn(
                     Opcodes.INVOKESTATIC,
                     ENTRY_POINT.replace('.', '/'),

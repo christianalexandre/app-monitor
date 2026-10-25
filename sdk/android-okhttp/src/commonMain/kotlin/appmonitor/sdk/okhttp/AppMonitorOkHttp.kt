@@ -2,7 +2,7 @@ package appmonitor.sdk.okhttp
 
 import okhttp3.OkHttpClient
 
-/** The entry point the Gradle plugin calls at the start of `OkHttpClient.Builder.build()` in debug builds (ADR-0112). */
+/** The entry point the Gradle plugin calls at the start of `OkHttpClient(builder)` in debug builds (ADR-0112, ADR-0127). */
 public object AppMonitorOkHttp {
     /** Adds an [AppMonitorInterceptor] to [builder] unless it already has one, as an application or network interceptor. */
     @JvmStatic

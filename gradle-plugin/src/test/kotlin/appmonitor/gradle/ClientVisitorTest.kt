@@ -5,11 +5,11 @@ import org.objectweb.asm.ClassWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class BuilderVisitorTest {
-    /** Loads OkHttp and the stand-in entry point itself, with the Builder's bytes rewritten when [rewrite] is set. */
+class ClientVisitorTest {
+    /** Loads OkHttp and the stand-in entry point itself, with the client's bytes rewritten when [rewrite] is set. */
     private class Isolated(
         private val rewrite: Boolean,
-    ) : ClassLoader(BuilderVisitorTest::class.java.classLoader) {
+    ) : ClassLoader(ClientVisitorTest::class.java.classLoader) {
         override fun loadClass(
             name: String,
             resolve: Boolean,
@@ -18,7 +18,7 @@ class BuilderVisitorTest {
             synchronized(getClassLoadingLock(name)) {
                 findLoadedClass(name)?.let { return it }
                 val original = checkNotNull(parent.getResourceAsStream(name.replace('.', '/') + ".class")).readBytes()
-                val bytes = if (rewrite && name == BUILDER) rewritten(original) else original
+                val bytes = if (rewrite && name == CLIENT) rewritten(original) else original
                 return defineClass(name, bytes, 0, bytes.size)
             }
         }
@@ -26,11 +26,12 @@ class BuilderVisitorTest {
         private fun rewritten(original: ByteArray): ByteArray {
             val reader = ClassReader(original)
             val writer = ClassWriter(reader, ClassWriter.COMPUTE_MAXS)
-            reader.accept(BuilderVisitor(writer), 0)
+            reader.accept(ClientVisitor(writer), 0)
             return writer.toByteArray()
         }
     }
 
+    // A client from Builder.build(), one from its newBuilder(), and one from OkHttpClient(), which skips build().
     private fun installsAfterBuilding(rewrite: Boolean): Int {
         val loader = Isolated(rewrite)
         val builder = loader.loadClass(BUILDER)
@@ -39,16 +40,17 @@ class BuilderVisitorTest {
             .getMethod("newBuilder")
             .invoke(client)
             .let { builder.getMethod("build").invoke(it) }
+        loader.loadClass(CLIENT).getConstructor().newInstance()
         return loader.loadClass(ENTRY_POINT).getField("installs").getInt(null)
     }
 
     @Test
-    fun `build calls the entry point with each builder`() {
-        assertEquals(2, installsAfterBuilding(rewrite = true))
+    fun `every client calls the entry point with its builder`() {
+        assertEquals(3, installsAfterBuilding(rewrite = true))
     }
 
     @Test
-    fun `untouched build calls nothing`() {
+    fun `untouched clients call nothing`() {
         assertEquals(0, installsAfterBuilding(rewrite = false))
     }
 }
