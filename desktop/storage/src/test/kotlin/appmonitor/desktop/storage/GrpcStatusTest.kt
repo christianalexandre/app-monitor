@@ -107,6 +107,7 @@ class GrpcStatusTest {
                     it.execute("ALTER TABLE exchanges DROP COLUMN grpc_status")
                     it.execute("ALTER TABLE exchanges DROP COLUMN mock_rule_id")
                     it.execute("DROP TABLE breakpoint_rules")
+                    it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("PRAGMA user_version = 2")
                 }
             }
@@ -119,7 +120,7 @@ class GrpcStatusTest {
                 assertEquals(13, storage.searchExchanges(ExchangeFilter()).single().grpcStatus)
                 storage.close(5.seconds)
             }
-            assertEquals(6, dir.queryLong("PRAGMA user_version"))
+            assertEquals(7, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

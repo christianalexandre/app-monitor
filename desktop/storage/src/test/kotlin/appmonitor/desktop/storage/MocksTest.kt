@@ -81,6 +81,7 @@ class MocksTest {
                     it.execute("DROP TABLE mock_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN mock_rule_id")
                     it.execute("DROP TABLE breakpoint_rules")
+                    it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("PRAGMA user_version = 3")
                 }
             }
@@ -90,7 +91,7 @@ class MocksTest {
                 assertEquals(1, storage.observeActiveMocks(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(6, dir.queryLong("PRAGMA user_version"))
+            assertEquals(7, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

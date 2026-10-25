@@ -137,3 +137,4 @@ Rules:
 | [0117](0117-mocks-in-the-ios-sdk.md) | How the iOS SDK keeps, matches and serves mock rules | Accepted |
 | [0118](0118-breakpoint-messages-and-held-calls.md) | Breakpoints as their own rule set; a held call named by its request and stage | Accepted |
 | [0119](0119-breakpoints-in-the-window.md) | A held call opens on its own; breakpoints get their own panel | Accepted |
+| [0120](0120-replay-messages-and-send-again.md) | Replay named by request id, refused by the device, linked within its session | Accepted |

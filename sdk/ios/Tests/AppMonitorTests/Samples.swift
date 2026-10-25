@@ -156,6 +156,19 @@ enum Samples {
         $0.message = "aborted on the desktop"
     }
 
+    static let replayStarted = Appmonitor_V1_RequestStarted.with {
+        $0 = requestStarted
+        $0.requestID = "req-0006"
+        $0.replayOf = requestId
+    }
+
+    static let replayRequest = Appmonitor_V1_ReplayRequest.with { $0.requestID = requestId }
+
+    static let replayRefused = Appmonitor_V1_ReplayRefused.with {
+        $0.requestID = "req-0007"
+        $0.reason = "no longer kept by the SDK"
+    }
+
     /// Fixture file name to the message its envelope carries.
     static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
@@ -171,6 +184,9 @@ enum Samples {
         "breakpoint_hit.bin": (ProtocolConstants.channelInteraction, "BreakpointHit", breakpointHit),
         "breakpoint_resume.bin": (ProtocolConstants.channelInteraction, "BreakpointResume", breakpointResume),
         "breakpoint_abort.bin": (ProtocolConstants.channelInteraction, "BreakpointAbort", breakpointAbort),
+        "replay_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", replayStarted),
+        "replay_request.bin": (ProtocolConstants.channelInteraction, "ReplayRequest", replayRequest),
+        "replay_refused.bin": (ProtocolConstants.channelInteraction, "ReplayRefused", replayRefused),
     ]
 
     /// Envelopes stamped later than `timestampMs`, by file name.

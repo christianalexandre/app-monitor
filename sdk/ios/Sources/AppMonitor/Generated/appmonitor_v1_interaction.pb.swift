@@ -11,8 +11,8 @@
 //   https://github.com/apple/swift-protobuf/
 
 /// Channel "interaction": the desktop changes what the app's calls do
-/// (ADR-0110, ADR-0113). Sent only to a device that listed the channel in
-/// Hello.channels and got it back in HelloAck.channels.
+/// (ADR-0110, ADR-0113, ADR-0118, ADR-0120). Sent only to a device that listed
+/// the channel in Hello.channels and got it back in HelloAck.channels.
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -336,6 +336,38 @@ nonisolated struct Appmonitor_V1_BreakpointAbort: Sendable {
   var stage: Appmonitor_V1_BreakpointStage = .unspecified
 
   var message: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+/// Desktop to device: send the request of this session's request_id again
+/// through the app's own client (ADR-0111 D.1). The new call is captured as
+/// usual, its RequestStarted.replay_of set to this request_id.
+nonisolated struct Appmonitor_V1_ReplayRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var requestID: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+/// Device to desktop: the request of a ReplayRequest was not sent again, e.g.
+/// it is no longer among the requests the SDK keeps.
+nonisolated struct Appmonitor_V1_ReplayRefused: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var requestID: String = String()
+
+  /// Shown to the developer.
+  var reason: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -834,6 +866,71 @@ nonisolated extension Appmonitor_V1_BreakpointAbort: SwiftProtobuf.Message, Swif
     if lhs.requestID != rhs.requestID {return false}
     if lhs.stage != rhs.stage {return false}
     if lhs.message != rhs.message {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_ReplayRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ReplayRequest"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.requestID) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.requestID.isEmpty {
+      try visitor.visitSingularStringField(value: self.requestID, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_ReplayRequest, rhs: Appmonitor_V1_ReplayRequest) -> Bool {
+    if lhs.requestID != rhs.requestID {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_ReplayRefused: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".ReplayRefused"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}reason\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.requestID) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.reason) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.requestID.isEmpty {
+      try visitor.visitSingularStringField(value: self.requestID, fieldNumber: 1)
+    }
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_ReplayRefused, rhs: Appmonitor_V1_ReplayRefused) -> Bool {
+    if lhs.requestID != rhs.requestID {return false}
+    if lhs.reason != rhs.reason {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

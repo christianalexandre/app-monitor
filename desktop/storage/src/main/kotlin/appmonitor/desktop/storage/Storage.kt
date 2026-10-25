@@ -649,10 +649,12 @@ class Storage private constructor(
                         row.frame_count,
                         row.grpc_status,
                         row.mock_rule_id,
+                        row.replay_of,
                     ),
                 request = row.request_meta?.let { RequestStarted.ADAPTER.decode(it).copy(body = body(Ingest.PART_REQUEST)) },
                 response = row.response_meta?.let { ResponseReceived.ADAPTER.decode(it).copy(body = body(Ingest.PART_RESPONSE)) },
                 mockRuleName = row.mock_rule_id?.let { mockQueries.nameOf(it).executeAsOneOrNull() },
+                replayOfId = row.replay_of?.let { exchangeQueries.idOf(row.session_ref, it).executeAsOneOrNull() },
             )
         }
 
@@ -930,6 +932,8 @@ data class StoredExchange(
     val grpcStatus: Int? = null,
     /** The rule that answered on the device instead of the network (ADR-0110 E.1). */
     val mockRuleId: Long? = null,
+    /** The request id, in the same session, of the request this one sent again (ADR-0111 D.1). */
+    val replayOf: String? = null,
 ) {
     /** A socket the connection layer saw (ADR-0103): no status, no headers, no body. */
     val isConnection: Boolean get() = captureLayer == CaptureLayer.CAPTURE_LAYER_CONNECTION
@@ -953,6 +957,7 @@ data class StoredExchange(
         frameCount: Long,
         grpcStatus: Long?,
         mockRuleId: Long?,
+        replayOf: String?,
     ) : this(
         id,
         sessionRef,
@@ -969,18 +974,21 @@ data class StoredExchange(
         frameCount,
         grpcStatus?.toInt(),
         mockRuleId,
+        replayOf,
     )
 }
 
 /**
  * [request] and [response] are the events as received, bodies restored; null until that event is stored.
- * [mockRuleName] is null when the exchange was not mocked or its rule is no longer stored.
+ * [mockRuleName] is null when the exchange was not mocked or its rule is no longer stored; [replayOfId] when it is
+ * not a replay or its original is no longer stored.
  */
 data class ExchangeDetail(
     val exchange: StoredExchange,
     val request: RequestStarted?,
     val response: ResponseReceived?,
     val mockRuleName: String? = null,
+    val replayOfId: Long? = null,
 ) {
     /** The bytes a connection moved, null for any other layer; each count null until it closed (ADR-0103). */
     val connectionBytes: ConnectionBytes?

@@ -10,6 +10,8 @@ import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
 import appmonitor.v1.MockRule
 import appmonitor.v1.MockRules
+import appmonitor.v1.ReplayRefused
+import appmonitor.v1.ReplayRequest
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -48,6 +50,14 @@ class RoundTripTest {
         assertEquals(Samples.breakpointHit, BreakpointHit.ADAPTER.decode(Samples.breakpointHit.encode()))
         assertEquals(Samples.breakpointResume, BreakpointResume.ADAPTER.decode(Samples.breakpointResume.encode()))
         assertEquals(Samples.breakpointAbort, BreakpointAbort.ADAPTER.decode(Samples.breakpointAbort.encode()))
+    }
+
+    @Test
+    fun replayMessages() {
+        assertEquals(Samples.replayStarted, RequestStarted.ADAPTER.decode(Samples.replayStarted.encode()))
+        assertEquals(Samples.replayRequest, ReplayRequest.ADAPTER.decode(Samples.replayRequest.encode()))
+        assertEquals(Samples.replayRefused, ReplayRefused.ADAPTER.decode(Samples.replayRefused.encode()))
+        assertNull(RequestStarted.ADAPTER.decode(Samples.requestStarted.encode()).replay_of)
     }
 
     @Test
