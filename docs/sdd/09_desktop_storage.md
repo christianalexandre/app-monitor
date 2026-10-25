@@ -17,7 +17,9 @@ The data directory and its resolution order (`APPMONITOR_DATA_DIR`, then
 per OS) are ADR-0085's, computed by `dataDirectory()`; the settings show the
 path. The WAL and shared-memory files exist while a connection is open: the
 store closes its connection after each transaction, so they come and go. On macOS and Linux the
-directory is `0700` and the files `0600`.
+directory is `0700` and the files `0600`. The proxy's CA, `proxy-ca.pem` and
+`proxy-ca-key.pem`, sits beside them, `0600` too, written by `desktop/proxy`
+on the proxy's first start; "Clear all data" deletes it (SDD 11).
 
 Opening (`Storage.open(dir)`):
 

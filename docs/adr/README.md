@@ -122,3 +122,4 @@ Rules:
 | [0102](0102-grpc-call-events.md) | How a grpc-swift call maps onto the network events | Accepted |
 | [0103](0103-connection-events.md) | How a rebound socket maps onto the network events | Accepted |
 | [0104](0104-connection-exchanges-in-the-desktop.md) | How the desktop reads a connection exchange | Accepted |
+| [0105](0105-proxy-and-certificate-libraries.md) | Netty and Bouncy Castle for the desktop proxy | Accepted |

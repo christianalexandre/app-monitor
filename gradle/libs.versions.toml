@@ -20,6 +20,8 @@ androidx-compose-bom = "2026.06.01" # Compose 1.11; 2026.08+ (Compose 1.12) forc
 androidx-activity = "1.13.0"
 sqldelight = "2.4.1" # ADR-0085
 mcp-kotlin-sdk = "0.15.0" # ADR-0092
+netty = "4.2.19.Final" # ADR-0105
+bouncycastle = "1.86" # ADR-0105
 
 [libraries]
 # Gradle plugins, consumed by build-logic convention plugins
@@ -58,3 +60,6 @@ sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-ex
 sqldelight-sqlite-dialect = { module = "app.cash.sqldelight:sqlite-3-44-dialect", version.ref = "sqldelight" }
 mcp-kotlin-sdk-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp-kotlin-sdk" }
 mcp-kotlin-sdk-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp-kotlin-sdk" }
+netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
+netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
+bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }

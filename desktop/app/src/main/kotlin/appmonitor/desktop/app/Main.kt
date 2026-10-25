@@ -12,12 +12,15 @@ import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.McpController
+import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.McpSettings
+import appmonitor.desktop.app.ui.ProxySettings
 import appmonitor.desktop.app.ui.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
+import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
@@ -60,10 +63,11 @@ fun main() {
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
     val mcp = McpController(storage, access)
+    val proxy = ProxyController(storage, directory)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
-    addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT) {
-        stopAll(mcp::close, stopServer, closeStorage)
+    addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT + ProxyServer.STOP_TIMEOUT) {
+        stopAll({ stopBoth(mcp::close, proxy::close) }, stopServer, closeStorage)
     }
     exitAfter {
         runBlocking {
@@ -72,6 +76,7 @@ fun main() {
                     serve = {
                         coroutineScope {
                             launch { mcp.start() }
+                            launch { proxy.start() }
                             runServer(server, store::collect, stop = stopServer) { status = it }
                         }
                     },
@@ -88,6 +93,8 @@ fun main() {
                             val mcpStatus by mcp.status.collectAsState()
                             val mcpEnabled by mcp.enabled.collectAsState()
                             val mcpToken by mcp.token.collectAsState()
+                            val proxyStatus by proxy.status.collectAsState()
+                            val proxyEnabled by proxy.enabled.collectAsState()
                             AppMonitorApp(
                                 storage,
                                 status,
@@ -100,17 +107,21 @@ fun main() {
                                         approvals.forgetAll()
                                         storage.clearAll()
                                         mcp.afterClearAll()
+                                        proxy.afterClearAll()
                                     }
                                 },
                                 mcp = McpSettings(mcpStatus, mcpEnabled, mcp.port, mcpToken),
                                 onMcpEnabled = { scope.launch { mcp.setEnabled(it) } },
                                 onRegenerateToken = { scope.launch { mcp.regenerate() } },
+                                proxy = ProxySettings(proxyStatus, proxyEnabled, proxy.port, proxy.caFile.toString()),
+                                onProxyEnabled = { scope.launch { proxy.setEnabled(it) } },
+                                onResetProxyCa = { scope.launch { proxy.resetCa() } },
                             )
                         }
                     }
                 }
             } finally {
-                withContext(NonCancellable) { stopAll(mcp::close, stopServer, closeStorage) }
+                withContext(NonCancellable) { stopAll({ stopBoth(mcp::close, proxy::close) }, stopServer, closeStorage) }
             }
         }
     }
@@ -133,6 +144,18 @@ internal fun openServices(
     } catch (e: Exception) {
         runBlocking { storage.close(STOP_TIMEOUT) }
         throw e
+    }
+}
+
+/** Runs [first], then [second] even when [first] fails. */
+internal suspend fun stopBoth(
+    first: suspend () -> Unit,
+    second: suspend () -> Unit,
+) {
+    try {
+        first()
+    } finally {
+        second()
     }
 }
 

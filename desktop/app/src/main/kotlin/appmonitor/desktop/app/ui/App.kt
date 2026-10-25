@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.Checkbox
 import androidx.compose.material.Divider
@@ -59,8 +60,10 @@ import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.McpStatus
+import appmonitor.desktop.app.store.ProxyStatus
 import appmonitor.desktop.app.store.durationOf
 import appmonitor.desktop.mcp.McpServer
+import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.ExchangeFilter
@@ -105,6 +108,9 @@ internal fun AppMonitorApp(
     mcp: McpSettings? = null,
     onMcpEnabled: (Boolean) -> Unit = {},
     onRegenerateToken: () -> Unit = {},
+    proxy: ProxySettings? = null,
+    onProxyEnabled: (Boolean) -> Unit = {},
+    onResetProxyCa: () -> Unit = {},
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
 ) {
     val currentRun by storage.currentRun.collectAsState()
@@ -203,6 +209,9 @@ internal fun AppMonitorApp(
                     mcp,
                     onMcpEnabled,
                     onRegenerateToken,
+                    proxy,
+                    onProxyEnabled,
+                    onResetProxyCa,
                 ) { settingsOpen = false }
             }
             if (runsOpen) {
@@ -475,7 +484,7 @@ internal fun claudeMcpAdd(
 
 /**
  * Retention with "Clear all data" behind a confirmation (ADR-0082), the MCP server's switch, state and command
- * (ADR-0090), and every answered pair with "Forget" and "Forget all" (ADR-0083 C.1).
+ * (ADR-0090), the proxy's (ADR-0101), and every answered pair with "Forget" and "Forget all" (ADR-0083 C.1).
  */
 @Composable
 private fun Settings(
@@ -488,12 +497,15 @@ private fun Settings(
     mcp: McpSettings?,
     onMcpEnabled: (Boolean) -> Unit,
     onRegenerateToken: () -> Unit,
+    proxy: ProxySettings?,
+    onProxyEnabled: (Boolean) -> Unit,
+    onResetProxyCa: () -> Unit,
     onClose: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
     Overlay {
         Card(Modifier.width(520.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Settings", style = MaterialTheme.typography.h6)
                 Text("Retention", style = MaterialTheme.typography.subtitle2)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -527,6 +539,10 @@ private fun Settings(
                 if (mcp != null) {
                     Divider()
                     McpSection(mcp, onMcpEnabled, onRegenerateToken)
+                }
+                if (proxy != null) {
+                    Divider()
+                    ProxySection(proxy, onProxyEnabled, onResetProxyCa)
                 }
                 Divider()
                 Text("Devices", style = MaterialTheme.typography.subtitle2)
@@ -601,6 +617,73 @@ private fun mcpStateOf(status: McpStatus): Pair<String, Boolean> =
         is McpStatus.Running -> "Listening on http://127.0.0.1:${status.port}${McpServer.PATH}" to false
         is McpStatus.PortTaken -> "Port ${status.port} in use: quit what holds it, or set APPMONITOR_MCP_PORT" to true
         is McpStatus.Failed -> "Failed: ${status.message}" to true
+    }
+
+/** What the settings show of the proxy: its [status], the switch, and the CA file the commands name. */
+internal data class ProxySettings(
+    val status: ProxyStatus,
+    val enabled: Boolean,
+    val port: Int,
+    val caFile: String,
+)
+
+/** The launch command of ADR-0101 B.1: gRPC-Core in the app reads `grpc_proxy`. */
+internal fun simulatorLaunch(port: Int): String =
+    "SIMCTL_CHILD_grpc_proxy=http://${ProxyServer.HOST}:$port xcrun simctl launch booted <bundle id>"
+
+internal fun curlThroughProxy(
+    port: Int,
+    caFile: String,
+): String = "curl --proxy http://${ProxyServer.HOST}:$port --cacert \"$caFile\" https://example.com"
+
+@Composable
+private fun ProxySection(
+    proxy: ProxySettings,
+    onEnabled: (Boolean) -> Unit,
+    onResetCa: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val port = (proxy.status as? ProxyStatus.Running)?.port ?: proxy.port
+    Text("Proxy", style = MaterialTheme.typography.subtitle2)
+    Row(
+        Modifier.toggleable(proxy.enabled, onValueChange = onEnabled).testTag(PROXY_SWITCH),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(proxy.enabled, onCheckedChange = null)
+        Text("Record what apps send through a proxy on 127.0.0.1")
+    }
+    val (state, error) = proxyStateOf(proxy.status)
+    Text(
+        state,
+        Modifier.testTag(PROXY_STATUS),
+        color = if (error) MaterialTheme.colors.error else Color.Unspecified,
+        style = MaterialTheme.typography.caption,
+    )
+    if (proxy.enabled) {
+        Text("Launch a simulator app through it, or try it with curl:", style = MaterialTheme.typography.caption)
+        listOf(simulatorLaunch(port), curlThroughProxy(port, proxy.caFile)).forEach { command ->
+            SelectionContainer {
+                Text(command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.caption)
+            }
+        }
+        Row {
+            TextButton(onClick = { clipboard.setText(AnnotatedString(simulatorLaunch(port))) }) { Text("Copy launch command") }
+            TextButton(onClick = onResetCa, Modifier.testTag(PROXY_RESET_CA)) { Text("Reset proxy CA") }
+        }
+        Text(
+            "After a reset, run xcrun simctl keychain booted reset on simulators that trusted the old one.",
+            style = MaterialTheme.typography.caption,
+        )
+    }
+}
+
+private fun proxyStateOf(status: ProxyStatus): Pair<String, Boolean> =
+    when (status) {
+        ProxyStatus.Off -> "Off" to false
+        ProxyStatus.Starting -> "Starting…" to false
+        is ProxyStatus.Running -> "Listening on http://${ProxyServer.HOST}:${status.port}" to false
+        is ProxyStatus.PortTaken -> "Port ${status.port} in use: quit what holds it, or set APPMONITOR_PROXY_PORT" to true
+        is ProxyStatus.Failed -> "Failed: ${status.message}" to true
     }
 
 /** Dims the window and takes its clicks; [content] is centred. */
@@ -1035,6 +1118,12 @@ internal const val CLEAR_ALL = "clear-all"
 internal const val CONFIRM_CLEAR = "confirm-clear"
 
 internal const val MCP_SWITCH = "mcp-switch"
+
+internal const val PROXY_SWITCH = "proxy-switch"
+
+internal const val PROXY_STATUS = "proxy-status"
+
+internal const val PROXY_RESET_CA = "proxy-reset-ca"
 
 internal const val MCP_STATUS = "mcp-status"
 
