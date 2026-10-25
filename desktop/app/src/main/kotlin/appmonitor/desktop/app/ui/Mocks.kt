@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.fittingRules
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
@@ -38,6 +37,7 @@ import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
+import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.storage.MockChange
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
@@ -76,9 +76,10 @@ internal fun mockDraftOf(
             null
         }
     val path = uri?.rawPath?.ifEmpty { "/" } ?: "/"
+    val error = exchange.error
     val answer =
-        if (exchange.statusCode == null && exchange.error != null) {
-            MockRule(failure = MockFailure(exchange.error))
+        if (exchange.statusCode == null && error != null) {
+            MockRule(failure = MockFailure(error))
         } else {
             MockRule(
                 response =
