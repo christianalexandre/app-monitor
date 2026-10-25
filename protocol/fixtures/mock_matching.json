@@ -1,0 +1,32 @@
+{
+  "comment": "ADR-0110 B.1: which rule answers a request, read by every SDK that serves mocks. Rules in match order; match is the id of the first that matches, or null.",
+  "rules": [
+    { "id": 1, "method": "GET", "host": "api.example.com", "path": "/v1/items" },
+    { "id": 2, "method": "", "host": "api.example.com", "path": "/v1/items/*" },
+    { "id": 3, "method": "POST", "host": "API.Example.com", "path": "/v1/orders" },
+    { "id": 4, "method": "", "host": "api.example.com", "path": "/v1/*/detail" },
+    { "id": 5, "method": "GET", "host": "api.example.com", "path": "/v1/items" },
+    { "id": 6, "method": "", "host": "other.example.com", "path": "/" }
+  ],
+  "cases": [
+    { "name": "method, host and path", "method": "GET", "url": "https://api.example.com/v1/items", "match": 1 },
+    { "name": "the first of two equal rules", "method": "GET", "url": "https://api.example.com/v1/items", "match": 1 },
+    { "name": "query not matched", "method": "GET", "url": "https://api.example.com/v1/items?page=2", "match": 1 },
+    { "name": "fragment not matched", "method": "GET", "url": "https://api.example.com/v1/items#top", "match": 1 },
+    { "name": "scheme not matched", "method": "GET", "url": "http://api.example.com/v1/items", "match": 1 },
+    { "name": "another method", "method": "POST", "url": "https://api.example.com/v1/items", "match": null },
+    { "name": "any method, star segment", "method": "DELETE", "url": "https://api.example.com/v1/items/42", "match": 2 },
+    { "name": "star matches an empty segment", "method": "GET", "url": "https://api.example.com/v1/items/", "match": 2 },
+    { "name": "star matches one segment only", "method": "GET", "url": "https://api.example.com/v1/items/42/more", "match": null },
+    { "name": "host ignoring case", "method": "POST", "url": "https://api.example.com/v1/orders", "match": 3 },
+    { "name": "port not matched", "method": "POST", "url": "https://api.example.com:8443/v1/orders", "match": 3 },
+    { "name": "user info not matched", "method": "POST", "url": "https://user:pw@api.example.com/v1/orders", "match": 3 },
+    { "name": "star in the middle", "method": "PUT", "url": "https://api.example.com/v1/carts/detail", "match": 4 },
+    { "name": "an encoded segment is one segment", "method": "GET", "url": "https://api.example.com/v1/a%2Fb/detail", "match": 4 },
+    { "name": "path case kept", "method": "GET", "url": "https://api.example.com/v1/Items", "match": null },
+    { "name": "trailing slash kept", "method": "POST", "url": "https://api.example.com/v1/orders/", "match": null },
+    { "name": "another host", "method": "GET", "url": "https://cdn.api.example.com/v1/items", "match": null },
+    { "name": "empty path is the root", "method": "GET", "url": "https://other.example.com", "match": 6 },
+    { "name": "root path", "method": "HEAD", "url": "https://other.example.com/?q=1", "match": 6 }
+  ]
+}

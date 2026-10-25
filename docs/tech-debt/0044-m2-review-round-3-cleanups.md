@@ -3,7 +3,7 @@ id: DEBT-0044
 title: Non-correctness findings of the third M2 milestone review
 status: Open
 date: 2026-10-23
-trigger: The next PR that touches `Masking.swift`, `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/Capture.kt` or `protocol/fixtures/masking.json`
+trigger: The next PR that changes the masking in `Masking.swift` or `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/Capture.kt` (the `Masking` class), or `protocol/fixtures/masking.json`
 paid_date:
 ---
 
@@ -36,9 +36,12 @@ fallback only runs on values no URL parser on the device accepts.
 
 ## Trigger
 
-The next PR that touches `Masking.swift`,
-`sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/Capture.kt` or
-`protocol/fixtures/masking.json` pays the items. The OkHttp file is named
+The next PR that changes the masking in `Masking.swift` or in
+`sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/Capture.kt`
+(the `Masking` class), or `protocol/fixtures/masking.json`, pays the items.
+Re-triggered in `feat/kotlin-sdk-mocks` (M9.4), which touched the OkHttp
+file for mock rules only: paying masking items there would mix two
+reviews in one PR. The OkHttp file is named
 by path since sdk/ktor has a Capture.kt of its own (PLAN-0005 M4.5),
 whose masking is DEBT-0055.
 

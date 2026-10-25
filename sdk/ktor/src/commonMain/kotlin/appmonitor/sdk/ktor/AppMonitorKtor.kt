@@ -23,6 +23,7 @@ internal fun appMonitorKtor(
     marksCaptured: Boolean = MARKS_CAPTURED_REQUESTS,
 ): ClientPlugin<Unit> =
     createClientPlugin("AppMonitorKtor") {
+        val httpClient = client
         // ADR-0069: after HttpSendPipeline.State, where HttpCookies adds Cookie; once per hop.
         client.sendPipeline.intercept(HttpSendPipeline.Monitoring) { content ->
             val options = sink.options
@@ -35,7 +36,14 @@ internal fun appMonitorKtor(
             val id = newRequestId()
             request.attributes.put(REQUEST_ID, id)
             val masking = Masking(options)
-            sink.emit("RequestStarted") { requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes)) }
+            val mock = sink.mockFor(request.method.value, request.url.buildString())
+            sink.emit("RequestStarted") { requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id) }
+            if (mock != null) {
+                // ADR-0115: the engine and the receive pipeline are skipped; the Send hooks still see the call.
+                subject = answer(httpClient, sink, request, content, mock, id, masking)
+                finish()
+                return@intercept
+            }
             val call =
                 try {
                     proceed()

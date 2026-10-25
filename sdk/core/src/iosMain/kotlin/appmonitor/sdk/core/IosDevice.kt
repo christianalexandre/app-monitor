@@ -63,7 +63,7 @@ internal fun iosHello(file: Path = deviceIdFile()): Hello {
         app_id = bundle.bundleIdentifier ?: NSProcessInfo.processInfo.processName,
         app_version = bundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as String? ?: "",
         sdk_version = SDK_VERSION,
-        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
         sdk_name = SDK_NAME,
     )
 }

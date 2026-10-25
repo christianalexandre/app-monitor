@@ -5,6 +5,26 @@ plugins {
     id("appmonitor.publish")
 }
 
+// Compiled into commonTest, so the JVM, the Android host and the simulator read the same vector (ADR-0036 A).
+val generateMockMatchingVector by tasks.registering {
+    val vector = rootProject.layout.projectDirectory.file("protocol/fixtures/mock_matching.json")
+    val output = layout.buildDirectory.dir("generated/mockMatchingVector")
+    inputs.file(vector).withPropertyName("mockMatchingVector").withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(output)
+    doLast {
+        val json = vector.asFile.readText()
+        check("\"\"\"" !in json && "$" !in json) { "mock_matching.json cannot be embedded in a raw string" }
+        val file = output.get().file("appmonitor/sdk/core/MockMatchingVector.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText("package appmonitor.sdk.core\n\ninternal const val MOCK_MATCHING_VECTOR: String = \"\"\"$json\"\"\"\n")
+    }
+}
+
+// The app lint of samples/kmp reads the host test sources, generated directory included.
+tasks.matching { it.name.endsWith("LintModel") || it.name.startsWith("lintAnalyze") }.configureEach {
+    dependsOn(generateMockMatchingVector)
+}
+
 kotlin {
     android {
         namespace = "appmonitor.sdk.core"
@@ -27,11 +47,15 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.io.core)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.ktor.server.cio)
-            implementation(libs.ktor.server.websockets)
+        commonTest {
+            kotlin.srcDir(generateMockMatchingVector)
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.ktor.server.cio)
+                implementation(libs.ktor.server.websockets)
+            }
         }
         jvmTest.dependencies {
             implementation(project(":desktop:server"))

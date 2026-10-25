@@ -34,11 +34,31 @@ it. The client is a state machine; exactly one state is current.
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
 | **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the `debug-overrides` fix (ADR-0017), then stopped. `stop()` → stopped. |
 | **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
-| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
+| **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, anything else is ignored ([Mock rules](#mock-rules)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
 | **stopped** | Nothing; every resource released, buffer discarded. Events are dropped. | `start()` → a new client in discovering, empty buffer. |
 
 `start()` while a client is running is ignored: the first options stay.
+
+### Mock rules
+
+- Android and iOS list `core`, `network` and `interaction` in `Hello`
+  (ADR-0115 A.1).
+- After `HelloAck`, each `MockRules` envelope on an accepted
+  `interaction` channel replaces `MonitorClient.mocks` whole; one on a
+  channel the desktop did not accept, or one that does not decode, is
+  ignored. A rule with neither a response nor a failure is left out.
+- The rules are emptied when the session ends, by the desktop, the
+  network or `stop()`: no mock outlives its desktop (ADR-0110 A.1).
+- `MonitorBridge.mockFor(method, url)` returns the first rule matching
+  (ADR-0110 B.1): `method` exact or empty, the URL's host ignoring case,
+  its path as written (`/` when empty) segment by segment with `*` for
+  one segment, query, fragment, port and user info ignored. The URL is
+  split by RFC 3986 appendix B (`Mocks.kt`). Pinned by
+  `protocol/fixtures/mock_matching.json` (`MockMatchingVectorTest`).
+- Tests: `MonitorClientMocksTest` against `StandInDesktop` (replaced,
+  emptied by an empty set and by a lost desktop, ignored when not
+  accepted or malformed).
 
 ### Discovery
 

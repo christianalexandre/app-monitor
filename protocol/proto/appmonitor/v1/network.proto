@@ -36,6 +36,9 @@ message RequestStarted {
   optional int64 body_size = 7;
   // Holds for every event of this request_id, WebSocket frames included.
   CaptureLayer capture_layer = 8;
+  // The MockRule.id that answered the request on the device; absent when the
+  // network did (ADR-0110 E.1).
+  optional int64 mock_rule_id = 9;
 }
 
 message ResponseReceived {

@@ -1,6 +1,7 @@
 package appmonitor.sdk.core
 
 import appmonitor.v1.Envelope
+import appmonitor.v1.MockRule
 
 /** Marks the API capture modules use to reach `sdk/core`; apps never call it (ADR-0025). */
 @RequiresOptIn("Used by AppMonitor capture modules only.", RequiresOptIn.Level.ERROR)
@@ -18,4 +19,10 @@ public object MonitorBridge {
     public fun send(envelope: Envelope) {
         monitor.client?.send(envelope)
     }
+
+    /** The desktop's first rule matching the call (ADR-0110 B.1); null when none does or no desktop is connected. */
+    public fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = monitor.client?.mocks?.match(method, url)
 }
