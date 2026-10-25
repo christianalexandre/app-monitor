@@ -2,6 +2,7 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     id("appmonitor.kotlin-jvm")
+    `java-test-fixtures`
 }
 
 dependencies {
@@ -9,6 +10,9 @@ dependencies {
     implementation(libs.mcp.kotlin.sdk.server)
     implementation(libs.ktor.server.cio)
     implementation(libs.kotlinx.serialization.json)
+
+    testFixturesImplementation(kotlin("test"))
+    testFixturesImplementation(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.mcp.kotlin.sdk.client)

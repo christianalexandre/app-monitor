@@ -2,6 +2,7 @@ package appmonitor.desktop.mcp
 
 import appmonitor.desktop.mcp.Filters.putFilterProperties
 import appmonitor.desktop.storage.ExchangeDetail
+import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredFrame
 import appmonitor.v1.Header
@@ -24,9 +25,10 @@ import java.net.URLDecoder
 internal object ExportHar {
     const val NAME = "export_har"
     private val bodyModes = listOf("none", "capped", "full")
-    private const val MAX_ENTRIES = 1_000L
+    const val MAX_ENTRIES = 1_000L
     private const val DEFAULT_ENTRIES = 100L
     const val CAP = 16_384L
+    const val FULL = Int.MAX_VALUE.toLong()
     const val MAX_TEXT = 32L * 1024 * 1024
 
     val description =
@@ -67,8 +69,20 @@ internal object ExportHar {
             when (arguments.choice("bodies", bodyModes, "capped")) {
                 "none" -> 0L
                 "capped" -> CAP
-                else -> Int.MAX_VALUE.toLong()
+                else -> FULL
             }
+        return log(storage, filter, maxEntries, cap, version, maxText)
+    }
+
+    /** The first [maxEntries] exchanges [filter] matches as a HAR 1.2 log, each body and payload cut at [cap] bytes. */
+    suspend fun log(
+        storage: Storage,
+        filter: ExchangeFilter,
+        maxEntries: Long,
+        cap: Long,
+        version: String,
+        maxText: Long = MAX_TEXT,
+    ): JsonObject {
         val rows = storage.searchExchanges(filter, 0, maxEntries + 1)
         var text = 0L
         val entries = mutableListOf<JsonObject>()

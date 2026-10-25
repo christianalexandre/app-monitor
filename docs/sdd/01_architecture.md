@@ -322,6 +322,14 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   endpoints (count, error rate, p50, p95 as `base → run`), the added and
   the gone ones (the one side's numbers). The comparison is `diff_runs`'
   (`diffEndpoints`, SDD 09), read on each pick and on "Refresh".
+- Export (ADR-0098): "Export HAR" above the request list asks a file in
+  the native save dialog and writes `export_har`'s HAR (SDD 10) of every
+  device of the shown run (or every run) under the request filter: the
+  first 1 000 exchanges, oldest first, bodies whole, refused past 32 MiB;
+  a line under the buttons says how many were written, or why not. "Copy
+  as cURL" in the request detail puts `to_curl`'s command for that
+  exchange on the clipboard and says "Copied". Both go through
+  `desktop/mcp`'s `Exports`.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call

@@ -16,6 +16,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)
     testImplementation(project(":tools:fake-client"))
+    testImplementation(testFixtures(project(":desktop:mcp")))
 }
 
 compose.desktop {

@@ -214,7 +214,8 @@ Details the table leaves out:
   text (counted entry by entry) is refused with "narrow the filter or use
   bodies: none". `full` is for a developer who saves the file: Claude Code
   writes a result over 50 000 characters to a file (ADR-0089). Code:
-  `ExportHar.kt`.
+  `ExportHar.kt`; `ExportHar.log`, past the arguments, is what the
+  window's "Export HAR" calls through `Exports` (ADR-0098).
 - **cURL** (`to_curl`): `curl --globoff -X '<method>' '<url>'` (`--head`
   for `HEAD`, which `-X` would leave waiting for a body; curl refuses it
   beside a body, so a `HEAD`'s stored body is left out and a first line says
@@ -222,7 +223,8 @@ Details the table leaves out:
   `-H '<name>: <value>'` per stored header in order but `Content-Length`
   and `Transfer-Encoding`, which curl sets from the body it sends (a stored
   one would not match a body cut by the device; a stored `Content-Length: 0`
-  is kept when no body is sent, as curl then sends none), the values as stored
+  is kept when no body is sent, as curl then sends none; only the first
+  zero one, however written), the values as stored
   (masked ones stay masked), an empty value as `-H '<name>;'` (curl drops
   `<name>:`); text bodies as `--data-raw '<body>'`, binary ones, and text
   holding NUL (no shell argument can), as
@@ -231,7 +233,8 @@ Details the table leaves out:
   cut by the device adds a first line
   `# body truncated by the device: <stored> of <original> bytes`. No
   request event stored: "exchange N has no request stored". Code:
-  `ToCurl.kt`.
+  `ToCurl.kt`; `ToCurl.command` is also the window's "Copy as cURL"
+  (`Exports`, ADR-0098).
 
 - **Issues** (`save_issue`, ADR-0095, ADR-0096): without `id` it creates
   an issue with `source` `mcp`; `title` (not blank, trimmed) and
@@ -277,7 +280,7 @@ writes) and a hook run before each tool (a call held in flight).
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store (the runs read empty, answered as closing, not unknown); `desktop/app`'s `RunDiffUiTest` shows the same two runs | M6.6, M7.5 |
 | `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
 | `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue` annotated as writing | M7.3 |
-| `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
+| `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body, once, however written; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
 
 ## Limits
 
