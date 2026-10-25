@@ -1,4 +1,4 @@
-package appmonitor.desktop.app.ui
+package appmonitor.desktop.feature.mocks
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,10 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import appmonitor.desktop.app.store.fittingRules
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
 import appmonitor.desktop.designsystem.DialogCard
@@ -38,16 +36,13 @@ import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.HttpExchange
-import appmonitor.desktop.feature.traffic.METHODS
-import appmonitor.desktop.feature.traffic.formatDuration
-import appmonitor.desktop.feature.traffic.utf8OrNull
-import appmonitor.desktop.storage.MockChange
-import appmonitor.desktop.storage.MockSource
-import appmonitor.desktop.storage.MockWrite
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StoredMock
+import appmonitor.desktop.domain.Mock
+import appmonitor.desktop.ui.METHODS
+import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.headersOf
+import appmonitor.desktop.ui.headersText
+import appmonitor.desktop.ui.utf8OrNull
 import appmonitor.protocol.Protocol
-import appmonitor.v1.Header
 import appmonitor.v1.MockFailure
 import appmonitor.v1.MockResponse
 import appmonitor.v1.MockRule
@@ -55,20 +50,21 @@ import kotlinx.coroutines.launch
 import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
 import okio.ByteString.Companion.toByteString
+import org.koin.compose.viewmodel.koinViewModel
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.zip.GZIPInputStream
 
 /** What a new rule starts from: an empty form, or an exchange's "Mock this" (ADR-0114 B.1). */
-internal data class MockDraft(
+data class MockDraft(
     val appId: String,
     val name: String = "",
     val rule: MockRule = MockRule(path = "/", response = MockResponse(status_code = 200)),
 )
 
 /** A rule answering what [exchange] got, for [appId]: framing and encoding headers left out (ADR-0114 B.1). */
-internal fun mockDraftOf(
+fun mockDraftOf(
     exchange: HttpExchange,
     appId: String,
 ): MockDraft {
@@ -120,20 +116,19 @@ private fun decodedBody(body: ByteString): ByteString {
  * [draft] opens a new rule at once; [appIds] are the apps a new rule can be for.
  */
 @Composable
-internal fun MockList(
-    storage: Storage,
+fun MockList(
     appIds: List<String>,
     draft: MockDraft?,
     onClose: () -> Unit,
+    viewModel: MocksViewModel = koinViewModel(),
 ) {
-    val scope = rememberCoroutineScope()
-    val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
+    val state by viewModel.state.collectAsState()
+    val mocks = state.mocks
     var editing by remember { mutableStateOf<Editing?>(draft?.let(Editing::New)) }
-    val cut = remember(mocks) { cutOf(mocks) }
     DialogCard(DialogWidth.Wide) {
         when (val shown = editing) {
             is Editing.New -> {
-                key(shown) { MockEditor(storage, appIds, shown.draft, null) { editing = null } }
+                key(shown) { MockEditor(viewModel, appIds, shown.draft, null) { editing = null } }
                 return@DialogCard
             }
 
@@ -142,7 +137,7 @@ internal fun MockList(
                 if (mock != null) {
                     key(
                         mock.id,
-                    ) { MockEditor(storage, appIds, MockDraft(mock.appId, mock.name, mock.rule), mock) { editing = null } }
+                    ) { MockEditor(viewModel, appIds, MockDraft(mock.appId, mock.name, mock.rule), mock) { editing = null } }
                     return@DialogCard
                 }
             }
@@ -161,7 +156,7 @@ internal fun MockList(
                     Column(Modifier.weight(1f).selectableItem(false) { editing = Editing.Stored(mock.id) }.padding(vertical = Spacing.sm)) {
                         Text(mock.name, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${mock.appId} · ${summaryOf(mock.rule)}", role = TextRole.Caption, maxLines = 1)
-                        stateOf(mock, mock.id in cut)?.let { (text, warn) ->
+                        stateOf(mock, mock.id in state.cut)?.let { (text, warn) ->
                             Text(
                                 text,
                                 role = TextRole.Caption,
@@ -172,13 +167,11 @@ internal fun MockList(
                     if (mock.pending) {
                         TextButton(
                             "Confirm",
-                            onClick = { scope.launch { storage.confirmMock(mock.id) } },
+                            onClick = { viewModel.confirm(mock.id) },
                             Modifier.testTag(CONFIRM_MOCK + mock.id),
                         )
                     }
-                    TextButton(if (mock.enabled) "Turn off" else "Turn on", onClick = {
-                        scope.launch { storage.updateMock(mock.id, MockChange(enabled = !mock.enabled)) }
-                    })
+                    TextButton(if (mock.enabled) "Turn off" else "Turn on", onClick = { viewModel.toggle(mock) })
                 }
             }
         }
@@ -206,10 +199,10 @@ private sealed interface Editing {
 // Sends the whole rule on save: name and rule are the editor's, `enabled` is left to the list.
 @Composable
 private fun MockEditor(
-    storage: Storage,
+    viewModel: MocksViewModel,
     appIds: List<String>,
     draft: MockDraft,
-    stored: StoredMock?,
+    stored: Mock?,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -224,10 +217,7 @@ private fun MockEditor(
     var status by remember { mutableStateOf((rule.response?.status_code ?: 200).toString()) }
     var headers by remember {
         mutableStateOf(
-            rule.response
-                ?.headers
-                .orEmpty()
-                .joinToString("\n") { "${it.name}: ${it.value_}" },
+            headersText(rule.response?.headers.orEmpty()),
         )
     }
     val body = rule.response?.body ?: ByteString.EMPTY
@@ -324,7 +314,7 @@ private fun MockEditor(
         if (confirmingDelete && stored != null) {
             TextButton("Cancel", onClick = { confirmingDelete = false })
             TextButton("Delete rule", onClick = {
-                scope.launch { storage.deleteMock(stored.id) }
+                viewModel.delete(stored.id)
                 onBack()
             }, Modifier.testTag(CONFIRM_DELETE_MOCK))
             return@DialogActions
@@ -336,13 +326,8 @@ private fun MockEditor(
             onClick = {
                 val made = built.getOrNull() ?: return@TextButton
                 scope.launch {
-                    val write =
-                        if (stored == null) {
-                            storage.createMock(appId, name, made, MockSource.WINDOW)
-                        } else {
-                            storage.updateMock(stored.id, MockChange(name = name, rule = made))
-                        }
-                    if (write is MockWrite.Saved) onBack() else error = failureOf(write)
+                    val failure = viewModel.save(stored, appId, name, made)
+                    if (failure == null) onBack() else error = failure
                 }
             },
             Modifier.testTag(SAVE_MOCK),
@@ -383,26 +368,9 @@ private fun buildRule(
         answer.copy(method = method.orEmpty(), host = host.trim(), path = path.trim(), delay_ms = delayMs)
     }
 
-internal fun headersOf(text: String): List<Header> =
-    text.lines().filter { it.isNotBlank() }.map { line ->
-        val colon = line.indexOf(':')
-        require(colon > 0) { "A header line is \"Name: value\"" }
-        Header(line.substring(0, colon).trim(), line.substring(colon + 1).trim())
-    }
-
-/** Ids of active rules a device is not sent, as they come after the first that does not fit one frame (ADR-0113 C.1). */
-private fun cutOf(mocks: List<StoredMock>): Set<Long> =
-    mocks
-        .filter { it.active }
-        .groupBy { it.appId }
-        .values
-        .flatMap { active -> active.drop(fittingRules(active.map { it.rule })) }
-        .map { it.id }
-        .toSet()
-
 /** What a device gets of [mock], and whether that needs the developer: null when it is sent. */
 private fun stateOf(
-    mock: StoredMock,
+    mock: Mock,
     cut: Boolean,
 ): Pair<String, Boolean>? =
     when {
@@ -419,32 +387,5 @@ private fun summaryOf(rule: MockRule): String {
     return "$match → $answer$delay"
 }
 
-private fun failureOf(write: MockWrite): String =
-    when (write) {
-        is MockWrite.Saved -> ""
-        MockWrite.UnknownMock -> "Not saved: the rule was deleted"
-        MockWrite.NotSaved -> "Not saved: the store could not write it"
-    }
-
 /** "Mocks", with the rules waiting for the developer's confirmation counted. */
-internal fun mocksLabel(pending: Int): String = if (pending == 0) "Mocks" else "Mocks ($pending to confirm)"
-
-internal const val NEW_MOCK = "new-mock"
-
-internal const val MOCK_NAME = "mock-name"
-
-internal const val MOCK_HOST = "mock-host"
-
-internal const val MOCK_PATH = "mock-path"
-
-internal const val MOCK_STATUS = "mock-status"
-
-internal const val MOCK_BODY = "mock-body"
-
-internal const val MOCK_FAILURE = "mock-failure"
-
-internal const val SAVE_MOCK = "save-mock"
-
-internal const val CONFIRM_MOCK = "confirm-mock-"
-
-internal const val CONFIRM_DELETE_MOCK = "confirm-delete-mock"
+fun mocksLabel(pending: Int): String = if (pending == 0) "Mocks" else "Mocks ($pending to confirm)"

@@ -1,4 +1,4 @@
-package appmonitor.desktop.app.ui
+package appmonitor.desktop.feature.breakpoints
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,12 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import appmonitor.desktop.app.store.HeldCall
-import appmonitor.desktop.app.store.HeldCalls
-import appmonitor.desktop.app.store.HeldEdit
 import appmonitor.desktop.designsystem.CheckboxRow
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
@@ -41,40 +37,41 @@ import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
-import appmonitor.desktop.feature.traffic.METHODS
-import appmonitor.desktop.feature.traffic.formatDuration
-import appmonitor.desktop.feature.traffic.utf8OrNull
-import appmonitor.desktop.storage.BreakpointChange
-import appmonitor.desktop.storage.BreakpointWrite
-import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StoredBreakpoint
+import appmonitor.desktop.domain.Breakpoint
+import appmonitor.desktop.domain.HeldCall
+import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.ui.METHODS
+import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.headersOf
+import appmonitor.desktop.ui.headersText
+import appmonitor.desktop.ui.utf8OrNull
 import appmonitor.protocol.Protocol
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage
 import kotlinx.coroutines.launch
 import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
+import org.koin.compose.viewmodel.koinViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** Every app's breakpoints in match order, each turned on and off here; [appIds] are the apps a new one can be for (ADR-0119). */
 @Composable
-internal fun BreakpointList(
-    storage: Storage,
+fun BreakpointList(
     appIds: List<String>,
     onClose: () -> Unit,
+    viewModel: BreakpointsViewModel = koinViewModel(),
 ) {
-    val scope = rememberCoroutineScope()
-    val breakpoints by remember(storage) { storage.observeBreakpoints() }.collectAsState(emptyList())
+    val state by viewModel.state.collectAsState()
+    val breakpoints = state.breakpoints
     // Null: the list; a stored id, or 0 for a new one, opens the form.
     var editing by remember { mutableStateOf<Long?>(null) }
     DialogCard(DialogWidth.Wide) {
         editing?.let { id ->
             val stored = breakpoints.firstOrNull { it.id == id }
             if (id == NEW || stored != null) {
-                key(id) { BreakpointEditor(storage, appIds, stored) { editing = null } }
+                key(id) { BreakpointEditor(viewModel, appIds, stored) { editing = null } }
                 return@DialogCard
             }
         }
@@ -98,14 +95,7 @@ internal fun BreakpointList(
                     }
                     TextButton(
                         if (breakpoint.enabled) "Turn off" else "Turn on",
-                        onClick = {
-                            scope.launch {
-                                storage.updateBreakpoint(
-                                    breakpoint.id,
-                                    BreakpointChange(enabled = !breakpoint.enabled),
-                                )
-                            }
-                        },
+                        onClick = { viewModel.toggle(breakpoint) },
                         Modifier.testTag(TOGGLE_BREAKPOINT + breakpoint.id),
                     )
                 }
@@ -123,9 +113,9 @@ private const val NEW = 0L
 // Sends the name and the whole rule on save: `enabled` is left to the list.
 @Composable
 private fun BreakpointEditor(
-    storage: Storage,
+    viewModel: BreakpointsViewModel,
     appIds: List<String>,
-    stored: StoredBreakpoint?,
+    stored: Breakpoint?,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -140,7 +130,7 @@ private fun BreakpointEditor(
     var timeout by remember { mutableStateOf((rule.timeout_ms / 1_000).coerceAtLeast(1).toString()) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmingDelete by remember { mutableStateOf(false) }
-    val built = buildBreakpoint(name, appId, method, host, path, request, response, timeout)
+    val built = buildBreakpoint(name, appId, method, host, path, request, response, timeout, viewModel.maxTimeoutMs)
 
     Text(if (stored == null) "New breakpoint" else "Breakpoint", role = TextRole.Title)
     TextField(name, { name = it }, Modifier.fillMaxWidth().testTag(BREAKPOINT_NAME), label = "Name", singleLine = true)
@@ -175,7 +165,7 @@ private fun BreakpointEditor(
         if (confirmingDelete && stored != null) {
             TextButton("Cancel", onClick = { confirmingDelete = false })
             TextButton("Delete breakpoint", onClick = {
-                scope.launch { storage.deleteBreakpoint(stored.id) }
+                viewModel.delete(stored.id)
                 onBack()
             })
             return@DialogActions
@@ -187,13 +177,8 @@ private fun BreakpointEditor(
             onClick = {
                 val made = built.getOrNull() ?: return@TextButton
                 scope.launch {
-                    val write =
-                        if (stored == null) {
-                            storage.createBreakpoint(appId, name, made)
-                        } else {
-                            storage.updateBreakpoint(stored.id, BreakpointChange(name = name, rule = made))
-                        }
-                    if (write is BreakpointWrite.Saved) onBack() else error = failureOf(write)
+                    val failure = viewModel.save(stored, appId, name, made)
+                    if (failure == null) onBack() else error = failure
                 }
             },
             Modifier.testTag(SAVE_BREAKPOINT),
@@ -202,7 +187,7 @@ private fun BreakpointEditor(
     }
 }
 
-/** The breakpoint the form describes, or why it is not one yet (the checks `Storage` makes, said first). */
+/** The breakpoint the form describes, or why it is not one yet (the checks the store makes, said first). */
 private fun buildBreakpoint(
     name: String,
     appId: String,
@@ -212,6 +197,7 @@ private fun buildBreakpoint(
     request: Boolean,
     response: Boolean,
     timeout: String,
+    maxTimeoutMs: Long,
 ): Result<BreakpointRule> =
     runCatching {
         require(name.isNotBlank()) { "A breakpoint needs a name" }
@@ -219,7 +205,7 @@ private fun buildBreakpoint(
         require(host.isNotBlank()) { "A breakpoint needs a host" }
         require(path.trim().startsWith("/")) { "The path starts with /" }
         require(request || response) { "Hold the request, the response or both" }
-        val maxSeconds = MAX_BREAKPOINT_TIMEOUT_MS / 1_000
+        val maxSeconds = maxTimeoutMs / 1_000
         val seconds =
             timeout.trim().toLongOrNull()?.takeIf { it in 1..maxSeconds }
                 ?: throw IllegalArgumentException("The timeout is 1 to $maxSeconds s")
@@ -244,22 +230,15 @@ private fun summaryOf(rule: BreakpointRule): String {
     return "$match · holds the $holds · ${formatDuration(rule.timeout_ms)}"
 }
 
-private fun failureOf(write: BreakpointWrite): String =
-    when (write) {
-        is BreakpointWrite.Saved -> ""
-        BreakpointWrite.UnknownBreakpoint -> "Not saved: the breakpoint was deleted"
-        BreakpointWrite.NotSaved -> "Not saved: the store could not write it"
-    }
-
 /**
  * The oldest call a device holds, to edit and resume or to abort; [waiting] more are held behind it (ADR-0119 A.1).
  * Only what the developer changes is sent back (ADR-0111 C.1).
  */
 @Composable
-internal fun HeldCallDialog(
+fun HeldCallDialog(
     call: HeldCall,
     waiting: Int,
-    heldCalls: HeldCalls,
+    viewModel: BreakpointsViewModel = koinViewModel(),
 ) {
     val before = call.unedited
     val atRequest = call.stage == BreakpointStage.BREAKPOINT_STAGE_REQUEST
@@ -267,7 +246,7 @@ internal fun HeldCallDialog(
     var method by remember { mutableStateOf(before.method) }
     var url by remember { mutableStateOf(before.url) }
     var status by remember { mutableStateOf(before.statusCode.toString()) }
-    var headers by remember { mutableStateOf(before.headers.joinToString("\n") { "${it.name}: ${it.value_}" }) }
+    var headers by remember { mutableStateOf(headersText(before.headers)) }
     // A body that is not UTF-8 is kept as it came, or cleared.
     var binary by remember { mutableStateOf(before.body.takeIf { utf8OrNull(it) == null }) }
     var text by remember { mutableStateOf(utf8OrNull(before.body).orEmpty()) }
@@ -353,10 +332,10 @@ internal fun HeldCallDialog(
             Text(it, error = true, role = TextRole.Caption)
         }
         DialogActions {
-            TextButton("Abort", onClick = { heldCalls.abort(call, abortMessage) }, Modifier.testTag(ABORT_HELD))
+            TextButton("Abort", onClick = { viewModel.abort(call, abortMessage) }, Modifier.testTag(ABORT_HELD))
             TextButton(
                 "Resume",
-                onClick = { edit.getOrNull()?.let { heldCalls.resume(call, it) } },
+                onClick = { edit.getOrNull()?.let { viewModel.resume(call, it) } },
                 Modifier.testTag(RESUME_HELD),
                 enabled = edit.isSuccess,
             )
@@ -387,32 +366,8 @@ private fun buildEdit(
     }
 
 /** "Breakpoints", with the calls held now counted. */
-internal fun breakpointsLabel(held: Int): String = if (held == 0) "Breakpoints" else "Breakpoints ($held held)"
+fun breakpointsLabel(held: Int): String = if (held == 0) "Breakpoints" else "Breakpoints ($held held)"
 
 private const val DEFAULT_TIMEOUT_MS = 60_000L
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
-
-internal const val NEW_BREAKPOINT = "new-breakpoint"
-
-internal const val BREAKPOINT_NAME = "breakpoint-name"
-
-internal const val BREAKPOINT_HOST = "breakpoint-host"
-
-internal const val BREAKPOINT_PATH = "breakpoint-path"
-
-internal const val SAVE_BREAKPOINT = "save-breakpoint"
-
-internal const val TOGGLE_BREAKPOINT = "toggle-breakpoint-"
-
-internal const val HELD_URL = "held-url"
-
-internal const val HELD_STATUS = "held-status"
-
-internal const val HELD_HEADERS = "held-headers"
-
-internal const val HELD_BODY = "held-body"
-
-internal const val RESUME_HELD = "resume-held"
-
-internal const val ABORT_HELD = "abort-held"

@@ -32,6 +32,7 @@ import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.ui.formatDuration
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame

@@ -52,6 +52,15 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.feature.breakpoints.BreakpointList
+import appmonitor.desktop.feature.breakpoints.BreakpointsViewModel
+import appmonitor.desktop.feature.breakpoints.HeldCallDialog
+import appmonitor.desktop.feature.breakpoints.breakpointsLabel
+import appmonitor.desktop.feature.mocks.MockDraft
+import appmonitor.desktop.feature.mocks.MockList
+import appmonitor.desktop.feature.mocks.MocksViewModel
+import appmonitor.desktop.feature.mocks.mockDraftOf
+import appmonitor.desktop.feature.mocks.mocksLabel
 import appmonitor.desktop.feature.traffic.TrafficLinks
 import appmonitor.desktop.feature.traffic.TrafficScreen
 import appmonitor.desktop.feature.traffic.TrafficViewModel
@@ -107,7 +116,8 @@ internal fun AppMonitorApp(
             runRepository,
             traffic,
             replays,
-        ) { koinApplication { modules(appModule(storage, runRepository, traffic, replays)) } }
+            heldCalls,
+        ) { koinApplication { modules(appModule(storage, runRepository, traffic, replays, heldCalls)) } }
     DisposableEffect(koin) { onDispose { koin.close() } }
     // ADR-0136: the window's view models live as long as this composition.
     val owner = remember(koin) { WindowViewModels() }
@@ -129,7 +139,6 @@ internal fun AppMonitorApp(
                 onProxyEnabled,
                 onResetProxyCa,
                 pickHarFile,
-                heldCalls,
                 replays,
                 traffic,
             )
@@ -157,7 +166,6 @@ private fun AppMonitorWindow(
     onProxyEnabled: (Boolean) -> Unit,
     onResetProxyCa: () -> Unit,
     pickHarFile: (suggested: String) -> File?,
-    heldCalls: HeldCalls?,
     replays: Replays?,
     traffic: TrafficRepository,
 ) {
@@ -173,9 +181,10 @@ private fun AppMonitorWindow(
     // Null: closed; a draft opens the editor on it.
     var mocksOpen by remember { mutableStateOf<MockDraft?>(null) }
     var mocksShown by remember { mutableStateOf(false) }
-    val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
+    val mocks by koinViewModel<MocksViewModel>().state.collectAsState()
     var breakpointsOpen by remember { mutableStateOf(false) }
-    val held by remember(heldCalls) { heldCalls?.held ?: MutableStateFlow(emptyList()) }.collectAsState()
+    val breakpoints by koinViewModel<BreakpointsViewModel>().state.collectAsState()
+    val held = breakpoints.held
     val askedReplays by remember(replays) { replays?.asked ?: MutableStateFlow(emptyList()) }.collectAsState()
     val everySession by remember(traffic) { traffic.observeSessions(null) }.collectAsState(emptyList())
     val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
@@ -191,7 +200,7 @@ private fun AppMonitorWindow(
                 TrafficLinks(
                     status = status,
                     retentionWarning = retentionWarning(retentionStatus),
-                    mocksLabel = mocksLabel(mocks.count { it.pending }),
+                    mocksLabel = mocksLabel(mocks.pending),
                     breakpointsLabel = breakpointsLabel(held.size),
                     exportNote = exportNote,
                     onSettings = { settingsOpen = true },
@@ -257,12 +266,12 @@ private fun AppMonitorWindow(
             }
             if (issuesOpen) IssueList(storage) { issuesOpen = false }
             if (mocksShown) {
-                MockList(storage, appIds, mocksOpen) {
+                MockList(appIds, mocksOpen, onClose = {
                     mocksShown = false
                     mocksOpen = null
-                }
+                })
             }
-            if (breakpointsOpen) BreakpointList(storage, appIds) { breakpointsOpen = false }
+            if (breakpointsOpen) BreakpointList(appIds, onClose = { breakpointsOpen = false })
             if (benchmarksOpen) {
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
@@ -279,10 +288,8 @@ private fun AppMonitorWindow(
                     }
                 RunDiff(storage, state.runs.runs, filter.toStored(), scope) { diffOpen = false }
             }
-            if (heldCalls != null) {
-                // A newer hit under the same request and stage is a new form, not the old one's edits.
-                held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1, heldCalls) } }
-            }
+            // A newer hit under the same request and stage is a new form, not the old one's edits.
+            held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1) } }
             if (replays != null) {
                 askedReplays.firstOrNull()?.let { AskedReplayDialog(it, askedReplays.size - 1) { send -> replays.answer(it, send) } }
             }

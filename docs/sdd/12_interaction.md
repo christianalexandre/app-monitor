@@ -8,12 +8,14 @@ Messages in `protocol/proto/appmonitor/v1/interaction.proto`; the rules
 in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 (`store/MockPush.kt`, started by `TrafficStore`); the outgoing queue in
 `desktop/server` (`DeviceSession.send`); the window's Mocks panel in
-`desktop/app` (`ui/Mocks.kt`, ADR-0114) and the `create_mock` tool in
+`desktop/feature/mocks` (`MocksScreen.kt` over `MocksViewModel`, ADR-0114)
+and the `create_mock` tool in
 `desktop/mcp` (`Mocks.kt`, SDD 10). Breakpoints in `desktop/storage`
 (`Breakpoints.kt`, `Breakpoint.sq`), their push in `desktop/app`
 (`store/BreakpointPush.kt`), the held calls in `store/HeldCalls.kt` and
-the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
-(ADR-0119). Replays in `store/Replays.kt`, sent from the request
+the window's Breakpoints panel and held call dialog in
+`desktop/feature/breakpoints` (`BreakpointsScreen.kt` over
+`BreakpointsViewModel`, ADR-0119). Replays in `store/Replays.kt`, sent from the request
 detail in `desktop/feature/traffic` or asked by MCP's `replay_request` and confirmed in
 its dialog (ADR-0121). The Kotlin SDKs list the channel, serve the
 rules (SDD 04, 05, 08, ADR-0115), send a request again (ADR-0122) and

@@ -9,10 +9,10 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.CONFIRM_MOCK
-import appmonitor.desktop.app.ui.MOCK_BODY
-import appmonitor.desktop.app.ui.MOCK_STATUS
-import appmonitor.desktop.app.ui.SAVE_MOCK
+import appmonitor.desktop.feature.mocks.CONFIRM_MOCK
+import appmonitor.desktop.feature.mocks.MOCK_BODY
+import appmonitor.desktop.feature.mocks.MOCK_STATUS
+import appmonitor.desktop.feature.mocks.SAVE_MOCK
 import appmonitor.desktop.feature.traffic.MOCKS
 import appmonitor.desktop.feature.traffic.MOCK_THIS
 import appmonitor.desktop.server.AppMonitorServer

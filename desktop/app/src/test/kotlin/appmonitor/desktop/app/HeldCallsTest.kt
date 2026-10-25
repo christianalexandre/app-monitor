@@ -1,9 +1,9 @@
 package appmonitor.desktop.app
 
-import appmonitor.desktop.app.store.HeldCall
 import appmonitor.desktop.app.store.HeldCalls
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.store.resumeOf
+import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.BreakpointChange

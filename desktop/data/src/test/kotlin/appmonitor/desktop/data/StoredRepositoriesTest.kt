@@ -1,13 +1,22 @@
 package appmonitor.desktop.data
 
+import appmonitor.desktop.domain.BreakpointChange
+import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.MockChange
+import appmonitor.desktop.domain.MockSource
+import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.StatusClass
+import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
+import appmonitor.v1.BreakpointRule
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
+import appmonitor.v1.MockResponse
+import appmonitor.v1.MockRule
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
@@ -94,6 +103,50 @@ class StoredRepositoriesTest {
                     .first()
                     .notSaved,
             )
+        }
+
+    @Test
+    fun `mock rules are created pending from MCP, confirmed, changed and deleted through the repository`() =
+        withStorage { storage ->
+            val mocks = storage.mockRepository()
+            val rule = MockRule(host = "api.test", path = "/users", response = MockResponse(status_code = 503))
+            val id = (mocks.create("app", "  down  ", rule, MockSource.MCP) as MockWrite.Saved).id
+            val created = mocks.observeMocks().first().single()
+            assertEquals(listOf("down", "app"), listOf(created.name, created.appId))
+            assertEquals(MockSource.MCP, created.source)
+            assertEquals(id, created.rule.id)
+            assertEquals(false, created.active)
+
+            mocks.confirm(id)
+            mocks.update(id, MockChange(enabled = false))
+            storage.flush()
+            val changed = mocks.observeMocks().first().single()
+            assertEquals(listOf(false, false), listOf(changed.pending, changed.enabled))
+            assertEquals(MockWrite.UnknownMock, mocks.update(id + 1, MockChange(name = "other")))
+
+            mocks.delete(id)
+            storage.flush()
+            assertEquals(emptyList(), mocks.observeMocks().first())
+        }
+
+    @Test
+    fun `breakpoints are created, changed and deleted through the repository`() =
+        withStorage { storage ->
+            val breakpoints = storage.breakpointRepository()
+            val rule = BreakpointRule(host = "api.test", path = "/login", request = true, timeout_ms = 30_000)
+            val id = (breakpoints.create("app", "login", rule) as BreakpointWrite.Saved).id
+            breakpoints.update(id, BreakpointChange(enabled = false))
+            storage.flush()
+            val stored = breakpoints.observeBreakpoints().first().single()
+            assertEquals(listOf("login", "app"), listOf(stored.name, stored.appId))
+            assertEquals(rule.copy(id = id), stored.rule)
+            assertEquals(false, stored.enabled)
+            assertEquals(BreakpointWrite.UnknownBreakpoint, breakpoints.update(id + 1, BreakpointChange(name = "other")))
+            assertEquals(MAX_BREAKPOINT_TIMEOUT_MS, breakpoints.maxTimeoutMs)
+
+            breakpoints.delete(id)
+            storage.flush()
+            assertEquals(emptyList(), breakpoints.observeBreakpoints().first())
         }
 }
 
