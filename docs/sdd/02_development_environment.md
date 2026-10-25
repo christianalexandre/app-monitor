@@ -157,10 +157,12 @@ SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
 
 The server gets `--mocks build/e2e-ios/mocks.json`, one rule (id 1) for
 `GET 127.0.0.1/status/418` that answers 200 `mocked`, as on Android; the
-sample's `418, or a mock` button calls that path (ADR-0117).
+sample's `418, or a mock` button calls that path (ADR-0117). With
+`--replay /json` it asks the device to send the sample's first call again,
+through the app's `URLSession` (ADR-0124).
 It then waits up to `E2E_TIMEOUT` seconds (120) for the eight calls as
 `make e2e-android` does (the upload's `PUT`, the background download and
-the mocked call, asserted `mock 1`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
+the mocked call, asserted `mock 1`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
 and for the gRPC-Core call in the `[proxy]` session: `POST
 https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`, its request and
 response messages, its response.

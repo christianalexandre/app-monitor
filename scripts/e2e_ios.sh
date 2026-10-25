@@ -38,13 +38,14 @@ start_target --grpc-trust "$out/grpc-trust.p12"
 grpc_port="$(logged '^gRPC on port \([0-9]*\)$' "$target_log")"
 [[ -n "$grpc_port" ]] || fail "the target printed no gRPC port, log in $target_log"
 # The proxy verifies origins against the JVM's trust store; this one holds the target's certificate only.
-# One rule for the sample's 418 call, by then connected (ADR-0110); the target would answer 418.
+# One rule for the sample's 418 call, by then connected (ADR-0110); the target would answer 418. The first
+# call is asked again, through the app's URLSession (ADR-0124).
 cat >"$out/mocks.json" <<JSON
 {"rules": [{"id": 1, "method": "GET", "host": "127.0.0.1", "path": "/status/418",
   "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}}]}
 JSON
 SERVER_OPTS="-Djavax.net.ssl.trustStore=$out/grpc-trust.p12 -Djavax.net.ssl.trustStorePassword=e2e-target" \
-  start_server --proxy "$out/proxy" --mocks "$out/mocks.json"
+  start_server --proxy "$out/proxy" --mocks "$out/mocks.json" --replay /json
 proxy_port="$(logged '^Proxy on port \([0-9]*\),.*' "$server_log")"
 [[ -n "$proxy_port" ]] || fail "the server printed no proxy port, log in $server_log"
 target="http://127.0.0.1:$target_port"
@@ -58,7 +59,7 @@ SIMCTL_CHILD_grpc_proxy="http://127.0.0.1:$proxy_port" \
 echo "e2e-ios: sample on $sim_name ($udid), server on port $port, target $target, proxy on $proxy_port"
 
 # One expectation per line, as `missing` in scripts/e2e_lib.sh reads them.
-expected="GET $target/json ResponseReceived
+expected="GET $target/json ResponseReceived replay
 POST $target/post ResponseReceived
 GET $target/status/404 ResponseReceived
 GET $target/delay/10 RequestFailed

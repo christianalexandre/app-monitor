@@ -101,3 +101,4 @@ Rules:
 | [0081](0081-m8-review-cleanups.md) | Non-correctness findings of the M8 milestone review | The next PR that touches the proxy's `ClientHandler.kt` or `Http2Relay.kt`, `ProxyController.kt`, `connections.c`, `ConnectionCapture.swift`, `ExportHar.kt` or `scripts/e2e_ios.sh` | Open |
 | [0082](0082-mock-rule-order.md) | A mock rule cannot be moved in its app's match order | The first PR that adds a query on `Mock.sq`'s `position`, or a rule a developer needs ahead of an earlier one | Open |
 | [0083](0083-ktor-internal-api-for-mocks.md) | Ktor mocks build their call with Ktor's internal API | The first PR that changes `ktor` in `gradle/libs.versions.toml` | Open |
+| [0084](0084-ios-replay-on-a-session-being-invalidated.md) | An iOS replay can race the app invalidating its session | The next PR that changes `sdk/ios/Sources/AppMonitor/Replays.swift`, or the first crash "Task created in a session that has been invalidated" with `Replay` in its stack | Open |

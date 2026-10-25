@@ -12,6 +12,9 @@ protocol CaptureSink: AnyObject, Sendable {
 
     /// The desktop's first rule for this call, nil outside a session (ADR-0110).
     func mock(method: String, url: String) -> Appmonitor_V1_MockRule?
+
+    /// Keeps what sends `requestID`'s task again for a `ReplayRequest`; dropped outside a session (ADR-0122 A.1).
+    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?)
 }
 
 extension MonitorHolder: CaptureSink {
@@ -21,6 +24,10 @@ extension MonitorHolder: CaptureSink {
 
     func mock(method: String, url: String) -> Appmonitor_V1_MockRule? {
         client?.mocks.match(method: method, url: url)
+    }
+
+    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+        client?.replays.keep(requestID, replay)
     }
 }
 
@@ -176,7 +183,8 @@ func requestStarted(
     limit: Int,
     upload: UploadBody? = nil,
     streamed: Bool = false,
-    mock: Appmonitor_V1_MockRule? = nil
+    mock: Appmonitor_V1_MockRule? = nil,
+    replayOf: String? = nil
 ) throws -> Data {
     var event = Appmonitor_V1_RequestStarted()
     event.requestID = id
@@ -185,6 +193,7 @@ func requestStarted(
     event.headers = masking.headers(sortedHeaders(request?.allHTTPHeaderFields ?? [:]))
     event.captureLayer = .platform
     if let mock { event.mockRuleID = mock.id }
+    if let replayOf { event.replayOf = replayOf }
     switch (upload, request?.httpBody, request?.httpBodyStream) {
     case (.data(let data), _, _), (nil, .some(let data), _):
         event.body = data.prefix(limit)
@@ -310,8 +319,10 @@ enum Hooks {
         emit(sink, "RequestStarted") {
             try requestStarted(
                 request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload?.body,
-                streamed: task is URLSessionUploadTask, mock: mock)
+                streamed: task is URLSessionUploadTask, mock: mock, replayOf: Replay.original(of: task))
         }
+        sink.keepForReplay(
+            capture.id, Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
     }
 
     private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {

@@ -24,6 +24,13 @@ final class Sink: CaptureSink, @unchecked Sendable {
         rules.match(method: method, url: url)
     }
 
+    /// What `keepForReplay` got; a background task is never sent again (ADR-0124 C.1).
+    let replays = RecentRequests()
+
+    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+        replays.keep(requestID, replay)
+    }
+
     func started() throws -> Appmonitor_V1_RequestStarted {
         try Appmonitor_V1_RequestStarted(serializedBytes: #require(all.first { $0.type == "RequestStarted" }).payload)
     }
@@ -133,6 +140,7 @@ final class BackgroundSessionTests {
         let started = try sink.started()
         #expect(started.url == server.url("/ok").absoluteString)
         #expect(started.captureLayer == .platform)
+        #expect(sink.replays.replay(started.requestID) == "A background session's task is not sent again")
         #expect(started.headers.contains { $0.name == "Authorization" && $0.value == "██" })
         let response = try sink.response()
         #expect(response.requestID == started.requestID)

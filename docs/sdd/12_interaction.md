@@ -18,7 +18,8 @@ detail in `ui/App.kt` or asked by MCP's `replay_request` and confirmed in
 its dialog (ADR-0121). The Kotlin SDKs list the channel, serve the
 rules (SDD 04, 05, 08, ADR-0115), send a request again (ADR-0122) and
 hold a call at a breakpoint (ADR-0123); the Swift SDK serves the rules
-(SDD 06, 07, ADR-0117), and holds and replays none yet (PLAN-0010).
+(SDD 06, 07, ADR-0117) and sends a task again (ADR-0124), and holds none
+yet (PLAN-0010 M9.15).
 
 ## How it works
 
@@ -177,8 +178,9 @@ does. The editor sends the name and the whole rule; "Turn on" and
 
 The device sends the request again through the app's own client and
 captures the new call as usual, `RequestStarted.replay_of` set to the
-original's request id (fixture `replay_started.bin`); in the Kotlin SDKs,
-from the last 200 requests of the session (SDD 04, 05, 08, ADR-0122). The store keeps it
+original's request id (fixture `replay_started.bin`); in the Kotlin SDKs and
+the Swift one, from the last 200 requests of the session (SDD 04, 05, 07, 08, ADR-0122,
+ADR-0124). The store keeps it
 in `exchanges.replay_of` (SDD 09); `ExchangeDetail.replayOfId` is the
 original's row in the same session, null once it is gone.
 
@@ -271,6 +273,8 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | A device sends a kept request again and refuses an unknown one, with a module's reason; forgets them when the session ends | `MonitorClientReplayTest` in `sdk/core` |
 | OkHttp and Ktor send a call again through the app's client, every interceptor or plugin once, marked `replay_of`; a body sent only once refused | `ReplayTest` in `sdk/android-okhttp` and `sdk/ktor` |
 | A real OkHttp call on an emulator sent again on the headless server's `ReplayRequest` | `make e2e-android` |
+| `URLSession` sends a task again through its session, its delegate left out, marked `replay_of`; a streamed body and an invalidated session refused; an unknown request refused on the wire | `ReplayTests` in `sdk/ios` |
+| A real `URLSession` task on a simulator sent again on the headless server's `ReplayRequest` | `make e2e-ios` |
 | The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `desktop/server` |
 | A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
 | An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
