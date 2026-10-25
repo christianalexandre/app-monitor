@@ -51,6 +51,8 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(project(":sdk:android-okhttp"))
+            implementation(libs.okhttp.mockwebserver3)
         }
         iosTest.dependencies {
             implementation(libs.ktor.client.darwin)

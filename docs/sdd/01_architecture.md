@@ -210,7 +210,9 @@ a stack trace (DEBT-0010). See ADR-0010.
   `sdk/ktor` and the Swift SDK shares one device id, so the desktop keeps two
   sessions for one (`device_id`, `app_id`); `sdk/ktor` sets
   `X-AppMonitor-Capture` on what it captured and the Swift SDK's hooks skip
-  those tasks, so each exchange shows once.
+  those tasks, so each exchange shows once. On the JVM and Android, beside
+  `appmonitor-okhttp`, the same mark makes `AppMonitorInterceptor` skip
+  Ktor's OkHttp engine calls and take the header off (ADR-0129).
 - **Release builds** swap each SDK module for its no-op twin
   (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
   same public types doing nothing, kept identical by comparing the committed

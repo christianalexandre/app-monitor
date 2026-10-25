@@ -15,6 +15,11 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 - **Off until started.** Both types read `MonitorBridge.options` per call or
   WebSocket: null (not started, stopped, `enabled = false`) → the call goes
   through untouched and nothing is built.
+- **A call `sdk/ktor` captured is skipped.** A request carrying
+  `X-AppMonitor-Capture` (any value), set by the Ktor plugin on its OkHttp
+  engine, goes on with the header removed and nothing captured, whether
+  the monitor runs or not (SDD 08, ADR-0129). Tests:
+  `AppMonitorInterceptorTest`, and `OkHttpEngineDedupeTest` in `sdk/ktor`.
 - **Masking**, on the device before the envelope is built:
   `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` plus
   `maskedHeaders` keep their name and get the value `██`;

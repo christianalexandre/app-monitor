@@ -1,5 +1,6 @@
 package appmonitor.sdk.okhttp
 
+import appmonitor.protocol.Protocol.CAPTURE_HEADER
 import appmonitor.sdk.core.BreakpointOutcome
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointStage
@@ -37,7 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * desktop asks (ADR-0111). Add
  * it with `addInterceptor`, one event set per call; `addNetworkInterceptor` gives one per network hop, with
  * bodies still compressed as on the wire, no mock answer and no resume to another host or port (ADR-0128). It
- * captures nothing until `AppMonitor.start` runs.
+ * captures nothing until `AppMonitor.start` runs. A call `AppMonitorKtor` already captured is sent on without
+ * being captured again.
  */
 public class AppMonitorInterceptor : Interceptor {
     private val sink: CaptureSink
@@ -56,6 +58,8 @@ public class AppMonitorInterceptor : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
+        // ADR-0129: sdk/ktor marks what it captured on Ktor's OkHttp engine; the mark stops here.
+        if (original.header(CAPTURE_HEADER) != null) return chain.proceed(original.newBuilder().removeHeader(CAPTURE_HEADER).build())
         val options = sink.options
         if (options == null || original.tag(WebSocketCapture::class.java) != null) return chain.proceed(original)
         val id = newRequestId()
@@ -64,16 +68,15 @@ public class AppMonitorInterceptor : Interceptor {
         val replayOf = replays[call]
         // ADR-0128: OkHttp throws when a network interceptor skips proceed() or changes the host or port.
         val network = chain.connection() != null
-        val request = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf, network)
+        val (request, held) = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf, network)
+        val sent = held ?: request.body.capture(options.maxBodyBytes)
         val mock = if (network) null else sink.mockFor(request.method, request.url.toString())
-        sink.emit("RequestStarted") {
-            requestStarted(id, request, masking, request.body.capture(options.maxBodyBytes), mock?.id, replayOf)
-        }
+        sink.emit("RequestStarted") { requestStarted(id, request, masking, sent, mock?.id, replayOf) }
         sink.keepForReplay(id) { replay(call, id) }
         if (mock != null) {
             val answered = answer(chain, request, mock, id)
             val known = checkNotNull(mock.response).body.let { CapturedBody(it, truncated = false, size = it.size.toLong()) }
-            val (mocked, body) = holdResponse(call, request, answered, known, id, masking, options.maxBodyBytes)
+            val (mocked, body) = holdResponse(call, request, sent, answered, known, id, masking, options.maxBodyBytes)
             sink.emit("ResponseReceived") { responseReceived(id, mocked, masking, checkNotNull(body)) }
             return mocked
         }
@@ -89,7 +92,7 @@ public class AppMonitorInterceptor : Interceptor {
             return received
         }
         val known = if (received.body.contentLength() == 0L) CapturedBody.EMPTY else null
-        val (response, replaced) = holdResponse(call, request, received, known, id, masking, options.maxBodyBytes)
+        val (response, replaced) = holdResponse(call, request, sent, received, known, id, masking, options.maxBodyBytes)
         if (replaced != null) {
             sink.emit("ResponseReceived") { responseReceived(id, response, masking, replaced) }
             return response
@@ -101,7 +104,10 @@ public class AppMonitorInterceptor : Interceptor {
         return response.newBuilder().body(capturing).build()
     }
 
-    /** ADR-0111 A.1, C.1: [request] as its breakpoint lets it go, edited or not; an abort or a bad edit fails the call. */
+    /**
+     * ADR-0111 A.1, C.1: [request] as its breakpoint lets it go, edited or not, with its captured body when it was
+     * captured for the hit and not edited; an abort or a bad edit fails the call.
+     */
     private fun holdRequest(
         call: Call,
         request: Request,
@@ -110,10 +116,11 @@ public class AppMonitorInterceptor : Interceptor {
         limit: Int,
         replayOf: String?,
         network: Boolean,
-    ): Request {
+    ): Pair<Request, CapturedBody?> {
         val stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST
-        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return request
-        val started = requestStarted(id, request, masking, request.body.capture(limit), replayOf = replayOf)
+        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return request to null
+        val body = request.body.capture(limit)
+        val started = requestStarted(id, request, masking, body, replayOf = replayOf)
         val outcome =
             held(call, id, started) { BreakpointHit(rule_id = rule.id, stage = stage, request = started, timeout_ms = rule.timeout_ms) }
         val failure =
@@ -124,7 +131,7 @@ public class AppMonitorInterceptor : Interceptor {
 
                 is BreakpointOutcome.Resume -> {
                     try {
-                        return edited(request, outcome, network) ?: request
+                        return edited(request, outcome, network)?.let { it to null } ?: (request to body)
                     } catch (e: IOException) {
                         e
                     }
@@ -176,6 +183,7 @@ public class AppMonitorInterceptor : Interceptor {
     private fun holdResponse(
         call: Call,
         request: Request,
+        requestBody: CapturedBody,
         response: Response,
         body: CapturedBody?,
         id: String,
@@ -198,7 +206,7 @@ public class AppMonitorInterceptor : Interceptor {
                     BreakpointHit(
                         rule_id = rule.id,
                         stage = stage,
-                        request = requestStarted(id, request, masking, request.body.capture(limit)),
+                        request = requestStarted(id, request, masking, requestBody),
                         response = responseReceived(id, response, masking, seen),
                         timeout_ms = rule.timeout_ms,
                     )

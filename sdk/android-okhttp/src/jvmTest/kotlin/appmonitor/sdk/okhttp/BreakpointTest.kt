@@ -12,7 +12,9 @@ import kotlinx.coroutines.awaitCancellation
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import okio.ByteString.Companion.encodeUtf8
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -133,6 +135,51 @@ class BreakpointTest {
         assertEquals(0, server.requestCount)
         sink.started()
         sink.failed()
+    }
+
+    @Test
+    fun aBodyHeldAtBothStagesIsCapturedOnce() {
+        var writes = 0
+        val body =
+            object : RequestBody() {
+                override fun contentType() = null
+
+                override fun writeTo(sink: BufferedSink) {
+                    writes++
+                    sink.writeUtf8("sent")
+                }
+            }
+        val sink = RecordingSink(breakpoints = listOf(rule("/items", request = true, response = true)))
+        server.enqueue(reply("ok"))
+
+        client(sink)
+            .newCall(
+                Request
+                    .Builder()
+                    .url(server.url("/items"))
+                    .post(body)
+                    .build(),
+            ).execute()
+            .use { it.body.string() }
+
+        assertEquals(2, writes, "one capture and the network")
+        assertEquals(
+            "sent",
+            sink.hits
+                .poll(5, TimeUnit.SECONDS)!!
+                .request!!
+                .body
+                .utf8(),
+        )
+        assertEquals(
+            "sent",
+            sink.hits
+                .poll(5, TimeUnit.SECONDS)!!
+                .request!!
+                .body
+                .utf8(),
+        )
+        assertEquals("sent", sink.started().body.utf8())
     }
 
     @Test
