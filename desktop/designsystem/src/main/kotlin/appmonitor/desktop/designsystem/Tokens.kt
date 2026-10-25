@@ -52,6 +52,11 @@ data class AppColors(
     // The row a list shows as selected, and what dims the window under a dialog.
     val selected: Color,
     val scrim: Color,
+    // A badge's text in each tone; its background is the same color, faded ([Badge]).
+    val success: Color,
+    val info: Color,
+    val warning: Color,
+    val neutral: Color,
 )
 
 internal val LightAppColors =
@@ -69,6 +74,10 @@ internal val LightAppColors =
         onError = Color(0xFFFFFFFF),
         selected = Color(0x1F2196F3),
         scrim = Color(0x66000000),
+        success = Color(0xFF1B7F3B),
+        info = Color(0xFF1565C0),
+        warning = Color(0xFFA15C00),
+        neutral = Color(0xFF5F6368),
     )
 
 internal val DarkAppColors =
@@ -86,4 +95,8 @@ internal val DarkAppColors =
         onError = Color(0xFF000000),
         selected = Color(0x3390CAF9),
         scrim = Color(0x99000000),
+        success = Color(0xFF7DD99A),
+        info = Color(0xFF90CAF9),
+        warning = Color(0xFFFFB74D),
+        neutral = Color(0xFFB0B4BA),
     )

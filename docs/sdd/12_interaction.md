@@ -130,7 +130,7 @@ does. The editor sends the name and the whole rule; "Turn on" and
 
 ### The window (ADR-0114)
 
-- "Mocks" sits under the run picker; it reads "Mocks (N to confirm)" while
+- "Mocks" sits under the devices; it reads "Mocks (N to confirm)" while
   N rules wait for a confirmation. The panel lists every app's rules,
   grouped by app id in match order, each as `<app> · <method or Any>
   <host><path> → <status, or fails: message>[ · delay]`, then its state:

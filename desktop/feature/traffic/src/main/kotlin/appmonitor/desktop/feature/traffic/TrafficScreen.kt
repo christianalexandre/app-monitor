@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,14 +30,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.Badge
+import appmonitor.desktop.designsystem.BadgeTone
 import appmonitor.desktop.designsystem.Checkbox
 import appmonitor.desktop.designsystem.CheckboxRow
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
 import appmonitor.desktop.designsystem.DialogCard
 import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Divider
+import appmonitor.desktop.designsystem.EmptyState
+import appmonitor.desktop.designsystem.MiddleEllipsisText
 import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Spacing
@@ -43,8 +51,10 @@ import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.designsystem.Toolbar
 import appmonitor.desktop.designsystem.VerticalDivider
 import appmonitor.desktop.designsystem.selectableItem
+import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
@@ -55,6 +65,10 @@ import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.statusOf
 import appmonitor.desktop.ui.titleOf
 import org.koin.compose.viewmodel.koinViewModel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * What the traffic panes show of other screens and open there: the server's [status], a [retentionWarning], the
@@ -77,7 +91,7 @@ data class TrafficLinks(
     val onMock: (HttpExchange) -> Unit = {},
 )
 
-/** The live list's or a stored run's sessions, requests and request, and the runs dialog (SDD 09). */
+/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog (SDD 09). */
 @Composable
 fun TrafficScreen(
     links: TrafficLinks,
@@ -87,30 +101,37 @@ fun TrafficScreen(
     var runsOpen by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxSize()) {
-            DeviceList(state, links, viewModel, Modifier.width(240.dp).fillMaxHeight(), onRuns = { runsOpen = true })
-            VerticalDivider()
-            RequestList(state, links, viewModel, Modifier.weight(1f).fillMaxHeight())
-            VerticalDivider()
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                val picked = state.detail.id
-                if (picked == null) {
-                    Placeholder("Select a request")
-                } else {
-                    // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
-                    key(picked) {
-                        state.detail.exchange?.let {
-                            RequestDetail(
-                                it,
-                                onCopyCurl = { viewModel.copyCurl { command -> clipboard.setText(AnnotatedString(command)) } },
-                                state.detail.copyNote,
-                                onMock = { links.onMock(it) },
-                                onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
-                                state.detail.replayNote,
-                                viewModel::showOriginal,
-                                viewModel::moreFrames,
-                            )
-                        } ?: Placeholder("Loading…")
+        Column(Modifier.fillMaxSize()) {
+            TrafficToolbar(state, links, viewModel, onRuns = { runsOpen = true })
+            val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
+            notes.forEach { (note, tag) ->
+                Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
+            }
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                DeviceList(state, links, viewModel, Modifier.width(240.dp).fillMaxHeight())
+                VerticalDivider()
+                RequestList(state, viewModel, Modifier.weight(REQUESTS_WEIGHT).fillMaxHeight())
+                VerticalDivider()
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    val picked = state.detail.id
+                    if (picked == null) {
+                        EmptyState("Select a request", "Its headers, body and timing show here")
+                    } else {
+                        // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
+                        key(picked) {
+                            state.detail.exchange?.let {
+                                RequestDetail(
+                                    it,
+                                    onCopyCurl = { viewModel.copyCurl { command -> clipboard.setText(AnnotatedString(command)) } },
+                                    state.detail.copyNote,
+                                    onMock = { links.onMock(it) },
+                                    onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
+                                    state.detail.replayNote,
+                                    viewModel::showOriginal,
+                                    viewModel::moreFrames,
+                                )
+                            } ?: Placeholder("Loading…")
+                        }
                     }
                 }
             }
@@ -129,6 +150,42 @@ fun TrafficScreen(
                 },
             ) { runsOpen = false }
         }
+    }
+}
+
+/** What is shown and what it does to it: the run picker, Record, Save, Clear, search and filters (ADR-0140 G). */
+@Composable
+private fun TrafficToolbar(
+    state: TrafficState,
+    links: TrafficLinks,
+    viewModel: TrafficViewModel,
+    onRuns: () -> Unit,
+) {
+    val marked = state.marked.keys
+    val canSave = marked.isNotEmpty() || state.row != null
+    Toolbar {
+        TextButton("${state.runs.title} ▾", onClick = onRuns, Modifier.widthIn(max = 200.dp).testTag(RUNS), singleLine = true)
+        if (state.runs.shownRunId == null) {
+            if (state.runs.recording == null) {
+                TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
+            } else {
+                TextButton("Stop recording", onClick = viewModel::stop, Modifier.testTag(RECORD))
+            }
+            TextButton(
+                if (marked.isEmpty()) "Save" else "Save ${marked.size}",
+                onClick = viewModel::save,
+                Modifier.testTag(SAVE),
+                enabled = canSave,
+            )
+            TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
+        }
+        TextButton(
+            if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue",
+            onClick = links.onSaveAsIssue,
+            Modifier.testTag(SAVE_AS_ISSUE),
+            enabled = canSave,
+        )
+        FilterBar(state.filter, viewModel::setFilter)
     }
 }
 
@@ -206,27 +263,10 @@ private fun DeviceList(
     links: TrafficLinks,
     viewModel: TrafficViewModel,
     modifier: Modifier,
-    onRuns: () -> Unit,
 ) {
     val onSelect = viewModel::selectSession
     Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(
-                "${state.runs.title} ▾",
-                onClick = onRuns,
-                Modifier.weight(1f).padding(horizontal = Spacing.xs).testTag(RUNS),
-                singleLine = true,
-            )
-            TextButton("Issues", onClick = links.onIssues, Modifier.testTag(ISSUES))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.padding(horizontal = Spacing.xs).testTag(MOCKS))
-            TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.testTag(BREAKPOINTS))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { PaneTitle("Devices") }
-            TextButton("Settings", onClick = links.onSettings)
-        }
+        PaneTitle("Devices")
         Text(links.status, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption)
         state.health.lastError?.let {
             Text(
@@ -239,7 +279,7 @@ private fun DeviceList(
         links.retentionWarning?.let {
             Text(it, Modifier.padding(horizontal = Spacing.lg), error = true, role = TextRole.Caption)
         }
-        LazyColumn {
+        LazyColumn(Modifier.weight(1f)) {
             item {
                 Text(
                     "All devices",
@@ -252,6 +292,15 @@ private fun DeviceList(
                         .testTag(ALL_DEVICES),
                     role = TextRole.BodyStrong,
                 )
+            }
+            if (state.sessions.isEmpty() && state.disconnected.isEmpty()) {
+                item {
+                    Text(
+                        "A device shows here with its first request",
+                        Modifier.padding(horizontal = Spacing.lg),
+                        role = TextRole.Caption,
+                    )
+                }
             }
             items(state.sessions, key = { it.id }) { session ->
                 val hello = session.hello
@@ -291,19 +340,38 @@ private fun DeviceList(
                 }
             }
         }
+        Divider()
+        Links(links)
+    }
+}
+
+/** The screens this one opens, two to a row under the devices. */
+@Composable
+private fun Links(links: TrafficLinks) {
+    Column(Modifier.padding(Spacing.xs)) {
+        Row {
+            TextButton("Issues", onClick = links.onIssues, Modifier.weight(1f).testTag(ISSUES))
+            TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.weight(1f).testTag(BENCHMARKS))
+        }
+        Row {
+            TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.weight(1f).testTag(MOCKS), singleLine = true)
+            TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.weight(1f).testTag(BREAKPOINTS), singleLine = true)
+        }
+        Row {
+            TextButton("Export HAR", onClick = links.onExportHar, Modifier.weight(1f).testTag(EXPORT_HAR))
+            TextButton("Settings", onClick = links.onSettings, Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
 private fun RequestList(
     state: TrafficState,
-    links: TrafficLinks,
     viewModel: TrafficViewModel,
     modifier: Modifier,
 ) {
     val exchanges = state.rows
     val marked = state.marked.keys
-    val filter = state.filter
     val list = rememberLazyListState()
     val nearEnd by remember {
         derivedStateOf {
@@ -315,99 +383,101 @@ private fun RequestList(
         }
     }
     LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) viewModel.loadMore() }
-    Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { PaneTitle("Requests") }
-            if (state.runs.shownRunId == null) {
-                if (state.runs.recording == null) {
-                    TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
-                } else {
-                    TextButton("Stop recording", onClick = viewModel::stop, Modifier.testTag(RECORD))
-                }
-                TextButton(
-                    if (marked.isEmpty()) "Save" else "Save ${marked.size}",
-                    onClick = viewModel::save,
-                    Modifier.testTag(SAVE),
-                    enabled = marked.isNotEmpty() || state.row != null,
-                )
-                TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
+    Box(modifier) {
+        if (exchanges.isEmpty()) {
+            when {
+                state.filter != ExchangeFilter() -> EmptyState("No requests match", "Change the search or the filters")
+                state.runs.shownRunId != null -> EmptyState("No requests yet", "This run holds no request")
+                state.runs.recording != null -> EmptyState("No requests yet", "Recording: every request that starts is stored")
+                else -> EmptyState("No requests yet", "Requests of every connected device show here as they happen")
             }
         }
-        state.runs.saveNote?.let { Text(it, Modifier.padding(horizontal = Spacing.lg).testTag(SAVE_NOTE), role = TextRole.Caption) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
-            TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
-            TextButton(
-                if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue",
-                onClick = links.onSaveAsIssue,
-                Modifier.testTag(SAVE_AS_ISSUE),
-                enabled = marked.isNotEmpty() || state.row != null,
-            )
-        }
-        links.exportNote?.let { Text(it, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption) }
-        FilterBar(filter, viewModel::setFilter)
-        if (exchanges.isEmpty()) Placeholder(if (filter == ExchangeFilter()) "No requests yet" else "No requests match")
-        LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
+        LazyColumn(Modifier.fillMaxSize().testTag(REQUEST_LIST), state = list) {
             items(exchanges, key = { it.id }) { exchange ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .selectableItem(
-                            exchange.id == state.row?.id,
-                        ) { viewModel.selectRequest(exchange.id) }
-                        .padding(Spacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        exchange.id in marked,
-                        onCheckedChange = { viewModel.mark(exchange, it) },
-                        Modifier.size(20.dp).testTag(MARK + exchange.requestId),
-                    )
-                    Text(exchange.method ?: "—", Modifier.width(96.dp), role = TextRole.BodyStrong, maxLines = 1)
-                    Text(
-                        exchange.url ?: exchange.requestId,
-                        Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (exchange.mockRuleId != null) {
-                        Text("mocked", Modifier.testTag(MOCKED + exchange.requestId), role = TextRole.Caption)
-                    }
-                    if (exchange.replayOf != null) {
-                        Text("replay", Modifier.testTag(REPLAYED + exchange.requestId), role = TextRole.Caption)
-                    }
-                    Text(statusOf(exchange), Modifier.width(56.dp))
-                    Text(durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "", Modifier.width(72.dp))
-                }
+                RequestRow(
+                    exchange,
+                    selected = exchange.id == state.row?.id,
+                    marked = exchange.id in marked,
+                    onSelect = { viewModel.selectRequest(exchange.id) },
+                    onMark = { viewModel.mark(exchange, it) },
+                )
             }
         }
     }
 }
+
+/** A colored status, the method, the URL cut in its middle, when it started and how long it took (ADR-0140 G). */
+@Composable
+private fun RequestRow(
+    exchange: Exchange,
+    selected: Boolean,
+    marked: Boolean,
+    onSelect: () -> Unit,
+    onMark: (Boolean) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().selectableItem(selected, onSelect).padding(horizontal = Spacing.lg, vertical = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(marked, onCheckedChange = onMark, Modifier.size(20.dp).testTag(MARK + exchange.requestId))
+        Box(Modifier.width(64.dp)) { Badge(statusOf(exchange), toneOf(exchange)) }
+        Text(exchange.method ?: "—", Modifier.width(56.dp), role = TextRole.SmallStrong, maxLines = 1)
+        MiddleEllipsisText(exchange.url ?: exchange.requestId, Modifier.weight(1f))
+        if (exchange.mockRuleId != null) Badge("mocked", BadgeTone.Info, Modifier.testTag(MOCKED + exchange.requestId))
+        if (exchange.replayOf != null) Badge("replay", BadgeTone.Neutral, Modifier.testTag(REPLAYED + exchange.requestId))
+        Text(exchange.startedAtMs?.let(::formatClock) ?: "", Modifier.width(96.dp), role = TextRole.CodeCaption, maxLines = 1)
+        Text(
+            durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "",
+            Modifier.width(64.dp),
+            role = TextRole.Small,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Green 2xx, blue 3xx, amber 4xx, red 5xx, a failure or a gRPC error; neutral while pending or for a socket. */
+internal fun toneOf(exchange: Exchange): BadgeTone {
+    val code = exchange.statusCode
+    return when {
+        exchange.failed || (exchange.grpcStatus ?: 0) != 0 -> BadgeTone.Error
+        exchange.isConnection || code == null -> BadgeTone.Neutral
+        code >= 500 -> BadgeTone.Error
+        code >= 400 -> BadgeTone.Warning
+        code >= 300 -> BadgeTone.Info
+        code >= 200 -> BadgeTone.Success
+        else -> BadgeTone.Neutral
+    }
+}
+
+/** A start time to the millisecond, in this machine's zone, as the request rows show it. */
+internal fun formatClock(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(ms))
+
+private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).withZone(ZoneId.systemDefault())
 
 /** Text in the URL, method, status class and failed only; the device and app are the session picked on the left. */
 @Composable
-private fun FilterBar(
+private fun RowScope.FilterBar(
     filter: ExchangeFilter,
     onFilter: (ExchangeFilter) -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = Spacing.lg)) {
-        TextField(
-            filter.text.orEmpty(),
-            { onFilter(filter.copy(text = it.ifEmpty { null })) },
-            Modifier.fillMaxWidth().testTag(SEARCH),
-            placeholder = "Search URL",
-            singleLine = true,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Choice("Method", filter.method, METHODS, { it }) { onFilter(filter.copy(method = it)) }
-            Choice("Status", filter.statusClass, StatusClass.entries, ::labelOf) { onFilter(filter.copy(statusClass = it)) }
-            CheckboxRow("Failed only", filter.failedOnly, { onFilter(filter.copy(failedOnly = it)) }, Modifier.padding(end = Spacing.md))
-        }
-    }
+    TextField(
+        filter.text.orEmpty(),
+        { onFilter(filter.copy(text = it.ifEmpty { null })) },
+        Modifier.weight(1f).testTag(SEARCH),
+        placeholder = "Search URL",
+        singleLine = true,
+    )
+    Choice("Method", filter.method, METHODS, { it }) { onFilter(filter.copy(method = it)) }
+    Choice("Status", filter.statusClass, StatusClass.entries, ::labelOf) { onFilter(filter.copy(statusClass = it)) }
+    CheckboxRow("Failed only", filter.failedOnly, { onFilter(filter.copy(failedOnly = it)) }, Modifier.padding(end = Spacing.md))
 }
 
 private fun labelOf(status: StatusClass): String = "${status.from / 100}xx"
+
+// The request list's share of the width beside the detail's 1.
+private const val REQUESTS_WEIGHT = 1.5f
 
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50

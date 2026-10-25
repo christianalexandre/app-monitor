@@ -54,6 +54,8 @@ const val SAVE = "save"
 
 const val SAVE_NOTE = "save-note"
 
+const val EXPORT_NOTE = "export-note"
+
 const val SAVED_RUN = "saved-run"
 
 const val SAVE_RUN_NAME = "save-run-name"

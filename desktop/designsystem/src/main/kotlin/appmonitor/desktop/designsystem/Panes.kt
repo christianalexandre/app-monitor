@@ -1,0 +1,138 @@
+package appmonitor.desktop.designsystem
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.Text as MaterialText
+
+/** What a [Badge] says of its subject; each tone has its own color in light and dark. */
+enum class BadgeTone { Neutral, Success, Info, Warning, Error }
+
+/** A short label on a faded background of its [tone]'s color: a status, "mocked", "replay". */
+@Composable
+fun Badge(
+    text: String,
+    tone: BadgeTone,
+    modifier: Modifier = Modifier,
+) {
+    val color = colorOf(tone)
+    Box(
+        modifier
+            .clip(RoundedCornerShape(Radius.small))
+            .background(color.copy(alpha = BADGE_ALPHA))
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+        contentAlignment = Alignment.Center,
+    ) {
+        MaterialText(text, color = color, style = styleOf(TextRole.SmallStrong), maxLines = 1)
+    }
+}
+
+@Composable
+private fun colorOf(tone: BadgeTone): Color {
+    val colors = AppMonitorTheme.colors
+    return when (tone) {
+        BadgeTone.Neutral -> colors.neutral
+        BadgeTone.Success -> colors.success
+        BadgeTone.Info -> colors.info
+        BadgeTone.Warning -> colors.warning
+        BadgeTone.Error -> colors.error
+    }
+}
+
+private const val BADGE_ALPHA = 0.16f
+
+/** The window's actions over its panes, in one row ruled below. */
+@Composable
+fun Toolbar(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+        Divider()
+    }
+}
+
+/** What a whole pane shows when it has nothing: [title], and the [hint] of what to do next, centred in it. */
+@Composable
+fun EmptyState(
+    title: String,
+    hint: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.fillMaxSize().padding(Spacing.xxl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(title, role = TextRole.BodyStrong, textAlign = TextAlign.Center)
+        hint?.let { Text(it, role = TextRole.Caption, textAlign = TextAlign.Center) }
+    }
+}
+
+/**
+ * One line of [text] cut in its middle to fit, as a URL keeps its host and its last path segment; the whole text stays
+ * its semantics. Compose Desktop draws `TextOverflow.MiddleEllipsis` as an end ellipsis (ADR-0146).
+ */
+@Composable
+fun MiddleEllipsisText(
+    text: String,
+    modifier: Modifier = Modifier,
+    role: TextRole = TextRole.Body,
+) {
+    val measurer = rememberTextMeasurer()
+    val style = styleOf(role)
+    BoxWithConstraints(modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }) {
+        val width = constraints.maxWidth
+        val shown =
+            remember(text, width, style) {
+                middleCut(text, width) { measurer.measure(it, style, maxLines = 1, softWrap = false).size.width }
+            }
+        Text(shown, role = role, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The longest cut of [text] whose [widthOf] fits [maxWidth]: its start, "…", its end; [text] itself when it fits. */
+internal fun middleCut(
+    text: String,
+    maxWidth: Int,
+    widthOf: (String) -> Int,
+): String {
+    if (widthOf(text) <= maxWidth) return text
+    var low = 0
+    var high = text.length - 1
+    while (low < high) {
+        val mid = (low + high + 1) / 2
+        if (widthOf(keep(text, mid)) <= maxWidth) low = mid else high = mid - 1
+    }
+    return keep(text, low)
+}
+
+private fun keep(
+    text: String,
+    count: Int,
+): String = text.take(count - count / 2) + "…" + text.takeLast(count / 2)
