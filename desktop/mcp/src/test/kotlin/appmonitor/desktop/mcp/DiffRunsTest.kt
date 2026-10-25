@@ -156,6 +156,20 @@ class DiffRunsTest {
             assertEquals(CLOSING, closed.message)
         }
 
+    @Test
+    fun storeClosingBetweenTheCheckAndTheRunsReadIsClosingNotUnknown() =
+        withServer { running ->
+            val runs = running.seed()
+            val error =
+                assertFailsWith<ToolError> {
+                    DiffRuns.call(running.storage, args(runs.base, runs.run)) {
+                        running.storage.close(5.seconds)
+                        running.storage.runs().map { it.id }
+                    }
+                }
+            assertEquals(CLOSING, error.message)
+        }
+
     private fun args(
         base: Long,
         run: Long,
