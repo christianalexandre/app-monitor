@@ -5,14 +5,17 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** The runs, and the one new sessions join (SDD 09). */
 interface RunRepository {
-    /** The id of the run new sessions join. */
-    val currentRun: StateFlow<Long>
+    /** The id of the run being recorded, null when none (ADR-0140 B). */
+    val recording: StateFlow<Long?>
 
     /** Every run, newest first, again after each change. */
     fun observeRuns(): Flow<List<Run>>
 
-    /** Ends the current run and starts a new one; returns its id. */
-    suspend fun newRun(): Long
+    /** Starts recording into a new run; returns its id, null when it could not be written. */
+    suspend fun record(): Long?
+
+    /** Ends the recording; what started during it is still stored until it ends. */
+    suspend fun stop()
 
     /** A blank [name] clears it. */
     suspend fun rename(

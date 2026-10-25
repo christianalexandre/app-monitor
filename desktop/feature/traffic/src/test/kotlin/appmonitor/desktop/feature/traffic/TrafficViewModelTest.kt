@@ -231,17 +231,37 @@ class TrafficViewModelTest {
             assertEquals(setOf(3L), state.marked.keys)
         }
 
+    @Test
+    fun `records into a new run and stops while the live list stays shown`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.record()
+            val recording = viewModel.state.value.runs
+            assertEquals(3L, recording.recording)
+            assertEquals(listOf(3L, 2L, 1L), recording.runs.map { it.id })
+            assertEquals(ShownRun.Live, recording.shown)
+            viewModel.stop()
+            val stopped = viewModel.state.value.runs
+            assertNull(stopped.recording)
+            assertEquals(4_000L, stopped.runs.first().endedAtMs)
+        }
+
     private class FakeRuns : RunRepository {
         private val runs = MutableStateFlow(listOf(Run(2, "Run two", 2_000, null), Run(1, "Run one", 1_000, 1_500)))
-        override val currentRun = MutableStateFlow(1L)
+        override val recording = MutableStateFlow<Long?>(null)
 
         override fun observeRuns(): Flow<List<Run>> = runs
 
-        override suspend fun newRun(): Long {
+        override suspend fun record(): Long {
             val id = runs.value.maxOf { it.id } + 1
             runs.value = listOf(Run(id, null, 3_000, null)) + runs.value
-            currentRun.value = id
+            recording.value = id
             return id
+        }
+
+        override suspend fun stop() {
+            runs.value = runs.value.map { if (it.id == recording.value) it.copy(endedAtMs = 4_000) else it }
+            recording.value = null
         }
 
         override suspend fun rename(

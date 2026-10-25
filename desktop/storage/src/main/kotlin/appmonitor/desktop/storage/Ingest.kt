@@ -18,11 +18,14 @@ import java.net.URISyntaxException
 internal sealed interface StorageItem {
     val sessionId: String?
 
+    /** [sessionId] keys the session here; [serverSessionId] is stored. A null [run] joins the run current when written. */
     data class Connected(
         override val sessionId: String,
         val hello: Hello,
         val peerAddress: String?,
         val atMs: Long,
+        val serverSessionId: String = sessionId,
+        val run: Long? = null,
     ) : StorageItem
 
     data class Received(
@@ -36,15 +39,17 @@ internal sealed interface StorageItem {
         val atMs: Long,
     ) : StorageItem
 
+    /** Ends the current run, and its recording. */
     data class EndRun(
         val atMs: Long,
     ) : StorageItem {
         override val sessionId: String? get() = null
     }
 
-    /** Ends the current run and opens a new unnamed one; [done] gets the run current after its batch. */
+    /** Ends the current run and opens a new unnamed one, recorded when [record]; [done] gets the run current after its batch. */
     data class NewRun(
         val atMs: Long,
+        val record: Boolean = false,
     ) : StorageItem {
         val done = CompletableDeferred<Long>()
         override val sessionId: String? get() = null
@@ -162,8 +167,15 @@ internal class Ingest(
     runId: Long,
     private val beforeCommit: (List<StorageItem>) -> Unit = {},
 ) {
-    /** The run new sessions join: the launch's, then each [StorageItem.NewRun]'s. */
+    // A store opened without a run opens none on clear either (ADR-0142).
+    private val startsRuns = runId != LiveTraffic.NO_RUN
+
+    /** The run new sessions join: the launch's, then each [StorageItem.NewRun]'s; [LiveTraffic.NO_RUN] before the first. */
     var currentRun: Long = runId
+        private set
+
+    /** The run being recorded (ADR-0140 B): the last recorded [StorageItem.NewRun]'s until an [StorageItem.EndRun]. */
+    var recording: Long? = null
         private set
 
     /** The stored retention settings, as of the last batch written. */
@@ -205,6 +217,7 @@ internal class Ingest(
     fun write(batch: List<StorageItem>) {
         val before = rows
         val beforeRun = currentRun
+        val beforeRecording = recording
         val beforeRetention = retention
         val beforeConnections = connections.toMap()
         try {
@@ -227,6 +240,7 @@ internal class Ingest(
             rows = before.filterKeys { it in connections }
             // Runs opened by the lost batch are gone; the current run is always the highest id.
             currentRun = beforeRun
+            recording = beforeRecording
             retention = beforeRetention
             connections.replaceAll { _, (connected, run) -> connected to minOf(run, beforeRun) }
             throw e
@@ -236,7 +250,7 @@ internal class Ingest(
     private fun apply(item: StorageItem) {
         when (item) {
             is StorageItem.Connected -> {
-                connections[item.sessionId] = item to currentRun
+                connections[item.sessionId] = item to (item.run ?: currentRun)
                 sessionRow(item.sessionId)
             }
 
@@ -254,12 +268,14 @@ internal class Ingest(
 
             is StorageItem.EndRun -> {
                 database.runQueries.end(item.atMs, currentRun)
+                recording = null
             }
 
             is StorageItem.NewRun -> {
                 database.runQueries.end(item.atMs, currentRun)
                 database.runQueries.insert(item.atMs)
                 currentRun = database.runQueries.lastId().executeAsOne()
+                recording = currentRun.takeIf { item.record }
             }
 
             is StorageItem.Renamed -> {
@@ -415,9 +431,14 @@ internal class Ingest(
                 database.appQueries.deleteUnused()
                 database.approvalQueries.forgetAll()
                 database.settingQueries.deleteAll()
-                database.runQueries.insert(atMs)
-                database.runQueries.lastId().executeAsOne()
+                if (startsRuns) {
+                    database.runQueries.insert(atMs)
+                    database.runQueries.lastId().executeAsOne()
+                } else {
+                    LiveTraffic.NO_RUN
+                }
             }
+        recording = null
         retention = RetentionSettings()
         connections.clear()
         rows = emptyMap()
@@ -427,6 +448,7 @@ internal class Ingest(
     private fun sessionRow(sessionId: String): Long? {
         rows[sessionId]?.let { return it }
         val (connected, run) = connections[sessionId] ?: return null
+        if (run == LiveTraffic.NO_RUN) return null
         val hello = connected.hello
         database.deviceQueries.upsert(hello.device_id, hello.platform.value.toLong(), hello.device_name, hello.os_version)
         val device = database.deviceQueries.idOf(hello.device_id).executeAsOne()
@@ -436,7 +458,7 @@ internal class Ingest(
             run_id = run,
             device_ref = device,
             app_ref = app,
-            server_session_id = sessionId,
+            server_session_id = connected.serverSessionId,
             hello = hello.encode(),
             app_version = hello.app_version,
             sdk_name = hello.sdk_name,

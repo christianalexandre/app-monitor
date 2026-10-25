@@ -67,7 +67,7 @@ import kotlin.time.TimeSource
 class Storage private constructor(
     /** The database file. */
     val file: Path,
-    /** The run this launch opened (ADR-0084); [clearAll] deletes it, [currentRun] follows. */
+    /** The run this launch opened (ADR-0084), [LiveTraffic.NO_RUN] when none; [clearAll] deletes it, [currentRun] follows. */
     val runId: Long,
     private val driver: JdbcSqliteDriver,
     private val database: AppMonitorDatabase,
@@ -86,8 +86,13 @@ class Storage private constructor(
 
     private val mutableCurrentRun = MutableStateFlow(runId)
 
-    /** The run new sessions join (ADR-0084 A.1): [runId], then the one each [newRun] or [clearAll] opened. */
+    /** The run new sessions join (ADR-0084 A.1): [runId], then the one each [newRun], [record] or [clearAll] opened. */
     val currentRun: StateFlow<Long> = mutableCurrentRun.asStateFlow()
+
+    private val mutableRecording = MutableStateFlow<Long?>(null)
+
+    /** The run being recorded (ADR-0140 B), null when none: from [record] until [stop], [clearAll] or [close]. */
+    val recording: StateFlow<Long?> = mutableRecording.asStateFlow()
 
     private val mutableRetention = MutableStateFlow(ingest.retention)
 
@@ -127,6 +132,7 @@ class Storage private constructor(
 
     private fun settle(batch: List<StorageItem>) {
         mutableCurrentRun.value = ingest.currentRun
+        mutableRecording.value = ingest.recording
         mutableRetention.value = ingest.retention
         batch.forEach {
             if (it is StorageItem.Barrier) it.done.complete(Unit)
@@ -175,6 +181,36 @@ class Storage private constructor(
 
     override suspend fun disconnected(sessionId: String) {
         queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
+    }
+
+    /**
+     * Opens a new unnamed run and records into it (ADR-0140 B); what [Recorder] stores goes there until [stop].
+     * Returns its id once written, null if its batch was lost or the store is closed.
+     */
+    suspend fun record(): Long? {
+        val before = mutableCurrentRun.value
+        val item = StorageItem.NewRun(clock(), record = true)
+        if (!queue.enqueue(item)) return null
+        return item.done.await().takeIf { it != before }
+    }
+
+    /** Ends the recording, once written; nothing when none is. */
+    suspend fun stop() {
+        if (mutableRecording.value == null) return
+        queue.enqueue(StorageItem.EndRun(clock()))
+        flush()
+    }
+
+    // Recorder's calls: [key] names one session in one run, the run fixed when it connects (ADR-0142).
+    internal suspend fun connected(
+        key: String,
+        sessionId: String,
+        hello: Hello,
+        peerAddress: String?,
+        run: Long,
+        atMs: Long,
+    ) {
+        queue.enqueue(StorageItem.Connected(key, hello, peerAddress, atMs, serverSessionId = sessionId, run = run))
     }
 
     /**
@@ -405,8 +441,9 @@ class Storage private constructor(
     }
 
     /**
-     * Deletes everything, issues and settings included, rewrites the file and opens a new run (ADR-0088). Connected sessions are
-     * forgotten: close them first. Failures go to [retentionStatus]; nothing is done once the store is closing.
+     * Deletes everything, issues and settings included, rewrites the file and opens a new run when [open] did (ADR-0088).
+     * Ends the recording. Connected sessions are forgotten: close them first. Failures go to [retentionStatus]; nothing is
+     * done once the store is closing.
      */
     suspend fun clearAll() {
         flush()
@@ -421,6 +458,7 @@ class Storage private constructor(
                     e.toString()
                 }
             mutableCurrentRun.value = ingest.currentRun
+            mutableRecording.value = ingest.recording
             mutableRetention.value = ingest.retention
             mutableRetentionStatus.value = RetentionStatus(usedBytes = fileBytes(), lastPassAtMs = clock(), lastError = error)
         }
@@ -738,13 +776,14 @@ class Storage private constructor(
         private const val VACUUM_CHUNK = 1_000L
 
         /**
-         * Opens or creates `appmonitor.db` in [directory] and opens a new run (SDD 09, ADR-0085).
+         * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (SDD 09, ADR-0142).
          * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched.
          */
         fun open(
             directory: Path,
+            startRun: Boolean = true,
             clock: () -> Long = System::currentTimeMillis,
-        ): Storage = open(directory, clock, MAX_QUEUE_BYTES) {}
+        ): Storage = open(directory, clock, MAX_QUEUE_BYTES, startRun = startRun) {}
 
         internal fun open(
             directory: Path,
@@ -752,6 +791,7 @@ class Storage private constructor(
             maxQueueBytes: Long,
             retentionInterval: Duration? = RETENTION_INTERVAL,
             afterRetentionChunk: suspend () -> Unit = {},
+            startRun: Boolean = true,
             beforeCommit: (List<StorageItem>) -> Unit,
         ): Storage {
             val file = createOwnerOnly(directory)
@@ -772,8 +812,12 @@ class Storage private constructor(
                         driver.execute(null, "PRAGMA user_version = ${schema.version}", 0)
                         database.sessionQueries.closeOpen()
                         database.runQueries.closeOpen()
-                        database.runQueries.insert(clock())
-                        database.runQueries.lastId().executeAsOne()
+                        if (startRun) {
+                            database.runQueries.insert(clock())
+                            database.runQueries.lastId().executeAsOne()
+                        } else {
+                            LiveTraffic.NO_RUN
+                        }
                     }
                 return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, afterRetentionChunk, beforeCommit)
             } catch (e: Throwable) {

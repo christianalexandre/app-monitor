@@ -86,11 +86,13 @@ fun Storage.retentionRepository(): RetentionRepository = StoredRetentionReposito
 internal class StoredRunRepository(
     private val storage: Storage,
 ) : RunRepository {
-    override val currentRun: StateFlow<Long> get() = storage.currentRun
+    override val recording: StateFlow<Long?> get() = storage.recording
 
     override fun observeRuns(): Flow<List<Run>> = storage.observeRuns().map { runs -> runs.map { it.toDomain() } }
 
-    override suspend fun newRun(): Long = storage.newRun()
+    override suspend fun record(): Long? = storage.record()
+
+    override suspend fun stop() = storage.stop()
 
     override suspend fun rename(
         id: Long,

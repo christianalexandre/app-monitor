@@ -41,17 +41,22 @@ task too large for one PR is split at once.
   :desktop:storage:test` — traffic from two devices shows in one list,
   Clear empties it, the store gets no exchange row while nothing is
   recording.
-- [ ] **H3.2 Runs as stored recordings, and Save.** Record / Stop: every
-  exchange that starts while recording is stored in the run, whatever
-  its session; existing runs kept by a migration; runs and "Saved"
-  listed apart and opened read-only; Save on selected live exchanges;
-  an issue saves its exchanges (until then "Save as issue" on live
-  requests is refused); no run opens at launch; `liveScreenshots` gets
-  its reopen step back on a recording.
+- [x] **H3.2 Record and Stop.** Record / Stop: every exchange that starts
+  while recording is stored in the run, whatever its session (`Recorder`,
+  ADR-0142); no run opens at launch; existing runs stay as they are (no
+  migration needed: they are already rows of `runs`); `liveScreenshots`
+  gets its reopen step back on a recording. Split from the original H3.2,
+  which was too large for one PR.
   Accept: storage, data and traffic tests — a device connected before
   Record and one that reconnects during it are both in the run; after
-  Stop new traffic is only in memory; a saved exchange survives a
-  restart.
+  Stop new traffic is only in memory.
+- [ ] **H3.2b Save, and runs and "Saved" apart.** Save on selected live
+  exchanges into a "Saved" collection (a migration marks it apart from
+  recordings); runs and "Saved" listed apart and opened read-only; an
+  issue saves its exchanges (until then "Save as issue" on live requests
+  is refused).
+  Accept: storage, data and traffic tests — a saved exchange survives a
+  restart; an issue made from live requests keeps them.
 - [ ] **H3.3 Compare devices in a run.** Endpoint by device columns
   (count, status classes, median, p95, size) in `insights`.
   Accept: `./gradlew :desktop:feature:insights:test` — a run with two

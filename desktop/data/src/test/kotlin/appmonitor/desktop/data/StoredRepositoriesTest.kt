@@ -42,6 +42,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
 import appmonitor.desktop.storage.MAX_GROUPED_EXCHANGES as StoredMaxGrouped
@@ -50,10 +51,10 @@ import appmonitor.desktop.storage.MIN_MOVE_PERCENT as StoredMinMovePercent
 
 class StoredRepositoriesTest {
     @Test
-    fun `runs are read, renamed and started through the repository`() =
+    fun `runs are read, renamed and recorded through the repository`() =
         withStorage { storage ->
             val runs = storage.runRepository()
-            runs.rename(runs.currentRun.value, "  login  ")
+            runs.rename(storage.runId, "  login  ")
             storage.flush()
             assertEquals(
                 "login",
@@ -64,10 +65,18 @@ class StoredRepositoriesTest {
                     .name,
             )
 
-            val next = runs.newRun()
-            storage.flush()
-            assertEquals(next, runs.currentRun.value)
+            val next = runs.record()!!
+            assertEquals(next, runs.recording.value)
             assertEquals(listOf(next, next - 1), runs.observeRuns().first().map { it.id })
+            runs.stop()
+            assertNull(runs.recording.value)
+            assertNotNull(
+                runs
+                    .observeRuns()
+                    .first()
+                    .first()
+                    .endedAtMs,
+            )
         }
 
     @Test
@@ -104,14 +113,14 @@ class StoredRepositoriesTest {
     @Test
     fun `endpoints and a run diff read the store's grouping`() =
         withStorage { storage ->
-            val base = storage.runRepository().currentRun.value
+            val base = storage.runId
             storage.record(
                 envelope(RequestStarted("r1", "GET", "https://API.test/users?page=1")),
                 envelope(ResponseReceived("r1", 200, body = "[]".encodeUtf8(), body_size = 2)),
                 envelope(RequestStarted("r2", "POST", "https://api.test/login", body = "hi".encodeUtf8())),
                 envelope(RequestFailed("r2", "timeout")),
             )
-            val run = storage.runRepository().newRun()
+            val run = storage.runRepository().record()!!
             storage.connected("s2", HELLO, "127.0.0.1")
             storage.received("s2", envelope(RequestStarted("r3", "GET", "https://api.test/users")))
             storage.received("s2", envelope(ResponseReceived("r3", 500)))

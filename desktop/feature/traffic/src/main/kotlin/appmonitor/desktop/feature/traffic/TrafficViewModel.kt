@@ -38,10 +38,10 @@ sealed interface ShownRun {
     ) : ShownRun
 }
 
-/** The stored runs, and what the window shows; [shownRunId] is null for the live list. */
+/** The stored runs, the one being [recording], and what the window shows; [shownRunId] is null for the live list. */
 data class RunsState(
     val runs: List<Run> = emptyList(),
-    val currentRun: Long = 0,
+    val recording: Long? = null,
     val shown: ShownRun = ShownRun.Live,
 ) {
     val shownRunId: Long? get() = (shown as? ShownRun.Stored)?.id
@@ -100,8 +100,8 @@ class TrafficViewModel(
     private val sent = MutableStateFlow<ReplaySent?>(null)
 
     private val runs =
-        combine(runRepository.observeRuns().onStart { emit(emptyList()) }, runRepository.currentRun, shown, ::RunsState)
-            .stateIn(viewModelScope, SharingStarted.Eagerly, RunsState(currentRun = runRepository.currentRun.value))
+        combine(runRepository.observeRuns().onStart { emit(emptyList()) }, runRepository.recording, shown, ::RunsState)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, RunsState(recording = runRepository.recording.value))
 
     private val sessions =
         runs
@@ -240,6 +240,15 @@ class TrafficViewModel(
             val live = sessions.value.map { it.id }.toSet()
             marked.update { kept -> kept.filterValues { it.sessionId !in live } }
         }
+    }
+
+    /** Starts recording into a new run (ADR-0140 B); the window stays on the live list. */
+    fun record() {
+        viewModelScope.launch { runRepository.record() }
+    }
+
+    fun stop() {
+        viewModelScope.launch { runRepository.stop() }
     }
 
     fun rename(

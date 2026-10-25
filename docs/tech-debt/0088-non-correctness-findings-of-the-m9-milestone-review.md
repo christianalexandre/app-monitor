@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -42,6 +42,8 @@ loaded pages").
 Paid in PLAN-0013 H3.1's PR (`feat/live-traffic-source`), which touches
 `Storage.kt`: `Storage.replayOriginals` reads every original in one join
 (`originalsOf`), not one `idOf` per replay row (`ReplayedExchangeTest`).
+PLAN-0013 H3.2 (`feat/record-runs`) touched `Storage.kt` again with
+nothing left in it here, and took it out of the trigger.
 
 Paid in M9.R2's PR: an empty OkHttp response (`Content-Length: 0`) is
 now held at a response breakpoint, as in Ktor and iOS
@@ -65,7 +67,6 @@ items in its file:
 - `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
-- `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
 

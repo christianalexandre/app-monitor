@@ -27,6 +27,7 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
+import appmonitor.desktop.feature.traffic.RECORD
 import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
@@ -36,7 +37,9 @@ import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.LiveTraffic
+import appmonitor.desktop.storage.Recorder
 import appmonitor.desktop.storage.RetentionSettings
+import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
@@ -376,7 +379,6 @@ class AppMonitorAppTest {
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.runs() }.first { it.id == second }.name != null }
                 awaitText("Checkout on iPhone")
                 onNodeWithText("Login on Pixel").assertExists()
-                onNodeWithText("current", substring = true).assertExists()
                 screenshot("runs.png")
 
                 onNodeWithText("Login on Pixel").performClick()
@@ -422,6 +424,65 @@ class AppMonitorAppTest {
                 onNodeWithText("https://a.example/cart").assertDoesNotExist()
             }
             assertEquals(emptyList(), runBlocking { storage.allExchanges() }, "the live list writes nothing to the store")
+        }
+
+    @Test
+    fun `Record stores what starts until Stop, from a device connected before it`() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir, startRun = false)
+            val live = LiveTraffic()
+            val recorder = Recorder(live, storage)
+
+            fun request(
+                id: String,
+                path: String,
+            ) = envelope(RequestStarted(request_id = id, method = "GET", url = "https://a.example/$path"))
+            runBlocking {
+                recorder.connected("s1", HELLO, "127.0.0.1")
+                recorder.received("s1", request("r1", "before"))
+            }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
+
+                awaitText("https://a.example/before")
+                onNodeWithTag(RECORD).performClick()
+                awaitText("Stop recording")
+                runBlocking {
+                    recorder.received("s1", request("r2", "during"))
+                    recorder.connected("s2", HELLO.copy(device_id = "d2", device_name = "iPhone"), null)
+                    recorder.received("s2", request("r1", "other"))
+                }
+                awaitText("https://a.example/other")
+                screenshot("recording.png")
+                onNodeWithTag(RECORD).performClick()
+                awaitText("Record")
+                runBlocking {
+                    recorder.received("s1", request("r3", "after"))
+                    storage.flush()
+                }
+                awaitText("https://a.example/after")
+
+                onNodeWithTag(RUNS).performClick()
+                onAllNodesWithText("Rename").assertCountEquals(1)
+                onNodeWithText("Live").assertExists()
+                onAllNodesWithText("Rename")[0].performClick()
+                onNodeWithTag(RUN_NAME).performTextReplacement("Checkout")
+                onNodeWithText("Save").performClick()
+                awaitText("Checkout")
+                onNodeWithText("Checkout").performClick()
+                awaitText("https://a.example/during")
+                onNodeWithText("https://a.example/other").assertExists()
+                onNodeWithText("https://a.example/before").assertDoesNotExist()
+                onNodeWithText("https://a.example/after").assertDoesNotExist()
+            }
+            val run = runBlocking { storage.runs() }.single()
+            assertEquals(
+                listOf("during", "other"),
+                runBlocking { storage.allExchanges(run.id) }.map { it.url!!.substringAfterLast('/') },
+            )
+            runBlocking { storage.close(5.seconds) }
+            Unit
         }
 
     @Test

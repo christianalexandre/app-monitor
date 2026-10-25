@@ -17,7 +17,7 @@ internal object ListRuns {
     private const val DEFAULT_LIMIT = 20L
 
     val description =
-        "Lists the recorded runs, newest first: each run's time window, whether it is the current one, its exchange " +
+        "Lists the recorded runs, newest first: each run's time window, whether it is being recorded (`current`), its exchange " +
             "count and the app sessions (device, app, SDK) that joined it. Page with next_before_id. $DATA_NOTE"
 
     val inputSchema =
@@ -45,14 +45,14 @@ internal object ListRuns {
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val beforeId = arguments.long("before_id", 1..Long.MAX_VALUE, null) ?: Long.MAX_VALUE
         val runs = repositories.queries.runSummaries(beforeId, limit)
-        val current = repositories.runs.currentRun.value
+        val current = repositories.runs.recording.value
         return buildJsonObject {
             put("runs", JsonArray(runs.map { it.toJson(current) }))
             put("next_before_id", (if (runs.size.toLong() == limit) runs.last().run.id else null).json())
         }
     }
 
-    private fun RunSummary.toJson(current: Long) =
+    private fun RunSummary.toJson(current: Long?) =
         buildJsonObject {
             put("id", run.id)
             put("name", run.name.json())

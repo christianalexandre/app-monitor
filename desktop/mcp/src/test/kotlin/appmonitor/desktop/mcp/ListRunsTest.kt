@@ -13,14 +13,14 @@ import kotlin.test.assertTrue
 
 class ListRunsTest {
     @Test
-    fun newestFirstWithSessionsCountsAndTheCurrentRunFlagged() =
+    fun newestFirstWithSessionsCountsAndTheRecordingFlagged() =
         withServer { running ->
             val storage = running.storage
             storage.connected("s1", hello("d1"), null)
             storage.received("s1", started("r1"))
             storage.received("s1", started("r2"))
             storage.disconnected("s1")
-            val second = storage.newRun()
+            val second = storage.record()!!
             storage.connected("s2", hello("d2"), null)
             storage.received("s2", started("r3"))
             storage.flush()
