@@ -128,6 +128,7 @@ internal fun AppMonitorApp(
     var settingsOpen by remember { mutableStateOf(false) }
     var runsOpen by remember { mutableStateOf(false) }
     var issuesOpen by remember { mutableStateOf(false) }
+    var benchmarksOpen by remember { mutableStateOf(false) }
     // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
     var marked by remember { mutableStateOf(emptyMap<Long, StoredExchange>()) }
     var saving by remember { mutableStateOf<Map<Long, StoredExchange>?>(null) }
@@ -160,6 +161,7 @@ internal fun AppMonitorApp(
                     marked = marked.keys,
                     onMark = { exchange, on -> marked = if (on) marked + (exchange.id to exchange) else marked - exchange.id },
                     onSaveAsIssue = { saving = marked.ifEmpty { row?.let { mapOf(it.id to it) }.orEmpty() } },
+                    onBenchmarks = { benchmarksOpen = true },
                 ) {
                     selectedRequest = it.id
                 }
@@ -229,6 +231,11 @@ internal fun AppMonitorApp(
                 ) { saving = null }
             }
             if (issuesOpen) IssueList(storage) { issuesOpen = false }
+            if (benchmarksOpen) {
+                val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
+                val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
+                Benchmarks(storage, filter.copy(runId = shownRunId), scope) { benchmarksOpen = false }
+            }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
@@ -627,6 +634,7 @@ private fun RequestList(
     marked: Set<Long>,
     onMark: (StoredExchange, Boolean) -> Unit,
     onSaveAsIssue: () -> Unit,
+    onBenchmarks: () -> Unit,
     onSelect: (StoredExchange) -> Unit,
 ) {
     val exchanges = pages.rows
@@ -644,6 +652,7 @@ private fun RequestList(
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Requests") }
+            TextButton(onClick = onBenchmarks, Modifier.testTag(BENCHMARKS)) { Text("Benchmarks") }
             TextButton(
                 onClick = onSaveAsIssue,
                 Modifier.testTag(SAVE_AS_ISSUE),

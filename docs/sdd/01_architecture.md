@@ -308,6 +308,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   a confirmation. The editor sends only the fields changed since it opened
   (SDD 09 lists every writer and their order), so an MCP edit of another
   field meanwhile is kept.
+- Benchmarks (ADR-0097): "Benchmarks" above the request list opens, for
+  every device of the shown run (or every run) under the request filter,
+  one row per endpoint: count, status classes, error rate, p50, p95, p99,
+  sent and received stored body bytes, most called first; a column header
+  sorts by it, again reverses. The numbers are `endpoint_stats`' (SDD 10),
+  read once when opened and on "Refresh", not on each commit: a read pages
+  through up to 100 000 exchanges, and says so when it stops there.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call

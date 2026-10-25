@@ -27,8 +27,6 @@ results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
 - **Header serializer copied.** `ExportHar.toHar` repeats `GetRequest`'s
   header `toJson`, and the enum-name formatting is repeated in
   `GetRequest`, `Filters` and `ListRuns`.
-- **Durations sorted per read.** `EndpointStats`' `Tally.durations()` sorts
-  a copy each call, two or three times per endpoint in `diff_runs`.
 
 ## Why it was accepted
 
@@ -51,6 +49,8 @@ Fired by PLAN-0008 M7.2, which adds the issue calls to `Storage.kt`:
 writes return an `IssueWrite` that says `NotSaved` after close. M7.4 and
 M7.6 move `EndpointStats` and `ExportHar` code and will meet the other
 items; re-triggered past PLAN-0008 so they are paid there or after.
+M7.4 moved the grouping to `desktop/storage` (ADR-0097) and paid
+"durations sorted per read": `EndpointTally.durationStats` sorts once.
 
 ## How it was paid
 

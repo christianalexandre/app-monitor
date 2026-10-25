@@ -1,8 +1,9 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.mcp.EndpointStats.Endpoint
-import appmonitor.desktop.mcp.EndpointStats.Stats
+import appmonitor.desktop.mcp.EndpointStats.toJson
 import appmonitor.desktop.mcp.Filters.putFilterProperties
+import appmonitor.desktop.storage.Endpoint
+import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.Storage
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
@@ -82,9 +83,9 @@ internal object DiffRuns {
         return buildJsonObject {
             put("base_run_id", baseRunId)
             put("run_id", runId)
-            put("added", JsonArray(added.take(limit).map(Stats::toJson)))
+            put("added", JsonArray(added.take(limit).map { it.toJson() }))
             put("added_count", added.size)
-            put("gone", JsonArray(gone.take(limit).map(Stats::toJson)))
+            put("gone", JsonArray(gone.take(limit).map { it.toJson() }))
             put("gone_count", gone.size)
             putJsonArray("changed") { sorted.take(limit).forEach { add(it.toJson()) } }
             put("changed_count", changed.size)
@@ -95,13 +96,12 @@ internal object DiffRuns {
 
     /** The numbers `diff_runs` compares for one endpoint of one run. */
     private class Numbers(
-        stats: Stats,
+        tally: EndpointTally,
     ) {
-        val count = stats.tally.count
-        val errorRate = stats.tally.errorRate
-        private val durations = stats.tally.durations()
-        val p50 = durations.takeIf { it.isNotEmpty() }?.percentile(50)
-        val p95 = durations.takeIf { it.isNotEmpty() }?.percentile(95)
+        val count = tally.count
+        val errorRate = tally.errorRate
+        val p50 = tally.durationStats?.p50
+        val p95 = tally.durationStats?.p95
     }
 
     private class Change(

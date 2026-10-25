@@ -114,3 +114,4 @@ Rules:
 | [0094](0094-faster-loop.md) | The loop reviews a milestone once, merges on auto, plans fewer tasks and stops less | Accepted |
 | [0095](0095-what-an-issue-keeps-and-who-writes-it.md) | What an issue keeps, how long, and who may write it | Accepted |
 | [0096](0096-issue-rows-and-their-writers.md) | Issue rows, their writers' order, and what retention trims | Accepted |
+| [0097](0097-endpoint-grouping-in-storage.md) | The endpoint grouping lives in desktop/storage | Accepted |
