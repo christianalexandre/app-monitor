@@ -132,6 +132,38 @@ published with the SDK in M10 ([SDD 05](docs/sdd/05_okhttp_capture.md)).
 A working app, with the plugin and without the line, is in
 [`samples/android`](samples/android).
 
+The desktop speaks plain `ws://` on the LAN, which Android blocks from
+API 28 on: a debug-only network security config allows it. Android 17
+also asks the user for `ACCESS_LOCAL_NETWORK`, which the SDK declares and
+the app requests from a debug-only source file, as the sample does:
+
+```xml
+<!-- src/debug/AndroidManifest.xml -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>
+
+<!-- src/debug/res/xml/network_security_config.xml -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
+```
+
+```kotlin
+// src/debug/…/LocalNetwork.kt, called from an Activity's onCreate;
+// src/release/ holds a no-op with the same signature
+fun ComponentActivity.requestLocalNetwork() {
+    if (Build.VERSION.SDK_INT < 37) return
+    val permission = "android.permission.ACCESS_LOCAL_NETWORK"
+    if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return
+    registerForActivityResult(ActivityResultContracts.RequestPermission()) {}.launch(permission)
+}
+```
+
+`<debug-overrides>` cannot carry `cleartextTrafficPermitted`, only trust
+anchors; an app with its own config adds the attribute to a debug copy of
+it.
+
 ```swift
 // iOS — App.init or application(_:didFinishLaunchingWithOptions:)
 import AppMonitor
@@ -149,6 +181,19 @@ product compiles to stubs in configurations whose name lacks `Debug`, and
 the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in
 [`samples/ios`](samples/ios).
+
+The Run Script phase runs after *Copy Bundle Resources* and edits the
+built `Info.plist`. Under `ENABLE_USER_SCRIPT_SANDBOXING` (on by default in
+new Xcode projects) it needs these input and output files, or the
+sandbox denies the write and the Debug build fails:
+
+```text
+Script:        "$SRCROOT/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh"
+Input files:   $(SRCROOT)/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh
+               $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+               $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+```
 
 ```swift
 // iOS with gRPC Swift 2 — add the AppMonitorGRPC product too
@@ -181,7 +226,11 @@ builds, on Android the release app substitutes both no-ops
 
 ```kotlin
 // shared/build.gradle.kts
-val xcodeBuildType = providers.environmentVariable("CONFIGURATION").orNull?.lowercase()
+fun String?.nativeBuildType() = this?.lowercase()?.takeIf { it == "debug" || it == "release" }
+
+val xcodeBuildType =
+    providers.environmentVariable("CONFIGURATION").orNull.nativeBuildType()
+        ?: providers.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull.nativeBuildType()
 val sdkKtor = if (xcodeBuildType == "release") ":sdk:ktor-no-op" else ":sdk:ktor"
 kotlin { sourceSets { commonMain.dependencies { implementation(project(sdkKtor)) } } }
 
@@ -198,8 +247,13 @@ configurations.matching { it.name.startsWith("release") }.configureEach {
 }
 ```
 
-The iOS app adds the same local network keys Run Script phase as a Swift
-app. Beside the Swift SDK, each exchange shows once: `sdk/ktor` marks what
+A configuration named neither `Debug` nor `Release`, `Staging` for one,
+sets `KOTLIN_FRAMEWORK_BUILD_TYPE` (`debug` or `release`) in its build
+settings, as Kotlin's `embedAndSignAppleFrameworkForXcode` already asks;
+without it that configuration links the real `sdk/ktor`. The Android app
+adds the same network security config and permission request as an
+Android app, the iOS app the same local network keys Run Script phase,
+with its input and output files, as a Swift app. Beside the Swift SDK, each exchange shows once: `sdk/ktor` marks what
 it captured and the Swift SDK skips it. A working app is in
 [`samples/kmp`](samples/kmp).
 

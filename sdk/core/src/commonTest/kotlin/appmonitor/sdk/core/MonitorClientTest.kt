@@ -147,7 +147,8 @@ class MonitorClientTest {
             val client = client(desktop.port, cleartextPermitted = { false }, log = lines::add)
             client.awaitState(ClientState.Stopped)
             assertEquals(1, lines.all.size)
-            assertTrue("debug-overrides" in lines.all.single())
+            assertTrue("cleartextTrafficPermitted" in lines.all.single())
+            assertTrue("README.md" in lines.all.single())
             assertEquals(null, desktop.hellos.tryReceive().getOrNull())
         }
 
@@ -284,14 +285,10 @@ class MonitorClientTest {
         discover: suspend () -> Endpoint? = { Endpoint(LOOPBACK, port) },
         cleartextPermitted: (String) -> Boolean = { true },
         log: (String) -> Unit = {},
-        openSession: (suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit)? = null,
+        openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
+            { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
     ): MonitorClient {
-        val client =
-            if (openSession == null) {
-                MonitorClient({ hello }, discover, config, cleartextPermitted, log)
-            } else {
-                MonitorClient({ hello }, discover, config, cleartextPermitted, log, openSession = openSession)
-            }
+        val client = MonitorClient({ hello }, discover, config, cleartextPermitted, log, openSession = openSession)
         cleanup += { client.stopAndJoin() }
         client.start()
         return client
