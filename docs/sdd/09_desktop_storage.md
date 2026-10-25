@@ -295,6 +295,11 @@ closes the approved devices (ADR-0083). A failure goes to
   stored body bytes), most called first; `EndpointGroups.truncated` when a
   matching row is left past the cap. `endpoint_stats`, `diff_runs` (SDD
   10) and the window's benchmarks (SDD 01) read through it; it only reads.
+- `diffEndpoints(base, run)` (`EndpointDiff.kt`, ADR-0097) compares two
+  `EndpointGroups` per endpoint: added, gone, changed (`EndpointChange`,
+  the rule in SDD 10's *Changed*), unchanged as a count, truncated when
+  either grouping was. `diff_runs` and the window's run diff use it; it
+  reads nothing itself.
 - The window's request list is the selected session's exchanges under a
   filter bar: search field, method, status class, failed only. The device
   and app are the session picked in the device list, the run the run

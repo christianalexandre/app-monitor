@@ -57,7 +57,7 @@ the lifecycle table lists every call class against each store state.
   Accept: `./gradlew :desktop:mcp:test :desktop:app:test` — the crafted
   run of `EndpointStatsTest` with a known p99, the same numbers in the
   window's model, an offscreen screenshot `benchmarks.png`.
-- [ ] **M7.5 Run diff in the window.** Two runs picked in the window and
+- [x] **M7.5 Run diff in the window.** Two runs picked in the window and
   compared per endpoint with `diff_runs`' code: added, gone, changed
   (count, error rate, p50, p95), unchanged as a count.
   Accept: `./gradlew :desktop:app:test` — two crafted runs with known

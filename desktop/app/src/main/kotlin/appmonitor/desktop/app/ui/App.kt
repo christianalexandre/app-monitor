@@ -129,6 +129,7 @@ internal fun AppMonitorApp(
     var runsOpen by remember { mutableStateOf(false) }
     var issuesOpen by remember { mutableStateOf(false) }
     var benchmarksOpen by remember { mutableStateOf(false) }
+    var diffOpen by remember { mutableStateOf(false) }
     // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
     var marked by remember { mutableStateOf(emptyMap<Long, StoredExchange>()) }
     var saving by remember { mutableStateOf<Map<Long, StoredExchange>?>(null) }
@@ -216,6 +217,10 @@ internal fun AppMonitorApp(
                         runsOpen = false
                     },
                     onRename = { id, name -> scope.launch { storage.rename(id, name) } },
+                    onCompare = {
+                        runsOpen = false
+                        diffOpen = true
+                    },
                 ) { runsOpen = false }
             }
             saving?.let { exchanges ->
@@ -235,6 +240,17 @@ internal fun AppMonitorApp(
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
                 Benchmarks(storage, filter.copy(runId = shownRunId), scope) { benchmarksOpen = false }
+            }
+            if (diffOpen) {
+                val scope =
+                    if (filter ==
+                        ExchangeFilter()
+                    ) {
+                        "Every device of each run"
+                    } else {
+                        "Every device of each run, under the request filter"
+                    }
+                RunDiff(storage, runs, filter, scope) { diffOpen = false }
             }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
@@ -369,6 +385,7 @@ private fun RunList(
     onShow: (Long?) -> Unit,
     onNewRun: () -> Unit,
     onRename: (Long, String) -> Unit,
+    onCompare: () -> Unit,
     onClose: () -> Unit,
 ) {
     var editing by remember { mutableStateOf<Long?>(null) }
@@ -408,6 +425,7 @@ private fun RunList(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCompare, Modifier.testTag(COMPARE_RUNS), enabled = runs.size > 1) { Text("Compare runs") }
                     TextButton(onClick = onNewRun) { Text("New run") }
                     TextButton(onClick = onClose) { Text("Close") }
                 }
@@ -1006,7 +1024,7 @@ private val SELECTED = Color(0x1F2196F3)
 private val SCRIM = Color(0x66000000)
 
 /** A run's name, or its start time while it has none (ADR-0084 B.1). */
-private fun titleOf(run: StoredRun): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
+internal fun titleOf(run: StoredRun): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
 
 private fun spanOf(
     run: StoredRun,

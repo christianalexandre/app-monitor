@@ -2,9 +2,11 @@ package appmonitor.desktop.mcp
 
 import appmonitor.desktop.mcp.EndpointStats.toJson
 import appmonitor.desktop.mcp.Filters.putFilterProperties
-import appmonitor.desktop.storage.Endpoint
-import appmonitor.desktop.storage.EndpointTally
+import appmonitor.desktop.storage.EndpointChange
+import appmonitor.desktop.storage.MIN_MOVE_MS
+import appmonitor.desktop.storage.MIN_MOVE_PERCENT
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.diffEndpoints
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -16,15 +18,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import kotlin.math.abs
 
-/** `diff_runs` (SDD 10): `endpoint_stats`' grouping of two runs, compared per endpoint. */
+/** `diff_runs` (SDD 10): `endpoint_stats`' grouping of two runs, compared per endpoint by `diffEndpoints`. */
 internal object DiffRuns {
     const val NAME = "diff_runs"
     private const val MAX_LIMIT = 500L
     private const val DEFAULT_LIMIT = 50L
-    private const val MIN_MOVE_MS = 10L
-    private const val MIN_MOVE_PERCENT = 20L
 
     val description =
         "Compares two runs per endpoint (endpoint_stats' grouping): endpoints added in run_id, gone from it, and " +
@@ -64,94 +63,56 @@ internal object DiffRuns {
         val known = storage.runs().map { it.id }.toSet()
         listOf(baseRunId, runId).firstOrNull { it !in known }?.let { throw ToolError("no run with id $it") }
 
-        val base = EndpointStats.group(storage, filter.copy(runId = baseRunId), maxExchanges)
-        val run = EndpointStats.group(storage, filter, maxExchanges)
-        val baseByEndpoint = base.endpoints.associateBy { it.endpoint }
-        val runByEndpoint = run.endpoints.associateBy { it.endpoint }
-        val added = run.endpoints.filter { it.endpoint !in baseByEndpoint }
-        val gone = base.endpoints.filter { it.endpoint !in runByEndpoint }
-        val (changed, unchanged) =
-            run.endpoints
-                .mapNotNull { stats -> baseByEndpoint[stats.endpoint]?.let { Change(stats.endpoint, Numbers(it), Numbers(stats)) } }
-                .partition { it.isChange }
-        val sorted =
-            changed.sortedWith(
-                compareByDescending<Change> { abs(it.run.errorRate - it.base.errorRate) }
-                    .thenByDescending { abs((it.run.p95 ?: 0) - (it.base.p95 ?: 0)) }
-                    .thenBy { it.endpoint.toString() },
+        val diff =
+            diffEndpoints(
+                EndpointStats.group(storage, filter.copy(runId = baseRunId), maxExchanges),
+                EndpointStats.group(storage, filter, maxExchanges),
             )
         return buildJsonObject {
             put("base_run_id", baseRunId)
             put("run_id", runId)
-            put("added", JsonArray(added.take(limit).map { it.toJson() }))
-            put("added_count", added.size)
-            put("gone", JsonArray(gone.take(limit).map { it.toJson() }))
-            put("gone_count", gone.size)
-            putJsonArray("changed") { sorted.take(limit).forEach { add(it.toJson()) } }
-            put("changed_count", changed.size)
-            put("unchanged", unchanged.size)
-            put("truncated", base.truncated || run.truncated)
+            put("added", JsonArray(diff.added.take(limit).map { it.toJson() }))
+            put("added_count", diff.added.size)
+            put("gone", JsonArray(diff.gone.take(limit).map { it.toJson() }))
+            put("gone_count", diff.gone.size)
+            putJsonArray("changed") { diff.changed.take(limit).forEach { add(it.toJson()) } }
+            put("changed_count", diff.changed.size)
+            put("unchanged", diff.unchanged)
+            put("truncated", diff.truncated)
         }
     }
 
-    /** The numbers `diff_runs` compares for one endpoint of one run. */
-    private class Numbers(
-        tally: EndpointTally,
-    ) {
-        val count = tally.count
-        val errorRate = tally.errorRate
-        val p50 = tally.durationStats?.p50
-        val p95 = tally.durationStats?.p95
-    }
-
-    private class Change(
-        val endpoint: Endpoint,
-        val base: Numbers,
-        val run: Numbers,
-    ) {
-        val isChange =
-            base.count != run.count || base.errorRate != run.errorRate || moved(base.p50, run.p50) || moved(base.p95, run.p95)
-
-        fun toJson(): JsonObject =
-            buildJsonObject {
-                put("method", endpoint.method.json())
-                put("host", endpoint.host.json())
-                put("path", endpoint.path)
-                compare("count", JsonPrimitive(base.count), JsonPrimitive(run.count), JsonPrimitive(run.count - base.count))
-                compare(
-                    "error_rate",
-                    JsonPrimitive(base.errorRate),
-                    JsonPrimitive(run.errorRate),
-                    JsonPrimitive(run.errorRate - base.errorRate),
-                )
-                compare("p50_ms", base.p50.json(), run.p50.json(), delta(base.p50, run.p50))
-                compare("p95_ms", base.p95.json(), run.p95.json(), delta(base.p95, run.p95))
-            }
-
-        private fun JsonObjectBuilder.compare(
-            name: String,
-            base: JsonElement,
-            run: JsonElement,
-            delta: JsonElement,
-        ) = putJsonObject(name) {
-            put("base", base)
-            put("run", run)
-            put("delta", delta)
+    private fun EndpointChange.toJson(): JsonObject =
+        buildJsonObject {
+            put("method", endpoint.method.json())
+            put("host", endpoint.host.json())
+            put("path", endpoint.path)
+            compare("count", JsonPrimitive(base.count), JsonPrimitive(run.count), JsonPrimitive(run.count - base.count))
+            compare(
+                "error_rate",
+                JsonPrimitive(base.errorRate),
+                JsonPrimitive(run.errorRate),
+                JsonPrimitive(run.errorRate - base.errorRate),
+            )
+            val (baseP50, runP50) = base.durationStats?.p50 to run.durationStats?.p50
+            val (baseP95, runP95) = base.durationStats?.p95 to run.durationStats?.p95
+            compare("p50_ms", baseP50.json(), runP50.json(), delta(baseP50, runP50))
+            compare("p95_ms", baseP95.json(), runP95.json(), delta(baseP95, runP95))
         }
 
-        private fun delta(
-            base: Long?,
-            run: Long?,
-        ): JsonElement = if (base == null || run == null) JsonNull else JsonPrimitive(run - base)
+    private fun JsonObjectBuilder.compare(
+        name: String,
+        base: JsonElement,
+        run: JsonElement,
+        delta: JsonElement,
+    ) = putJsonObject(name) {
+        put("base", base)
+        put("run", run)
+        put("delta", delta)
     }
 
-    /** A duration known on one side only moved; known on both, it moved by at least 10 ms and 20 % of [base]. */
-    private fun moved(
+    private fun delta(
         base: Long?,
         run: Long?,
-    ): Boolean {
-        if (base == null || run == null) return base != run
-        val move = abs(run - base)
-        return move >= MIN_MOVE_MS && move * 100 >= base * MIN_MOVE_PERCENT
-    }
+    ): JsonElement = if (base == null || run == null) JsonNull else JsonPrimitive(run - base)
 }
