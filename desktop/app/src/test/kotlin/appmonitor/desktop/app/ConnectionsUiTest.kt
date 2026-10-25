@@ -10,6 +10,7 @@ import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.desktop.feature.traffic.CONNECTION_BYTES
 import appmonitor.desktop.feature.traffic.COPY_CURL
 import appmonitor.desktop.feature.traffic.EXPORT_HAR
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.RequestFailed
@@ -24,6 +25,7 @@ class ConnectionsUiTest {
     @Test
     fun `a connection shows its bytes and no status, headers, body or cURL`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val refused =
                 RequestStarted(
                     request_id = "conn-0002",
@@ -33,12 +35,12 @@ class ConnectionsUiTest {
                 )
             val failed = RequestFailed(request_id = "conn-0002", error = "NSPOSIXErrorDomain 61: Connection refused")
             val at = Fixtures.connection.first().timestamp_ms
-            storage.record(
+            live.record(
                 *(Fixtures.traffic.take(2) + Fixtures.connection + envelope(refused, at) + envelope(failed, at + 20)).toTypedArray(),
             )
             val file = File(createTempDirectory("har").toFile(), "run.har")
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", pickHarFile = { file }) }
+                setContent { AppMonitorApp(storage, "Listening", live = live, pickHarFile = { file }) }
 
                 awaitText("tcp://push.example.com:5223")
                 onNodeWithText("closed").assertExists()

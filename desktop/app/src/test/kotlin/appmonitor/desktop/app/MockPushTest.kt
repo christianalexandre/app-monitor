@@ -4,6 +4,7 @@ import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.store.mockRulesEnvelope
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
 import appmonitor.desktop.storage.Storage
@@ -105,7 +106,7 @@ class MockPushTest {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
         try {
             val port = server.start()
-            val collecting = launch(Dispatchers.Default) { TrafficStore(storage).collect(server.sessions) }
+            val collecting = launch(Dispatchers.Default) { TrafficStore(storage, LiveTraffic()).collect(server.sessions) }
             withTimeout(TIMEOUT_MS) { block(port) }
             collecting.cancel()
         } finally {

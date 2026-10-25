@@ -1,6 +1,6 @@
 package appmonitor.desktop.proxy
 
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.TrafficSink
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
@@ -13,11 +13,11 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Writes what one [ProxyServer] relays to [storage] as one session, its device unknown (ADR-0101): [record] never
- * blocks the event loop, the events wait in memory for the store's queue. Not [open], it writes nothing until [open].
+ * Writes what one [ProxyServer] relays to [sink] as one session, its device unknown (ADR-0101): [record] never
+ * blocks the event loop, the events wait in memory for the sink. Not [open], it writes nothing until [open].
  */
 class ProxyRecording(
-    private val storage: Storage,
+    private val sink: TrafficSink,
     scope: CoroutineScope,
     open: Boolean = true,
 ) {
@@ -26,8 +26,8 @@ class ProxyRecording(
     private val opened = AtomicBoolean(open)
     private val writer =
         scope.launch(start = if (open) CoroutineStart.DEFAULT else CoroutineStart.LAZY) {
-            storage.connected(sessionId, HELLO, ProxyServer.HOST)
-            for (envelope in events) storage.received(sessionId, envelope)
+            sink.connected(sessionId, HELLO, ProxyServer.HOST)
+            for (envelope in events) sink.received(sessionId, envelope)
         }
 
     fun record(envelope: Envelope) {
@@ -48,7 +48,7 @@ class ProxyRecording(
             return
         }
         writer.join()
-        storage.disconnected(sessionId)
+        sink.disconnected(sessionId)
     }
 
     companion object {

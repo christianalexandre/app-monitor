@@ -4,6 +4,7 @@ import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredExchange
 import appmonitor.protocol.Protocol
@@ -76,7 +77,18 @@ internal fun envelope(
     timestamp_ms = atMs,
 )
 
-/** Stores one finished session holding [envelopes], as a device would have sent them. */
+/** Puts one finished session holding [envelopes] in the live list, as a device would have sent them. */
+internal fun LiveTraffic.record(
+    vararg envelopes: Envelope,
+    sessionId: String = "s1",
+    hello: Hello = HELLO,
+) = runBlocking {
+    connected(sessionId, hello, "127.0.0.1")
+    envelopes.forEach { received(sessionId, it) }
+    disconnected(sessionId)
+}
+
+/** Stores one finished session holding [envelopes], as a recording would have. */
 internal fun Storage.record(
     vararg envelopes: Envelope,
     sessionId: String = "s1",
@@ -88,22 +100,24 @@ internal fun Storage.record(
     flush()
 }
 
-// Real server and fake client: what is stored is what actually crossed the wire.
-internal fun Storage.receive(traffic: List<Envelope> = Fixtures.traffic) =
-    runBlocking {
-        val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
-        try {
-            val port = server.start()
-            val collecting = launch(Dispatchers.Default) { TrafficStore(this@receive).collect(server.sessions) }
-            withTimeout(TIMEOUT_MS * 6) {
-                replay(Target("127.0.0.1", port), traffic = traffic, closeTimeoutMs = TIMEOUT_MS * 6)
-                while (sessions(runId).let { it.isEmpty() || it.any { session -> session.disconnectedAtMs == null } }) delay(20)
-            }
-            collecting.cancel()
-        } finally {
-            server.stop()
+// Real server and fake client: what is listed is what actually crossed the wire.
+internal fun LiveTraffic.receive(
+    storage: Storage,
+    traffic: List<Envelope> = Fixtures.traffic,
+) = runBlocking {
+    val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+    try {
+        val port = server.start()
+        val collecting = launch(Dispatchers.Default) { TrafficStore(storage, this@receive).collect(server.sessions) }
+        withTimeout(TIMEOUT_MS * 6) {
+            replay(Target("127.0.0.1", port), traffic = traffic, closeTimeoutMs = TIMEOUT_MS * 6)
+            while (sessions().let { it.isEmpty() || it.any { session -> session.disconnectedAtMs == null } }) delay(20)
         }
+        collecting.cancel()
+    } finally {
+        server.stop()
     }
+}
 
 /** Every exchange of the run, read page by page. */
 internal suspend fun Storage.allExchanges(runId: Long = this.runId): List<StoredExchange> {

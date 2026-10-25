@@ -77,7 +77,7 @@ data class TrafficLinks(
     val onMock: (HttpExchange) -> Unit = {},
 )
 
-/** The shown run's sessions, requests and request, and the runs dialog (SDD 09). */
+/** The live list's or a stored run's sessions, requests and request, and the runs dialog (SDD 09). */
 @Composable
 fun TrafficScreen(
     links: TrafficLinks,
@@ -88,9 +88,7 @@ fun TrafficScreen(
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize()) {
-            DeviceList(state, links, Modifier.width(240.dp).fillMaxHeight(), onRuns = { runsOpen = true }) {
-                viewModel.selectSession(it.id)
-            }
+            DeviceList(state, links, Modifier.width(240.dp).fillMaxHeight(), onRuns = { runsOpen = true }, viewModel::selectSession)
             VerticalDivider()
             RequestList(state, links, viewModel, Modifier.weight(1f).fillMaxHeight())
             VerticalDivider()
@@ -124,10 +122,6 @@ fun TrafficScreen(
                     viewModel.showRun(it)
                     runsOpen = false
                 },
-                onNewRun = {
-                    viewModel.newRun()
-                    runsOpen = false
-                },
                 onRename = viewModel::rename,
                 onCompare = {
                     runsOpen = false
@@ -138,12 +132,11 @@ fun TrafficScreen(
     }
 }
 
-/** Every run, newest first, and "All runs"; [onShow] gets null for all of them. A blank name makes a run unnamed. */
+/** The live list, then every stored run, newest first; [onShow] gets null for the live list. A blank name makes a run unnamed. */
 @Composable
 private fun RunList(
     state: RunsState,
     onShow: (Long?) -> Unit,
-    onNewRun: () -> Unit,
     onRename: (Long, String) -> Unit,
     onCompare: () -> Unit,
     onClose: () -> Unit,
@@ -155,7 +148,7 @@ private fun RunList(
     DialogCard(DialogWidth.Medium) {
         Text("Runs", role = TextRole.Title)
         Text(
-            "All runs",
+            LIVE,
             Modifier.fillMaxWidth().selectableItem(shownRunId == null) { onShow(null) }.padding(vertical = Spacing.md),
             role = TextRole.BodyStrong,
         )
@@ -186,7 +179,6 @@ private fun RunList(
         }
         DialogActions {
             TextButton("Compare runs", onClick = onCompare, Modifier.testTag(COMPARE_RUNS), enabled = runs.size > 1)
-            TextButton("New run", onClick = onNewRun)
             TextButton("Close", onClick = onClose)
         }
     }
@@ -198,7 +190,7 @@ private fun DeviceList(
     links: TrafficLinks,
     modifier: Modifier,
     onRuns: () -> Unit,
-    onSelect: (Session) -> Unit,
+    onSelect: (Long?) -> Unit,
 ) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -231,9 +223,24 @@ private fun DeviceList(
             Text(it, Modifier.padding(horizontal = Spacing.lg), error = true, role = TextRole.Caption)
         }
         LazyColumn {
+            item {
+                Text(
+                    "All devices",
+                    Modifier
+                        .fillMaxWidth()
+                        .selectableItem(
+                            state.session == null,
+                        ) { onSelect(null) }
+                        .padding(Spacing.lg)
+                        .testTag(ALL_DEVICES),
+                    role = TextRole.BodyStrong,
+                )
+            }
             items(state.sessions, key = { it.id }) { session ->
                 val hello = session.hello
-                Column(Modifier.fillMaxWidth().selectableItem(session.id == state.session?.id) { onSelect(session) }.padding(Spacing.lg)) {
+                Column(
+                    Modifier.fillMaxWidth().selectableItem(session.id == state.session?.id) { onSelect(session.id) }.padding(Spacing.lg),
+                ) {
                     Text(hello.device_name, role = TextRole.BodyStrong)
                     Text("${hello.app_id} ${hello.app_version}", role = TextRole.Caption)
                     Text(
@@ -270,6 +277,7 @@ private fun RequestList(
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Requests") }
+            if (state.runs.shownRunId == null) TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
             TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
             TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
             TextButton(

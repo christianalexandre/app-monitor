@@ -27,6 +27,7 @@ import appmonitor.desktop.mcp.ReplayAsks
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.ReplayRefused
@@ -62,6 +63,8 @@ import kotlin.test.assertTrue
 // ADR-0121: one an agent asks over MCP reaches it only after "Send again" in the dialog.
 @OptIn(ExperimentalTestApi::class)
 class ReplayTest {
+    private val list = LiveTraffic()
+
     @Test
     fun `send again from the window reaches the device and its replay links to the original`() =
         withStorage { storage ->
@@ -70,7 +73,7 @@ class ReplayTest {
                 device.send("ResponseReceived", ResponseReceived(request_id = "req-1", status_code = 200))
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                    setContent { AppMonitorApp(storage, "Listening", replays = store.replays) }
+                    setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
                     awaitText(original.url)
                     onNodeWithText(original.url).performClick()
                     onNodeWithTag(SEND_AGAIN).performClick()
@@ -99,15 +102,16 @@ class ReplayTest {
             var sessionId = ""
             withDevice(storage, listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK)) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { storage.sessionsNow().isNotEmpty() }
-                sessionId = storage.sessionsNow().single().serverSessionId
+                // An ended session leaves the live list with its last exchange, so it must hold one.
+                device.await { searchNow().isNotEmpty() }
+                sessionId = sessionsNow().single().serverSessionId
                 assertEquals(ReplaySent.NOT_TAKEN, store.replays.send(sessionId, "req-1"))
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { storage.sessionsNow().size == 2 }
+                device.await { sessionsNow().size == 2 }
                 assertEquals(ReplaySent.SESSION_ENDED, store.replays.send(sessionId, "req-1"))
-                val live = storage.sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
+                val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplaySent.SENT, store.replays.send(live, "req-1"))
                 device.next("ReplayRequest")
                 device.send("ReplayRefused", ReplayRefused("req-1", "gone"))
@@ -126,11 +130,11 @@ class ReplayTest {
         withStorage { storage ->
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { storage.searchNow().isNotEmpty() }
-                val id = storage.searchNow().single().id
-                val live = storage.sessionsNow().single().serverSessionId
+                device.await { searchNow().isNotEmpty() }
+                val id = searchNow().single().id
+                val live = sessionsNow().single().serverSessionId
                 val access = runBlocking { McpAccess.open(storage.settingRepository()) }
-                val mcp = McpController(storage, access, 0, replays = store.replays)
+                val mcp = McpController(storage, list, access, 0, replays = store.replays)
                 runBlocking { mcp.start() }
                 try {
                     val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
@@ -141,7 +145,7 @@ class ReplayTest {
                     assertEquals(ReplayRequest("marker"), ReplayRequest.ADAPTER.decode(device.next("ReplayRequest").payload))
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                        setContent { AppMonitorApp(storage, "Listening", replays = store.replays) }
+                        setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
                         awaitText("An agent asks to send this request again")
                         awaitText("GET ${original.url}")
                         screenshot("replay-asked.png")
@@ -174,15 +178,16 @@ class ReplayTest {
             var ended = ""
             withDevice(storage, listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK)) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { storage.sessionsNow().isNotEmpty() }
-                ended = storage.sessionsNow().single().serverSessionId
+                // An ended session leaves the live list with its last exchange, so it must hold one.
+                device.await { searchNow().isNotEmpty() }
+                ended = sessionsNow().single().serverSessionId
                 assertEquals(ReplayAnswer.NOT_TAKEN, store.replays.ask(asked(ended, 1)))
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { storage.sessionsNow().size == 2 }
+                device.await { sessionsNow().size == 2 }
                 assertEquals(ReplayAnswer.SESSION_ENDED, store.replays.ask(asked(ended, 1)))
-                val live = storage.sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
+                val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplayAnswer.WAITING, store.replays.ask(asked(live, 1)))
                 assertEquals(ReplayAnswer.WAITING, store.replays.ask(asked(live, 1)))
                 (2..ReplayAsks.MAX_WAITING).forEach { assertEquals(ReplayAnswer.WAITING, store.replays.ask(asked(live, it.toLong()))) }
@@ -254,7 +259,7 @@ class ReplayTest {
     ) = runBlocking {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
         val port = server.start()
-        val store = TrafficStore(storage)
+        val store = TrafficStore(storage, list)
         val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }
         val outgoing = Channel<Envelope>(Channel.UNLIMITED)
         val received = Channel<Envelope>(Channel.UNLIMITED)
@@ -294,9 +299,9 @@ class ReplayTest {
     private fun ComposeUiTest.onAllTagged(tag: String): Boolean =
         onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 
-    private fun appmonitor.desktop.storage.Storage.sessionsNow() = runBlocking { sessions(runId) }
+    private fun sessionsNow() = list.sessions()
 
-    private fun appmonitor.desktop.storage.Storage.searchNow() = runBlocking { searchExchanges(ExchangeFilter()) }
+    private fun searchNow() = list.searchExchanges(ExchangeFilter())
 
     private companion object {
         val INTERACTION = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)

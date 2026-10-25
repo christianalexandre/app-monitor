@@ -56,6 +56,8 @@ internal class LiveTrafficRepository(
         } else {
             stored.exchange(id, frameLimit)
         }
+
+    override fun clear() = live.clear()
 }
 
 internal class LiveTrafficQueryRepository(

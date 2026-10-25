@@ -43,3 +43,7 @@ const val CONNECTION_BYTES = "connection-bytes"
 const val CONFIRM_REPLAY = "confirm-replay"
 
 const val REFUSE_REPLAY = "refuse-replay"
+
+const val CLEAR = "clear"
+
+const val ALL_DEVICES = "all-devices"

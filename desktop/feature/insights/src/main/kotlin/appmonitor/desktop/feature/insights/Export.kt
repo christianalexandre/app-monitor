@@ -13,4 +13,4 @@ fun saveHarDialog(suggested: String): File? {
     return File(dialog.directory, if (name.endsWith(".har")) name else "$name.har")
 }
 
-fun harFileName(runId: Long?) = if (runId == null) "app-monitor-all-runs.har" else "app-monitor-run-$runId.har"
+fun harFileName(runId: Long?) = if (runId == null) "app-monitor-live.har" else "app-monitor-run-$runId.har"

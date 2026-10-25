@@ -26,6 +26,7 @@ import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.dataDirectory
 import kotlinx.coroutines.CancellationException
@@ -58,13 +59,14 @@ fun main() {
             exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
             return
         }
-    val store = TrafficStore(storage)
+    val live = LiveTraffic()
+    val store = TrafficStore(storage, live)
     val runRepository = storage.runRepository()
-    val traffic = storage.trafficRepository()
+    val traffic = storage.trafficRepository(live)
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
-    val mcp = McpController(storage, access, replays = store.replays)
-    val proxy = ProxyController(storage, directory)
+    val mcp = McpController(storage, live, access, replays = store.replays)
+    val proxy = ProxyController(storage, live, directory)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
     addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT + ProxyServer.STOP_TIMEOUT) {
@@ -98,6 +100,7 @@ fun main() {
                                     scope.launch {
                                         approvals.forgetAll()
                                         storage.clearAll()
+                                        live.clear()
                                         mcp.afterClearAll()
                                         proxy.afterClearAll()
                                     }
@@ -106,6 +109,7 @@ fun main() {
                                 proxy = proxy,
                                 heldCalls = store.heldCalls,
                                 replays = store.replays,
+                                live = live,
                                 runRepository = runRepository,
                                 traffic = traffic,
                             )

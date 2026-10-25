@@ -50,6 +50,7 @@ import appmonitor.desktop.feature.traffic.PendingDecisions
 import appmonitor.desktop.feature.traffic.TrafficLinks
 import appmonitor.desktop.feature.traffic.TrafficScreen
 import appmonitor.desktop.feature.traffic.TrafficViewModel
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import org.koin.compose.KoinIsolatedContext
 import org.koin.compose.viewmodel.koinViewModel
@@ -72,12 +73,14 @@ internal fun AppMonitorApp(
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
     heldCalls: HeldCalls? = null,
     replays: Replays? = null,
+    live: LiveTraffic = remember { LiveTraffic() },
     runRepository: RunRepository = remember(storage) { storage.runRepository() },
-    traffic: TrafficRepository = remember(storage) { storage.trafficRepository() },
+    traffic: TrafficRepository = remember(storage, live) { storage.trafficRepository(live) },
 ) {
     val koin =
         remember(
             storage,
+            live,
             runRepository,
             traffic,
             replays,
@@ -86,7 +89,13 @@ internal fun AppMonitorApp(
             answered,
             mcp,
             proxy,
-        ) { koinApplication { modules(appModule(storage, runRepository, traffic, replays, heldCalls, approvals, answered, mcp, proxy)) } }
+        ) {
+            koinApplication {
+                modules(
+                    appModule(storage, live, runRepository, traffic, replays, heldCalls, approvals, answered, mcp, proxy),
+                )
+            }
+        }
     DisposableEffect(koin) { onDispose { koin.close() } }
     // ADR-0136: the window's view models live as long as this composition.
     val owner = remember(koin) { WindowViewModels() }
@@ -165,10 +174,7 @@ private fun AppMonitorWindow(
                         mocksOpen =
                             mockDraftOf(
                                 exchange,
-                                state.session
-                                    ?.hello
-                                    ?.app_id
-                                    .orEmpty(),
+                                state.detail.appId,
                             )
                         mocksShown = true
                     },
@@ -204,7 +210,7 @@ private fun AppMonitorWindow(
             }
             if (breakpointsOpen) BreakpointList(appIds, onClose = { breakpointsOpen = false })
             if (benchmarksOpen) {
-                val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
+                val devices = if (shownRunId == null) "Every device in the live list" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
                 Benchmarks(filter.copy(runId = shownRunId), scope, onClose = { benchmarksOpen = false })
             }

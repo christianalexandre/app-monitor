@@ -8,6 +8,7 @@ import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.BreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
 import appmonitor.v1.BreakpointAbort
@@ -165,7 +166,7 @@ class HeldCallsTest {
         block: suspend (port: Int, held: HeldCalls) -> Unit,
     ) = runBlocking {
         val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
-        val store = TrafficStore(storage)
+        val store = TrafficStore(storage, LiveTraffic())
         try {
             val port = server.start()
             val collecting = launch(Dispatchers.Default) { store.collect(server.sessions) }

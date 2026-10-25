@@ -15,7 +15,8 @@ import appmonitor.desktop.feature.insights.BenchmarkRow
 import appmonitor.desktop.feature.insights.sortBenchmarks
 import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.desktop.feature.traffic.SEARCH
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.LiveTraffic
+import appmonitor.v1.Envelope
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -27,7 +28,7 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class BenchmarksUiTest {
     /** `EndpointStatsTest.knownP99`'s run (200 searches of 1 to 200 ms, every 20th a 500), plus two endpoints. */
-    private fun Storage.seed() {
+    private fun seed(): Array<Envelope> {
         val searches =
             (1..200).flatMap { i ->
                 listOf(
@@ -50,13 +51,13 @@ class BenchmarksUiTest {
                 envelope(RequestFailed(request_id = "o2", error = "timeout"), 3_000),
                 envelope(RequestStarted(request_id = "f1", method = "GET", url = "https://cdn.example.org/feed")),
             )
-        record(*(searches + others).toTypedArray())
+        return (searches + others).toTypedArray()
     }
 
     @Test
     fun `the window's model shows endpoint_stats' numbers, p99 included, sortable`() =
         withStorage { storage ->
-            storage.seed()
+            storage.record(*seed())
             val groups = runBlocking { storage.benchmarkRepository().endpoints(ExchangeFilter(runId = storage.runId)) }
             assertEquals(203, groups.exchangesRead)
             val (search, orders, feed) = groups.endpoints
@@ -81,9 +82,10 @@ class BenchmarksUiTest {
     @Test
     fun `benchmarks open from the request list, sort by a column and follow the filter`() =
         withStorage { storage ->
-            storage.seed()
+            val live = LiveTraffic()
+            live.record(*seed())
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://api.example.com/search?q=1")
                 onNodeWithTag(BENCHMARKS).performClick()
@@ -98,7 +100,7 @@ class BenchmarksUiTest {
                 onNodeWithTag(SEARCH).performTextInput("orders")
                 onNodeWithTag(BENCHMARKS).performClick()
                 awaitText("2 requests read")
-                onNodeWithText("Every device of", substring = true).assertExists()
+                onNodeWithText("Every device in the live list", substring = true).assertExists()
                 onNodeWithText("under the request filter", substring = true).assertExists()
             }
         }

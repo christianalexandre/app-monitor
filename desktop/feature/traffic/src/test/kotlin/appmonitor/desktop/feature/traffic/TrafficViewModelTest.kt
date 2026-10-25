@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -48,43 +49,57 @@ class TrafficViewModelTest {
     private fun viewModel(replays: ReplayRepository? = this.replays) = TrafficViewModel(runs, traffic, exports, replays)
 
     @Test
-    fun `shows the current run's first session and its requests`() =
+    fun `opens on every live device's requests in one list`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1), session(11, run = 1), session(20, run = 2))
-            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 11))
-            val state = viewModel().state.value
+            traffic.sessions.value = listOf(session(10), session(11), session(20, run = 2))
+            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 11), exchange(3, session = 20))
+            val viewModel = viewModel()
+            val state = viewModel.state.value
             assertEquals(listOf(10L, 11L), state.sessions.map { it.id })
-            assertEquals(10L, state.session?.id)
-            assertEquals(listOf(1L), state.rows.map { it.id })
-            assertEquals("Run one", state.runs.title)
+            assertNull(state.session)
+            assertEquals(listOf(1L, 2L), state.rows.map { it.id })
+            assertEquals(LIVE, state.runs.title)
+            viewModel.selectSession(11)
+            assertEquals(
+                listOf(2L),
+                viewModel.state.value.rows
+                    .map { it.id },
+            )
         }
 
     @Test
     fun `follows the picked run, session and request`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1), session(20, run = 2))
-            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 20))
+            traffic.sessions.value = listOf(session(10), session(20, run = 2), session(21, run = 2))
+            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 20), exchange(3, session = 21))
             val viewModel = viewModel()
             viewModel.showRun(2)
+            assertEquals(
+                listOf(2L, 3L),
+                viewModel.state.value.rows
+                    .map { it.id },
+            )
             viewModel.selectSession(20)
             viewModel.selectRequest(2)
             val state = viewModel.state.value
-            assertEquals(ShownRun.Earlier(2), state.runs.shown)
+            assertEquals(ShownRun.Stored(2), state.runs.shown)
+            assertEquals("Run two", state.runs.title)
+            assertEquals(listOf(2L), state.rows.map { it.id })
             assertEquals(2L, state.row?.id)
             assertEquals(2L, state.detail.exchange?.id)
             viewModel.showRun(null)
             assertEquals(
-                listOf(10L, 20L),
+                listOf(10L),
                 viewModel.state.value.sessions
                     .map { it.id },
             )
-            assertEquals("All runs", viewModel.state.value.runs.title)
+            assertEquals(LIVE, viewModel.state.value.runs.title)
         }
 
     @Test
     fun `a filter narrows the rows and show original clears it`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1))
+            traffic.sessions.value = listOf(session(10))
             traffic.exchanges.value = listOf(exchange(1, session = 10, method = "GET"), exchange(2, session = 10, method = "POST"))
             val viewModel = viewModel()
             viewModel.setFilter(ExchangeFilter(method = "POST"))
@@ -106,9 +121,10 @@ class TrafficViewModelTest {
     fun `show original reads an original past the loaded pages`() =
         runTest {
             val last = TrafficRepository.PAGE_SIZE + 5
-            traffic.sessions.value = listOf(session(10, run = 1))
+            traffic.sessions.value = listOf(session(10))
             traffic.exchanges.value = (1L..last).map { exchange(it, session = 10) }
             val viewModel = viewModel()
+            viewModel.selectRequest(1)
             viewModel.showOriginal(last)
             val state = viewModel.state.value
             assertNull(state.row)
@@ -127,7 +143,7 @@ class TrafficViewModelTest {
     @Test
     fun `loads one more page only once the last one is full`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1))
+            traffic.sessions.value = listOf(session(10))
             traffic.exchanges.value = (1L..TrafficRepository.PAGE_SIZE + 5).map { exchange(it, session = 10) }
             val viewModel = viewModel()
             assertEquals(TrafficRepository.PAGE_SIZE.toInt(), viewModel.state.value.rows.size)
@@ -138,9 +154,21 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `an original no longer listed or stored leaves no request picked`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value = listOf(exchange(1, session = 10))
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            viewModel.showOriginal(99)
+            assertNull(viewModel.state.value.detail.id)
+            assertNull(viewModel.state.value.detail.exchange)
+        }
+
+    @Test
     fun `saves the marked requests, or the picked one`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1))
+            traffic.sessions.value = listOf(session(10))
             traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10))
             val viewModel = viewModel()
             viewModel.selectRequest(1)
@@ -155,7 +183,7 @@ class TrafficViewModelTest {
     @Test
     fun `copies curl and sends again with a note for the picked request only`() =
         runTest {
-            traffic.sessions.value = listOf(session(10, run = 1), session(11, run = 1))
+            traffic.sessions.value = listOf(session(10), session(11))
             traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10))
             val viewModel = viewModel()
             viewModel.selectRequest(1)
@@ -186,17 +214,25 @@ class TrafficViewModelTest {
         }
 
     @Test
-    fun `a new run is shown at once`() =
+    fun `Clear empties the live list and drops its pick and marks`() =
         runTest {
+            traffic.sessions.value = listOf(session(10), session(20, run = 2))
+            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10), exchange(3, session = 20))
             val viewModel = viewModel()
+            viewModel.showRun(2)
+            viewModel.mark(viewModel.state.value.rows[0], true)
             viewModel.showRun(null)
-            viewModel.newRun()
-            assertEquals(ShownRun.Current, viewModel.state.value.runs.shown)
-            assertEquals(3L, viewModel.state.value.runs.shownRunId)
+            viewModel.selectRequest(1)
+            viewModel.mark(viewModel.state.value.rows[1], true)
+            viewModel.clear()
+            val state = viewModel.state.value
+            assertEquals(emptyList(), state.rows)
+            assertNull(state.row)
+            assertEquals(setOf(3L), state.marked.keys)
         }
 
     private class FakeRuns : RunRepository {
-        private val runs = MutableStateFlow(listOf(Run(2, null, 2_000, null), Run(1, "Run one", 1_000, 1_500)))
+        private val runs = MutableStateFlow(listOf(Run(2, "Run two", 2_000, null), Run(1, "Run one", 1_000, 1_500)))
         override val currentRun = MutableStateFlow(1L)
 
         override fun observeRuns(): Flow<List<Run>> = runs
@@ -222,23 +258,17 @@ class TrafficViewModelTest {
         val limits = mutableListOf<Long>()
         override val health: Flow<StoreHealth> = MutableStateFlow(StoreHealth())
 
-        override fun observeSessions(runId: Long?): Flow<List<Session>> =
-            sessions.map { list ->
-                list.filter {
-                    runId == null ||
-                        it.runId == runId
-                }
-            }
+        // Run 0 stands for the live list, as the routed repository reads it.
+        override fun observeSessions(runId: Long?): Flow<List<Session>> = sessions.map { list -> list.filter { it.runId == (runId ?: 0) } }
 
         override fun observeExchanges(
             filter: ExchangeFilter,
             limit: Long,
         ): Flow<List<Exchange>> {
             limits += limit
-            return exchanges.map { list ->
-                list.filter { it.sessionId == filter.sessionId && (filter.method == null || it.method == filter.method) }.take(
-                    limit.toInt(),
-                )
+            return combine(sessions, exchanges) { sessions, list ->
+                val shown = filter.sessionId?.let(::setOf) ?: sessions.filter { it.runId == (filter.runId ?: 0) }.map { it.id }.toSet()
+                list.filter { it.sessionId in shown && (filter.method == null || it.method == filter.method) }.take(limit.toInt())
             }
         }
 
@@ -246,6 +276,15 @@ class TrafficViewModelTest {
             id: Long,
             frameLimit: Long,
         ): HttpExchange? = exchanges.value.firstOrNull { it.id == id }?.let { HttpExchange(it.id, it.requestId, it.method, it.url) }
+
+        override fun clear() {
+            val live =
+                sessions.value
+                    .filter { it.runId == 0L }
+                    .map { it.id }
+                    .toSet()
+            exchanges.value = exchanges.value.filter { it.sessionId !in live }
+        }
     }
 
     private class FakeReplays : ReplayRepository {
@@ -264,7 +303,7 @@ class TrafficViewModelTest {
 
 private fun session(
     id: Long,
-    run: Long,
+    run: Long = 0,
 ) = Session(id, run, "server-$id", Hello(device_name = "Device $id", app_id = "app"), null, 0, null, null)
 
 private fun exchange(

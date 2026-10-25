@@ -25,6 +25,8 @@ import appmonitor.desktop.feature.settings.CONFIRM_CLEAR
 import appmonitor.desktop.feature.settings.MCP_STATUS
 import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
+import appmonitor.desktop.feature.traffic.ALL_DEVICES
+import appmonitor.desktop.feature.traffic.CLEAR
 import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
@@ -33,6 +35,7 @@ import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
@@ -79,10 +82,11 @@ class AppMonitorAppTest {
     @Test
     fun `shows fake client traffic received by the server`() =
         withStorage { storage ->
-            storage.receive()
+            val live = LiveTraffic()
+            live.receive(storage)
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening on port 47474") }
+                setContent { AppMonitorApp(storage, "Listening on port 47474", live = live) }
 
                 awaitText("Pixel 9 (emulator)")
                 onNodeWithText("Android 16 · disconnected").assertExists()
@@ -113,6 +117,8 @@ class AppMonitorAppTest {
     @Test
     fun `frames of a websocket exchange show in order with their truncation`() =
         withStorage { storage ->
+            val live = LiveTraffic()
+
             fun frame(
                 direction: Direction,
                 opcode: Opcode,
@@ -120,7 +126,7 @@ class AppMonitorAppTest {
                 size: Long?,
                 truncated: Boolean = false,
             ) = WebSocketFrame("r1", direction, opcode, payload, truncated, size)
-            storage.record(
+            live.record(
                 envelope(RequestStarted(request_id = "r1", method = "GET", url = "wss://a.example/ws"), 1_000),
                 envelope(ResponseReceived(request_id = "r1", status_code = 101), 1_005),
                 envelope(frame(Direction.DIRECTION_SENT, Opcode.OPCODE_TEXT, "hello".encodeUtf8(), 5), 1_010),
@@ -132,7 +138,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("wss://a.example/ws")
                 onNodeWithText("wss://a.example/ws").performClick()
@@ -151,9 +157,10 @@ class AppMonitorAppTest {
     @Test
     fun `a body at the protocol limit renders off the UI thread`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val element = """{"id":12345,"name":"item","tags":["a","b"]}"""
             val json = List(Protocol.MAX_BODY_BYTES / (element.length + 1)) { element }.joinToString(",", "[", "]").encodeUtf8()
-            storage.record(
+            live.record(
                 envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/big")),
                 envelope(
                     ResponseReceived(
@@ -167,7 +174,7 @@ class AppMonitorAppTest {
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://a.example/big")
                 val opened =
@@ -184,15 +191,16 @@ class AppMonitorAppTest {
     @Test
     fun `a pending device is admitted by clicking Approve in the dialog`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val approvals = DeviceApprovals()
             val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0, advertise = false), approvals)
             runBlocking {
                 val port = server.start()
-                val collecting = launch(Dispatchers.Default) { TrafficStore(storage).collect(server.sessions) }
+                val collecting = launch(Dispatchers.Default) { TrafficStore(storage, live).collect(server.sessions) }
                 val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
                 try {
                     runDesktopComposeUiTest(width = 1280, height = 800) {
-                        setContent { AppMonitorApp(storage, "Listening", approvals = ServerApprovals(approvals)) }
+                        setContent { AppMonitorApp(storage, "Listening", approvals = ServerApprovals(approvals), live = live) }
 
                         waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
                         onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
@@ -200,7 +208,7 @@ class AppMonitorAppTest {
 
                         onNodeWithText("Approve").performClick()
                         waitUntil(timeoutMillis = TIMEOUT_MS) {
-                            runBlocking { storage.sessions(storage.runId) }.run { isNotEmpty() && all { it.disconnectedAtMs != null } }
+                            live.sessions().run { isNotEmpty() && all { it.disconnectedAtMs != null } }
                         }
                         onNodeWithText("Approve").assertDoesNotExist()
                         awaitText("Pixel 9 (emulator)")
@@ -278,13 +286,14 @@ class AppMonitorAppTest {
     @Test
     fun `a taken MCP port shows a status and the rest of the app keeps running`() =
         withStorage { storage ->
-            storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+            val live = LiveTraffic()
+            live.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
             ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
-                val controller = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
+                val controller = McpController(storage, live, runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
                 runBlocking { controller.start() }
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent { AppMonitorApp(storage, "Listening", mcp = controller) }
+                    setContent { AppMonitorApp(storage, "Listening", live = live, mcp = controller) }
 
                     awaitText("Pixel")
                     onNodeWithText("Settings").performClick()
@@ -298,10 +307,16 @@ class AppMonitorAppTest {
     @Test
     fun `the settings change retention and clear all data after a confirmation`() =
         withStorage { storage ->
-            storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+            val live = LiveTraffic()
+            live.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", onClearAll = { runBlocking { storage.clearAll() } }) }
+                setContent {
+                    AppMonitorApp(storage, "Listening", live = live, onClearAll = {
+                        runBlocking { storage.clearAll() }
+                        live.clear()
+                    })
+                }
 
                 awaitText("Pixel")
                 onNodeWithText("Settings").performClick()
@@ -324,11 +339,17 @@ class AppMonitorAppTest {
 
             assertEquals(RetentionSettings(), storage.retention.value, "settings cleared with the rest")
             assertEquals(emptyList(), runBlocking { storage.observeSessions().first() })
+            assertEquals(emptyList(), live.sessions())
         }
 
     @Test
-    fun `the run list switches between named runs and all of them`() =
+    fun `the window opens on the live list and the run list shows stored runs read-only`() =
         withStorage { storage ->
+            val live = LiveTraffic()
+            live.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/home")),
+                hello = HELLO.copy(device_id = "d3", device_name = "Galaxy"),
+            )
             storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
             val second = runBlocking { storage.newRun() }
             storage.record(
@@ -342,9 +363,11 @@ class AppMonitorAppTest {
             }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
-                awaitText("iPhone")
+                awaitText("Galaxy")
+                onNodeWithText("Live ▾").assertExists()
+                onNodeWithText("iPhone").assertDoesNotExist()
                 onNodeWithText("Pixel").assertDoesNotExist()
                 onNodeWithTag(RUNS).performClick()
                 onAllNodesWithText("Rename")[0].performClick()
@@ -362,29 +385,56 @@ class AppMonitorAppTest {
                 onNodeWithText("Login on Pixel ▾").assertExists()
                 awaitText("https://a.example/login")
 
-                onNodeWithTag(RUNS).performClick()
-                onNodeWithText("All runs").performClick()
-                awaitText("iPhone")
-                onNodeWithText("Pixel").assertExists()
+                onNodeWithTag(CLEAR).assertDoesNotExist()
 
                 onNodeWithTag(RUNS).performClick()
-                onNodeWithText("New run").performClick()
-                waitUntil(timeoutMillis = TIMEOUT_MS) { storage.currentRun.value > second }
-                // Until the new run is written, the window shows the last one with an empty first page.
-                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("iPhone").fetchSemanticsNodes().isEmpty() }
-                onNodeWithText("No requests yet").assertExists()
+                onNodeWithText("New run").assertDoesNotExist()
+                onNodeWithText("Live").performClick()
+                awaitText("Galaxy")
+                onNodeWithText("Pixel").assertDoesNotExist()
             }
+        }
+
+    @Test
+    fun `two devices share the live list and Clear empties it`() =
+        withStorage { storage ->
+            val live = LiveTraffic()
+            live.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+            live.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/cart")),
+                sessionId = "s2",
+                hello = HELLO.copy(device_id = "d2", device_name = "iPhone", os_version = "iOS 26"),
+            )
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
+
+                awaitText("https://a.example/login")
+                onNodeWithText("https://a.example/cart").assertExists()
+                onNodeWithText("iPhone").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("https://a.example/login").fetchSemanticsNodes().isEmpty() }
+                onNodeWithTag(ALL_DEVICES).performClick()
+                awaitText("https://a.example/login")
+                screenshot("live.png")
+
+                onNodeWithTag(CLEAR).performClick()
+                awaitText("No requests yet")
+                onNodeWithText("https://a.example/cart").assertDoesNotExist()
+            }
+            assertEquals(emptyList(), runBlocking { storage.allExchanges() }, "the live list writes nothing to the store")
         }
 
     @Test
     fun `the filters narrow the request list and combine`() =
         withStorage { storage ->
+            val live = LiveTraffic()
+
             fun request(
                 id: String,
                 method: String,
                 path: String,
             ) = envelope(RequestStarted(request_id = id, method = method, url = "https://api.example.com/$path"))
-            storage.record(
+            live.record(
                 request("r1", "GET", "login"),
                 envelope(ResponseReceived(request_id = "r1", status_code = 200)),
                 request("r2", "POST", "items"),
@@ -397,7 +447,7 @@ class AppMonitorAppTest {
             val url = { path: String -> "https://api.example.com/$path" }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText(url("feed"))
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
@@ -434,6 +484,7 @@ class AppMonitorAppTest {
     @Test
     fun `two exchanges with the same body open in their own default format`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val body = "{\"a\":1}".encodeUtf8()
 
             fun post(
@@ -449,10 +500,10 @@ class AppMonitorAppTest {
                     body = body,
                 ),
             )
-            storage.record(post("r1", "json", "application/json"), post("r2", "text", "text/plain"))
+            live.record(post("r1", "json", "application/json"), post("r2", "text", "text/plain"))
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://a.example/json")
                 onNodeWithText("https://a.example/json").performClick()
@@ -467,13 +518,14 @@ class AppMonitorAppTest {
     @Test
     fun `an unread body shows its truncation note and a whole one none`() =
         withStorage { storage ->
-            storage.record(
+            val live = LiveTraffic()
+            live.record(
                 envelope(RequestStarted(request_id = "r1", method = "POST", url = "https://a.example/upload", body_truncated = true)),
                 envelope(ResponseReceived(request_id = "r1", status_code = 204)),
             )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://a.example/upload")
                 onNodeWithText("https://a.example/upload").performClick()

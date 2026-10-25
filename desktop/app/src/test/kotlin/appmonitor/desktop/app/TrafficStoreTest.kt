@@ -9,6 +9,8 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.REQUEST_LIST
 import appmonitor.desktop.feature.traffic.RUNS
+import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.RequestStarted
@@ -23,8 +25,9 @@ import kotlin.time.measureTime
 @OptIn(ExperimentalTestApi::class)
 class TrafficStoreTest {
     @Test
-    fun `a 10k-request session is stored in bounded time`() =
+    fun `a 10k-request session is listed in bounded time and not stored`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val (started, responded) = Fixtures.traffic
             val request = RequestStarted.ADAPTER.decode(started.payload)
             val response = ResponseReceived.ADAPTER.decode(responded.payload)
@@ -36,21 +39,21 @@ class TrafficStoreTest {
                     )
                 }
 
-            val elapsed = measureTime { storage.receive(traffic) }
-            val stored = runBlocking { storage.allExchanges() }
+            val elapsed = measureTime { live.receive(storage, traffic) }
+            val listed = live.searchExchanges(ExchangeFilter(), limit = REQUESTS + 1L)
 
-            println("TrafficStoreTest: $REQUESTS requests stored in $elapsed, queue high water ${storage.queueHighWaterBytes} B")
-            assertEquals(REQUESTS, stored.size)
-            assertTrue(stored.all { it.statusCode == 201 }, "every response stored")
-            assertTrue(elapsed < BOUND, "storing $REQUESTS requests took $elapsed")
-            assertEquals(0, storage.queueFullWaits, "the collector never waited for the disk")
+            println("TrafficStoreTest: $REQUESTS requests listed in $elapsed")
+            assertEquals(REQUESTS, listed.size)
+            assertTrue(listed.all { it.statusCode == 201 }, "every response listed")
+            assertTrue(elapsed < BOUND, "listing $REQUESTS requests took $elapsed")
+            assertEquals(emptyList(), runBlocking { storage.allExchanges() }, "nothing is recording, so nothing is stored")
         }
 
     @Test
-    fun `a reopened store shows the earlier traffic`() =
+    fun `a reopened store shows its stored runs, not the live list`() =
         withDataDir { dir ->
             Storage.open(dir).run {
-                receive()
+                record(*Fixtures.traffic.toTypedArray())
                 runBlocking { close(5.seconds) }
             }
             val reopened = Storage.open(dir)
@@ -59,11 +62,11 @@ class TrafficStoreTest {
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     setContent { AppMonitorApp(reopened, "Listening on port 47474") }
 
-                    // The launch's run is shown; the earlier one, ended, is one click away (ADR-0084 C.1).
+                    // The live list starts empty; the stored run, ended, is one click away (ADR-0140).
                     awaitText("No requests yet")
                     onNodeWithTag(RUNS).performClick()
                     onNodeWithText(" – ", substring = true).performClick()
-                    awaitText("Pixel 9 (emulator)")
+                    awaitText("Pixel")
                     onNodeWithText("Android 16 · disconnected").assertExists()
                     awaitText(URL)
                     onNodeWithText(URL).performClick()
@@ -78,16 +81,17 @@ class TrafficStoreTest {
     @Test
     fun `the request list reads the next page at its end`() =
         withStorage { storage ->
+            val live = LiveTraffic()
             val requests =
                 (0 until 450).map {
                     envelope(
                         RequestStarted(request_id = "r$it", method = "GET", url = "https://a.example/$it"),
                     )
                 }
-            storage.record(*requests.toTypedArray())
+            live.record(*requests.toTypedArray())
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
 
                 awaitText("https://a.example/0")
                 // An index past the rows read so far is refused, so each one waits for the page before it.

@@ -21,7 +21,7 @@ interface RunRepository {
     )
 }
 
-/** The sessions and requests the devices sent, as stored (ADR-0081). */
+/** The sessions and requests the devices sent: the live list, and the runs as stored (ADR-0140). */
 interface TrafficRepository {
     /** Writes lost since the store opened, again after each change; starts at the current value. */
     val health: Flow<StoreHealth>
@@ -40,6 +40,9 @@ interface TrafficRepository {
         id: Long,
         frameLimit: Long = PAGE_SIZE,
     ): HttpExchange?
+
+    /** Empties the live list (ADR-0140 A); the sessions still connected stay, stored runs are untouched. */
+    fun clear()
 
     companion object {
         const val PAGE_SIZE = 200L

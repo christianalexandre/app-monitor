@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -31,8 +31,7 @@ not hit (ADR-0094):
   `Content-Type` only on a `ByteArrayContent`. A `WriteChannelContent`
   goes out unedited.
 - **Comment blocks longer than four lines** (guidelines 02): `parseArgs`
-  in `Main.kt`, `TrafficStore` in `TrafficStore.kt` and `readMockRules`
-  in `MockFile.kt`.
+  in `Main.kt` and `readMockRules` in `MockFile.kt`.
 
 Paid in PLAN-0012 H2.2b's PR (`refactor/desktop-traffic-feature`):
 "Show original" read only loaded rows, so an original older than the
@@ -69,7 +68,6 @@ items in its file:
 - `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
-- `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`
 
 `App.kt` fired by PLAN-0012 H2.1 (`refactor/desktop-design-system`),
 which swaps its Material calls for the design system's and changes
@@ -88,6 +86,9 @@ query item needs each SDK to put its own value back in an edited URL
 (OkHttp, Ktor and iOS), not a change in this file; for `HeldCalls.kt`
 the trigger becomes the next PR that changes `resumeOf` or the
 `BreakpointResume` message.
+
+`TrafficStore.kt` paid in PLAN-0013 H3.1b's PR (`feat/live-list-window`),
+which feeds the live list from it: its comment is one line.
 
 ## How it was paid
 

@@ -5,6 +5,7 @@ import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.tools.fakeclient.Target
@@ -77,7 +78,7 @@ class ApprovalStoreTest {
                 val approvals = ApprovalStore.open(storage) { disconnected += it }
                 server = AppMonitorServer(ServerConfig(host = HOST, port = 0, advertise = false), approvals.approvals)
                 val port = server.start()
-                val collecting = launch(Dispatchers.Default) { TrafficStore(storage).collect(server.sessions) }
+                val collecting = launch(Dispatchers.Default) { TrafficStore(storage, LiveTraffic()).collect(server.sessions) }
                 try {
                     withTimeout(TIMEOUT_MS * 3) { block(approvals, port, disconnected) }
                 } finally {
