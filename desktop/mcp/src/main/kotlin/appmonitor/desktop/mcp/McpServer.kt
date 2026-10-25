@@ -10,6 +10,7 @@ import io.ktor.server.engine.embeddedServer
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.server.mcpStatelessStreamableHttp
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import io.modelcontextprotocol.kotlin.sdk.types.ToolAnnotations
@@ -32,7 +33,7 @@ class McpServer internal constructor(
     private val storage: Storage,
     private val access: McpAccess,
     private val port: Int,
-    version: String,
+    private val version: String,
     private val health: () -> StorageHealth,
     private val beforeTool: suspend () -> Unit,
 ) {
@@ -53,6 +54,8 @@ class McpServer internal constructor(
             tool(GetRequest.NAME, GetRequest.description, GetRequest.inputSchema) { GetRequest.call(storage, it) }
             tool(EndpointStats.NAME, EndpointStats.description, EndpointStats.inputSchema) { EndpointStats.call(storage, it) }
             tool(DiffRuns.NAME, DiffRuns.description, DiffRuns.inputSchema) { DiffRuns.call(storage, it) }
+            tool(ExportHar.NAME, ExportHar.description, ExportHar.inputSchema) { ExportHar.call(storage, it, version) }
+            textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(storage, it) }
         }
 
     private val lock = Mutex()
@@ -103,6 +106,20 @@ class McpServer internal constructor(
         description: String,
         inputSchema: ToolSchema,
         call: suspend (JsonObject?) -> JsonObject,
+    ) = result(name, description, inputSchema) { jsonResult(call(it), health()) }
+
+    private fun Server.textTool(
+        name: String,
+        description: String,
+        inputSchema: ToolSchema,
+        call: suspend (JsonObject?) -> String,
+    ) = result(name, description, inputSchema) { textResult(call(it), health()) }
+
+    private fun Server.result(
+        name: String,
+        description: String,
+        inputSchema: ToolSchema,
+        call: suspend (JsonObject?) -> CallToolResult,
     ) {
         addTool(
             name = name,
@@ -112,7 +129,7 @@ class McpServer internal constructor(
         ) { request ->
             beforeTool()
             try {
-                jsonResult(call(request.arguments), health())
+                call(request.arguments)
             } catch (e: ToolError) {
                 errorResult(e.message!!)
             }

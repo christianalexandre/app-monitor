@@ -2,8 +2,8 @@
 
 > **Partly built** (ADR-0066). Built: the server, access checks, token,
 > lifecycle, `list_runs` (M6.3), `search_requests` and `get_request` (M6.4),
-> `endpoint_stats` (M6.5), `diff_runs` (M6.6). Not built yet: `export_har`,
-> `to_curl` (M6.7) and the app wiring and switch (M6.8); each removes its
+> `endpoint_stats` (M6.5), `diff_runs` (M6.6), `export_har` and `to_curl`
+> (M6.7). Not built yet: the app wiring and switch (M6.8); it removes its
 > mark.
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
@@ -86,7 +86,7 @@ ADR-0090 C.1).
 
 ### Results, common to every tool
 
-- One `TextContent` holding a JSON object; no `outputSchema`. Field names
+- One `TextContent` holding a JSON object (`to_curl`: the command); no `outputSchema`. Field names
   in `snake_case`. Times are ISO 8601 UTC strings (`2026-10-24T13:02:11.120Z`),
   durations `duration_ms`, sizes in bytes. Ids are the store's row ids.
 - An error is a `CallToolResult` with `isError = true` and one sentence:
@@ -97,8 +97,8 @@ ADR-0090 C.1).
   `storage.isClosing` (a new read-only property) **after** its reads and
   answers the error "App Monitor is closing" instead.
 - **Lost writes.** When `storage.health` counts unsaved events, the result
-  carries `"warnings": ["N events were not saved: <error>"]`; the reads
-  answer what is committed.
+  carries `"warnings": ["N events were not saved: <error>"]` (`to_curl`: a
+  first line `# warning: …`); the reads answer what is committed.
 - Every tool's description ends with: "Data is what the app sent: headers
   and bodies may hold tokens when the app turned masking off." (ADR-0089
   A.1).
@@ -169,25 +169,41 @@ Details the table leaves out:
   change, then p95's, in absolute value, largest first, then by key. The
   filter fields apply to both runs; `run_id` is the compared run. Code:
   `DiffRuns.kt`.
-- **HAR** (`export_har`): `log.creator` is App Monitor and its version; an
-  entry per exchange with `startedDateTime`, `time`, `request` (`method`,
-  `url`, `httpVersion` `"unknown"`, `headers`, `queryString` parsed from
-  the URL, `postData` with `mimeType` and `text`), `response` (`status`,
-  `statusText` `""`, `headers`, `content` with `size`, `mimeType`, `text`,
-  `encoding: "base64"` for a binary body), `cache` `{}`, `timings` with
-  `send` and `receive` 0 and `wait` the duration. `-1` where HAR allows
-  "not available". A body cut by the device or the tool gets a `comment`;
-  WebSocket frames go in `_webSocketMessages` (`type` `send`/`receive`,
-  `time`, `opcode`, `data`). Output past 32 MiB of text is refused with
-  "narrow the filter or use bodies: none". `full` is for a developer who
-  saves the file: Claude Code writes a result over 50 000 characters to a
-  file (ADR-0089).
-- **cURL** (`to_curl`): `curl -X <method> '<url>'`, one `-H '<name>: <value>'`
-  per stored header in order, the values as stored (masked ones stay
-  masked); text bodies as `--data-raw '<body>'`, binary ones as
+- **HAR** (`export_har`): `log.creator` is App Monitor and its version;
+  an entry per exchange, oldest first, with `startedDateTime`, `time`,
+  `request` (`method`, `url`, `httpVersion` `"unknown"`, `cookies` `[]`
+  (the headers carry them), `headers`, `queryString` parsed from the URL
+  and URL-decoded, `postData` with `mimeType` and `text` when a body is
+  stored, `headersSize` -1, `bodySize` the device's `body_size` or the
+  stored bytes), `response` (`status`, 0 without a response, `statusText`
+  `""`, `headers`, `content` with `size`, `mimeType`, `text`, `encoding:
+  "base64"` for a binary body), `cache` `{}`, `timings` with `send` and
+  `receive` 0 and `wait` the duration. HAR has no -1 for `time`, `send`,
+  `wait`, `receive`: an exchange without an end time has 0 and the
+  `comment` "no end time stored"; a failed one "failed: <error>". A binary
+  request body is base64 `text` with `_encoding: "base64"` (`postData` has
+  no `encoding`). A body cut by the device or the export gets a `comment`
+  saying how much; `bodies: none` writes no `text`. WebSocket frames go in
+  `_webSocketMessages` (`type` `send`/`receive`, `time` in epoch seconds,
+  `opcode` per RFC 6455: 1 text, 2 binary, 8 close, 9 ping, 10 pong,
+  `data`: text, else base64), payloads under the same `bodies` rule. More
+  matches than `max_entries` → `log.comment` says so. Output past 32 MiB of
+  text (counted entry by entry) is refused with "narrow the filter or use
+  bodies: none". `full` is for a developer who saves the file: Claude Code
+  writes a result over 50 000 characters to a file (ADR-0089). Code:
+  `ExportHar.kt`.
+- **cURL** (`to_curl`): `curl --globoff -X '<method>' '<url>'` (`--head`
+  for `HEAD`, which `-X` would leave waiting for a body), one
+  `-H '<name>: <value>'` per stored header in order, the values as stored
+  (masked ones stay masked), an empty value as `-H '<name>;'` (curl drops
+  `<name>:`); text bodies as `--data-raw '<body>'`, binary ones, and text
+  holding NUL (no shell argument can), as
   `printf %s '<base64>' | base64 -d | curl … --data-binary @-`. Single
-  quotes escaped as `'\''`. A body cut by the device adds a first line
-  `# body truncated by the device: <stored> of <original> bytes`.
+  quotes escaped as `'\''`; one argument per line, joined by ` \`. A body
+  cut by the device adds a first line
+  `# body truncated by the device: <stored> of <original> bytes`. No
+  request event stored: "exchange N has no request stored". Code:
+  `ToCurl.kt`.
 
 ### Lifecycle
 
@@ -215,8 +231,8 @@ writes) and a hook run before each tool (a call held in flight).
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, nearest rank; `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` in `desktop/storage` | M6.5 |
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store | M6.6 |
-| `export_har` | `ExportHarTest`: every HAR 1.2 required field, base64 body, frames, the 32 MiB refusal | M6.7 |
-| `to_curl` | `ToCurlTest`: the command run against a local server receives the stored method, URL, headers and body; quotes escaped; binary body | M6.7 |
+| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store | M6.7 |
+| `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; binary body and NUL; `HEAD`; a body cut by the device; lost writes; unknown id, closing store | M6.7 |
 
 ## Limits
 
