@@ -52,6 +52,14 @@ record of how the milestone was actually built once it is done.
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
+### Hold — field test before M10
+
+The owner runs the SDKs in a real app (not only the samples), fixes what
+breaks and improves the desktop's interface together with the agent
+before anything is published. The loop does not plan past this section:
+reaching it is **stop: waiting for the owner**, who removes it when the
+field test is done.
+
 ### M10 — Distribution
 
 Unsigned desktop packages via GitHub Releases and a Homebrew tap of the

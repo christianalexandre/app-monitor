@@ -55,6 +55,7 @@ always work from `origin/dev`, never `git switch dev`.
        writes the next plan.
 - **No active plan**:
   - Close-plan PR still open → **stop**: waiting for the owner.
+  - First roadmap section is a `Hold` → **stop**: waiting for the owner.
   - Last plan `Done` on `origin/dev` (the owner merged it) → write the next
     plan from the roadmap in `docs/plans/README.md` (`_template.md`,
     `status: Active`, `started`, four to six tasks), remove its section from
