@@ -44,10 +44,13 @@ jobs:
           cache-provider: basic # ADR-0012
       - run: make check
         if: steps.scope.outputs.docs_only != 'true'
+      # DEBT-0091: a timeout cancels the job, and a hung test's stack is in its XML result.
       - name: Test reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
-          path: '**/build/reports/tests/'
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
           retention-days: 7

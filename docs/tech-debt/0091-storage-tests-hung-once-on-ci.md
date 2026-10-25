@@ -1,13 +1,13 @@
 ---
 id: DEBT-0091
-title: Desktop storage tests hung once on CI
+title: Desktop storage tests hung twice on CI
 status: Open
 date: 2026-10-25
-trigger: "`:desktop:storage:test` (`desktop/storage/src/test/`) hangs or times out on CI a second time"
+trigger: "A test in `desktop/storage/src/test/` fails on CI with `TimeoutException` (its stack in the `test-reports` artifact)"
 paid_date:
 ---
 
-# DEBT-0091 — Desktop storage tests hung once on CI
+# DEBT-0091 — Desktop storage tests hung twice on CI
 
 ## What is missing
 
@@ -24,6 +24,16 @@ The cause is not known. The storage tests use one writer thread per store
 (`WriteQueue`) and `close` with a bound. A store not closed, or a `flush`
 awaiting a writer that died, could wait for ever.
 
+A second sample, in the `check` job of PR #285, run 40241841456: every
+other test task and `:desktop:app:check` finished, `:desktop:storage:test`
+did not, and the job was cancelled at 30 minutes, again with no report.
+The PR changes `Search.kt` and `Storage.kt` (host filter, `observeHosts`),
+none of it on the writer's or `close`'s path; its storage tests pass
+locally. So PR #285 makes the next one leave evidence: each storage test
+fails after 2 minutes with `TimeoutException`, its interrupted stack in
+its XML result; the `Test` task stops at 10 minutes; `ci.yml` uploads
+`test-reports`, `build/test-results/` included, on `cancelled()` too.
+
 ## Why it was accepted
 
 One sample, with no report and no stack: there is nothing to tell which
@@ -32,11 +42,10 @@ failed job was re-run once.
 
 ## Trigger
 
-`:desktop:storage:test` hangs or times out on CI a second time (tests in
-`desktop/storage/src/test/kotlin/appmonitor/desktop/storage/`). Before
-anything else, make the next one leave evidence: upload `test-reports`
-on `cancelled()` too, or give the storage `Test` task a timeout and a
-thread dump, then decide from the stack.
+A test in `desktop/storage/src/test/` fails on CI with `TimeoutException`.
+Re-triggered by PR #285, which added the timeouts above. Then read the
+test and its stack from the `test-reports` artifact and fix the wait it
+names.
 
 ## How it was paid
 
