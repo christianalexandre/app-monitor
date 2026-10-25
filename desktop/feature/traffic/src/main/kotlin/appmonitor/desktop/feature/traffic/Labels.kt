@@ -1,20 +1,10 @@
 package appmonitor.desktop.feature.traffic
 
-import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.ui.formatRunStart
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-fun statusOf(exchange: Exchange): String =
-    when {
-        exchange.failed -> "failed"
-        exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
-        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
-        exchange.statusCode != null -> exchange.statusCode.toString()
-        else -> "…"
-    }
 
 // ADR-0111: a replayed POST really runs a second time on the server.
 fun replayLabelOf(method: String?): String =

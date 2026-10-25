@@ -3,7 +3,7 @@ id: DEBT-0074
 title: Non-correctness findings of the M7 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or moves `SaveIssueDialog`, the issue editor or `IssueList` into `desktop/feature/insights` (PLAN-0012 H2.4) or changes what they do, or the closing checks of `ExportHar.log` or `ToCurl.command`"
+trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes the order of `Storage.updateIssue`'s checks in `desktop/storage`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
 paid_date:
 ---
 
@@ -23,7 +23,7 @@ not hit (ADR-0094):
 - **The window's exports have no closing check.** `ExportHar.log` and
   `ToCurl.command` left theirs to the MCP wrapper; "Export HAR" while the
   store closes writes the exchanges read so far and reports success.
-- **A double-clicked Save queues two writes.** `SaveIssueDialog` and the
+- **Paid by H2.4b: a double-clicked Save queued two writes.** `SaveIssueDialog` and the
   editor start a write per click with no in-flight guard; under write
   load two clicks store two issues, or stamp two updates.
 - **An unexpected export exception escapes.** `exportHar` in `Export.kt`
@@ -34,7 +34,7 @@ not hit (ADR-0094):
 - **Unknown exchanges are checked before an unknown issue.** An update of
   an issue deleted meanwhile that also names unknown exchanges answers
   "no exchange with id N".
-- **The issue list runs its query twice.** `IssueList` keeps an unfiltered
+- **Paid by H2.4b: the issue list ran its query twice.** `IssueList` keeps an unfiltered
   `observeIssues()` beside the filtered one, only to find the open issue.
 - **`EndpointStats.group` keeps its own closing check** although the
   wrapper maps every closing call; two places hold one rule.
@@ -48,7 +48,7 @@ duplicate check. None changes what normal use stores or shows.
 
 ## Trigger
 
-The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or moves `SaveIssueDialog`, the issue editor or `IssueList` into `desktop/feature/insights` (PLAN-0012 H2.4) or changes what they do, or the closing checks of `ExportHar.log` or `ToCurl.command`.
+The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes the order of `Storage.updateIssue`'s checks in `desktop/storage`, or the closing checks of `ExportHar.log` or `ToCurl.command`.
 
 Fired by PLAN-0009 M8.4, which touches `Export.kt` (the connections
 note), `Issues.kt` (the method column's width) and `Ingest.kt` (one line,
@@ -68,6 +68,14 @@ system's and changes nothing they do. Re-triggered on PLAN-0012 H2.4,
 which moves `Issues.kt` into `desktop/feature/insights` behind a view
 model: the in-flight guard and the single query belong in that view
 model, and written here they would be rewritten one task later.
+
+Fired by PLAN-0012 H2.4b (`refactor/desktop-issues-feature`), which
+moves the issue dialogs and list into `desktop/feature/insights` over
+`IssuesViewModel`. Paid there: a save while another is written writes
+nothing and the Save buttons are off meanwhile; the list and the open
+issue read one `observeIssues()`, the filter applied to it. Re-triggered
+on the rest, code that PR does not change: the MCP wrapper, the export
+closing check and hint, and the order of `updateIssue`'s checks.
 
 ## How it was paid
 

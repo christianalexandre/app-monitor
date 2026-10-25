@@ -58,7 +58,9 @@ import appmonitor.desktop.feature.breakpoints.HeldCallDialog
 import appmonitor.desktop.feature.breakpoints.breakpointsLabel
 import appmonitor.desktop.feature.insights.Benchmarks
 import appmonitor.desktop.feature.insights.InsightsViewModel
+import appmonitor.desktop.feature.insights.IssueList
 import appmonitor.desktop.feature.insights.RunDiff
+import appmonitor.desktop.feature.insights.SaveIssueDialog
 import appmonitor.desktop.feature.insights.harFileName
 import appmonitor.desktop.feature.insights.saveHarDialog
 import appmonitor.desktop.feature.mocks.MockDraft
@@ -77,14 +79,12 @@ import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.desktop.storage.RetentionStatus
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredApproval
+import appmonitor.desktop.ui.formatDateTime
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinIsolatedContext
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.dsl.koinApplication
 import java.io.File
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -250,7 +250,6 @@ private fun AppMonitorWindow(
             }
             saving?.let { exchanges ->
                 SaveIssueDialog(
-                    storage,
                     exchanges.keys,
                     defaultTitle = exchanges.values.minBy { it.id }.let { "${it.method ?: "—"} ${it.url ?: it.requestId}" },
                     onSaved = {
@@ -258,9 +257,10 @@ private fun AppMonitorWindow(
                         saving = null
                         issuesOpen = true
                     },
-                ) { saving = null }
+                    onClose = { saving = null },
+                )
             }
-            if (issuesOpen) IssueList(storage) { issuesOpen = false }
+            if (issuesOpen) IssueList(onClose = { issuesOpen = false })
             if (mocksShown) {
                 MockList(appIds, mocksOpen, onClose = {
                     mocksShown = false
@@ -418,7 +418,7 @@ private fun Settings(
                         Text(
                             listOf(
                                 if (pair.approved) "Approved" else "Rejected",
-                                DATE_FORMAT.format(Instant.ofEpochMilli(pair.decidedAtMs)),
+                                formatDateTime(pair.decidedAtMs),
                                 pair.osVersion,
                                 pair.appVersion,
                             ).filter { it.isNotEmpty() }.joinToString(" · "),
@@ -584,5 +584,3 @@ internal const val PROXY_STATUS = "proxy-status"
 internal const val PROXY_RESET_CA = "proxy-reset-ca"
 
 internal const val MCP_STATUS = "mcp-status"
-
-internal val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())

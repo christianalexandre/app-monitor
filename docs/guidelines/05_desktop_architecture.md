@@ -31,7 +31,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   (`RunRepository`, `TrafficRepository`, `ReplayRepository`,
   `ExportRepository`, `MockRepository`, `BreakpointRepository`,
   `HeldCallRepository`, `ApprovalRepository`, `AskedReplayRepository`,
-  `BenchmarkRepository`, `HarRepository`),
+  `BenchmarkRepository`, `HarRepository`, `IssueRepository`),
   never `desktop/storage`'s types; a pane not moved yet (PLAN-0012) is
   the exception, not the model (ADR-0135).
 - **A screen lives in a feature module**, `desktop/feature/<name>`, which
@@ -41,7 +41,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   lambdas (`TrafficLinks`) from `desktop/app`.
 - **What two features share goes to `desktop/ui`** (ADR-0137): how the
   window reads or writes a domain value (`METHODS`, `formatDuration`, `titleOf`,
-  `utf8OrNull`, `headersOf`). A helper one feature uses stays in it.
+  `statusOf`, `formatDateTime`, `utf8OrNull`, `headersOf`). A helper one feature uses stays in it.
 - **Its state lives in a view model**: one `StateFlow` of an immutable
   data class, functions for events, the domain's repositories in the
   constructor. A dialog's open flag and a text being typed may stay in

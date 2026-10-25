@@ -10,6 +10,10 @@ import appmonitor.desktop.domain.EndpointGroups
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.Issue
+import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueRepository
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.Mock
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockRepository
@@ -29,6 +33,7 @@ import appmonitor.v1.MockRule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import appmonitor.desktop.storage.IssueSource as StoredIssueSource
 
 /** The runs of this store. */
 fun Storage.runRepository(): RunRepository = StoredRunRepository(this)
@@ -41,6 +46,9 @@ fun Storage.mockRepository(): MockRepository = StoredMockRepository(this)
 
 /** The breakpoints of this store. */
 fun Storage.breakpointRepository(): BreakpointRepository = StoredBreakpointRepository(this)
+
+/** The issues of this store. */
+fun Storage.issueRepository(): IssueRepository = StoredIssueRepository(this)
 
 /** The per endpoint numbers of this store. */
 fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
@@ -139,4 +147,28 @@ internal class StoredBenchmarkRepository(
             storage.groupByEndpoint(stored.copy(runId = runId)),
         ).toDomain()
     }
+}
+
+internal class StoredIssueRepository(
+    private val storage: Storage,
+) : IssueRepository {
+    override fun observeIssues(): Flow<List<Issue>> = storage.observeIssues().map { issues -> issues.map { it.toDomain() } }
+
+    override fun observeTags(): Flow<List<String>> = storage.observeIssueTags()
+
+    override suspend fun exchanges(id: Long): List<Exchange> = storage.issueExchanges(id).map { it.toDomain() }
+
+    override suspend fun create(
+        title: String,
+        note: String,
+        tags: Collection<String>,
+        exchangeIds: Collection<Long>,
+    ): IssueWrite = storage.createIssue(title, note, tags, exchangeIds, StoredIssueSource.WINDOW).toDomain()
+
+    override suspend fun update(
+        id: Long,
+        change: IssueChange,
+    ): IssueWrite = storage.updateIssue(id, change.toStored()).toDomain()
+
+    override suspend fun delete(id: Long) = storage.deleteIssue(id)
 }

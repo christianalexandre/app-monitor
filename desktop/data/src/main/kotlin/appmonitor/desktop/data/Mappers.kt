@@ -15,6 +15,11 @@ import appmonitor.desktop.domain.EndpointStats
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.Issue
+import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.Mock
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
@@ -29,6 +34,7 @@ import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredBreakpoint
 import appmonitor.desktop.storage.StoredExchange
 import appmonitor.desktop.storage.StoredFrame
+import appmonitor.desktop.storage.StoredIssue
 import appmonitor.desktop.storage.StoredMock
 import appmonitor.desktop.storage.StoredRun
 import appmonitor.desktop.storage.StoredSession
@@ -40,6 +46,10 @@ import appmonitor.desktop.storage.EndpointChange as StoredEndpointChange
 import appmonitor.desktop.storage.EndpointDiff as StoredEndpointDiff
 import appmonitor.desktop.storage.EndpointGroups as StoredEndpointGroups
 import appmonitor.desktop.storage.ExchangeFilter as StoredExchangeFilter
+import appmonitor.desktop.storage.IssueChange as StoredIssueChange
+import appmonitor.desktop.storage.IssueSource as StoredIssueSource
+import appmonitor.desktop.storage.IssueStatus as StoredIssueStatus
+import appmonitor.desktop.storage.IssueWrite as StoredIssueWrite
 import appmonitor.desktop.storage.MockChange as StoredMockChange
 import appmonitor.desktop.storage.MockSource as StoredMockSource
 import appmonitor.desktop.storage.MockWrite as StoredMockWrite
@@ -176,3 +186,22 @@ internal fun StoredEndpointDiff.toDomain(): EndpointDiff =
         unchanged = unchanged,
         truncated = truncated,
     )
+
+internal fun StoredIssue.toDomain(): Issue =
+    Issue(id, title, note, tags, status.toDomain(), source.toDomain(), createdAtMs, updatedAtMs, exchangeCount)
+
+internal fun StoredIssueStatus.toDomain(): IssueStatus = IssueStatus.valueOf(name)
+
+internal fun IssueStatus.toStored(): StoredIssueStatus = StoredIssueStatus.valueOf(name)
+
+internal fun StoredIssueSource.toDomain(): IssueSource = IssueSource.valueOf(name)
+
+internal fun IssueChange.toStored(): StoredIssueChange = StoredIssueChange(title, note, tags, status?.toStored())
+
+internal fun StoredIssueWrite.toDomain(): IssueWrite =
+    when (this) {
+        is StoredIssueWrite.Saved -> IssueWrite.Saved(id)
+        is StoredIssueWrite.UnknownExchanges -> IssueWrite.UnknownExchanges(ids)
+        StoredIssueWrite.UnknownIssue -> IssueWrite.UnknownIssue
+        StoredIssueWrite.NotSaved -> IssueWrite.NotSaved
+    }
