@@ -23,7 +23,7 @@ checkout fail in the last run?"* straight from the captured traffic.
 > named runs, searchable and bounded by retention settings, and serves that
 > history to AI agents over a local MCP server. Everything below marked
 > *planned* does not exist yet. Current milestone:
-> [M6 — MCP server](docs/plans/0007-mcp-server.md).
+> [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md).
 
 ## Why
 
@@ -98,7 +98,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M4 — KMP SDK](docs/plans/0005-kmp-sdk.md) | Ktor plugin on Android and iOS, deduped with the Swift SDK |
 | [M5 — Persistence](docs/plans/0006-persistence-and-runs.md) | Runs, search, filters, retention |
 | [M6 — MCP server](docs/plans/0007-mcp-server.md) | Traffic, runs and stats queryable by AI agents |
-| M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
+| [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md) | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | M8 — iOS deep capture | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | M9 — Interaction | Mocks, breakpoints, replay |
 | M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
