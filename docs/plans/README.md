@@ -39,17 +39,12 @@ record of how the milestone was actually built once it is done.
 | [0004](0004-release-gate.md) | M3 | Release gate | Done |
 | [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Done |
 | [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Done |
+| [0007](0007-mcp-server.md) | M6 | MCP server | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M6 — MCP server
-
-`desktop/mcp` on `127.0.0.1` (ADR-0005), tools `list_runs`, `search_requests`,
-`get_request`, `endpoint_stats`, `diff_runs`, `export_har`, `to_curl`; setup
-docs for Claude Code.
 
 ### M7 — Issues, benchmarks, export
 
