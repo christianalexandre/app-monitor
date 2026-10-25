@@ -1,8 +1,9 @@
 # 10 — Desktop MCP server
 
 > **Partly built** (ADR-0066). Built: the server, access checks, token,
-> lifecycle and `list_runs` (M6.3). Not built yet: the other tools (M6.4 to
-> M6.7) and the app wiring and switch (M6.8); each removes its mark.
+> lifecycle, `list_runs` (M6.3), `search_requests` and `get_request` (M6.4).
+> Not built yet: `endpoint_stats`, `diff_runs`, `export_har`, `to_curl`
+> (M6.5 to M6.7) and the app wiring and switch (M6.8); each removes its mark.
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
 from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
@@ -119,22 +120,28 @@ ADR-0090 C.1).
 
 The slice is `[offset, offset + max)` of the stored bytes; its end moves
 back up to 3 bytes to a UTF-8 boundary; if the slice is then valid UTF-8 it
-is `utf8`, else the uncut slice is `base64` (ADR-0089 C.1). An empty body is
-`null`.
+is `utf8`, else the uncut slice is `base64` (ADR-0089 C.1). A slice that
+starts inside a character is not valid UTF-8, so it is `base64`. An empty
+body is `null`, unless the device cut it (`truncated_by_device`): then the
+object says so with `stored_bytes` 0. `body_offset` past the stored bytes
+returns an empty slice at `stored_bytes`. Code: `Body.kt`.
 
 ### Tools
 
 Filter fields, shared by `search_requests`, `endpoint_stats`, `diff_runs`
 and `export_har`, map one to one onto `ExchangeFilter` (ADR-0087): `text`
-(substring of the URL, ASCII case-insensitive), `method`, `status_class`
-(`1xx`…`5xx`), `failed_only`, `device_id`, `app_id`, `run_id`,
-`session_id`. Unset fields match all.
+(substring of the URL, ASCII case-insensitive), `method` (exact),
+`status_class` (`1xx`…`5xx`), `failed_only`, `device_id`, `app_id`,
+`run_id`, `session_id`. Unset fields match all. Code: `Filters.kt`, which
+also writes the exchange row both `search_requests` and `get_request`
+return (`capture_layer` as `platform`, `adapter`, `connection`, `proxy`,
+`unspecified`; `duration_ms` null unless both times are known).
 
 | Tool | Input | Output | Store |
 | --- | --- | --- | --- |
 | `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform` (`android`, `ios`, `jvm`, `unspecified`), `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`, null on a page short of `limit`. Newest first. | `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
 | `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
-| `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame. | `exchange(id)`, `frames(id, afterId, limit)` |
+| `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). `part` leaves the other side `null`; `body_offset` applies to both bodies, frame payloads start at 0. Frames: `direction` `sent`/`received`, `opcode` `text`, `binary`, `ping`, `pong`, `close`. The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame; `next_after_id` is set when it stopped early or is full to `frames_limit`. Unknown id: "no exchange with id N". | `exchange(id)`, `frames(id, afterId, limit)` |
 | `endpoint_stats` | filter fields, `limit` (1–500, 50) | `endpoints[]` by count, descending: `method`, `host`, `path`, `count`, `status` (`1xx`…`5xx`, `failed`), `error_rate`, `duration_ms` (`min`, `p50`, `p95`, `max`), `request_bytes`, `response_bytes`; `exchanges_read`, `truncated` | new `searchExchangeSizes(filter, afterId, limit)`: the rows with their stored body sizes |
 | `diff_runs` | `base_run_id`, `run_id` (required), filter fields but `run_id` | `added[]` and `gone[]` (endpoint stats), `changed[]` (`method`, `host`, `path`, and `base`, `run`, `delta` for `count`, `error_rate`, `p50_ms`, `p95_ms`), `unchanged` (a count) | `endpoint_stats`' grouping, once per run |
 | `export_har` | filter fields, `max_entries` (1–1 000, 100), `bodies` (`none`, `capped`, `full`; `capped`) | HAR 1.2 JSON as the text; `capped` bodies at 16 KiB each | `searchExchanges`, `exchange(id)`, `frames` |
@@ -210,5 +217,5 @@ writes) and a hook run before each tool (a call held in flight).
 - No stdio transport; stdio-only clients go through `mcp-remote`
   (ADR-0091, DEBT-0069).
 - `to_curl` writes POSIX shell, not PowerShell or `cmd`.
-- Text search and "failed only" walk the exchanges (DEBT-0063, fires at
-  M6.4).
+- Text search and "failed only" walk the exchanges (DEBT-0063,
+  re-triggered at M6.4).

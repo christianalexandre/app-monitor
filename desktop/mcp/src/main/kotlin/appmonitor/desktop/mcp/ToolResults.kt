@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -60,4 +61,35 @@ internal fun JsonObject?.long(
     val number = (value as? JsonPrimitive)?.takeUnless { it.isString }?.content?.toLongOrNull()
     if (number == null || number !in range) throw ToolError("$name must be an integer from ${range.first} to ${range.last}")
     return number
+}
+
+/** An optional string argument, [default] when absent or null. */
+internal fun JsonObject?.string(
+    name: String,
+    default: String? = null,
+): String? {
+    val value = this?.get(name)
+    if (value == null || value is JsonNull) return default
+    return (value as? JsonPrimitive)?.takeIf { it.isString }?.content ?: throw ToolError("$name must be a string")
+}
+
+/** An optional boolean argument, [default] when absent or null. */
+internal fun JsonObject?.boolean(
+    name: String,
+    default: Boolean,
+): Boolean {
+    val value = this?.get(name)
+    if (value == null || value is JsonNull) return default
+    return (value as? JsonPrimitive)?.takeUnless { it.isString }?.booleanOrNull ?: throw ToolError("$name must be true or false")
+}
+
+/** An optional argument that is one of [choices], [default] when absent or null. */
+internal fun JsonObject?.choice(
+    name: String,
+    choices: Collection<String>,
+    default: String?,
+): String? {
+    val value = string(name, default) ?: return null
+    if (value !in choices) throw ToolError("$name must be one of ${choices.joinToString()}")
+    return value
 }
