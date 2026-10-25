@@ -1,4 +1,4 @@
-package appmonitor.desktop.app.ui
+package appmonitor.desktop.feature.insights
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,10 +13,12 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -34,20 +36,17 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.domain.EndpointChange
+import appmonitor.desktop.domain.EndpointStats
+import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.Run
-import appmonitor.desktop.feature.traffic.titleOf
-import appmonitor.desktop.storage.EndpointChange
-import appmonitor.desktop.storage.EndpointDiff
-import appmonitor.desktop.storage.EndpointTally
-import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.diffEndpoints
-import appmonitor.desktop.storage.groupByEndpoint
 import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.titleOf
+import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
 /** One endpoint as the diff shows it: `base → run` for a change, one side's value for an added or gone one. */
-internal data class DiffRow(
+data class DiffRow(
     val endpoint: String,
     val count: String,
     val errorRate: String,
@@ -55,13 +54,13 @@ internal data class DiffRow(
     val p95: String,
 ) {
     companion object {
-        fun of(tally: EndpointTally): DiffRow =
+        fun of(tally: EndpointStats): DiffRow =
             DiffRow(
                 endpointOf(tally),
                 tally.count.toString(),
                 rateOf(tally),
-                tally.durationStats?.p50.text(),
-                tally.durationStats?.p95.text(),
+                tally.durations?.p50.text(),
+                tally.durations?.p95.text(),
             )
 
         fun of(change: EndpointChange): DiffRow {
@@ -70,15 +69,15 @@ internal data class DiffRow(
                 endpointOf(run),
                 "${base.count} → ${run.count}",
                 "${rateOf(base)} → ${rateOf(run)}",
-                "${base.durationStats?.p50.text()} → ${run.durationStats?.p50.text()}",
-                "${base.durationStats?.p95.text()} → ${run.durationStats?.p95.text()}",
+                "${base.durations?.p50.text()} → ${run.durations?.p50.text()}",
+                "${base.durations?.p95.text()} → ${run.durations?.p95.text()}",
             )
         }
 
-        private fun endpointOf(tally: EndpointTally) =
+        private fun endpointOf(tally: EndpointStats) =
             "${tally.endpoint.method ?: "—"} ${tally.endpoint.host.orEmpty()}${tally.endpoint.path}"
 
-        private fun rateOf(tally: EndpointTally) = String.format(Locale.ROOT, "%.1f %%", tally.errorRate * 100)
+        private fun rateOf(tally: EndpointStats) = String.format(Locale.ROOT, "%.1f %%", tally.errorRate * 100)
 
         private fun Long?.text() = this?.let(::formatDuration) ?: "—"
     }
@@ -89,22 +88,26 @@ internal data class DiffRow(
  * (SDD 01); read again on a pick and on "Refresh".
  */
 @Composable
-internal fun RunDiff(
-    storage: Storage,
+fun RunDiff(
     runs: List<Run>,
     filter: ExchangeFilter,
     scope: String,
     onClose: () -> Unit,
+    viewModel: InsightsViewModel = koinViewModel(),
 ) {
     var baseId by remember { mutableStateOf(runs.getOrNull(1)?.id ?: runs.firstOrNull()?.id) }
     var runId by remember { mutableStateOf(runs.firstOrNull()?.id) }
     var reads by remember { mutableIntStateOf(0) }
-    val diff by produceState<EndpointDiff?>(null, storage, filter, baseId, runId, reads) {
-        value = null
-        val base = baseId ?: return@produceState
-        val run = runId ?: return@produceState
-        value = diffEndpoints(storage.groupByEndpoint(filter.copy(runId = base)), storage.groupByEndpoint(filter.copy(runId = run)))
+    LaunchedEffect(filter, baseId, runId, reads) {
+        val base = baseId
+        val run = runId
+        if (base != null && run != null) viewModel.readDiff(filter, base, run) else viewModel.closeDiff()
     }
+    DisposableEffect(viewModel) { onDispose { viewModel.closeDiff() } }
+    val diff =
+        viewModel.state
+            .collectAsState()
+            .value.diff
     DialogCard(DialogWidth.Table) {
         Text("Compare runs", role = TextRole.Title)
         Text(scope, role = TextRole.Caption)
@@ -209,10 +212,10 @@ private fun RowScope.DiffCell(
     )
 }
 
-internal const val DIFF_BASE = "diff-base-"
+const val DIFF_BASE = "diff-base-"
 
-internal const val DIFF_RUN = "diff-run-"
+const val DIFF_RUN = "diff-run-"
 
-internal const val DIFF_SUMMARY = "diff-summary"
+const val DIFF_SUMMARY = "diff-summary"
 
-internal const val DIFF_LIST = "diff-list"
+const val DIFF_LIST = "diff-list"

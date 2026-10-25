@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import java.io.File
@@ -16,6 +17,10 @@ internal fun ComposeUiTest.awaitText(
     text: String,
     substring: Boolean = false,
 ) = waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(text, substring).fetchSemanticsNodes().isNotEmpty() }
+
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.awaitTag(tag: String) =
+    waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
 
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.screenshot(name: String) {

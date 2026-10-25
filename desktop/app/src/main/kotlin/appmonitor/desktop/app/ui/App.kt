@@ -34,7 +34,6 @@ import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.ProxyStatus
 import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.data.runRepository
-import appmonitor.desktop.data.toStored
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.AppSurface
@@ -57,6 +56,11 @@ import appmonitor.desktop.feature.breakpoints.BreakpointList
 import appmonitor.desktop.feature.breakpoints.BreakpointsViewModel
 import appmonitor.desktop.feature.breakpoints.HeldCallDialog
 import appmonitor.desktop.feature.breakpoints.breakpointsLabel
+import appmonitor.desktop.feature.insights.Benchmarks
+import appmonitor.desktop.feature.insights.InsightsViewModel
+import appmonitor.desktop.feature.insights.RunDiff
+import appmonitor.desktop.feature.insights.harFileName
+import appmonitor.desktop.feature.insights.saveHarDialog
 import appmonitor.desktop.feature.mocks.MockDraft
 import appmonitor.desktop.feature.mocks.MockList
 import appmonitor.desktop.feature.mocks.MocksViewModel
@@ -182,7 +186,11 @@ private fun AppMonitorWindow(
     var benchmarksOpen by remember { mutableStateOf(false) }
     var diffOpen by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf<Map<Long, Exchange>?>(null) }
-    var exportNote by remember { mutableStateOf<String?>(null) }
+    val insights = koinViewModel<InsightsViewModel>()
+    val exportNote =
+        insights.state
+            .collectAsState()
+            .value.exportNote
     val runTitle = state.runs.title
 
     AppMonitorTheme {
@@ -203,10 +211,7 @@ private fun AppMonitorWindow(
                     onBreakpoints = { breakpointsOpen = true },
                     onBenchmarks = { benchmarksOpen = true },
                     onExportHar = {
-                        pickHarFile(harFileName(shownRunId))?.let { file ->
-                            exportNote = "Exporting…"
-                            scope.launch { exportNote = exportHar(storage, filter.copy(runId = shownRunId).toStored(), file) }
-                        }
+                        pickHarFile(harFileName(shownRunId))?.let { file -> insights.exportHar(filter.copy(runId = shownRunId), file) }
                     },
                     onSaveAsIssue = { saving = viewModel.toSave() },
                     onCompareRuns = { diffOpen = true },
@@ -266,7 +271,7 @@ private fun AppMonitorWindow(
             if (benchmarksOpen) {
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
-                Benchmarks(storage, filter.copy(runId = shownRunId).toStored(), scope) { benchmarksOpen = false }
+                Benchmarks(filter.copy(runId = shownRunId), scope, onClose = { benchmarksOpen = false })
             }
             if (diffOpen) {
                 val scope =
@@ -277,7 +282,7 @@ private fun AppMonitorWindow(
                     } else {
                         "Every device of each run, under the request filter"
                     }
-                RunDiff(storage, state.runs.runs, filter.toStored(), scope) { diffOpen = false }
+                RunDiff(state.runs.runs, filter, scope, onClose = { diffOpen = false })
             }
             // A newer hit under the same request and stage is a new form, not the old one's edits.
             held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1) } }

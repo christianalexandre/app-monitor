@@ -6,6 +6,12 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.ConnectionBytes
+import appmonitor.desktop.domain.Durations
+import appmonitor.desktop.domain.Endpoint
+import appmonitor.desktop.domain.EndpointChange
+import appmonitor.desktop.domain.EndpointDiff
+import appmonitor.desktop.domain.EndpointGroups
+import appmonitor.desktop.domain.EndpointStats
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
@@ -17,6 +23,7 @@ import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeDetail
 import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredBreakpoint
@@ -27,6 +34,11 @@ import appmonitor.desktop.storage.StoredRun
 import appmonitor.desktop.storage.StoredSession
 import appmonitor.desktop.storage.BreakpointChange as StoredBreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite as StoredBreakpointWrite
+import appmonitor.desktop.storage.Durations as StoredDurations
+import appmonitor.desktop.storage.Endpoint as StoredEndpoint
+import appmonitor.desktop.storage.EndpointChange as StoredEndpointChange
+import appmonitor.desktop.storage.EndpointDiff as StoredEndpointDiff
+import appmonitor.desktop.storage.EndpointGroups as StoredEndpointGroups
 import appmonitor.desktop.storage.ExchangeFilter as StoredExchangeFilter
 import appmonitor.desktop.storage.MockChange as StoredMockChange
 import appmonitor.desktop.storage.MockSource as StoredMockSource
@@ -135,3 +147,32 @@ internal fun StoredBreakpointWrite.toDomain(): BreakpointWrite =
         StoredBreakpointWrite.UnknownBreakpoint -> BreakpointWrite.UnknownBreakpoint
         StoredBreakpointWrite.NotSaved -> BreakpointWrite.NotSaved
     }
+
+internal fun StoredEndpoint.toDomain(): Endpoint = Endpoint(method, host, path)
+
+internal fun StoredDurations.toDomain(): Durations = Durations(min, p50, p95, p99, max)
+
+internal fun EndpointTally.toDomain(): EndpointStats =
+    EndpointStats(
+        endpoint = endpoint.toDomain(),
+        count = count,
+        failed = failed,
+        errors = errors,
+        requestBytes = requestBytes,
+        responseBytes = responseBytes,
+        statusClasses = statusClasses,
+        durations = durationStats?.toDomain(),
+    )
+
+internal fun StoredEndpointGroups.toDomain(): EndpointGroups = EndpointGroups(endpoints.map { it.toDomain() }, exchangesRead, truncated)
+
+internal fun StoredEndpointChange.toDomain(): EndpointChange = EndpointChange(endpoint.toDomain(), base.toDomain(), run.toDomain())
+
+internal fun StoredEndpointDiff.toDomain(): EndpointDiff =
+    EndpointDiff(
+        added = added.map { it.toDomain() },
+        gone = gone.map { it.toDomain() },
+        changed = changed.map { it.toDomain() },
+        unchanged = unchanged,
+        truncated = truncated,
+    )

@@ -8,6 +8,7 @@ dependencies {
     implementation(project(":desktop:data"))
     implementation(project(":desktop:designsystem"))
     implementation(project(":desktop:feature:breakpoints"))
+    implementation(project(":desktop:feature:insights"))
     implementation(project(":desktop:feature:mocks"))
     implementation(project(":desktop:feature:traffic"))
     implementation(project(":desktop:mcp"))

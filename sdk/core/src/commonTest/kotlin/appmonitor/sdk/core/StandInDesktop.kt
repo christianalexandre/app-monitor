@@ -22,6 +22,10 @@ import io.ktor.websocket.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A desktop for `commonTest` (ADR-0066 C): answers `Hello` with a `HelloAck` accepting every channel, then
@@ -52,17 +56,18 @@ internal class StandInDesktop private constructor(
                     for (frame in incoming) if (frame is Frame.Binary) envelopes.send(Envelope.ADAPTER.decode(frame.readBytes()))
                 }
             val engine =
-                embeddedServer(CIO, host = LOOPBACK, port = port) {
-                    install(WebSockets)
-                    routing {
-                        if (silent) {
-                            webSocketRaw(Protocol.WEBSOCKET_PATH) { serve() }
-                        } else {
-                            webSocket(Protocol.WEBSOCKET_PATH) { serve() }
+                bind(port) {
+                    embeddedServer(CIO, host = LOOPBACK, port = port) {
+                        install(WebSockets)
+                        routing {
+                            if (silent) {
+                                webSocketRaw(Protocol.WEBSOCKET_PATH) { serve() }
+                            } else {
+                                webSocket(Protocol.WEBSOCKET_PATH) { serve() }
+                            }
                         }
                     }
                 }
-            engine.startSuspend(wait = false)
             val bound =
                 engine.engine
                     .resolvedConnectors()
@@ -70,10 +75,32 @@ internal class StandInDesktop private constructor(
                     .port
             return StandInDesktop(engine, bound, hellos, envelopes)
         }
+
+        // A desktop restarted on the port of one just stopped can find it still bound for a moment.
+        private suspend fun bind(
+            port: Int,
+            create: () -> EmbeddedServer<*, *>,
+        ): EmbeddedServer<*, *> {
+            repeat(BIND_ATTEMPTS - 1) {
+                val engine = create()
+                try {
+                    return engine.startSuspend(wait = false)
+                } catch (e: Exception) {
+                    // Ktor reports the bind failure as a cancellation; only this coroutine's own one ends here.
+                    currentCoroutineContext().ensureActive()
+                    if (port == 0) throw e
+                    runCatching { engine.stopSuspend(0, 0) }
+                    delay(100.milliseconds)
+                }
+            }
+            return create().startSuspend(wait = false)
+        }
     }
 }
 
 internal const val LOOPBACK: String = "127.0.0.1"
+
+private const val BIND_ATTEMPTS = 20
 
 /** Reads `Hello`, answers a `HelloAck` accepting all its channels. */
 internal suspend fun WebSocketSession.handshake(): Hello {

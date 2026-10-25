@@ -2,18 +2,22 @@ package appmonitor.desktop.app.di
 
 import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.ui.StorageExports
+import appmonitor.desktop.data.benchmarkRepository
 import appmonitor.desktop.data.breakpointRepository
 import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.AskedReplayRepository
+import appmonitor.desktop.domain.BenchmarkRepository
 import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.ExportRepository
+import appmonitor.desktop.domain.HarRepository
 import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.feature.breakpoints.breakpointsModule
+import appmonitor.desktop.feature.insights.insightsModule
 import appmonitor.desktop.feature.mocks.mocksModule
 import appmonitor.desktop.feature.traffic.trafficModule
 import appmonitor.desktop.storage.Storage
@@ -30,10 +34,13 @@ internal fun appModule(
     approvals: ApprovalRepository?,
 ): Module =
     module {
-        includes(trafficModule, mocksModule, breakpointsModule)
+        includes(trafficModule, mocksModule, breakpointsModule, insightsModule)
         single<RunRepository> { runRepository }
         single<TrafficRepository> { traffic }
-        single<ExportRepository> { StorageExports(storage) }
+        single { StorageExports(storage) }
+        single<ExportRepository> { get<StorageExports>() }
+        single<HarRepository> { get<StorageExports>() }
+        single<BenchmarkRepository> { storage.benchmarkRepository() }
         single<MockRepository> { storage.mockRepository() }
         single<BreakpointRepository> { storage.breakpointRepository() }
         if (replays != null) {

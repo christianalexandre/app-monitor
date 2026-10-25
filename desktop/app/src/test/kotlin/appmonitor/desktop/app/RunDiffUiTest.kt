@@ -6,15 +6,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.DIFF_BASE
-import appmonitor.desktop.app.ui.DIFF_RUN
-import appmonitor.desktop.app.ui.DiffRow
+import appmonitor.desktop.data.benchmarkRepository
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.feature.insights.DIFF_BASE
+import appmonitor.desktop.feature.insights.DIFF_RUN
+import appmonitor.desktop.feature.insights.DiffRow
 import appmonitor.desktop.feature.traffic.COMPARE_RUNS
 import appmonitor.desktop.feature.traffic.RUNS
-import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.diffEndpoints
-import appmonitor.desktop.storage.groupByEndpoint
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.runBlocking
@@ -76,12 +75,7 @@ class RunDiffUiTest {
         withStorage { storage ->
             val runs = storage.seed()
             val diff =
-                runBlocking {
-                    diffEndpoints(
-                        storage.groupByEndpoint(ExchangeFilter(runId = runs.base)),
-                        storage.groupByEndpoint(ExchangeFilter(runId = runs.run)),
-                    )
-                }
+                runBlocking { storage.benchmarkRepository().diff(ExchangeFilter(), runs.base, runs.run) }
             assertEquals(3, diff.unchanged, "stable, small under 20 %, tiny under 10 ms")
             assertEquals(
                 listOf(

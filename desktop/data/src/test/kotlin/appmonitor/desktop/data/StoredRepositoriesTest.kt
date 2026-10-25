@@ -3,6 +3,8 @@ package appmonitor.desktop.data
 import appmonitor.desktop.domain.BreakpointChange
 import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.CapturedBody
+import appmonitor.desktop.domain.Durations
+import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
@@ -84,6 +86,42 @@ class StoredRepositoriesTest {
             assertNull(detail.connection)
             assertEquals("timeout", traffic.exchange(all.last().id)!!.error)
             assertNull(traffic.exchange(all.last().id + 1))
+        }
+
+    @Test
+    fun `endpoints and a run diff read the store's grouping`() =
+        withStorage { storage ->
+            val base = storage.runRepository().currentRun.value
+            storage.record(
+                envelope(RequestStarted("r1", "GET", "https://API.test/users?page=1")),
+                envelope(ResponseReceived("r1", 200, body = "[]".encodeUtf8(), body_size = 2)),
+                envelope(RequestStarted("r2", "POST", "https://api.test/login", body = "hi".encodeUtf8())),
+                envelope(RequestFailed("r2", "timeout")),
+            )
+            val run = storage.runRepository().newRun()
+            storage.connected("s2", HELLO, "127.0.0.1")
+            storage.received("s2", envelope(RequestStarted("r3", "GET", "https://api.test/users")))
+            storage.received("s2", envelope(ResponseReceived("r3", 500)))
+            storage.flush()
+            val benchmarks = storage.benchmarkRepository()
+
+            val groups = benchmarks.endpoints(ExchangeFilter(runId = base))
+            assertEquals(2, groups.exchangesRead)
+            assertEquals(false, groups.truncated)
+            val (users, login) = groups.endpoints.sortedBy { it.endpoint.path }.reversed()
+            assertEquals(Endpoint("GET", "api.test", "/users"), users.endpoint)
+            assertEquals(listOf(0L, 1L, 0L, 0L, 0L), users.statusClasses)
+            assertEquals(Durations(0, 0, 0, 0, 0), users.durations)
+            assertEquals(2L, users.responseBytes)
+            assertEquals(1L, login.failed)
+            assertEquals(1.0, login.errorRate)
+            assertEquals(2L, login.requestBytes)
+
+            val diff = benchmarks.diff(ExchangeFilter(runId = run), base, run)
+            assertEquals(listOf("/login"), diff.gone.map { it.endpoint.path })
+            assertEquals(emptyList(), diff.added)
+            assertEquals(listOf(0.0 to 1.0), diff.changed.map { it.base.errorRate to it.run.errorRate })
+            assertEquals(0, diff.unchanged)
         }
 
     @Test

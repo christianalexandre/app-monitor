@@ -14,6 +14,7 @@ import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.ui.titleOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

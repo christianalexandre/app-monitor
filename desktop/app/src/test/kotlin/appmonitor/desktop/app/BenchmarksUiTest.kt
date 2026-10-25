@@ -7,15 +7,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.BENCHMARK_COLUMN
-import appmonitor.desktop.app.ui.BenchmarkColumn
-import appmonitor.desktop.app.ui.BenchmarkRow
-import appmonitor.desktop.app.ui.sortBenchmarks
+import appmonitor.desktop.data.benchmarkRepository
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.feature.insights.BENCHMARK_COLUMN
+import appmonitor.desktop.feature.insights.BenchmarkColumn
+import appmonitor.desktop.feature.insights.BenchmarkRow
+import appmonitor.desktop.feature.insights.sortBenchmarks
 import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.desktop.feature.traffic.SEARCH
-import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.groupByEndpoint
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -57,7 +57,7 @@ class BenchmarksUiTest {
     fun `the window's model shows endpoint_stats' numbers, p99 included, sortable`() =
         withStorage { storage ->
             storage.seed()
-            val groups = runBlocking { storage.groupByEndpoint(ExchangeFilter(runId = storage.runId)) }
+            val groups = runBlocking { storage.benchmarkRepository().endpoints(ExchangeFilter(runId = storage.runId)) }
             assertEquals(203, groups.exchangesRead)
             val (search, orders, feed) = groups.endpoints
             assertEquals(
