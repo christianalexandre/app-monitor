@@ -202,7 +202,8 @@ struct MonitorClientTests {
             }
         var config = Self.config
         config.discoveryTimeout = 30
-        config.connectTimeout = 30
+        // A freed port another socket took drops the SYN instead of refusing it: back off on the timeout too.
+        config.connectTimeout = stopCase == .backingOff ? Self.config.connectTimeout : 30
         config.backoffInitial = 30
         var client: MonitorClient? = Self.client(discover, config: config)
         weak let weakClient = client

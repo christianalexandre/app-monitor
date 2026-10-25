@@ -196,7 +196,7 @@ struct MonitorClientBreakpointsTests {
 }
 
 // Inside the capture suite: the hooks are process-wide, one test at a time owns `URLSessionCapture.sink`.
-extension URLSessionCaptureTests {
+extension ProcessWideHooks.URLSessionCaptureTests {
     func holding(_ rules: Appmonitor_V1_BreakpointRule...) {
         capture()
         sink.breakpoints.replace(rules)

@@ -35,12 +35,19 @@ task that lands each module.
   Deviation: the app is on Material 2, not Material3 as ADR-0133 says;
   the design system wraps it (ADR-0134). The run diff dialog took the
   benchmarks' width (1100 → 1180 dp).
-- [ ] **H2.F1 iOS host tests isolated from each other's mock rules.**
+- [x] **H2.F1 iOS host tests isolated from each other's mock rules.**
+  (#PR)
   Added by H2.1: on `dev` at `ad15632`, `make swift` fails on macOS in
   `ConnectionCaptureTests.urlSessionTrafficIsLeftToItsOwnCapture` (status
   201, `MockTests`' mocked answer, instead of 200), twice in a row; the
   suite alone passes. The two suites run in parallel and the mock rules
   are process-wide. Accept: `make swift` green twice in a row.
+  Deviation: the three suites that swap a process-wide sink nest in one
+  serialized `ProcessWideHooks`. Once fixed, a second flake showed (1 run
+  in 8): `MonitorClientTests.stopReleasesEverything(.backingOff)` dials a
+  freed port; macOS drops the SYN when another socket holds it bound (the likely cause),
+  so the 30 s connect timeout outlived the wait; that case now times out
+  at 0.5 s. Fixed in the same PR.
 - [x] **H2.2a Domain and data for traffic.** (#263) `desktop/domain` (runs,
   sessions, exchanges, the detail model, repository interfaces) and
   `desktop/data` (repositories over `desktop/storage`, mappers); the

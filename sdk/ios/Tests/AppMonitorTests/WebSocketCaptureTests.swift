@@ -30,7 +30,7 @@ func flat(_ frames: [Appmonitor_V1_WebSocketFrame]) -> [[String]] {
 }
 
 // In the serialized suite of `URLSessionCaptureTests`: the hooks are process-wide.
-extension URLSessionCaptureTests {
+extension ProcessWideHooks.URLSessionCaptureTests {
     @Test func textAndBinaryFramesAreCapturedBothWays() async throws {
         let echo = TestEchoServer()
         try await echo.start()

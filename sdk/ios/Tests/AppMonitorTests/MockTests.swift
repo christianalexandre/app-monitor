@@ -111,7 +111,7 @@ struct MonitorClientMocksTests {
 }
 
 // Inside the capture suite: the hooks are process-wide, one test at a time owns `URLSessionCapture.sink`.
-extension URLSessionCaptureTests {
+extension ProcessWideHooks.URLSessionCaptureTests {
     func started(_ url: URL) async throws -> (Appmonitor_V1_RequestStarted, Appmonitor_V1_Envelope) {
         try await sink.exchange(url)
     }
