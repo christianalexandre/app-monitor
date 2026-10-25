@@ -141,10 +141,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   created by its next event, with what that event carries; a session whose
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected` is committed. A
-  `Disconnected` in a lost batch is retried before each next batch, in its
-  own transaction, so the session does not stay connected for the rest of
-  the launch and a disconnect that keeps failing never takes the next
-  batch with it; once written it leaves the count and clears the error.
+  `Disconnected` in a lost batch is retried before each next batch, each
+  in its own transaction, so the session does not stay connected for the
+  rest of the launch and a disconnect that keeps failing never takes the
+  next batch or another lost disconnect with it; once written it leaves
+  the count and clears the error.
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
   file, stored approvals that cannot be read). The app opens without storage: the window shows the error, the
   path and "Clear all data", which deletes `appmonitor.db`, `-wal` and

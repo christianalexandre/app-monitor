@@ -199,6 +199,37 @@ class WriteQueueTest {
         }
 
     @Test
+    fun aDisconnectThatAlwaysFailsDoesNotKeepTheOthersConnected() =
+        withDataDir { dir ->
+            var failS2 = true
+            val storage =
+                Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES) { batch ->
+                    val disconnects = batch.filterIsInstance<StorageItem.Disconnected>().map { it.sessionId }
+                    if ("s1" in disconnects) throw SQLException("constraint failed")
+                    if (failS2 && "s2" in disconnects) {
+                        failS2 = false
+                        throw SQLException("disk I/O error")
+                    }
+                }
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.connected("s2", hello("device-2"), null)
+                storage.flush()
+                storage.disconnected("s1")
+                withTimeout(5.seconds) { storage.health.first { it.notSaved == 1L } }
+                storage.disconnected("s2")
+                withTimeout(5.seconds) { storage.health.first { it.notSaved == 2L } }
+
+                storage.flush()
+                val sessions = storage.sessions(storage.runId).associateBy { it.serverSessionId }
+                assertNull(sessions.getValue("s1").disconnectedAtMs, "still lost")
+                assertNotNull(sessions.getValue("s2").disconnectedAtMs, "retried apart from s1")
+                assertEquals(1L, storage.health.value.notSaved, "only s1 left")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun closeDrainsQueue() =
         withDataDir { dir ->
             val storage = Storage.open(dir)

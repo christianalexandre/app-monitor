@@ -106,26 +106,30 @@ internal class Ingest(
     private val connections = mutableMapOf<String, Pair<StorageItem.Connected, Long>>()
     private var rows = mapOf<String, Long>()
 
-    // A rolled back disconnect is retried before each next batch, in its own transaction: its session sends nothing more.
+    // Each rolled back disconnect is retried before each next batch, in its own transaction: its session sends nothing more.
     private var lostDisconnects = listOf<StorageItem.Disconnected>()
 
-    /** Writes the lost disconnects alone; returns how many were written, 0 when they are lost again. */
+    /** Writes each lost disconnect alone; returns how many were written, the others are kept for the next retry. */
     fun retryLost(): Int {
         val retried = lostDisconnects
         if (retried.isEmpty()) return 0
+        lostDisconnects = retried.filterNot(::retry)
+        return retried.size - lostDisconnects.size
+    }
+
+    private fun retry(item: StorageItem.Disconnected): Boolean {
         val before = rows
         val beforeConnections = connections.toMap()
         return try {
             database.transaction {
-                retried.forEach(::apply)
-                beforeCommit(retried)
+                apply(item)
+                beforeCommit(listOf(item))
             }
-            lostDisconnects = emptyList()
-            retried.size
+            true
         } catch (_: Exception) {
             rows = before
             connections.putAll(beforeConnections)
-            0
+            false
         }
     }
 

@@ -215,8 +215,8 @@ running when `close` starts deletes only what its unchanged settings
 ask, and the shut writer rejects its next `yield`, so it never reaches
 the closed driver.
 
-- [ ] **M5.R9 One lost disconnect that keeps failing keeps the others
-  connected.**
+- [x] **M5.R9 One lost disconnect that keeps failing keeps the others
+  connected.** (`fix/retry-each-lost-disconnect-apart`; the new test failed on the old code at "retried apart from s1", passes after; `retryLost` still returns how many it wrote, so `WriteQueue` is unchanged)
   `Ingest.retryLost` writes every lost disconnect in one transaction, so
   a disconnect whose write always fails rolls back the others on every
   retry: their sessions stay connected for the rest of the launch, which
