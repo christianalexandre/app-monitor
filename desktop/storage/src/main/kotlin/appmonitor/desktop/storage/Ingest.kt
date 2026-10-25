@@ -559,23 +559,24 @@ internal class Ingest(
         database.bodyQueries.put(exchange, part, encoded.codec, encoded.data, body.size.toLong())
     }
 
-    private fun hostOf(url: String): String? =
-        try {
-            URI(url).host
-        } catch (_: URISyntaxException) {
-            null
-        }
-
-    // ADR-0107: the last one, as trailers come after the headers (ADR-0102, ADR-0106).
-    private fun grpcStatusOf(event: ResponseReceived): Long? =
-        event.headers
-            .lastOrNull { it.name.equals("grpc-status", ignoreCase = true) }
-            ?.value_
-            ?.trim()
-            ?.toLongOrNull()
-
     companion object {
         const val PART_REQUEST = 0L
         const val PART_RESPONSE = 1L
     }
 }
+
+/** The URL's host, null when it does not parse. */
+internal fun hostOf(url: String): String? =
+    try {
+        URI(url).host
+    } catch (_: URISyntaxException) {
+        null
+    }
+
+// ADR-0107: the last one, as trailers come after the headers (ADR-0102, ADR-0106).
+internal fun grpcStatusOf(event: ResponseReceived): Long? =
+    event.headers
+        .lastOrNull { it.name.equals("grpc-status", ignoreCase = true) }
+        ?.value_
+        ?.trim()
+        ?.toLongOrNull()

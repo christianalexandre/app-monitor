@@ -7,6 +7,7 @@ import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
 import appmonitor.v1.CaptureLayer
@@ -78,19 +79,24 @@ internal fun withStorage(
     }
 }
 
-/** The repositories `desktop/app` hands the server, over this store. */
-internal fun Storage.repositories() =
-    McpRepositories(runRepository(), trafficQueryRepository(), benchmarkRepository(), issueRepository(), mockRepository())
+/** The repositories `desktop/app` hands the server, over this store, and [live] when given. */
+internal fun Storage.repositories(live: LiveTraffic? = null) =
+    if (live == null) {
+        McpRepositories(runRepository(), trafficQueryRepository(), benchmarkRepository(), issueRepository(), mockRepository())
+    } else {
+        McpRepositories(runRepository(), trafficQueryRepository(live), benchmarkRepository(live), issueRepository(), mockRepository())
+    }
 
-/** A started server on a free port over a fresh store, stopped after [block]. */
+/** A started server on a free port over a fresh store, and [live] when given, stopped after [block]. */
 internal fun withServer(
     health: () -> StoreHealth? = { null },
     beforeTool: suspend () -> Unit = {},
     replays: ReplayAsks? = null,
+    live: LiveTraffic? = null,
     block: suspend (Running) -> Unit,
 ) = withStorage { storage ->
     val access = McpAccess.open(storage.settingRepository())
-    val repositories = storage.repositories()
+    val repositories = storage.repositories(live)
     val server = McpServer(repositories, access, 0, "test", { health() ?: repositories.queries.health }, beforeTool, replays)
     val port = server.start()
     try {

@@ -321,7 +321,7 @@ class StoredRepositoriesTest {
         }
 }
 
-private val HELLO =
+internal val HELLO =
     Hello(
         protocol_version = Protocol.VERSION,
         platform = Platform.PLATFORM_ANDROID,
@@ -333,7 +333,7 @@ private val HELLO =
         channels = listOf(Protocol.CHANNEL_NETWORK),
     )
 
-private fun envelope(message: Message<*, *>) =
+internal fun envelope(message: Message<*, *>) =
     Envelope(
         channel = Protocol.CHANNEL_NETWORK,
         type = message::class.simpleName!!,
@@ -341,7 +341,7 @@ private fun envelope(message: Message<*, *>) =
         timestamp_ms = 1_000,
     )
 
-private suspend fun Storage.record(vararg envelopes: Envelope) {
+internal suspend fun Storage.record(vararg envelopes: Envelope) {
     connected("s1", HELLO, "127.0.0.1")
     envelopes.forEach { received("s1", it) }
     disconnected("s1")
@@ -349,7 +349,7 @@ private suspend fun Storage.record(vararg envelopes: Envelope) {
 }
 
 @OptIn(ExperimentalPathApi::class)
-private fun withStorage(block: suspend (Storage) -> Unit) {
+internal fun withStorage(block: suspend (Storage) -> Unit) {
     val dir = createTempDirectory("data-test")
     val storage = Storage.open(dir.resolve("data"))
     try {

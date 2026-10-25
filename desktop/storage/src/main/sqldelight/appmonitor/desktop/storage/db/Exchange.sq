@@ -32,6 +32,13 @@ INSERT OR IGNORE INTO exchanges(session_ref, request_id) VALUES (?, ?);
 idOf:
 SELECT id FROM exchanges WHERE session_ref = ? AND request_id = ?;
 
+-- Each replay among :ids with the id of its original, in the same session, when it is still stored.
+originalsOf:
+SELECT replay.id AS replay, original.id AS original
+FROM exchanges AS replay
+JOIN exchanges AS original ON original.session_ref = replay.session_ref AND original.request_id = replay.replay_of
+WHERE replay.id IN :ids;
+
 started:
 UPDATE exchanges
 SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_layer = :captureLayer, request_meta = :meta,
