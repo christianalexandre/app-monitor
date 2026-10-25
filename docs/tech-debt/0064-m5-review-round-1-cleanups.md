@@ -3,7 +3,7 @@ id: DEBT-0064
 title: Non-correctness findings of the first M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Search.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`"
+trigger: "The first PR after PLAN-0007 M6.5 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`"
 paid_date:
 ---
 
@@ -14,12 +14,11 @@ paid_date:
 Findings of the `code-review` of `982f39b..055c62b` that are not wrong
 results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
 
-- **Re-reads on every commit.** `SearchQuery` (`Search.kt`) always listens
-  to `sessions`, and `Ingest` runs `sessionQueries.touch` once per
-  envelope, so every committed batch re-runs the session list, the visible
-  exchange page and the open detail (bodies inflated again). Listen to
-  `sessions` only when the filter joins it, and touch each session once
-  per batch.
+- **Re-reads on every commit.** `Ingest` runs `sessionQueries.touch` once
+  per envelope, so every committed batch re-runs the session list and the
+  open detail (bodies inflated again). Touch each session once per batch.
+  (`SearchQuery` listening to `sessions` when no filter joins it was paid
+  by M6.5.)
 - **Size-bound pass commits one session at a time.** The size loop in
   `Storage.applyRetention` deletes one session per autocommit and runs the
   three `PRAGMA`s of `liveBytes()` on each iteration, unlike the chunked
@@ -43,7 +42,7 @@ lines.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Search.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`.
+The first PR after PLAN-0007 M6.5 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`.
 
 Re-triggered three times during PLAN-0006 because its review tasks
 rewrote the code these findings name. Fired again by PLAN-0007 M6.3,
@@ -52,6 +51,12 @@ settings, `isClosing`): it paid the two parts in that file's code it
 touched (the session mapping copy, the two long comments) and narrowed
 the trigger to the files and the function the rest name, so read-only
 `Storage` additions (M6.4, M6.5) no longer fire it.
+
+Fired by PLAN-0007 M6.5 (`feat/mcp-endpoint-stats`), which touches
+`Search.kt`: it paid the part in that file (`SearchQuery` listens to
+`sessions` only when a filter joins it). The rest names `Ingest`,
+`WriteQueue`, `applyRetention`, `App.kt` and the `.sq` files, which it
+does not touch; the trigger is narrowed to them.
 
 ## How it was paid
 

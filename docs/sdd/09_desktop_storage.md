@@ -244,8 +244,12 @@ closes the approved devices (ADR-0083). A failure goes to
   `exchanges_status_code`, and `exchanges_session_ref_id` under a subquery
   on `sessions` for session, run, device and app. Text and failed only walk
   the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
-  listens to `exchanges` and `sessions`, so the window follows commits as
-  with the generated ones.
+  listens to `exchanges`, and to `sessions` when a filter joins it, so the
+  window follows commits as with the generated ones.
+- `searchExchangeSizes(filter, afterId, limit)` is the same search with
+  each row's stored body sizes (`bodies.size` of both parts, 0 when the
+  part has no row), read by two subqueries on the `bodies` key;
+  `endpoint_stats` pages through it (SDD 10).
 - The window's request list is the selected session's exchanges under a
   filter bar: search field, method, status class, failed only. The device
   and app are the session picked in the device list, the run the run
@@ -286,6 +290,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Approvals stored, reopened, forgotten | `ApprovalStoreTest` (M5.5), and in `desktop/app` across three launches with a real server |
 | Sessions grouped by run, runs named | `RunsTest` (M5.6): a session spanning "New run" stays in its run, names kept across a restart, a lost "New run" keeps the earlier run |
 | One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |
+| Stored body sizes per row under a filter, 0 without a body | `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` (M6.5) |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
 | The filter bar narrows the list and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7) |

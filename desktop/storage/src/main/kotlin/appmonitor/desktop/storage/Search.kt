@@ -34,16 +34,19 @@ enum class StatusClass(
 
 /**
  * One `WHERE` per filter set, built from the fields that are set only, so SQLite picks the index of each one
- * (ADR-0087). Listens to the tables it reads, like SQLDelight's generated queries.
+ * (ADR-0087). Listens to the tables it reads, `sessions` only when a filter joins it, like SQLDelight's generated queries.
  */
-internal class SearchQuery(
+internal class SearchQuery<T : Any>(
     private val driver: SqlDriver,
     filter: ExchangeFilter,
     afterId: Long,
     limit: Long,
-) : Query<StoredExchange>(::toStoredExchange) {
+    columns: String,
+    mapper: (SqlCursor) -> T,
+) : Query<T>(mapper) {
     private val sql: String
     private val binders: List<SqlPreparedStatement.(Int) -> Unit>
+    private val tables: Array<String>
 
     init {
         val where = mutableListOf("exchanges.id > ?")
@@ -85,13 +88,14 @@ internal class SearchQuery(
             binds += { bindString(it, "%${text.escapeLike()}%") }
         }
         binds += { bindLong(it, limit) }
-        sql = "SELECT $COLUMNS FROM exchanges WHERE ${where.joinToString(" AND ")} ORDER BY exchanges.id LIMIT ?"
+        tables = if (sessionWhere.isEmpty()) arrayOf("exchanges") else arrayOf("exchanges", "sessions")
+        sql = "SELECT $columns FROM exchanges WHERE ${where.joinToString(" AND ")} ORDER BY exchanges.id LIMIT ?"
         binders = binds
     }
 
-    override fun addListener(listener: Listener) = driver.addListener(*TABLES, listener = listener)
+    override fun addListener(listener: Listener) = driver.addListener(*tables, listener = listener)
 
-    override fun removeListener(listener: Listener) = driver.removeListener(*TABLES, listener = listener)
+    override fun removeListener(listener: Listener) = driver.removeListener(*tables, listener = listener)
 
     override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> =
         driver.executeQuery(null, sql, mapper, binders.size) { binders.forEachIndexed { index, bind -> bind(index) } }
@@ -105,16 +109,42 @@ internal class SearchQuery(
             .value
 
     override fun toString(): String = "Search:$sql"
-
-    private companion object {
-        val TABLES = arrayOf("exchanges", "sessions")
-
-        const val COLUMNS =
-            "exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host, " +
-                "exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer, " +
-                "exchanges.error, exchanges.frame_count"
-    }
 }
+
+/** The exchanges [filter] matches, as lists read them. */
+internal fun exchangeSearch(
+    driver: SqlDriver,
+    filter: ExchangeFilter,
+    afterId: Long,
+    limit: Long,
+) = SearchQuery(driver, filter, afterId, limit, COLUMNS, ::toStoredExchange)
+
+/** The exchanges [filter] matches with their stored body sizes, a missing body counted as 0. */
+internal fun exchangeSizeSearch(
+    driver: SqlDriver,
+    filter: ExchangeFilter,
+    afterId: Long,
+    limit: Long,
+) = SearchQuery(driver, filter, afterId, limit, SIZE_COLUMNS) { cursor ->
+    ExchangeSizes(toStoredExchange(cursor), requestBytes = cursor.getLong(13)!!, responseBytes = cursor.getLong(14)!!)
+}
+
+/** An exchange and the bytes the store holds for its bodies (`bodies.size`, after the device's cut). */
+data class ExchangeSizes(
+    val exchange: StoredExchange,
+    val requestBytes: Long,
+    val responseBytes: Long,
+)
+
+private const val COLUMNS =
+    "exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host, " +
+        "exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer, " +
+        "exchanges.error, exchanges.frame_count"
+
+private const val SIZE_COLUMNS =
+    "$COLUMNS, " +
+        "coalesce((SELECT size FROM bodies WHERE exchange_ref = exchanges.id AND part = ${Ingest.PART_REQUEST}), 0), " +
+        "coalesce((SELECT size FROM bodies WHERE exchange_ref = exchanges.id AND part = ${Ingest.PART_RESPONSE}), 0)"
 
 private fun String.escapeLike(): String = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 

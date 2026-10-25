@@ -3,7 +3,7 @@ id: DEBT-0058
 title: Non-correctness findings of the first M4 milestone review
 status: Open
 date: 2026-10-24
-trigger: The first desktop or MCP feature that groups exchanges by URL or matches a whole URL
+trigger: The first desktop or MCP feature that matches a whole URL exactly
 paid_date:
 ---
 
@@ -37,8 +37,7 @@ duplicate check does not depend on it.
 
 ## Trigger
 
-The first desktop or MCP feature that groups exchanges by URL or matches a
-whole URL.
+The first desktop or MCP feature that matches a whole URL exactly.
 
 Re-triggered by `fix/ktor-body-read-failure`, which touched `Capture.kt`
 and paid the two comment blocks: the scheme is a protocol choice that
@@ -48,6 +47,11 @@ Fired by `feat/search-and-filters` (M5.7) and narrowed: its text filter is a
 substring of the URL (ADR-0087), so a host or path matches both schemes;
 only text typed with the scheme splits them. Grouping, or an exact URL
 match, still has to pick one.
+
+Fired by `feat/mcp-endpoint-stats` (M6.5) and narrowed again: endpoint
+grouping drops the scheme (SDD 10), so `ws`/`wss` and `http`/`https`
+group together and `diff_runs` inherits it. Only an exact match on the
+whole URL is left to pick a scheme; no feature does one yet.
 
 ## How it was paid
 

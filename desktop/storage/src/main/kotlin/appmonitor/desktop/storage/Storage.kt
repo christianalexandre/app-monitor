@@ -417,15 +417,22 @@ class Storage private constructor(
         filter: ExchangeFilter,
         afterId: Long = 0,
         limit: Long = PAGE_SIZE,
-    ): List<StoredExchange> = read(emptyList()) { SearchQuery(driver, filter, afterId, limit).executeAsList() }
+    ): List<StoredExchange> = read(emptyList()) { exchangeSearch(driver, filter, afterId, limit).executeAsList() }
+
+    /** [searchExchanges] with the stored size of each exchange's bodies (`endpoint_stats`, SDD 10). */
+    suspend fun searchExchangeSizes(
+        filter: ExchangeFilter,
+        afterId: Long = 0,
+        limit: Long = PAGE_SIZE,
+    ): List<ExchangeSizes> = read(emptyList()) { exchangeSizeSearch(driver, filter, afterId, limit).executeAsList() }
 
     /** The first [limit] exchanges [filter] matches, again after each commit that changes an exchange or a session. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = PAGE_SIZE,
-    ): Flow<List<StoredExchange>> = observe(SearchQuery(driver, filter, 0, limit))
+    ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit))
 
-    internal fun searchPlan(filter: ExchangeFilter): List<String> = SearchQuery(driver, filter, 0, PAGE_SIZE).plan()
+    internal fun searchPlan(filter: ExchangeFilter): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =
         read(emptyList()) { sessionQueries.ofRun(runId).executeAsList().map { it.toStored() } }

@@ -60,7 +60,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   and frames per M6.1 (a). DEBT-0063 fires: paid or re-triggered.
   Accept: `./gradlew :desktop:mcp:test` with one case per filter, paging
   across a page boundary and a body past the cap.
-- [ ] **M6.5 `endpoint_stats`.** Per endpoint (method, host and path
+- [x] **M6.5 `endpoint_stats`.** (`feat/mcp-endpoint-stats`; DEBT-0058 re-triggered: grouping drops the scheme, only an exact whole-URL match is left; `endpoint_count` added to the output.) Per endpoint (method, host and path
   without query, per M6.2) of a run or filter: count, status classes,
   error rate, duration and bytes. DEBT-0058 fires (grouping by URL).
   Accept: `./gradlew :desktop:mcp:test` (or `:desktop:storage:test` for

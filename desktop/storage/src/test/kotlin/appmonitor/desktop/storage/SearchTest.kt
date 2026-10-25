@@ -6,6 +6,8 @@ import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.ByteString
+import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -86,6 +88,38 @@ class SearchTest {
                     seen += page
                 }
                 assertEquals((1 until 500 step 2).map { "r$it" }, seen.map { it.requestId })
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun sizesAreTheStoredBodyBytesUnderAFilter() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.received(
+                    "s1",
+                    envelope(request("post", "POST", "https://a.example/up").copy(body = ByteString.of(*ByteArray(300)))),
+                )
+                storage.received("s1", envelope(ResponseReceived(request_id = "post", status_code = 201, body = "ok".encodeUtf8())))
+                storage.received("s1", envelope(request("get", "GET", "https://a.example/down")))
+                storage.received(
+                    "s1",
+                    envelope(ResponseReceived(request_id = "get", status_code = 200, body = ByteString.of(*ByteArray(5_000)))),
+                )
+                storage.received("s1", envelope(request("empty", "POST", "https://a.example/none")))
+                storage.flush()
+                val sizes = storage.searchExchangeSizes(ExchangeFilter(method = "POST"))
+                assertEquals(listOf("post", "empty"), sizes.map { it.exchange.requestId })
+                assertEquals(listOf(300L to 2L, 0L to 0L), sizes.map { it.requestBytes to it.responseBytes })
+                assertEquals(
+                    listOf("empty"),
+                    storage.searchExchangeSizes(ExchangeFilter(), afterId = sizes[0].exchange.id + 1).map {
+                        it.exchange.requestId
+                    },
+                )
+                assertEquals(5_000L, storage.searchExchangeSizes(ExchangeFilter(method = "GET")).single().responseBytes)
                 storage.close(5.seconds)
             }
         }
