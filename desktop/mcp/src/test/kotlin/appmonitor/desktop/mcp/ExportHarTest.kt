@@ -257,7 +257,7 @@ class ExportHarTest {
         withServer { running ->
             running.store(request("r1") to 1_000L)
             running.storage.close(5.seconds)
-            assertEquals(CLOSING, assertFailsWith<ToolError> { ExportHar.call(running.storage, null, "test") }.message)
+            assertEquals(CLOSING, running.client { it.callTool(ExportHar.NAME, emptyMap()) }.text)
         }
 
     private fun JsonObject.obj(name: String) = this[name]!!.jsonObject

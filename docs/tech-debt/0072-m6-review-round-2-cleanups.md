@@ -3,7 +3,7 @@ id: DEBT-0072
 title: Non-correctness findings of the second M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR after PLAN-0007 M6.R6 is `[x]` that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/DiffRuns.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToolResults.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt` or `desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt`, or a new MCP tool"
+trigger: "The first PR after PLAN-0008 closes that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`, `desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`"
 paid_date:
 ---
 
@@ -39,12 +39,21 @@ the filter itself lowercases. M6.R5 and M6.R6 fix the findings that do.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.R6 is `[x]` that touches
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/DiffRuns.kt`,
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToolResults.kt`,
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt` or
-`desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt`, or
-adds a new MCP tool (the closing check).
+The first PR after PLAN-0008 closes that touches
+`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`,
+`desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt` or
+`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`.
+
+Fired by PLAN-0008 M7.3 (`feat/save-and-list-issues-mcp`), which adds
+`list_issues` and `save_issue` and touches `ToolResults.kt`. It paid three
+parts: the closing check is now one check in `McpServer`'s shared wrapper,
+after the tool returns or fails, and the per-tool checks are gone (the
+closing tests of `diff_runs`, `export_har` and `to_curl` go through the
+server); `DiffRuns.call`'s `runIds` seam is gone with it; `harResult` and
+`jsonResult` share one helper. Left: `McpController`'s `readSwitch` seam,
+the `HEAD` note and `ToCurlTest`'s framing assertions, in files this PR
+does not change; re-triggered to those files, past PLAN-0008, whose
+milestone review reads this code.
 
 ## How it was paid
 

@@ -191,10 +191,7 @@ class ToCurlTest {
                 assertEquals("id is required", client.callTool(ToCurl.NAME, emptyMap()).text)
             }
             running.storage.close(5.seconds)
-            assertEquals(
-                CLOSING,
-                assertFailsWith<ToolError> { ToCurl.call(running.storage, JsonObject(mapOf("id" to JsonPrimitive(1)))) }.message,
-            )
+            assertEquals(CLOSING, running.client { it.callTool(ToCurl.NAME, mapOf("id" to 1)) }.text, "not \"no exchange with id 1\"")
         }
 
     @Test

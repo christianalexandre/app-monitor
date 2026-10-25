@@ -82,7 +82,6 @@ internal object GetRequest {
         val framesLimit = arguments.long("frames_limit", 0..MAX_FRAMES, DEFAULT_FRAMES)!!
         val detail = storage.exchange(id)
         val frames = if (detail != null && framesLimit > 0) storage.frames(id, framesAfter, framesLimit) else emptyList()
-        if (storage.isClosing) throw ToolError(CLOSING)
         if (detail == null) throw ToolError("no exchange with id $id")
         return buildJsonObject {
             putExchangeRow(detail.exchange)

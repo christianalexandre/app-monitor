@@ -41,6 +41,12 @@ data class StoredIssue(
     val exchangeCount: Long,
 )
 
+/** [issue] with the ids of the exchanges it links, ascending. */
+data class IssueDetail(
+    val issue: StoredIssue,
+    val exchangeIds: List<Long>,
+)
+
 /** Unset fields match all, set ones combine with AND. */
 data class IssueFilter(
     val status: IssueStatus? = null,

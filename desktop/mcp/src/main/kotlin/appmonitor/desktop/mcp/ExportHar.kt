@@ -79,7 +79,6 @@ internal object ExportHar {
             if (text > maxText) throw ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none")
             entries += entry
         }
-        if (storage.isClosing) throw ToolError(CLOSING)
         return buildJsonObject {
             putJsonObject("log") {
                 put("version", "1.2")

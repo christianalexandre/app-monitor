@@ -37,7 +37,6 @@ internal object ToCurl {
     ): String {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null) ?: throw ToolError("id is required")
         val detail = storage.exchange(id)
-        if (storage.isClosing) throw ToolError(CLOSING)
         if (detail == null) throw ToolError("no exchange with id $id")
         val request = detail.request ?: throw ToolError("exchange $id has no request stored")
         val head = request.method == "HEAD"

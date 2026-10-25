@@ -52,7 +52,7 @@ DELETE FROM issue_exchanges WHERE issue_ref = ?;
 addExchange:
 INSERT OR IGNORE INTO issue_exchanges(issue_ref, exchange_ref) VALUES (?, ?);
 
--- Newest first; tags joined by a line break, which a tag never holds.
+-- Newest first, ids under :beforeId, at most :limit (-1: all); tags joined by a line break, which a tag never holds.
 filtered:
 SELECT issues.*,
   (SELECT group_concat(tag, char(10)) FROM issue_tags WHERE issue_tags.issue_ref = issues.id) AS tags,
@@ -60,7 +60,12 @@ SELECT issues.*,
 FROM issues
 WHERE (:status IS NULL OR issues.status = :status)
   AND (:tag IS NULL OR EXISTS (SELECT 1 FROM issue_tags WHERE issue_tags.issue_ref = issues.id AND issue_tags.tag = :tag))
-ORDER BY issues.id DESC;
+  AND issues.id < :beforeId
+ORDER BY issues.id DESC
+LIMIT :limit;
+
+exchangeIds:
+SELECT exchange_ref FROM issue_exchanges WHERE issue_ref = ? ORDER BY exchange_ref;
 
 allTags:
 SELECT DISTINCT tag FROM issue_tags ORDER BY tag;
