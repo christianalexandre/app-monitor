@@ -307,7 +307,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   note, tags and status, lists its requests, and "Delete" removes it after
   a confirmation. The editor sends only the fields changed since it opened
   (SDD 09 lists every writer and their order), so an MCP edit of another
-  field meanwhile is kept.
+  field meanwhile is kept; the tags count as changed only when their field
+  is edited, so an MCP tag holding a comma survives an edit of another field.
 - Benchmarks (ADR-0097): "Benchmarks" above the request list opens, for
   every device of the shown run (or every run) under the request filter,
   one row per endpoint: count, status classes, error rate, p50, p95, p99,

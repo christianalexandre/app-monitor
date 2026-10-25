@@ -1,10 +1,10 @@
 ---
 id: PLAN-0008
 title: Issues, benchmarks, export
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M7
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0008 — Issues, benchmarks, export (M7)
@@ -70,12 +70,49 @@ the lifecycle table lists every call class against each store state.
   HAR 1.2 check of `ExportHarTest`, the copied command run by `sh` and
   curl against a local server receives the stored request.
 
+### Milestone review
+
+Findings of the `code-review` of `44516a4..35f6ac8`. One is a correctness
+finding normal use hits and became a task. Eight went to DEBT-0074 (a
+committed `save_issue` answered as closing, the window's exports without
+a closing check, a double-clicked Save, an uncaught export exception, the
+`bodies: none` hint in the window, the unknown-exchange check before the
+unknown-issue one, the issue list's second query, `endpoint_stats`' own
+closing check). One was rejected: the run diff's row key is `Endpoint`'s
+data class `toString`, which keeps a null host apart from an empty one,
+so two endpoints never share a key.
+
+- [x] **M7.R1 A window edit splits an MCP tag that holds a comma.** (`fix/issue-editor-comma-tags`; the tags count as changed only when their field text differs from the one opened)
+  The editor shows the tags joined by `, ` and compares the field split on
+  `,` with the stored list, so an issue whose tag `timeout, retry` came
+  from `save_issue` counts its tags as changed: a status-only edit stores
+  `retry` and `timeout`.
+  Accept: `./gradlew :desktop:app:test` — an MCP issue tagged
+  `timeout, retry` resolved in the window keeps its one tag.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan and ADR-0095 (#218); M7.2 issues in the store and the
+  window (#219); M7.3 `save_issue` and `list_issues` (#220); M7.4
+  benchmarks in the window, grouping moved to `desktop/storage`, p99
+  added (#221); M7.5 run diff in the window (#222); M7.6 HAR and cURL
+  export in the window (#223). One review round; its fix M7.R1 and the
+  close in this PR.
+- **Decisions**: ADR-0095 (issue decisions, the one stop), ADR-0096
+  (issue rows and their writers), ADR-0097 (endpoint grouping in
+  storage), ADR-0098 (window exports through `desktop/mcp`).
+- **Debt**: DEBT-0074 created with the review's eight non-correctness
+  findings. DEBT-0064, DEBT-0067, DEBT-0068, DEBT-0071, DEBT-0072 and
+  DEBT-0073 fired as their files were touched and were partly paid or
+  re-triggered (DEBT-0073's three `to_curl` parts paid by M7.6). No
+  correctness finding is left open.
+- **Deviations**: none in the task list; the review added M7.R1 and
+  rejected one finding (the run diff's row key).
+- **Lessons**: naming every writer of an issue and their order in SDD 09
+  (M6's lesson) held: the review found no lost or reordered issue write
+  in normal use, only shutdown and slow-write corners. Running the export
+  formats against curl and the HAR check from M7.6 itself left no replay
+  finding. What slipped was a round trip through a text field: a list
+  shown joined and parsed back is not the list stored when an item can
+  hold the separator; the next plan with such a field should test a
+  value written by the other writer.

@@ -116,5 +116,34 @@ class IssuesUiTest {
             }
         }
 
+    @Test
+    fun `a status edit in the window keeps an mcp tag that holds a comma`() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            try {
+                storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://api.example.com/feed")))
+                val feed = runBlocking { storage.allExchanges().single().id }
+                runBlocking { storage.createIssue("Feed times out", "", listOf("timeout, retry"), listOf(feed), IssueSource.MCP) }
+
+                runDesktopComposeUiTest(width = 1280, height = 800) {
+                    setContent { AppMonitorApp(storage, "Listening") }
+                    onNodeWithTag(ISSUES).performClick()
+                    awaitText("Feed times out")
+                    onNodeWithText("Feed times out").performClick()
+                    awaitText("Delete")
+                    onNodeWithText("Status: Open ▾").performClick()
+                    onNodeWithText("Resolved").performClick()
+                    onNodeWithTag(SAVE_ISSUE).performClick()
+                    awaitText("Resolved · timeout, retry", substring = true)
+                }
+
+                val issue = runBlocking { storage.observeIssues().first() }.single()
+                assertEquals(IssueStatus.RESOLVED, issue.status)
+                assertEquals(listOf("timeout, retry"), issue.tags)
+            } finally {
+                runBlocking { storage.close(5.seconds) }
+            }
+        }
+
     private fun ComposeUiTest.exists(text: String) = onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
 }

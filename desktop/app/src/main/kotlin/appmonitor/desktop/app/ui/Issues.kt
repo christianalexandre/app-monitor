@@ -135,7 +135,8 @@ private fun IssueEditor(
     val opened = remember { issue }
     var title by remember { mutableStateOf(opened.title) }
     var note by remember { mutableStateOf(opened.note) }
-    var tags by remember { mutableStateOf(opened.tags.joinToString(", ")) }
+    val openedTags = remember { opened.tags.joinToString(", ") }
+    var tags by remember { mutableStateOf(openedTags) }
     var status by remember { mutableStateOf(opened.status) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -144,7 +145,7 @@ private fun IssueEditor(
         IssueChange(
             title = title.takeIf { it != opened.title },
             note = note.takeIf { it != opened.note },
-            tags = tagsOf(tags).takeIf { it != opened.tags },
+            tags = tagsOf(tags).takeIf { tags != openedTags && it != opened.tags },
             status = status.takeIf { it != opened.status },
         )
     Text("Issue", style = MaterialTheme.typography.h6)
