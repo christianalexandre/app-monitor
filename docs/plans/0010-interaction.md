@@ -137,6 +137,35 @@ needs its own decision is split as soon as that shows.
   its hand-written interceptor line. README setup and SDD 05 updated.
   Accept: the plugin's TestKit tests, `make android-samples`, and
   `make e2e-android` with the sample's line removed.
+- [x] **M9.R1 Clients made with `OkHttpClient()` get the interceptor.** (`fix/okhttp-plugin-default-client`; ADR-0127: the plugin rewrites the constructor `OkHttpClient(builder)` instead of `Builder.build()`; DEBT-0087 re-triggered) From the milestone
+  review: `OkHttpClient()` is `this(Builder())` and skips `build()`, so a
+  debug app's default client is not captured with the plugin.
+  Accept: `./gradlew -p gradle-plugin test functionalTest` — a client
+  from `OkHttpClient()`, one from `Builder.build()` and one from
+  `newBuilder()` each call the entry point; `make android-samples`.
+- [ ] **M9.R2 A network interceptor does not crash on a mock or a
+  breakpoint.** From the milestone review: added with
+  `addNetworkInterceptor`, as its KDoc allows, `AppMonitorInterceptor`
+  answers a mock without `proceed()` and can resume a held request on
+  another host. OkHttp 5.3.2's `RealInterceptorChain` (lines 112, 115,
+  131) throws `IllegalStateException` for both, and `RealCall` rethrows
+  it (line 584): the app crashes.
+  Accept: `./gradlew :sdk:android-okhttp:allTests` — as a network
+  interceptor, a call matching a mock rule and one held then resumed on
+  another host end without an `IllegalStateException`.
+
+### Milestone review
+
+Findings of the `code-review` of `ee3b172..c93a2fc`. Two are hit in
+normal use and became tasks. M9.R1: the plugin missed clients made with
+`OkHttpClient()`. M9.R2: the interceptor added as a network interceptor
+crashes on a mock or on a resume to another host. Eight went to
+DEBT-0088: an empty OkHttp response never held, a replaced Ktor body
+leaving the original open, recent requests kept with their bodies, a
+masked query value sent back as `██` once the URL is edited, Ktor edits
+dropped on non-byte bodies, one query per replay row, "Show original"
+past the loaded pages, and three comment blocks over four lines. None
+was rejected.
 
 ## Outcome
 

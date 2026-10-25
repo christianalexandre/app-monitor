@@ -3,7 +3,7 @@ id: DEBT-0087
 title: The Gradle plugin captures Ktor's OkHttp engine a second time
 status: Open
 date: 2026-10-25
-trigger: The first Android app with both `appmonitor-ktor` and `appmonitor-okhttp` that applies the plugin, or the next PR that changes `gradle-plugin/src/main/kotlin/appmonitor/gradle/OkHttpInjection.kt`
+trigger: The first Android app with both `appmonitor-ktor` and `appmonitor-okhttp` that applies the plugin, or the next PR that changes `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/AppMonitorKtor.kt`
 paid_date:
 ---
 
@@ -29,7 +29,12 @@ request the Ktor plugin marked, is the Android half of ADR-0064's header.
 
 The first Android app with both `appmonitor-ktor` and `appmonitor-okhttp`
 that applies the plugin, or the next PR that changes
-`gradle-plugin/src/main/kotlin/appmonitor/gradle/OkHttpInjection.kt`.
+`sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/AppMonitorKtor.kt`.
+
+Re-triggered by M9.R1 (ADR-0127), which changed `OkHttpInjection.kt` to
+rewrite OkHttp's client constructor. That change does not touch the
+double capture. The fix is the Ktor plugin marking its request, so the
+trigger now names the Ktor plugin's file.
 
 ## How it was paid
 

@@ -5,7 +5,7 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
-/** `io.github.christianalexandre.appmonitor`: rewrites OkHttp's `Builder.build()` in an app's debuggable variants (ADR-0112). */
+/** `io.github.christianalexandre.appmonitor`: rewrites OkHttp's `OkHttpClient(builder)` in an app's debuggable variants (ADR-0112). */
 public class AppMonitorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("appMonitor", AppMonitorExtension::class.java)
