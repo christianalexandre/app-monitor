@@ -1,10 +1,10 @@
 ---
 id: PLAN-0007
 title: MCP server
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M6
 started: 2026-10-24
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0007 — MCP server (M6)
@@ -152,12 +152,53 @@ was stored.
   `POST` that stored `Content-Length: 0` and its server receives the
   header.
 
+### Third milestone review
+
+Findings of the `code-review` of `0a36f7a..6f9f01d`. None is a
+correctness finding with a failure the app can reach, so no task was
+added. Five went to DEBT-0073 (two `setEnabled` calls relying on call
+order, which the UI dispatcher and two fair mutexes keep; the race test
+guarding in some runs only; `to_curl` keeping only a literal `0`; the
+framing filter's mixed rules; the tool description). One was fixed in
+this PR: the tech-debt index still gave DEBT-0071's old trigger. Two were
+rejected: `afterClearAll` cannot write back a stale switch, since
+`setEnabled` sets `enabled` before it enqueues its write; and the race
+test does not slow `make check` (1.2 s for its 2,000 rounds).
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#197); M6.1 exposure, access and client decisions
+  (#198); M6.2 MCP design and platform primitives on paper (#199); M6.3
+  `desktop/mcp` with `list_runs` (#200); M6.4 `search_requests` and
+  `get_request` (#201); M6.5 `endpoint_stats` (#202); M6.6 `diff_runs`
+  (#203); M6.7 `export_har` and `to_curl` (#204); M6.8 the server in the
+  app and its settings (#205); M6.9 Claude Code setup and live check
+  (#206); M6.10 docs sync (#207). Three review rounds: plan updates #208,
+  #213 and this PR; fixes M6.R1 (#209), M6.R2 (#210), M6.R3 (#211), M6.R4
+  (#212), M6.R5 (#214), M6.R6 (#215).
+- **Decisions**: ADR-0089 to ADR-0092. ADR-0093 (#177, the release swap
+  Gradle plugin) was merged during this plan but belongs to M10.
+- **Debt**: DEBT-0069 to DEBT-0073 created; DEBT-0070 paid by M6.3.
+  DEBT-0063 fired on M6.4 and was re-triggered without its MCP clause;
+  DEBT-0058 fired on M6.5 and was narrowed to an exact whole-URL match;
+  DEBT-0064, DEBT-0065, DEBT-0067 and DEBT-0068 had their triggers moved
+  as the tools touched their files. Review findings left open are only
+  non-correctness ones, in DEBT-0071, DEBT-0072 and DEBT-0073. No
+  correctness finding is left open.
+- **Deviations**: M6.3 moved `desktop/mcp` to SDD 03's "Today" itself,
+  not at M6.10; M6.5 and M6.6 added counts and a `truncated` flag to
+  their outputs; M6.7 wrote HAR's unknown timings as 0 with a comment,
+  since HAR forbids -1 there; M6.8 probes the port with a plain
+  `ServerSocket` before Ktor; M6.9 used the Android emulator's sample as
+  the traffic source and checked `claude mcp add` against its `--help`
+  only. The reviews added M6.R1–M6.R6; the switch's launch race took two
+  rounds (R1 the read, R5 the write) and `to_curl`'s replay two (R3
+  framing headers, R6 an empty body's length).
+- **Lessons**: the lifecycle table of SDD 10 (M5's lesson) held: no
+  review found a call racing the store's close outside a named cell but
+  `diff_runs`' check order. What it did not list was state the UI
+  writes while a call runs (the switch), which took two rounds; the next
+  plan with a setting a background task also reads should name its
+  writers and their order in the design. Replay formats (cURL, HAR)
+  needed their tool run against the real consumer (curl, a HAR check)
+  from the first task, not after review.

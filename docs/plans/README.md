@@ -39,7 +39,7 @@ record of how the milestone was actually built once it is done.
 | [0004](0004-release-gate.md) | M3 | Release gate | Done |
 | [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Done |
 | [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Done |
-| [0007](0007-mcp-server.md) | M6 | MCP server | Active |
+| [0007](0007-mcp-server.md) | M6 | MCP server | Done |
 
 ## Roadmap
 
