@@ -10,6 +10,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.AskedReplay
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplaySent
@@ -128,7 +129,7 @@ class ReplayTest {
                 device.await { storage.searchNow().isNotEmpty() }
                 val id = storage.searchNow().single().id
                 val live = storage.sessionsNow().single().serverSessionId
-                val access = runBlocking { McpAccess.open(storage) }
+                val access = runBlocking { McpAccess.open(storage.settingRepository()) }
                 val mcp = McpController(storage, access, 0, replays = store.replays)
                 runBlocking { mcp.start() }
                 try {

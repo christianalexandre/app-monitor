@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.data.settingRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -67,12 +68,12 @@ class AccessTest {
     @Test
     fun tokenIsKeptAcrossLaunchesAndMadeWhenMissing() =
         withStorage { storage ->
-            val first = McpAccess.open(storage).token.value
+            val first = McpAccess.open(storage.settingRepository()).token.value
             assertEquals(43, first.length, "32 bytes, base64url without padding")
             storage.flush()
-            assertEquals(first, McpAccess.open(storage).token.value)
+            assertEquals(first, McpAccess.open(storage.settingRepository()).token.value)
             storage.clearAll()
-            val after = McpAccess.open(storage).token.value
+            val after = McpAccess.open(storage.settingRepository()).token.value
             assert(after != first) { "clearAll deletes the token" }
         }
 }

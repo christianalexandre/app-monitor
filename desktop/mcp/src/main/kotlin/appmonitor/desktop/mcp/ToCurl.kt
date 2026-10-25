@@ -1,6 +1,6 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonObject
@@ -32,19 +32,19 @@ internal object ToCurl {
         )
 
     suspend fun call(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         arguments: JsonObject?,
     ): String {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null) ?: throw ToolError("id is required")
-        return command(storage, id)
+        return command(queries, id)
     }
 
     /** Exchange [id]'s request as the command, after a `#` line when its body is left out or was cut by the device. */
     suspend fun command(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         id: Long,
     ): String {
-        val detail = storage.exchange(id)
+        val detail = queries.detail(id)
         if (detail == null) throw ToolError("no exchange with id $id")
         if (detail.exchange.isConnection) throw ToolError("exchange $id is a connection: it has no HTTP request to copy")
         val request = detail.request ?: throw ToolError("exchange $id has no request stored")

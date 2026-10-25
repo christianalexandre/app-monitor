@@ -44,6 +44,9 @@ interface TrafficQueryRepository {
     /** True once the store began closing: a read since may have stopped early or read nothing. */
     val isClosing: Boolean
 
+    /** Writes lost since the store opened, as they are now. */
+    val health: StoreHealth
+
     /** Every run, oldest first. */
     suspend fun runs(): List<Run>
 
@@ -65,6 +68,9 @@ interface TrafficQueryRepository {
 
     /** Null when exchange [id] is not stored. */
     suspend fun detail(id: Long): ExchangeDetail?
+
+    /** Null when session [id] is not stored. */
+    suspend fun session(id: Long): Session?
 
     /** An exchange's frames in the order the device sent them, after frame [afterId]. */
     suspend fun frames(

@@ -14,7 +14,11 @@ import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Issue
 import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueDetail
+import appmonitor.desktop.domain.IssueFilter
 import appmonitor.desktop.domain.IssueRepository
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
 import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.Mock
 import appmonitor.desktop.domain.MockChange
@@ -28,6 +32,7 @@ import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.RunSummary
 import appmonitor.desktop.domain.Session
+import appmonitor.desktop.domain.SettingRepository
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.desktop.domain.TrafficRepository
@@ -40,7 +45,6 @@ import appmonitor.v1.MockRule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import appmonitor.desktop.storage.IssueSource as StoredIssueSource
 
 /** The runs of this store. */
 fun Storage.runRepository(): RunRepository = StoredRunRepository(this)
@@ -62,6 +66,9 @@ fun Storage.trafficQueryRepository(): TrafficQueryRepository = StoredTrafficQuer
 
 /** The per endpoint numbers of this store. */
 fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
+
+/** The `settings` keys of this store. */
+fun Storage.settingRepository(): SettingRepository = StoredSettingRepository(this)
 
 /** The retention of this store. */
 fun Storage.retentionRepository(): RetentionRepository = StoredRetentionRepository(this)
@@ -104,6 +111,8 @@ internal class StoredMockRepository(
     private val storage: Storage,
 ) : MockRepository {
     override fun observeMocks(): Flow<List<Mock>> = storage.observeMocks().map { mocks -> mocks.map { it.toDomain() } }
+
+    override suspend fun mocks(): List<Mock> = storage.mocks().map { it.toDomain() }
 
     override suspend fun create(
         appId: String,
@@ -171,6 +180,8 @@ internal class StoredTrafficQueryRepository(
 ) : TrafficQueryRepository {
     override val isClosing: Boolean get() = storage.isClosing
 
+    override val health: StoreHealth get() = storage.health.value.toDomain()
+
     override suspend fun runs(): List<Run> = storage.runs().map { it.toDomain() }
 
     override suspend fun runSummaries(
@@ -189,6 +200,8 @@ internal class StoredTrafficQueryRepository(
 
     override suspend fun detail(id: Long): ExchangeDetail? = storage.exchange(id)?.toDomain()
 
+    override suspend fun session(id: Long): Session? = storage.session(id)?.toDomain()
+
     override suspend fun frames(
         exchangeId: Long,
         afterId: Long,
@@ -205,12 +218,20 @@ internal class StoredIssueRepository(
 
     override suspend fun exchanges(id: Long): List<Exchange> = storage.issueExchanges(id).map { it.toDomain() }
 
+    override suspend fun page(
+        filter: IssueFilter,
+        beforeId: Long,
+        limit: Long,
+    ): List<IssueDetail> = storage.issuePage(filter.toStored(), beforeId, limit).map { it.toDomain() }
+
     override suspend fun create(
         title: String,
         note: String,
         tags: Collection<String>,
         exchangeIds: Collection<Long>,
-    ): IssueWrite = storage.createIssue(title, note, tags, exchangeIds, StoredIssueSource.WINDOW).toDomain()
+        source: IssueSource,
+        status: IssueStatus,
+    ): IssueWrite = storage.createIssue(title, note, tags, exchangeIds, source.toStored(), status.toStored()).toDomain()
 
     override suspend fun update(
         id: Long,
@@ -218,6 +239,17 @@ internal class StoredIssueRepository(
     ): IssueWrite = storage.updateIssue(id, change.toStored()).toDomain()
 
     override suspend fun delete(id: Long) = storage.deleteIssue(id)
+}
+
+internal class StoredSettingRepository(
+    private val storage: Storage,
+) : SettingRepository {
+    override suspend fun setting(key: String): String? = storage.setting(key)
+
+    override suspend fun setSetting(
+        key: String,
+        value: String,
+    ) = storage.setSetting(key, value)
 }
 
 internal class StoredRetentionRepository(

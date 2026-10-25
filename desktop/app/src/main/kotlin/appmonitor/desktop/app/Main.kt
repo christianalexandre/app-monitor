@@ -14,6 +14,7 @@ import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
@@ -131,7 +132,7 @@ internal fun openServices(
 ): Services {
     val storage = Storage.open(directory)
     return try {
-        runBlocking { Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(storage)) }
+        runBlocking { Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(storage.settingRepository())) }
     } catch (e: Exception) {
         runBlocking { storage.close(STOP_TIMEOUT) }
         throw e

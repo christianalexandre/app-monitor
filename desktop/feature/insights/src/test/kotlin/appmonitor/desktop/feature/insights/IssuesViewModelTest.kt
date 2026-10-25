@@ -3,6 +3,7 @@ package appmonitor.desktop.feature.insights
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.Issue
 import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueDetail
 import appmonitor.desktop.domain.IssueFilter
 import appmonitor.desktop.domain.IssueRepository
 import appmonitor.desktop.domain.IssueSource
@@ -119,11 +120,19 @@ private class FakeIssues : IssueRepository {
 
     override suspend fun exchanges(id: Long): List<Exchange> = emptyList()
 
+    override suspend fun page(
+        filter: IssueFilter,
+        beforeId: Long,
+        limit: Long,
+    ): List<IssueDetail> = emptyList()
+
     override suspend fun create(
         title: String,
         note: String,
         tags: Collection<String>,
         exchangeIds: Collection<Long>,
+        source: IssueSource,
+        status: IssueStatus,
     ): IssueWrite {
         writes += "create $title $tags $exchangeIds"
         return next.await()

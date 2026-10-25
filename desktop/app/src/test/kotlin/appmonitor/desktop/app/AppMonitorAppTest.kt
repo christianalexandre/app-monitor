@@ -15,6 +15,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.PendingApproval
@@ -279,7 +280,7 @@ class AppMonitorAppTest {
         withStorage { storage ->
             storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
             ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
-                val controller = McpController(storage, runBlocking { McpAccess.open(storage) }, taken.localPort)
+                val controller = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
                 runBlocking { controller.start() }
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {

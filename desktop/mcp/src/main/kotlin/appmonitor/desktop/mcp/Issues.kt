@@ -1,13 +1,13 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.IssueChange
-import appmonitor.desktop.storage.IssueDetail
-import appmonitor.desktop.storage.IssueFilter
-import appmonitor.desktop.storage.IssueSource
-import appmonitor.desktop.storage.IssueStatus
-import appmonitor.desktop.storage.IssueWrite
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueDetail
+import appmonitor.desktop.domain.IssueFilter
+import appmonitor.desktop.domain.IssueRepository
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
+import appmonitor.desktop.domain.IssueWrite
+import appmonitor.desktop.domain.StoreHealth
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -79,16 +79,16 @@ internal object ListIssues {
         )
 
     suspend fun call(
-        storage: Storage,
+        issues: IssueRepository,
         arguments: JsonObject?,
     ): JsonObject {
         val filter = IssueFilter(status = arguments.status("status"), tag = arguments.string("tag"))
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val beforeId = arguments.long("before_id", 1..Long.MAX_VALUE, null) ?: Long.MAX_VALUE
-        val issues = storage.issuePage(filter, beforeId, limit)
+        val page = issues.page(filter, beforeId, limit)
         return buildJsonObject {
-            put("issues", JsonArray(issues.map { it.toJson() }))
-            put("next_before_id", (if (issues.size.toLong() == limit) issues.last().issue.id else null).json())
+            put("issues", JsonArray(page.map { it.toJson() }))
+            put("next_before_id", (if (page.size.toLong() == limit) page.last().issue.id else null).json())
         }
     }
 }
@@ -140,9 +140,9 @@ internal object SaveIssue {
         )
 
     suspend fun call(
-        storage: Storage,
+        issues: IssueRepository,
         arguments: JsonObject?,
-        health: () -> StorageHealth,
+        health: () -> StoreHealth,
     ): JsonObject {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null)
         val title = arguments.string("title")?.also { if (it.isBlank()) throw ToolError("title must not be blank") }
@@ -154,11 +154,11 @@ internal object SaveIssue {
             if (id == null) {
                 if (title == null) throw ToolError("title is required to create an issue")
                 if (exchangeIds == null) throw ToolError("exchange_ids is required to create an issue")
-                storage.createIssue(title, note.orEmpty(), tags.orEmpty(), exchangeIds, IssueSource.MCP, status ?: IssueStatus.OPEN)
+                issues.create(title, note.orEmpty(), tags.orEmpty(), exchangeIds, IssueSource.MCP, status ?: IssueStatus.OPEN)
             } else {
                 val change = IssueChange(title, note, tags, status, exchangeIds)
                 if (change == IssueChange()) throw ToolError("nothing to change: give title, note, tags, status or exchange_ids")
-                storage.updateIssue(id, change)
+                issues.update(id, change)
             }
         val saved =
             when (write) {
@@ -178,7 +178,7 @@ internal object SaveIssue {
                     throw ToolError("the issue was not saved" + (health().lastError?.let { ": $it" } ?: ""))
                 }
             }
-        val issue = storage.issuePage(beforeId = saved + 1, limit = 1).firstOrNull { it.issue.id == saved }
+        val issue = issues.page(IssueFilter(), beforeId = saved + 1, limit = 1).firstOrNull { it.issue.id == saved }
         // Deleted in the window between the write and this read.
         if (issue == null) throw ToolError("no issue with id $saved")
         return buildJsonObject {

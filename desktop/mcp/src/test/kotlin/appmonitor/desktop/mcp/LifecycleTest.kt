@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.data.settingRepository
+import appmonitor.desktop.domain.StoreHealth
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -44,7 +45,7 @@ class LifecycleTest {
 
     @Test
     fun lostWritesAreAWarning() =
-        withServer(health = { StorageHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
+        withServer(health = { StoreHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
             val result = running.client { it.callTool(ListRuns.NAME, emptyMap()) }
             assertNotEquals(true, result.isError)
             assertEquals(
@@ -61,7 +62,7 @@ class LifecycleTest {
     fun startReturnsOnceBound() =
         withStorage { storage ->
             val port = freePort()
-            val server = McpServer(storage, storage.repositories(), McpAccess.open(storage), port)
+            val server = McpServer(storage.repositories(), McpAccess.open(storage.settingRepository()), port)
             assertFailsWith<ConnectException> { Socket("127.0.0.1", port).close() }
             assertEquals(port, server.start())
             try {
@@ -102,7 +103,7 @@ class LifecycleTest {
     fun portTakenFailsStartWithBindException() =
         withStorage { storage ->
             ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { taken ->
-                val server = McpServer(storage, storage.repositories(), McpAccess.open(storage), taken.localPort)
+                val server = McpServer(storage.repositories(), McpAccess.open(storage.settingRepository()), taken.localPort)
                 assertFailsWith<BindException> { server.start() }
                 server.stop()
             }
@@ -112,7 +113,7 @@ class LifecycleTest {
     fun stopAfterFailedStart() =
         withStorage { storage ->
             ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { taken ->
-                val server = McpServer(storage, storage.repositories(), McpAccess.open(storage), taken.localPort)
+                val server = McpServer(storage.repositories(), McpAccess.open(storage.settingRepository()), taken.localPort)
                 runCatching { server.start() }
                 withTimeout(1.seconds) { server.stop() }
             }
@@ -157,7 +158,7 @@ class LifecycleTest {
     fun stopDuringStart() =
         withStorage { storage ->
             val port = freePort()
-            val server = McpServer(storage, storage.repositories(), McpAccess.open(storage), port)
+            val server = McpServer(storage.repositories(), McpAccess.open(storage.settingRepository()), port)
             coroutineScope {
                 val start = async { runCatching { server.start() } }
                 val stop = async { server.stop() }

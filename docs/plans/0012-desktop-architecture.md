@@ -151,13 +151,21 @@ task that lands each module.
   HAR cap item (`ExportHar.kt` touched: connections no longer count
   against `max_entries`) and DEBT-0074's duplicate closing check, whose
   test now goes through the server.
-- [ ] **H2.5b The rest of MCP through the repositories.** `export_har`,
+- [x] **H2.5b The rest of MCP through the repositories.**
+  (`refactor/mcp-tools-through-domain`) `export_har`,
   `to_curl`, the issue and mock tools, `replay_request`, the token and
   the store's health; `desktop/mcp` depends on `desktop/domain`, not
   `desktop/storage`.
   Accept: `./gradlew :desktop:mcp:test` unchanged and green; `desktop/mcp`'s
   main source set has no `desktop:storage` dependency (its tests may keep
   one to fill a real store).
+  Deviation: the tools use the window's `IssueRepository` and
+  `MockRepository`, extended with what MCP needs (`page` and
+  `IssueDetail`, `create`'s source and status, `IssueChange`'s
+  exchange ids, `mocks()`); `TrafficQueryRepository` gained `health` and
+  `session`; a new `SettingRepository` holds the token. `Exports.har` and
+  `curl` take a `TrafficQueryRepository`, so the last `toStored()` copy in
+  `desktop/mcp` is gone. No DEBT `make debt-check` listed fired.
 
 ## Outcome
 

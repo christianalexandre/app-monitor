@@ -6,7 +6,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":desktop:storage"))
+    // ADR-0133: tools reach the store through `desktop/domain` only.
     api(project(":desktop:domain"))
     implementation(libs.mcp.kotlin.sdk.server)
     implementation(libs.ktor.server.cio)
@@ -20,6 +20,7 @@ dependencies {
     testImplementation(libs.ktor.client.cio)
     testImplementation(project(":tools:fake-client"))
     testImplementation(project(":desktop:data"))
+    testImplementation(project(":desktop:storage"))
 }
 
 tasks.test {

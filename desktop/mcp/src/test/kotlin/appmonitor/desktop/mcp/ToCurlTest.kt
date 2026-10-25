@@ -1,7 +1,7 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.StorageHealth
 import appmonitor.v1.Header
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -167,7 +167,7 @@ class ToCurlTest {
 
     @Test
     fun lostWritesAreACommentLine() =
-        withServer(health = { StorageHealth(notSaved = 2, lastError = "disk full") }) { running ->
+        withServer(health = { StoreHealth(notSaved = 2, lastError = "disk full") }) { running ->
             val id = running.store(request("r1", url = "http://127.0.0.1:1/"))
             val command = running.curl(id)
             assertEquals("# warning: 2 events were not saved: disk full", command.lines().first())

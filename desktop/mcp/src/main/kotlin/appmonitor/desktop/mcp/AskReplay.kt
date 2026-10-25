@@ -1,7 +1,7 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.domain.AskedReplay
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.v1.CaptureLayer
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonObject
@@ -57,12 +57,12 @@ internal object AskReplay {
         )
 
     suspend fun call(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         asks: ReplayAsks?,
         arguments: JsonObject?,
     ): JsonObject {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null) ?: throw ToolError("id is required")
-        val detail = storage.exchange(id) ?: throw ToolError("no exchange with id $id")
+        val detail = queries.detail(id) ?: throw ToolError("no exchange with id $id")
         val exchange = detail.exchange
         when {
             exchange.isConnection -> {
@@ -79,7 +79,7 @@ internal object AskReplay {
         }
         if (asks == null) throw ToolError("replay is not available")
         // Deleted between the two reads, as retention or "Clear all data" can.
-        val session = storage.session(exchange.sessionId) ?: throw ToolError("no exchange with id $id")
+        val session = queries.session(exchange.sessionId) ?: throw ToolError("no exchange with id $id")
         val asked =
             AskedReplay(
                 exchangeId = id,

@@ -1,6 +1,7 @@
 package appmonitor.desktop.app
 
 import appmonitor.desktop.app.store.McpController
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.mcp.McpAccess
@@ -49,7 +50,7 @@ class McpWiringTest {
     fun portTakenIsAStatus() =
         withStorage { storage ->
             ServerSocket(0, 0, loopback).use { taken ->
-                val mcp = McpController(storage, runBlocking { McpAccess.open(storage) }, taken.localPort)
+                val mcp = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, taken.localPort)
 
                 runBlocking { mcp.start() }
 
@@ -61,7 +62,7 @@ class McpWiringTest {
     @Test
     fun stopsBeforeTheStoreCloses() =
         withStorage { storage ->
-            val mcp = McpController(storage, runBlocking { McpAccess.open(storage) }, 0)
+            val mcp = McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             val order = mutableListOf<String>()
@@ -91,7 +92,7 @@ class McpWiringTest {
     @Test
     fun switchStartsAndStops() =
         withStorage { storage ->
-            val access = runBlocking { McpAccess.open(storage) }
+            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
             val mcp = McpController(storage, access, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
@@ -122,7 +123,7 @@ class McpWiringTest {
             val reading = CompletableDeferred<Unit>()
             val stored = CompletableDeferred<String?>()
             val mcp =
-                McpController(storage, runBlocking { McpAccess.open(storage) }, 0) {
+                McpController(storage, runBlocking { McpAccess.open(storage.settingRepository()) }, 0) {
                     reading.complete(Unit)
                     stored.await()
                 }
@@ -145,7 +146,7 @@ class McpWiringTest {
     @Test
     fun switchTurnedOffAsStartWritesItEndsOff() =
         withStorage { storage ->
-            val access = runBlocking { McpAccess.open(storage) }
+            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
             repeat(RACE_ROUNDS) { round ->
                 val read = CountDownLatch(1)
                 val mcp =
@@ -167,7 +168,7 @@ class McpWiringTest {
     @Test
     fun clearAllRegeneratesTheTokenAndKeepsTheSwitch() =
         withStorage { storage ->
-            val access = runBlocking { McpAccess.open(storage) }
+            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
             val mcp = McpController(storage, access, 0)
             runBlocking { mcp.setEnabled(false) }
             val old = access.token.value
@@ -186,7 +187,7 @@ class McpWiringTest {
     @Test
     fun regeneratedTokenRefusesTheOldOne() =
         withStorage { storage ->
-            val access = runBlocking { McpAccess.open(storage) }
+            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
             val mcp = McpController(storage, access, 0)
             runBlocking { mcp.start() }
             val port = assertIs<ServiceStatus.Running>(mcp.status.value).port

@@ -1,10 +1,10 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.MockSource
-import appmonitor.desktop.storage.MockWrite
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StorageHealth
-import appmonitor.desktop.storage.StoredMock
+import appmonitor.desktop.domain.Mock
+import appmonitor.desktop.domain.MockRepository
+import appmonitor.desktop.domain.MockSource
+import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.StoreHealth
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
 import appmonitor.v1.MockFailure
@@ -78,9 +78,9 @@ internal object CreateMock {
         )
 
     suspend fun call(
-        storage: Storage,
+        mocks: MockRepository,
         arguments: JsonObject?,
-        health: () -> StorageHealth,
+        health: () -> StoreHealth,
     ): JsonObject {
         val appId = arguments.required("app_id")
         val name = arguments.required("name")
@@ -106,7 +106,7 @@ internal object CreateMock {
             )
         val write =
             try {
-                storage.createMock(appId, name, rule, MockSource.MCP)
+                mocks.create(appId, name, rule, MockSource.MCP)
             } catch (e: IllegalArgumentException) {
                 throw ToolError(e.message ?: "the rule is not valid")
             }
@@ -117,7 +117,7 @@ internal object CreateMock {
                 MockWrite.NotSaved -> throw ToolError("the rule was not saved" + (health().lastError?.let { ": $it" } ?: ""))
             }
         // Deleted in the window between the write and this read.
-        val stored = storage.mocks().firstOrNull { it.id == id } ?: throw ToolError("no mock rule with id $id")
+        val stored = mocks.mocks().firstOrNull { it.id == id } ?: throw ToolError("no mock rule with id $id")
         return buildJsonObject { put("mock", stored.toJson()) }
     }
 
@@ -160,7 +160,7 @@ internal object CreateMock {
 }
 
 /** A stored rule as `create_mock` answers it. */
-internal fun StoredMock.toJson() =
+internal fun Mock.toJson() =
     buildJsonObject {
         put("id", id)
         put("app_id", appId)

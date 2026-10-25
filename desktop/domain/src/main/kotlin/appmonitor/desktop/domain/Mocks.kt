@@ -52,6 +52,9 @@ interface MockRepository {
     /** Every rule, again after each change. */
     fun observeMocks(): Flow<List<Mock>>
 
+    /** Every rule, by app id, then in match order; empty once the store is closing. */
+    suspend fun mocks(): List<Mock>
+
     /** A rule for [appId], last in its match order; one from [MockSource.MCP] starts pending. Throws for an invalid rule. */
     suspend fun create(
         appId: String,

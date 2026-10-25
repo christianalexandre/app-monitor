@@ -1,6 +1,6 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.domain.SettingRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,7 +9,7 @@ import java.util.Base64
 
 /** The bearer token every MCP request must carry (ADR-0090 B.2), kept in the store's `settings`. */
 class McpAccess private constructor(
-    private val storage: Storage,
+    private val settings: SettingRepository,
     token: String,
 ) {
     private val mutableToken = MutableStateFlow(token)
@@ -21,7 +21,7 @@ class McpAccess private constructor(
     suspend fun regenerate(): String {
         val token = newToken()
         mutableToken.value = token
-        storage.setSetting(KEY_TOKEN, token)
+        settings.setSetting(KEY_TOKEN, token)
         return token
     }
 
@@ -31,11 +31,11 @@ class McpAccess private constructor(
         private val random = SecureRandom()
 
         /** The stored token, or a new one written to the store when there is none. */
-        suspend fun open(storage: Storage): McpAccess {
-            storage.setting(KEY_TOKEN)?.let { return McpAccess(storage, it) }
+        suspend fun open(settings: SettingRepository): McpAccess {
+            settings.setting(KEY_TOKEN)?.let { return McpAccess(settings, it) }
             val token = newToken()
-            storage.setSetting(KEY_TOKEN, token)
-            return McpAccess(storage, token)
+            settings.setSetting(KEY_TOKEN, token)
+            return McpAccess(settings, token)
         }
 
         private fun newToken(): String {

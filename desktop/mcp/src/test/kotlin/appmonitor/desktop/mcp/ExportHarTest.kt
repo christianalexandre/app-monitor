@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.data.trafficQueryRepository
+import appmonitor.desktop.domain.StoreHealth
 import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.WebSocketFrame
@@ -180,9 +181,15 @@ class ExportHarTest {
     fun past32MiBIsRefused() =
         withServer { running ->
             running.store(request("r1") to 1_000L, response("r1", body = "y".repeat(1_000).encodeUtf8()) to 1_001L)
-            val error = assertFailsWith<ToolError> { ExportHar.call(running.storage, null, "test", maxText = 1_000) }
+            val error =
+                assertFailsWith<ToolError> { ExportHar.call(running.storage.trafficQueryRepository(), null, "test", maxText = 1_000) }
             assertEquals("the HAR is past 0 MiB: narrow the filter or use bodies: none", error.message)
-            ExportHar.call(running.storage, mapOf("bodies" to JsonPrimitive("none")).let(::JsonObject), "test", maxText = 1_000)
+            ExportHar.call(
+                running.storage.trafficQueryRepository(),
+                mapOf("bodies" to JsonPrimitive("none")).let(::JsonObject),
+                "test",
+                maxText = 1_000,
+            )
             assertEquals(32L * 1024 * 1024, ExportHar.MAX_TEXT)
         }
 
@@ -192,16 +199,16 @@ class ExportHarTest {
             running.store(request("r1") to 1_000L, response("r1", body = "é".repeat(400).encodeUtf8()) to 1_001L)
             val chars =
                 ExportHar
-                    .call(running.storage, null, "test")
+                    .call(running.storage.trafficQueryRepository(), null, "test")
                     .toString()
                     .length
                     .toLong()
-            assertFailsWith<ToolError> { ExportHar.call(running.storage, null, "test", maxText = chars) }
+            assertFailsWith<ToolError> { ExportHar.call(running.storage.trafficQueryRepository(), null, "test", maxText = chars) }
         }
 
     @Test
     fun lostWritesAreAWarningInsideTheLog() =
-        withServer(health = { StorageHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
+        withServer(health = { StoreHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
             running.store(request("r1") to 1_000L)
             val har = running.export().json
             assertHar12(har)

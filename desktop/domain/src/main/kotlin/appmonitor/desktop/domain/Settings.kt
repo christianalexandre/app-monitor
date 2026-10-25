@@ -28,6 +28,17 @@ interface RetentionRepository {
     suspend fun setRetention(retention: Retention)
 }
 
+/** The store's `settings` keys other than retention's (SDD 09). */
+interface SettingRepository {
+    /** Null when unset or the store is closing. */
+    suspend fun setting(key: String): String?
+
+    suspend fun setSetting(
+        key: String,
+        value: String,
+    )
+}
+
 /** One pair the developer approved or rejected, as stored (ADR-0083 C.1). */
 data class AnsweredDevice(
     val deviceId: String,

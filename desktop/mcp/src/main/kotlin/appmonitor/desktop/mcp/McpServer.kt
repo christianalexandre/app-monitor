@@ -1,7 +1,6 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.domain.StoreHealth
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
@@ -33,23 +32,21 @@ import kotlin.time.Duration.Companion.seconds
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(
-    private val storage: Storage,
     private val repositories: McpRepositories,
     private val access: McpAccess,
     private val port: Int,
     private val version: String,
-    private val health: () -> StorageHealth,
+    private val health: () -> StoreHealth,
     private val beforeTool: suspend () -> Unit,
     private val replays: ReplayAsks? = null,
 ) {
     constructor(
-        storage: Storage,
         repositories: McpRepositories,
         access: McpAccess,
         port: Int = mcpPort(),
         version: String = "dev",
         replays: ReplayAsks? = null,
-    ) : this(storage, repositories, access, port, version, { storage.health.value }, {}, replays)
+    ) : this(repositories, access, port, version, { repositories.queries.health }, {}, replays)
 
     private val mcp =
         Server(
@@ -65,17 +62,17 @@ class McpServer internal constructor(
                 ExportHar.NAME,
                 ExportHar.description,
                 ExportHar.inputSchema,
-            ) { harResult(ExportHar.call(storage, it, version), health()) }
-            textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(storage, it) }
-            tool(ListIssues.NAME, ListIssues.description, ListIssues.inputSchema) { ListIssues.call(storage, it) }
+            ) { harResult(ExportHar.call(repositories.queries, it, version), health()) }
+            textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(repositories.queries, it) }
+            tool(ListIssues.NAME, ListIssues.description, ListIssues.inputSchema) { ListIssues.call(repositories.issues, it) }
             result(SaveIssue.NAME, SaveIssue.description, SaveIssue.inputSchema, WRITES) {
-                jsonResult(SaveIssue.call(storage, it, health), health())
+                jsonResult(SaveIssue.call(repositories.issues, it, health), health())
             }
             result(CreateMock.NAME, CreateMock.description, CreateMock.inputSchema, WRITES) {
-                jsonResult(CreateMock.call(storage, it, health), health())
+                jsonResult(CreateMock.call(repositories.mocks, it, health), health())
             }
             result(AskReplay.NAME, AskReplay.description, AskReplay.inputSchema, REPLAYS) {
-                jsonResult(AskReplay.call(storage, replays, it), health())
+                jsonResult(AskReplay.call(repositories.queries, replays, it), health())
             }
         }
 
