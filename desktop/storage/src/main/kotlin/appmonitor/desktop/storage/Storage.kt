@@ -1,7 +1,7 @@
 package appmonitor.desktop.storage
 
+import app.cash.sqldelight.Query
 import app.cash.sqldelight.coroutines.asFlow
-import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
@@ -29,7 +29,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -42,6 +45,9 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.sql.DriverManager
 import java.util.Properties
 import java.util.concurrent.Executors
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
@@ -49,7 +55,8 @@ import kotlin.time.TimeSource
 
 /**
  * The desktop's SQLite store (SDD 09). Writes go through one queue to one writer thread;
- * reads run on [Dispatchers.IO], each in its own transaction.
+ * reads run on [Dispatchers.IO], each in its own transaction. Once [close] starts, reads return nothing and observed
+ * queries end.
  */
 class Storage private constructor(
     /** The database file. */
@@ -89,8 +96,10 @@ class Storage private constructor(
     // Writer thread only: a retention pass that sees it change was overtaken by a clearAll.
     private var clears = 0L
 
-    @Volatile
-    private var closing = false
+    private val closing = MutableStateFlow(false)
+
+    // Reads hold it shared, close takes it to close the driver: never under a read in flight.
+    private val driverLock = ReentrantReadWriteLock()
 
     private val queue =
         WriteQueue(
@@ -306,7 +315,7 @@ class Storage private constructor(
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
-        closing = true
+        closing.value = true
         retentionJob?.cancelAndJoin()
         withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
@@ -317,7 +326,7 @@ class Storage private constructor(
         queue.afterWriter {
             writerDispatcher.executor.execute {
                 try {
-                    driver.close()
+                    driverLock.write { driver.close() }
                 } finally {
                     driverClosed.complete(Unit)
                 }
@@ -331,68 +340,51 @@ class Storage private constructor(
     // Null once the store is closing, even for a call already queued on the writer; a shut writer rejects it.
     private suspend fun <R> whileOpen(block: suspend () -> R): R? =
         try {
-            withContext(writerDispatcher) { if (closing) null else block() }
+            withContext(writerDispatcher) { if (closing.value) null else block() }
         } catch (e: CancellationException) {
             currentCoroutineContext().ensureActive()
             null
         }
 
-    suspend fun runs(): List<StoredRun> = read { runQueries.all(::StoredRun).executeAsList() }
+    suspend fun runs(): List<StoredRun> = read(emptyList()) { runQueries.all(::StoredRun).executeAsList() }
 
     /** Every run, newest first, again after each commit that changes one. */
-    fun observeRuns(): Flow<List<StoredRun>> =
-        database.runQueries
-            .newestFirst(::StoredRun)
-            .asFlow()
-            .mapToList(Dispatchers.IO)
+    fun observeRuns(): Flow<List<StoredRun>> = observe(database.runQueries.newestFirst(::StoredRun))
 
     /** Every stored answer, oldest first. */
-    suspend fun approvals(): List<StoredApproval> = read { approvalQueries.all(::StoredApproval).executeAsList() }
+    suspend fun approvals(): List<StoredApproval> = read(emptyList()) { approvalQueries.all(::StoredApproval).executeAsList() }
 
     /** [approvals], again after each commit that changes one. */
-    fun observeApprovals(): Flow<List<StoredApproval>> =
-        database.approvalQueries
-            .all(::StoredApproval)
-            .asFlow()
-            .mapToList(Dispatchers.IO)
+    fun observeApprovals(): Flow<List<StoredApproval>> = observe(database.approvalQueries.all(::StoredApproval))
 
     /** The sessions of [runId], or every stored one when null, oldest first, again after each commit that changes one. */
     fun observeSessions(runId: Long? = null): Flow<List<StoredSession>> =
-        (if (runId == null) database.sessionQueries.all() else database.sessionQueries.inRun(runId))
-            .asFlow()
-            .mapToList(Dispatchers.IO)
+        observe(if (runId == null) database.sessionQueries.all() else database.sessionQueries.inRun(runId))
             .map { rows -> rows.map { it.toStored() } }
 
     /** The first [limit] exchanges of a session in arrival order, again after each commit that changes one. */
     fun observeExchangesOfSession(
         sessionId: Long,
         limit: Long = PAGE_SIZE,
-    ): Flow<List<StoredExchange>> =
-        database.exchangeQueries
-            .pageOfSession(sessionId, 0, limit, ::StoredExchange)
-            .asFlow()
-            .mapToList(Dispatchers.IO)
+    ): Flow<List<StoredExchange>> = observe(database.exchangeQueries.pageOfSession(sessionId, 0, limit, ::StoredExchange))
 
     /** A page of the exchanges [filter] matches in arrival order; the next page passes the last id as [afterId]. */
     suspend fun searchExchanges(
         filter: ExchangeFilter,
         afterId: Long = 0,
         limit: Long = PAGE_SIZE,
-    ): List<StoredExchange> = read { SearchQuery(driver, filter, afterId, limit).executeAsList() }
+    ): List<StoredExchange> = read(emptyList()) { SearchQuery(driver, filter, afterId, limit).executeAsList() }
 
     /** The first [limit] exchanges [filter] matches, again after each commit that changes an exchange or a session. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = PAGE_SIZE,
-    ): Flow<List<StoredExchange>> =
-        SearchQuery(driver, filter, 0, limit)
-            .asFlow()
-            .mapToList(Dispatchers.IO)
+    ): Flow<List<StoredExchange>> = observe(SearchQuery(driver, filter, 0, limit))
 
     internal fun searchPlan(filter: ExchangeFilter): List<String> = SearchQuery(driver, filter, 0, PAGE_SIZE).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =
-        read {
+        read(emptyList()) {
             sessionQueries.ofRun(runId).executeAsList().map {
                 StoredSession(
                     id = it.id,
@@ -412,17 +404,18 @@ class Storage private constructor(
         runId: Long,
         afterId: Long = 0,
         limit: Long = PAGE_SIZE,
-    ): List<StoredExchange> = read { exchangeQueries.pageOfRun(runId, afterId, limit, ::StoredExchange).executeAsList() }
+    ): List<StoredExchange> = read(emptyList()) { exchangeQueries.pageOfRun(runId, afterId, limit, ::StoredExchange).executeAsList() }
 
     suspend fun exchangesOfSession(
         sessionId: Long,
         afterId: Long = 0,
         limit: Long = PAGE_SIZE,
-    ): List<StoredExchange> = read { exchangeQueries.pageOfSession(sessionId, afterId, limit, ::StoredExchange).executeAsList() }
+    ): List<StoredExchange> =
+        read(emptyList()) { exchangeQueries.pageOfSession(sessionId, afterId, limit, ::StoredExchange).executeAsList() }
 
     /** One exchange with its events as the device sent them, bodies included; null when it is not stored. */
     suspend fun exchange(id: Long): ExchangeDetail? =
-        read {
+        read(null) {
             val row = exchangeQueries.byId(id).executeAsOneOrNull() ?: return@read null
 
             fun body(part: Long): ByteString =
@@ -456,7 +449,7 @@ class Storage private constructor(
         afterId: Long = 0,
         limit: Long = PAGE_SIZE,
     ): List<StoredFrame> =
-        read {
+        read(emptyList()) {
             frameQueries.pageOfExchange(exchangeId, afterId, limit).executeAsList().map {
                 StoredFrame(
                     id = it.id,
@@ -477,8 +470,24 @@ class Storage private constructor(
             }
         }
 
-    private suspend fun <R> read(block: AppMonitorDatabase.() -> R): R =
-        withContext(Dispatchers.IO) { database.transactionWithResult { database.block() } }
+    // [closed] once the store is closing.
+    private suspend fun <R> read(
+        closed: R,
+        block: AppMonitorDatabase.() -> R,
+    ): R = readOrNull { database.transactionWithResult { database.block() } } ?: closed
+
+    /** Runs [block] on [Dispatchers.IO] unless the store is closing; the driver stays open until it returns. */
+    internal suspend fun <R> readOrNull(block: () -> R): R? =
+        withContext(Dispatchers.IO) { driverLock.read { if (closing.value) null else block() } }
+
+    // Ends once the store is closing, at the next commit or before.
+    private fun <T : Any> observe(query: Query<T>): Flow<List<T>> =
+        merge(query.asFlow(), closing.filter { it }.map<Boolean, Query<T>?> { null })
+            .transformWhile { fresh ->
+                val rows = fresh?.let { readOrNull { it.executeAsList() } }
+                if (rows != null) emit(rows)
+                rows != null
+            }
 
     /** Runs [block] on the writer thread, between two batches; tests use it to hold the writer. */
     internal suspend fun <R> onWriter(block: () -> R): R = withContext(writerDispatcher) { block() }
