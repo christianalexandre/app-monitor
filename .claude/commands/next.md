@@ -13,6 +13,11 @@ always work from `origin/dev`, never `git switch dev`.
 ## 1. Sync and resume
 
 - `git fetch origin --prune`.
+- **A PR waiting on auto-merge** (`gh pr list --state open --json
+  number,headRefName,autoMergeRequest`, one with `autoMergeRequest` set) →
+  do step 4 for the task after it while its CI runs, then
+  `gh pr checks <n> --watch` (ADR-0094). Merged → delete its local branch
+  and go on below. Red → `git switch <headRefName>`, resume it at 6.
 - **On a work branch** (not detached HEAD) whose PR is not merged → that is
   the task in progress: **resume it**. A dirty tree here is this task's WIP;
   keep it. If its PR is open with red checks, go to 6; pending checks, go to 7.
@@ -24,25 +29,25 @@ always work from `origin/dev`, never `git switch dev`.
 ## 2. Pick
 
 - The first `[ ]` task of the active plan.
-- **All tasks `[x]`** → checkpoint review, then close the plan (ADR-0016):
-  1. Count the review rounds already in the plan (`### … milestone review`
-     headings). **Three or more** → skip to 4.
-  2. Review with the `code-review` skill. Round 1: the diff from the commit
-     that added the plan
-     (`git log --diff-filter=A --format=%H -1 origin/dev -- <plan file>`) to
-     `origin/dev`. Later rounds: only from the end commit of the previous
-     round (its heading says `code-review of A..B`; use `B`) to `origin/dev`.
-  3. Triage. **Only correctness findings** — wrong result, crash, hang, leak,
-     race, data loss, security/privacy, each with a concrete failure
-     scenario — become tasks (`MN.R1`, `MN.R2`…, with an Accept line).
-     Everything else (style, comment length, naming, duplication) goes into
-     **one** DEBT for the round (trigger: next PR that touches the file) or
-     is rejected with a reason. If tasks were added, merge that plan change
-     and continue with them — the plan is not done yet.
-  4. No correctness finding, or three rounds done → fill *Outcome* (review
-     findings included, open ones as DEBTs), set `status: Done` and
-     `finished`, update the index, open a `docs/close-plan-<slug>` PR
-     (ADR-0019):
+- **All tasks `[x]`** → one checkpoint review, then close the plan
+  (ADR-0094):
+  1. The plan already has a `### … milestone review` heading → the review
+     is done: skip to 4.
+  2. `code-review` skill at `medium` on the diff from the commit that added
+     the plan (`git log --diff-filter=A --format=%H -1 origin/dev -- <plan
+     file>`) to `origin/dev`; the heading records `code-review of A..B`.
+  3. Triage. A finding becomes a task (`MN.R1`, `MN.R2`…, with an Accept
+     line) only when **normal use** hits it: wrong data shown or stored,
+     crash, hang, data loss, security/privacy — each with a concrete
+     failure scenario. Races that need rare timing, shutdown corner cases
+     and everything else go into **one** DEBT for the round (trigger: next
+     PR that touches the file) or are rejected with a reason. Tasks added →
+     commit the findings on the branch of `MN.R1` and do it in this
+     iteration (step 3 on); no separate findings PR.
+  4. No task added, or the last `MN.R*` task is in this PR → fill *Outcome*
+     (review findings included, open ones as DEBTs), set `status: Done` and
+     `finished`, update the index. In the last task's PR when there is one,
+     else in a `docs/close-plan-<slug>` PR (ADR-0019, ADR-0094):
      - *Outcome* lists a correctness finding left open, or
        `echo "${PLAN_CHECKPOINT:-}"` prints `1` → **do not merge it**: the
        owner merging it is the approval. **Stop: checkpoint.**
@@ -52,8 +57,10 @@ always work from `origin/dev`, never `git switch dev`.
   - Close-plan PR still open → **stop**: waiting for the owner.
   - Last plan `Done` on `origin/dev` (the owner merged it) → write the next
     plan from the roadmap in `docs/plans/README.md` (`_template.md`,
-    `status: Active`, `started`), remove its section from the roadmap, open a
-    `docs/plan-<slug>` PR, merge it as in 7. Nothing else in that iteration.
+    `status: Active`, `started`, four to six tasks), remove its section from
+    the roadmap, open a `docs/plan-<slug>` PR, merge it as in 7. Nothing
+    else in that iteration, unless its first task is a `Proposed` ADR: then
+    write those ADRs in the same PR, as draft, and stop.
 
 ## 3. Branch
 
@@ -72,7 +79,10 @@ always work from `origin/dev`, never `git switch dev`.
 - Implement the smallest change that satisfies the Accept line.
 - Technical decision inside the architecture → ADR `Accepted` in this PR.
   Decision in the four "stop and ask" areas of `AGENTS.md` → ADR `Proposed`,
-  mark the task `[!]`, open the PR as draft, **stop**.
+  mark the task `[!]`, open the PR as draft, **stop** — unless it is public
+  API or security/privacy and every recommended option follows a standing
+  owner decision listed in `AGENTS.md`: then `Accepted`, citing it in the
+  ADR's *Decision* and in the PR body, and go on (ADR-0094).
 - Something left out on purpose → `docs/tech-debt/` item with a trigger.
 
 ## 6. Verify
@@ -110,10 +120,10 @@ always work from `origin/dev`, never `git switch dev`.
   added, reordered) as you go — they feed the plan's *Outcome*.
 - Commit (Conventional Commits, no attribution trailers), push, then follow
   `.claude/commands/pr.md` to open the PR to `dev`.
-- Wait for CI: `gh pr checks --watch`. Green → `gh pr merge --squash
-  --delete-branch`, then `git fetch origin --prune && git switch --detach
-  origin/dev` and delete the local branch. Red → back to 6 on the same
-  branch.
+- `gh pr merge --auto --squash --delete-branch`, then
+  `git switch --detach origin/dev`, and end the iteration (8): the next one
+  waits for the merge (step 1, ADR-0094). Do not watch CI here. Close-plan
+  PR held for the owner → no `--auto`.
 - Run the merge as **its own command**: nothing chained with `;`, `&&` or
   `|`. A denial is evaluated on the whole command line, so a cleanup step
   glued to it (e.g. `rm -rf /tmp/…` hits the `rm -rf /*` deny rule) blocks
@@ -131,7 +141,8 @@ created, next task.
 Then:
 
 - **Continue** (next iteration) if the active plan still has open tasks, or
-  the plan was just closed and merged, or the next plan was just written.
+  the plan was just closed and set to merge, or the next plan was just
+  written.
 - **Stop** on: plan checkpoint, waiting for the owner, `Proposed` ADR, `[!]`
   task, missing tool/credential, or an empty roadmap. When running under
   `/loop`, end the loop instead of scheduling another wakeup.
