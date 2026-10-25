@@ -4,6 +4,7 @@ import appmonitor.desktop.proxy.ProxyCa
 import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
+import appmonitor.v1.ReplayRefused
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -49,7 +50,17 @@ fun main(args: Array<String>) {
                 if (mocks != null && session.send(mockRulesEnvelope(mocks, System.currentTimeMillis()))) {
                     println("[${session.id}] sent ${mocks.rules.size} mock rules")
                 }
-                session.envelopes.collect { println("[${session.id}] ${describe(it)}") }
+                var replayAsked = false
+                session.envelopes.collect { envelope ->
+                    println("[${session.id}] ${describe(envelope)}")
+                    val asked = if (replayAsked) null else options.replayPath?.let { replayTarget(envelope, it) }
+                    if (asked != null) {
+                        replayAsked = true
+                        if (session.send(replayRequestEnvelope(asked, System.currentTimeMillis()))) {
+                            println("[${session.id}] asked a replay of $asked")
+                        }
+                    }
+                }
                 println("[${session.id}] disconnected")
             }
         }
@@ -69,12 +80,14 @@ internal data class ServerArgs(
     val port: Int = Protocol.DEFAULT_PORT,
     val proxyDirectory: Path? = null,
     val mocksFile: Path? = null,
+    val replayPath: String? = null,
 )
 
 /**
  * `--port` (default [Protocol.DEFAULT_PORT]) and `--proxy DIR`, which also runs the proxy of SDD 11 with its CA in DIR
  * and logs its exchanges as the `proxy` session, and `--mocks FILE`, rules ([readMockRules]) sent to every device that
- * lists the `interaction` channel; on a bad argument prints one line on [err] and returns null.
+ * lists the `interaction` channel, and `--replay PATH`, the first request of each session to that URL path asked again
+ * (ADR-0122 D.1); on a bad argument prints one line on [err] and returns null.
  */
 internal fun parseArgs(
     args: Array<String>,
@@ -94,6 +107,7 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
                 "--port" -> options.copy(port = value.toIntOrNull()?.takeIf { it in 0..MAX_PORT } ?: return null)
                 "--proxy" -> options.copy(proxyDirectory = Path.of(value))
                 "--mocks" -> options.copy(mocksFile = Path.of(value))
+                "--replay" -> options.copy(replayPath = value.takeIf { it.startsWith("/") } ?: return null)
                 else -> return null
             }
     }
@@ -101,8 +115,8 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
 }
 
 private const val USAGE =
-    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE], PORT from 0 (ephemeral) to 65535, DIR the proxy's CA " +
-        "directory, FILE mock rules as JSON"
+    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--replay PATH], PORT from 0 (ephemeral) to 65535, DIR " +
+        "the proxy's CA directory, FILE mock rules as JSON, PATH a URL path starting with /"
 
 private const val MAX_PORT = 65_535
 
@@ -113,7 +127,8 @@ internal fun describe(envelope: Envelope): String {
             when (name) {
                 "network/RequestStarted" -> {
                     RequestStarted.ADAPTER.decode(envelope.payload).run {
-                        "$request_id $method $url" + (mock_rule_id?.let { " mock $it" } ?: "")
+                        "$request_id $method $url" + (mock_rule_id?.let { " mock $it" } ?: "") +
+                            (replay_of?.let { " replay_of $it" } ?: "")
                     }
                 }
 
@@ -126,6 +141,10 @@ internal fun describe(envelope: Envelope): String {
 
                 "network/RequestFailed" -> {
                     RequestFailed.ADAPTER.decode(envelope.payload).run { "$request_id $error" }
+                }
+
+                "interaction/ReplayRefused" -> {
+                    ReplayRefused.ADAPTER.decode(envelope.payload).run { "$request_id $reason" }
                 }
 
                 "network/WebSocketFrame" -> {

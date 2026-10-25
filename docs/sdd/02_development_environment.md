@@ -100,6 +100,10 @@ rule (id 1) for `GET 10.0.2.2/status/418` that answers 200 `mocked`; the
 server sends it to the device after `HelloAck` (ADR-0116). The sample's last
 button, `418, or a mock`, calls that path, and its line asserts the
 `RequestStarted` carries `mock 1`: the SDK answered it without the network.
+`--replay /json` makes the server ask the device to send the first
+`GET /json` again; that line asserts a `RequestStarted` with `replay_of`
+its request id and a `ResponseReceived` (ADR-0122 D.1). The check for
+duplicates leaves replays out.
 
 `host` and `port` restart the SDK on that desktop only, and again only when
 they change, so a rotation keeps the connection, a new launch on another port

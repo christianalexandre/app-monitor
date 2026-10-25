@@ -31,6 +31,9 @@ cat >"$server_log" <<LOG
 [s1] network/ResponseReceived m 200, 6 bytes
 [s1] network/RequestStarted n GET $t/status/404
 [s1] network/ResponseReceived n 404, 0 bytes
+[s1] network/RequestStarted r GET $t/status/404 replay_of n
+[s1] network/ResponseReceived r 404, 0 bytes
+[s1] network/RequestStarted q GET $t/post replay_of p
 LOG
 
 check "nothing missing" "" "$(missing dev.app "GET $t/json ResponseReceived")"
@@ -41,6 +44,10 @@ check "answered by its mock rule" "" "$(missing dev.app "GET $t/status/418 Respo
 check "another rule or none" "GET $t/status/418: not answered by mock rule 2
 GET $t/status/404: not answered by mock rule 1" "$(missing dev.app "GET $t/status/418 ResponseReceived mock:2
 GET $t/status/404 ResponseReceived mock:1")"
+check "sent again, its replay not counted twice" "" "$(missing dev.app "GET $t/status/404 ResponseReceived replay")$(
+  repeated "GET $t/status/404 ResponseReceived replay"
+)"
+check "not sent again" "GET $t/status/418: not sent again" "$(missing dev.app "GET $t/status/418 ResponseReceived replay")"
 check "missing request and device" "no device connected with app id other.app
 POST $t/post: no RequestStarted" "$(missing other.app "POST $t/post ResponseReceived")"
 check "captured twice" "GET $t/json: 2 RequestStarted" "$(repeated "GET $t/json ResponseReceived

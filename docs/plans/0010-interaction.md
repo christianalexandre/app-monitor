@@ -104,12 +104,18 @@ needs its own decision is split as soon as that shows.
   `replay_of`. SDD 10 and 12 updated.
   Accept: `./gradlew :desktop:mcp:test :desktop:app:test`. A stand-in
   device gets the request from MCP only once confirmed.
-- [ ] **M9.10 Breakpoints and replay in the Kotlin SDKs.** `sdk/core`,
-  `AppMonitorInterceptor` and `AppMonitorKtor` hold a matching call,
-  resume it edited, let one time out, and replay a recent request.
-  SDD 04, 05 and 08 updated.
+- [x] **M9.10 Replay in the Kotlin SDKs.** (`feat/kotlin-sdk-replay`; split: the
+  breakpoints are M9.14, done next; ADR-0122: `RecentRequests` in the session's `MonitorClient`,
+  OkHttp's call cloned, Ktor's request copied at `HttpRequestPipeline.Before`, `make server --replay PATH`) `sdk/core`, `AppMonitorInterceptor`
+  and `AppMonitorKtor` replay a recent request through the app's client,
+  and refuse one they no longer keep. SDD 04, 05 and 08 updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`
   and `make e2e-android`, with one replay asserted end to end.
+- [ ] **M9.14 Breakpoints in the Kotlin SDKs.** (split from M9.10; a new
+  id so the ids ADRs cite stay) `sdk/core`, `AppMonitorInterceptor` and
+  `AppMonitorKtor` hold a matching call, resume it edited, abort it, and
+  let one time out. SDD 04, 05 and 08 updated.
+  Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`.
 - [ ] **M9.11 Breakpoints and replay in the iOS SDK.** The same in
   `sdk/ios` for data and upload tasks. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one

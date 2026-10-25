@@ -90,11 +90,12 @@ foreign_urls() {
 }
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
-# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, or mock:<rule id>
-# for a request that rule answered on the device (ADR-0110).
+# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, mock:<rule id>
+# for a request that rule answered on the device (ADR-0110), or `replay` for a request the device sent
+# again with the same terminal (ADR-0122).
 # Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
 missing() {
-  local method url terminal frames id frame
+  local method url terminal frames id frame replay
   grep -q "\] connected: .* $1 " "$server_log" || echo "no device connected with app id $1"
   while read -r method url terminal frames; do
     id="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { print $3; exit }' "$server_log")"
@@ -104,6 +105,15 @@ missing() {
     fi
     grep -q " network/$terminal $id " "$server_log" || echo "$method $url: no $terminal for $id"
     for frame in $frames; do
+      if [[ "$frame" == replay ]]; then
+        replay="$(awk -v i="$id" '$2 == "network/RequestStarted" && $(NF - 1) == "replay_of" && $NF == i { print $3; exit }' "$server_log")"
+        if [[ -z "$replay" ]]; then
+          echo "$method $url: not sent again"
+        else
+          grep -q " network/$terminal $replay " "$server_log" || echo "$method $url: no $terminal for its replay $replay"
+        fi
+        continue
+      fi
       if [[ "$frame" == mock:* ]]; then
         awk -v i="$id" -v r="${frame#mock:}" '$2 == "network/RequestStarted" && $3 == i && $6 == "mock" && $7 == r { f = 1 }
           END { exit !f }' "$server_log" || echo "$method $url: not answered by mock rule ${frame#mock:}"
@@ -116,13 +126,14 @@ missing() {
 }
 
 # $1 expectations as for `missing`: prints each one whose RequestStarted is in the log more than once,
-# schemes compared as the SDKs log a socket's upgrade, `ws` as `http` and `wss` as `https` (ADR-0003).
+# schemes compared as the SDKs log a socket's upgrade, `ws` as `http` and `wss` as `https` (ADR-0003);
+# a replay the desktop asked for is not counted.
 repeated() {
   local method url count
   while read -r method url _; do
     count="$(awk -v m="$method" -v u="$url" '
       function blind(s) { sub(/^ws:/, "http:", s); sub(/^wss:/, "https:", s); return s }
-      $2 == "network/RequestStarted" && $4 == m && blind($5) == blind(u) { n++ } END { print n + 0 }' "$server_log")"
+      $2 == "network/RequestStarted" && $4 == m && blind($5) == blind(u) && $(NF - 1) != "replay_of" { n++ } END { print n + 0 }' "$server_log")"
     ((count <= 1)) || echo "$method $url: $count RequestStarted"
   done <<<"$1"
 }

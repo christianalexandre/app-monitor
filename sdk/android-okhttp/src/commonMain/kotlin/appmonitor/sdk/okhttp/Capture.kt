@@ -38,6 +38,12 @@ internal interface CaptureSink {
         method: String,
         url: String,
     ): MockRule? = null
+
+    /** Keeps [replay] for the desktop's `ReplayRequest` of [requestId] (ADR-0111 D.1); null once sent, else why not. */
+    fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) = Unit
 }
 
 internal object MonitorSink : CaptureSink {
@@ -49,6 +55,11 @@ internal object MonitorSink : CaptureSink {
         method: String,
         url: String,
     ): MockRule? = MonitorBridge.mockFor(method, url)
+
+    override fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) = MonitorBridge.keepForReplay(requestId, replay)
 }
 
 /** The value a masked header, query or fragment parameter, URL user name or password is sent with (ADR-0018). */
@@ -222,6 +233,7 @@ internal fun requestStarted(
     masking: Masking,
     body: CapturedBody,
     mockRuleId: Long? = null,
+    replayOf: String? = null,
 ): RequestStarted {
     var headers = request.headers
     val contentType = request.body?.contentType()
@@ -238,6 +250,7 @@ internal fun requestStarted(
         body_size = body.size,
         capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
         mock_rule_id = mockRuleId,
+        replay_of = replayOf,
     )
 }
 

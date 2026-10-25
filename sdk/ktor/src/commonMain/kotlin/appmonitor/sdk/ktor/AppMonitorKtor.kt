@@ -4,6 +4,8 @@ import appmonitor.protocol.Protocol
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.plugins.api.ClientPlugin
 import io.ktor.client.plugins.api.createClientPlugin
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.HttpRequestPipeline
 import io.ktor.client.request.HttpSendPipeline
 import io.ktor.client.statement.HttpResponseContainer
 import io.ktor.client.statement.HttpResponsePipeline
@@ -13,8 +15,8 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * `install(AppMonitorKtor)`: each request sent, redirect hops included, its response or failure go to the
- * running `AppMonitor` (ADR-0062, ADR-0063), with the frames of a WebSocket it opens; nothing is captured until
- * `AppMonitor.start` runs.
+ * running `AppMonitor` (ADR-0062, ADR-0063), with the frames of a WebSocket it opens; a call is sent again when the
+ * desktop asks (ADR-0111). Nothing is captured until `AppMonitor.start` runs.
  */
 public val AppMonitorKtor: ClientPlugin<Unit> = appMonitorKtor(MonitorSink)
 
@@ -24,6 +26,10 @@ internal fun appMonitorKtor(
 ): ClientPlugin<Unit> =
     createClientPlugin("AppMonitorKtor") {
         val httpClient = client
+        // ADR-0122 C.1: before DefaultRequest, HttpCookies or any other plugin changes the request.
+        client.requestPipeline.intercept(HttpRequestPipeline.Before) {
+            if (sink.options != null) context.attributes.put(APP_REQUEST, HttpRequestBuilder().takeFrom(context))
+        }
         // ADR-0069: after HttpSendPipeline.State, where HttpCookies adds Cookie; once per hop.
         client.sendPipeline.intercept(HttpSendPipeline.Monitoring) { content ->
             val options = sink.options
@@ -37,7 +43,12 @@ internal fun appMonitorKtor(
             request.attributes.put(REQUEST_ID, id)
             val masking = Masking(options)
             val mock = sink.mockFor(request.method.value, request.url.buildString())
-            sink.emit("RequestStarted") { requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id) }
+            val replayOf = request.attributes.getOrNull(REPLAY_OF)
+            sink.emit("RequestStarted") {
+                requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id, replayOf)
+            }
+            val app = request.attributes.getOrNull(APP_REQUEST)
+            sink.keepForReplay(id) { replay(httpClient, app, content, id) }
             if (mock != null) {
                 // ADR-0115: the engine and the receive pipeline are skipped; the Send hooks still see the call.
                 subject = answer(httpClient, sink, request, content, mock, id, masking)

@@ -66,6 +66,25 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
   host and the simulator (engine never called, streamed read,
   `expectSuccess`, failure, unmatched call untouched).
 
+### A call sent again
+
+The plugin copies the request builder at `HttpRequestPipeline.Before`,
+before any plugin changes it, into the request's attributes, and keeps
+each captured hop for a replay (SDD 04, ADR-0122 C.1):
+
+- On the desktop's request, a copy of that builder (`takeFrom`), marked
+  with the original's request id, goes through `client.request` in a
+  coroutine on the client's scope. Every plugin runs again, as for the
+  app's own call; the body, saved by Ktor, is captured whole. The
+  coroutine swallows every exception: the call's failure is already
+  captured as `RequestFailed`.
+- `Monitoring` reads the mark into `RequestStarted.replay_of`.
+- A streamed body (`ReadChannelContent`), a WebSocket (`ws` or `wss`
+  URL) and a closed client are refused with a reason.
+- Tests: `ReplayTest` against `MockEngine` on the JVM, the Android host
+  and the simulator (headers added by `defaultRequest` and a plugin not
+  doubled, same body, marked, kept in turn; refusals).
+
 ### One WebSocket
 
 The upgrade is an exchange like any other: `RequestStarted` (masked, no
