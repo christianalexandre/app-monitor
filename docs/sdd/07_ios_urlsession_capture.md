@@ -3,8 +3,9 @@
 How `sdk/ios` turns every `URLSession` task of the app into `network`
 envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
-`BackgroundCapture.swift`, `Mocks.swift`, `Replays.swift` and `Masking.swift`; the mechanism is ADR-0043
-(WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117, replay ADR-0124), what is masked and
+`BackgroundCapture.swift`, `Mocks.swift`, `Replays.swift`, `Breakpoints.swift` and `Masking.swift`; the mechanism
+is ADR-0043 (WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117, replay ADR-0124, breakpoints
+ADR-0125), what is masked and
 bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
 the last section (ADR-0099).
 
@@ -105,6 +106,42 @@ through the app's own session (ADR-0111 D.1, ADR-0124):
   read from `NSURLSession`'s `_invalid_ivar` before the task is made: a
   task made on an invalidated session raises an exception that ends the
   app (DEBT-0084 for the race).
+
+### One held task
+
+The desktop's breakpoints (SDD 12) hold a task's request before it is
+sent and its response before the app reads it (ADR-0111, ADR-0125):
+
+- **Chosen at the first resume**, by the hook that sends `RequestStarted`:
+  a data or upload task of a local session, as for a mock, without a
+  streamed body, that the session's first breakpoint holding the request
+  or the response matches (`Breakpoints.match`, the mock matcher). The
+  `TaskCapture` keeps the request rule and the request as resumed: by
+  `startLoading` its `httpBody` is a stream.
+- **Loaded by `HoldProtocol`**, put before `MockProtocol` by the same
+  getter. A request rule: the hook sends no `RequestStarted`; the protocol
+  sends `BreakpointHit` with the request (masked, no mock id) and waits on
+  the loading thread's run loop. A resume applies only its fields (method,
+  URL, `set_headers` and `removed_headers` by name, body); the mock is
+  matched on the request as resumed; then one `RequestStarted` with what
+  goes out. An abort sends the held `RequestStarted` and fails the task
+  as a mock failure; a URL that is not `http` or `https` with a host, or
+  an empty method, fails it with `NSURLErrorBadURL` "Breakpoint edit
+  refused: …".
+- **Sent on** through a new session from a copy of the task's session
+  configuration (cookies, cache, headers, timeouts), its task marked so
+  it is never captured, held or mocked; or answered by the mock rule.
+  Without a response rule matching the request as sent, the response is
+  handed to the task as it comes.
+- **A response rule**: the response is read whole, sent in
+  `BreakpointHit` with the request as sent, then handed over unchanged or
+  with the resume's status, headers and body; an abort fails the task.
+- **Ends** at the resume, the abort, the hit's timeout or the session's
+  end, the last two unchanged. A task the app cancels while held drops
+  the hold and sends the held `RequestStarted` before the capture's
+  `RequestFailed`.
+- **Captured as any task**: the connection hooks see what the protocol
+  hands over, so `ResponseReceived` is what the app read.
 
 ### One WebSocket task
 
@@ -237,7 +274,9 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 - A mocked `3xx` reaches the app as is; the protocol never redirects.
 - A replay of a redirected task sends its first request again; a
   WebSocket is refused as not kept.
-- Breakpoints are not read yet: `BreakpointRules` is dropped (PLAN-0010 M9.15).
+- A held task's challenges get default handling and its redirects are
+  followed, without the app's delegate (DEBT-0085); the hold is tested on
+  the macOS host only (DEBT-0086).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).

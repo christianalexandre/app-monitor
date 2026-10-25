@@ -204,15 +204,16 @@ extension URLSessionCaptureTests {
         #expect(String(decoding: data, as: UTF8.self) == "hello")
     }
 
-    @Test func theProtocolGoesFirstInALocalConfigurationOnlyAndOnce() {
+    @Test func theProtocolsGoFirstInALocalConfigurationOnlyAndOnce() {
         capture()
         let configuration = URLSessionConfiguration.default
-        configuration.protocolClasses = [MockProtocol.self] + (configuration.protocolClasses ?? [])
+        configuration.protocolClasses = [MockProtocol.self, HoldProtocol.self] + (configuration.protocolClasses ?? [])
         let background = URLSessionConfiguration.background(withIdentifier: "appmonitor.mock-test")
 
         let classes = configuration.protocolClasses ?? []
-        #expect(classes.first == MockProtocol.self)
-        #expect(classes.filter { $0 == MockProtocol.self }.count == 1)
-        #expect(!(background.protocolClasses ?? []).contains { $0 == MockProtocol.self })
+        #expect(
+            classes.prefix(2).map(NSStringFromClass) == [HoldProtocol.self, MockProtocol.self].map(NSStringFromClass))
+        #expect(classes.filter { $0 == MockProtocol.self || $0 == HoldProtocol.self }.count == 2)
+        #expect(!(background.protocolClasses ?? []).contains { $0 == MockProtocol.self || $0 == HoldProtocol.self })
     }
 }

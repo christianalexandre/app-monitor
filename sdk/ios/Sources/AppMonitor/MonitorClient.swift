@@ -104,6 +104,9 @@ final class MonitorClient: @unchecked Sendable {
     /// The requests a `ReplayRequest` can name, kept by the capture; emptied when a session ends (ADR-0122 A.1).
     let replays = RecentRequests()
 
+    /// The desktop's breakpoints and the tasks they hold; every held task goes on when a session ends (ADR-0118).
+    let breakpoints = Breakpoints()
+
     /// Envelopes dropped by the buffer or for their size (DEBT-0023).
     var dropped: Int { buffer.dropped + oversized.value }
 
@@ -309,8 +312,7 @@ final class MonitorClient: @unchecked Sendable {
         pump()
     }
 
-    /// After `HelloAck` only `MockRules` and `ReplayRequest` are read; anything else, `BreakpointRules`
-    /// included, is dropped.
+    /// After `HelloAck` only the `interaction` messages below are read; anything else is dropped.
     private func read(_ data: Data?) {
         guard let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data),
             envelope.channel == ProtocolConstants.channelInteraction
@@ -322,6 +324,15 @@ final class MonitorClient: @unchecked Sendable {
         case "ReplayRequest":
             guard let request = try? Appmonitor_V1_ReplayRequest(serializedBytes: envelope.payload) else { return }
             replay(request.requestID)
+        case "BreakpointRules":
+            guard let rules = try? Appmonitor_V1_BreakpointRules(serializedBytes: envelope.payload) else { return }
+            breakpoints.replace(rules.rules)
+        case "BreakpointResume":
+            guard let resume = try? Appmonitor_V1_BreakpointResume(serializedBytes: envelope.payload) else { return }
+            breakpoints.resume(resume)
+        case "BreakpointAbort":
+            guard let abort = try? Appmonitor_V1_BreakpointAbort(serializedBytes: envelope.payload) else { return }
+            breakpoints.abort(abort)
         default:
             break
         }
@@ -333,12 +344,7 @@ final class MonitorClient: @unchecked Sendable {
         var refused = Appmonitor_V1_ReplayRefused()
         refused.requestID = requestID
         refused.reason = reason
-        var envelope = Appmonitor_V1_Envelope()
-        envelope.channel = ProtocolConstants.channelInteraction
-        envelope.type = "ReplayRefused"
-        envelope.payload = (try? refused.serializedBytes()) ?? Data()
-        envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
-        send(envelope)
+        send(interactionEnvelope("ReplayRefused", refused))
     }
 
     /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
@@ -406,6 +412,7 @@ final class MonitorClient: @unchecked Sendable {
         sending = false
         mocks.clear()
         replays.clear()
+        breakpoints.clear()
         defer { connection = nil }
         return connection
     }
