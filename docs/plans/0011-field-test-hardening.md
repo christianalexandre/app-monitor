@@ -52,7 +52,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   reaches the stand-in desktop at completion.
   Deviation: the start time is the real one, from the task's metrics,
   rather than marked unknown (ADR-0131).
-- [ ] **H1.R1 The setup steps a real app needs are in the README.** The
+- [x] **H1.R1 The setup steps a real app needs are in the README.** (#258) The
   README's Android setup omits the debug `network-security-config` with
   `<debug-overrides>` and the runtime `ACCESS_LOCAL_NETWORK` request; the
   iOS one names the Run Script but not its input and output files under
@@ -63,6 +63,9 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   and `samples/kmp` do, listed side by side in the PR; the cleartext log
   names a document that exists (`./gradlew :sdk:core:allTests`);
   `make docs-check`.
+  Deviation: `<debug-overrides>` cannot allow cleartext (trust anchors
+  only), so the README shows the samples' debug source set config and
+  ADR-0132 corrects ADR-0017 F's snippet.
 - [ ] **H1.R2 iOS connection capture skips the KMP SDK's own socket.**
   ADR-0100 C.1: the SDK's own desktop socket is never reported, but
   `ConnectionCapture.connected` skips only loopback peers. On a physical

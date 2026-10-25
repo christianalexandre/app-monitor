@@ -1,10 +1,10 @@
 ---
 id: DEBT-0060
 title: Non-correctness findings of the second M4 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/MonitorClientTest.kt`
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0060 — Non-correctness findings of the second M4 milestone review
@@ -47,4 +47,6 @@ paid, so the trigger now names `MonitorClientTest.kt` only.
 `scripts/e2e_lib.sh`'s item paid in `feat/ios-sample-grpc-proxy`:
 `sessions` reads the app id from the field after `(PLATFORM_…)`, tested
 with an app id as the device name in `scripts/test_e2e_lib.sh`. The
-`MonitorClientTest` item is open.
+`MonitorClientTest` item paid in `fix/readme-real-app-setup` (PLAN-0011
+H1.R1): `client()` defaults `openSession` to the production lambda and
+builds `MonitorClient` in one call.

@@ -173,7 +173,8 @@ internal class MonitorClient(
                 if (!cleartextPermitted(endpoint.host)) {
                     log(
                         "cleartext ws:// to ${endpoint.host} is blocked by the app's network security policy; " +
-                            "allow it for debug builds with <debug-overrides> (see the SDK README)",
+                            "allow it in a debug-only network security config with cleartextTrafficPermitted " +
+                            "(README.md, Usage, at github.com/christianalexandre/app-monitor)",
                     )
                     stop()
                     return
