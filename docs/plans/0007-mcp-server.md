@@ -119,7 +119,7 @@ header serializer copied, durations sorted per read). None was rejected.
   select one HTTP request method!").
   Accept: `./gradlew :desktop:mcp:test` — `ToCurlTest` runs both commands
   against its local server and receives the request.
-- [ ] **M6.R4 `export_har` adds a field HAR 1.2 does not allow.**
+- [x] **M6.R4 `export_har` adds a field HAR 1.2 does not allow.** (`fix/mcp-har-warnings`; the warning moved to `log._warnings`, the HAR check now refuses an unknown `log` field without `_`)
   `jsonResult` puts a top-level `warnings` key next to `log` when events
   were not saved; HAR 1.2 only allows custom fields that start with `_`,
   so the saved file is not a valid HAR.
