@@ -150,3 +150,4 @@ Rules:
 | [0130](0130-a-held-ios-task-asks-the-apps-delegate.md) | A held iOS task asks the app's delegate | Accepted |
 | [0131](0131-background-tasks-resumed-before-start-are-adopted.md) | Background tasks the resume hook never saw are adopted at their first callback | Accepted |
 | [0132](0132-cleartext-allowed-by-a-debug-source-set-config.md) | Cleartext to the desktop is allowed by a debug source set config, not debug-overrides | Accepted |
+| [0133](0133-desktop-clean-architecture-and-design-system.md) | The desktop app is split into a design system, core layers and feature modules | Accepted |
