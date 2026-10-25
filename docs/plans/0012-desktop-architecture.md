@@ -36,7 +36,7 @@ task that lands each module.
   the design system wraps it (ADR-0134). The run diff dialog took the
   benchmarks' width (1100 → 1180 dp).
 - [x] **H2.F1 iOS host tests isolated from each other's mock rules.**
-  (#PR)
+  (#264)
   Added by H2.1: on `dev` at `ad15632`, `make swift` fails on macOS in
   `ConnectionCaptureTests.urlSessionTrafficIsLeftToItsOwnCapture` (status
   201, `MockTests`' mocked answer, instead of 200), twice in a row; the
