@@ -490,6 +490,7 @@ internal class Ingest(
                     event.capture_layer.value.toLong(),
                     meta,
                     event.mock_rule_id,
+                    event.replay_of,
                     id,
                 )
                 putBody(id, PART_REQUEST, event.body)

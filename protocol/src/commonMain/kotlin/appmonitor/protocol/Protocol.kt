@@ -6,7 +6,7 @@ object Protocol {
     const val CHANNEL_CORE: String = "core"
     const val CHANNEL_NETWORK: String = "network"
 
-    /** Mock rules and breakpoints, desktop to device, and held calls back; later replay (ADR-0110, ADR-0113, ADR-0118). */
+    /** Mock rules, breakpoints and replays, desktop to device, and held calls and refusals back (ADR-0110, ADR-0118, ADR-0120). */
     const val CHANNEL_INTERACTION: String = "interaction"
 
     /** Port the desktop listens on unless configured otherwise (ADR-0009). */

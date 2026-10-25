@@ -143,12 +143,24 @@ nonisolated struct Appmonitor_V1_RequestStarted: Sendable {
   /// Clears the value of `mockRuleID`. Subsequent reads from it will return its default value.
   mutating func clearMockRuleID() {self._mockRuleID = nil}
 
+  /// The request_id of the request this one sends again, on a ReplayRequest;
+  /// absent for a call the app made itself (ADR-0111 D.1).
+  var replayOf: String {
+    get {_replayOf ?? String()}
+    set {_replayOf = newValue}
+  }
+  /// Returns true if `replayOf` has been explicitly set.
+  var hasReplayOf: Bool {self._replayOf != nil}
+  /// Clears the value of `replayOf`. Subsequent reads from it will return its default value.
+  mutating func clearReplayOf() {self._replayOf = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _bodySize: Int64? = nil
   fileprivate var _mockRuleID: Int64? = nil
+  fileprivate var _replayOf: String? = nil
 }
 
 nonisolated struct Appmonitor_V1_ResponseReceived: Sendable {
@@ -376,7 +388,7 @@ nonisolated extension Appmonitor_V1_Header: SwiftProtobuf.Message, SwiftProtobuf
 
 nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RequestStarted"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}method\0\u{1}url\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0\u{3}capture_layer\0\u{3}mock_rule_id\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}method\0\u{1}url\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0\u{3}capture_layer\0\u{3}mock_rule_id\0\u{3}replay_of\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -393,6 +405,7 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
       case 7: try { try decoder.decodeSingularInt64Field(value: &self._bodySize) }()
       case 8: try { try decoder.decodeSingularEnumField(value: &self.captureLayer) }()
       case 9: try { try decoder.decodeSingularInt64Field(value: &self._mockRuleID) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self._replayOf) }()
       default: break
       }
     }
@@ -430,6 +443,9 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
     try { if let v = self._mockRuleID {
       try visitor.visitSingularInt64Field(value: v, fieldNumber: 9)
     } }()
+    try { if let v = self._replayOf {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 10)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -443,6 +459,7 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
     if lhs._bodySize != rhs._bodySize {return false}
     if lhs.captureLayer != rhs.captureLayer {return false}
     if lhs._mockRuleID != rhs._mockRuleID {return false}
+    if lhs._replayOf != rhs._replayOf {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -90,14 +90,19 @@ needs its own decision is split as soon as that shows.
   off in the window; a held call shown, edited, resumed or aborted.
   Accept: `./gradlew :desktop:app:test`. A call held by a stand-in device
   resumed edited from the window; offscreen screenshot `breakpoint.png`.
-- [ ] **M9.9 Replay on the wire and in the desktop.** Per ADR-0111 D.1
+- [x] **M9.9 Replay on the wire and in the desktop.** (`feat/replay-channel`; split: the MCP tool is M9.13, done next; ADR-0120: `ReplayRefused` with a reason, `replay_of` the original's request id linked in its session (migration `6.sqm`), "Send again" only to the exchange's live session) Per ADR-0111 D.1
   and E.1: `ReplayRequest` and `RequestStarted.replay_of`, stored and
-  linked (a migration), "Send again" in an exchange's detail, and an MCP
-  tool under ADR-0005's confirmation. SDD 09, 10 and 12 updated.
-  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:app:test :desktop:mcp:test`.
-  A stand-in device gets the request from the window, and from MCP only
-  once confirmed; a replayed exchange is stored and linked to its
-  original.
+  linked (a migration), "Send again" in an exchange's detail.
+  SDD 09 and 12 updated.
+  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:app:test`.
+  A stand-in device gets the request from the window; a replayed
+  exchange is stored and linked to its original.
+- [ ] **M9.13 Replay from MCP.** (split from M9.9; a new id so the ids
+  ADRs cite stay) Per ADR-0111 E.1: an MCP tool asks a replay that waits
+  for a confirmation in the window (ADR-0005); MCP rows carry
+  `replay_of`. SDD 10 and 12 updated.
+  Accept: `./gradlew :desktop:mcp:test :desktop:app:test`. A stand-in
+  device gets the request from MCP only once confirmed.
 - [ ] **M9.10 Breakpoints and replay in the Kotlin SDKs.** `sdk/core`,
   `AppMonitorInterceptor` and `AppMonitorKtor` hold a matching call,
   resume it edited, let one time out, and replay a recent request.

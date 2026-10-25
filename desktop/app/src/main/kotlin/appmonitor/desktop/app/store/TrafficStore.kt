@@ -16,11 +16,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Feeds [storage] with every session and its envelopes, in the order each session produced them (SDD 09), sends each
- * session that accepted `interaction` its app's mock rules and breakpoints, and keeps the calls it holds in [heldCalls] (SDD 12).
+ * session that accepted `interaction` its app's mock rules and breakpoints, keeps the calls it holds in [heldCalls] and
+ * sends it the [replays] asked for (SDD 12).
  */
 internal class TrafficStore(
     private val storage: Storage,
     val heldCalls: HeldCalls = HeldCalls(),
+    val replays: Replays = Replays(),
 ) {
     /** Collects every session and its envelopes until [sessions] completes and every session closes. */
     suspend fun collect(sessions: Flow<DeviceSession>): Unit =
@@ -35,6 +37,7 @@ internal class TrafficStore(
                             emptyList()
                         }
                     val timeouts = Job(coroutineContext.job)
+                    replays.opened(session)
                     try {
                         session.envelopes.collect { envelope ->
                             heldCalls.hold(session, envelope)?.let { call ->
@@ -43,12 +46,14 @@ internal class TrafficStore(
                                     heldCalls.expire(call)
                                 }
                             }
+                            replays.read(session, envelope)
                             storage.received(session.id, envelope)
                         }
                     } finally {
                         pushes.forEach { it.cancel() }
                         timeouts.cancel()
                         heldCalls.ended(session.id)
+                        replays.ended(session.id)
                         // A full queue on a stalled disk must not hold the exit; the next open closes the session.
                         withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { storage.disconnected(session.id) } }
                     }

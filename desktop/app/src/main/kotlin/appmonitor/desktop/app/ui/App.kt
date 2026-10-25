@@ -62,6 +62,9 @@ import appmonitor.desktop.app.store.HeldCalls
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.ProxyStatus
+import appmonitor.desktop.app.store.ReplayKey
+import appmonitor.desktop.app.store.ReplaySent
+import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.store.durationOf
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
@@ -114,6 +117,7 @@ internal fun AppMonitorApp(
     onResetProxyCa: () -> Unit = {},
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
     heldCalls: HeldCalls? = null,
+    replays: Replays? = null,
 ) {
     val currentRun by storage.currentRun.collectAsState()
     val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
@@ -206,7 +210,15 @@ internal fun AppMonitorApp(
                     } else {
                         // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
                         key(row.id) {
-                            StoredRequestDetail(storage, row) { exchange ->
+                            StoredRequestDetail(
+                                storage,
+                                row,
+                                replays?.let { ReplayTarget(it, session?.serverSessionId.orEmpty()) },
+                                onShowOriginal = { id ->
+                                    filter = ExchangeFilter()
+                                    selectedRequest = id
+                                },
+                            ) { exchange ->
                                 mocksOpen = mockDraftOf(exchange, session?.hello?.app_id.orEmpty())
                                 mocksShown = true
                             }
@@ -380,6 +392,8 @@ private fun rememberExchangePages(
 private fun StoredRequestDetail(
     storage: Storage,
     row: StoredExchange,
+    replay: ReplayTarget?,
+    onShowOriginal: (Long) -> Unit,
     onMock: (HttpExchange) -> Unit,
 ) {
     var frameLimit by remember { mutableStateOf(Storage.PAGE_SIZE) }
@@ -401,9 +415,29 @@ private fun StoredRequestDetail(
                 )
         }
     }
-    exchange?.let { RequestDetail(it, onCopyCurl, copyNote, { onMock(it) }) { frameLimit += Storage.PAGE_SIZE } }
-        ?: Placeholder("Loading…")
+    val refused by remember(replay) { replay?.replays?.refused ?: MutableStateFlow(emptyMap()) }.collectAsState()
+    var sent by remember { mutableStateOf<ReplaySent?>(null) }
+    val replayNote =
+        refused[ReplayKey(replay?.sessionId.orEmpty(), row.requestId)]?.let { "The app did not send it again: $it" }
+            ?: sent?.let(::noteOf)
+    val onReplay = replay?.let { { sent = it.replays.send(it.sessionId, row.requestId) } }
+    exchange?.let {
+        RequestDetail(it, onCopyCurl, copyNote, { onMock(it) }, onReplay, replayNote, onShowOriginal) { frameLimit += Storage.PAGE_SIZE }
+    } ?: Placeholder("Loading…")
 }
+
+/** Where "Send again" goes: [sessionId] is the server's id of the shown session. */
+private class ReplayTarget(
+    val replays: Replays,
+    val sessionId: String,
+)
+
+private fun noteOf(sent: ReplaySent): String =
+    when (sent) {
+        ReplaySent.SENT -> "Sent to the app; its call shows as a replay"
+        ReplaySent.SESSION_ENDED -> "Not sent: the app's session ended, and a replay goes through the app"
+        ReplaySent.NOT_TAKEN -> "Not sent: this app's SDK does not take replays"
+    }
 
 @Composable
 private fun ApprovalDialog(
@@ -862,6 +896,9 @@ private fun RequestList(
                     if (exchange.mockRuleId != null) {
                         Text("mocked", Modifier.testTag(MOCKED + exchange.requestId), style = MaterialTheme.typography.caption)
                     }
+                    if (exchange.replayOf != null) {
+                        Text("replay", Modifier.testTag(REPLAYED + exchange.requestId), style = MaterialTheme.typography.caption)
+                    }
                     Text(statusOf(exchange), Modifier.width(56.dp))
                     Text(durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "", Modifier.width(72.dp))
                 }
@@ -964,6 +1001,9 @@ private fun RequestDetail(
     onCopyCurl: () -> Unit,
     copyNote: String?,
     onMock: () -> Unit,
+    onReplay: (() -> Unit)?,
+    replayNote: String?,
+    onShowOriginal: (Long) -> Unit,
     onMoreFrames: () -> Unit,
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
@@ -985,6 +1025,9 @@ private fun RequestDetail(
                             true
                         ) {
                             TextButton(onClick = onMock, Modifier.testTag(MOCK_THIS)) { Text("Mock this") }
+                            if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
+                                TextButton(onClick = onReplay, Modifier.testTag(SEND_AGAIN)) { Text(replayLabelOf(exchange.method)) }
+                            }
                         }
                         TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
                     }
@@ -999,6 +1042,19 @@ private fun RequestDetail(
                     style = MaterialTheme.typography.caption,
                 )
                 exchange.error?.let { Text(it, color = MaterialTheme.colors.error) }
+                replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), style = MaterialTheme.typography.caption) }
+                exchange.replayOf?.let {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val original = exchange.replayOfId
+                        Text(
+                            if (original != null) "Replay of an earlier request" else "Replay of a request no longer stored",
+                            style = MaterialTheme.typography.caption,
+                        )
+                        if (original != null) {
+                            TextButton(onClick = { onShowOriginal(original) }, Modifier.testTag(SHOW_ORIGINAL)) { Text("Show original") }
+                        }
+                    }
+                }
             }
             exchange.connection?.let { bytes ->
                 item {
@@ -1221,6 +1277,20 @@ private fun mockedBy(exchange: HttpExchange): String =
     exchange.mockRuleName?.let { "Mocked by rule \"$it\"" } ?: "Mocked by deleted rule ${exchange.mockRuleId}"
 
 internal const val MOCKED = "mocked-"
+
+internal const val REPLAYED = "replayed-"
+
+internal const val SEND_AGAIN = "send-again"
+
+internal const val REPLAY_NOTE = "replay-note"
+
+internal const val SHOW_ORIGINAL = "show-original"
+
+// ADR-0111: a replayed POST really runs a second time on the server.
+private fun replayLabelOf(method: String?): String =
+    if (method?.uppercase() in SAFE_METHODS) "Send again" else "Send again: runs ${method ?: "it"} on the server again"
+
+private val SAFE_METHODS = setOf("GET", "HEAD", "OPTIONS")
 
 private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
 

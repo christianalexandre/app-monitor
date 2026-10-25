@@ -47,6 +47,8 @@ internal data class HttpExchange(
     val connection: ConnectionBytes? = null,
     val mockRuleId: Long? = null,
     val mockRuleName: String? = null,
+    val replayOf: String? = null,
+    val replayOfId: Long? = null,
 ) {
     val durationMs: Long? get() = durationOf(startedAtMs, endedAtMs)
 }
@@ -92,5 +94,7 @@ internal fun HttpExchange(
         connection = detail.connectionBytes,
         mockRuleId = row.mockRuleId,
         mockRuleName = detail.mockRuleName,
+        replayOf = row.replayOf,
+        replayOfId = detail.replayOfId,
     )
 }

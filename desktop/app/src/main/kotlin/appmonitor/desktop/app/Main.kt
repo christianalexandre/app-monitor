@@ -117,6 +117,7 @@ fun main() {
                                 onProxyEnabled = { scope.launch { proxy.setEnabled(it) } },
                                 onResetProxyCa = { scope.launch { proxy.resetCa() } },
                                 heldCalls = store.heldCalls,
+                                replays = store.replays,
                             )
                         }
                     }

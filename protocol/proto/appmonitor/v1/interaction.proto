@@ -1,6 +1,6 @@
 // Channel "interaction": the desktop changes what the app's calls do
-// (ADR-0110, ADR-0113). Sent only to a device that listed the channel in
-// Hello.channels and got it back in HelloAck.channels.
+// (ADR-0110, ADR-0113, ADR-0118, ADR-0120). Sent only to a device that listed
+// the channel in Hello.channels and got it back in HelloAck.channels.
 syntax = "proto3";
 
 package appmonitor.v1;
@@ -109,4 +109,19 @@ message BreakpointAbort {
   string request_id = 1;
   BreakpointStage stage = 2;
   string message = 3;
+}
+
+// Desktop to device: send the request of this session's request_id again
+// through the app's own client (ADR-0111 D.1). The new call is captured as
+// usual, its RequestStarted.replay_of set to this request_id.
+message ReplayRequest {
+  string request_id = 1;
+}
+
+// Device to desktop: the request of a ReplayRequest was not sent again, e.g.
+// it is no longer among the requests the SDK keeps.
+message ReplayRefused {
+  string request_id = 1;
+  // Shown to the developer.
+  string reason = 2;
 }

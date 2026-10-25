@@ -70,6 +70,7 @@ class BreakpointsTest {
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
                     it.execute("DROP TABLE breakpoint_rules")
+                    it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("PRAGMA user_version = 5")
                 }
             }
@@ -79,7 +80,7 @@ class BreakpointsTest {
                 assertEquals(1, storage.observeActiveBreakpoints(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(6, dir.queryLong("PRAGMA user_version"))
+            assertEquals(7, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

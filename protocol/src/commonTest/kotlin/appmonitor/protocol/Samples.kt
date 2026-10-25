@@ -16,6 +16,8 @@ import appmonitor.v1.MockResponse
 import appmonitor.v1.MockRule
 import appmonitor.v1.MockRules
 import appmonitor.v1.Platform
+import appmonitor.v1.ReplayRefused
+import appmonitor.v1.ReplayRequest
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -201,6 +203,13 @@ object Samples {
             message = "aborted on the desktop",
         )
 
+    // ADR-0120: the first request sent again, under a new id.
+    val replayStarted = requestStarted.copy(request_id = "req-0006", replay_of = REQUEST_ID)
+
+    val replayRequest = ReplayRequest(request_id = REQUEST_ID)
+
+    val replayRefused = ReplayRefused(request_id = "req-0007", reason = "no longer kept by the SDK")
+
     /** Fixture file name to the envelope it holds. */
     val envelopes: Map<String, Envelope> =
         mapOf(
@@ -218,6 +227,9 @@ object Samples {
             "breakpoint_hit.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointHit", breakpointHit),
             "breakpoint_resume.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointResume", breakpointResume),
             "breakpoint_abort.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointAbort", breakpointAbort),
+            "replay_started.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", replayStarted),
+            "replay_request.bin" to envelope(Protocol.CHANNEL_INTERACTION, "ReplayRequest", replayRequest),
+            "replay_refused.bin" to envelope(Protocol.CHANNEL_INTERACTION, "ReplayRefused", replayRefused),
         )
 
     private fun envelope(
