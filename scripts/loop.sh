@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Runs /next in a fresh session per iteration in a dedicated worktree until it
 # reports STOP; `--worktree` only creates the worktree. Env (defaults):
-#   MAX_ITERATIONS=20  MAX_BUDGET_USD=20 (per iteration)  ITERATION_TIMEOUT=5400 (s)
+#   MAX_ITERATIONS=50  MAX_BUDGET_USD=20 (per iteration)  ITERATION_TIMEOUT=5400 (s)
 #   LIMIT_RETRIES=8    LOOP_WORKTREE=../<repo>-loop
 #   PLAN_CHECKPOINT=1 stops at each plan's close instead of merging it (ADR-0019)
 set -uo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 worktree="${LOOP_WORKTREE:-$(dirname "$repo")/$(basename "$repo")-loop}"
-max="${MAX_ITERATIONS:-20}"
+max="${MAX_ITERATIONS:-50}"
 budget="${MAX_BUDGET_USD:-20}"
 timeout_s="${ITERATION_TIMEOUT:-5400}"
 limit_retries="${LIMIT_RETRIES:-8}"

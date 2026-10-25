@@ -20,14 +20,17 @@ record of how the milestone was actually built once it is done.
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
   code of that milestone. The roadmap row then links to it.
+- **Size**: four to six tasks. No standalone "design on paper" or "docs
+  sync" task: a design lands with the first task that needs it, and every
+  PR keeps the docs it touches current (ADR-0094).
 - **Checkpoint**: when every task is `[x]`, the agent reviews the milestone
-  (`code-review`) in at most three rounds — the first on the whole milestone
-  diff, the next ones only on what changed since — and turns correctness
-  findings into `MN.R*` tasks, the rest into one DEBT per round (ADR-0016).
-  Then it opens the close-plan PR and merges it after green CI, unless a
-  correctness finding is left open or `PLAN_CHECKPOINT=1` is set: then it
-  stops, and the owner merging that PR is the approval to start the next
-  plan (ADR-0019).
+  (`code-review` at `medium`) **once**, on the whole milestone diff. Only
+  findings that normal use hits become `MN.R*` tasks; the rest go into one
+  DEBT (ADR-0094). The findings ride in the first `MN.R*` PR, and the close
+  in the last one (or in a close-plan PR when there is no task). It merges on
+  auto unless a correctness finding is left open or `PLAN_CHECKPOINT=1` is
+  set: then it stops, and the owner merging that PR is the approval to start
+  the next plan (ADR-0019).
 
 ## Index
 

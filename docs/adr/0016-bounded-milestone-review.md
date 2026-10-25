@@ -1,9 +1,9 @@
 ---
 id: ADR-0016
 title: Milestone review is incremental, keeps only correctness findings and stops after three rounds
-status: Accepted
+status: Superseded
 date: 2026-10-22
-superseded_by:
+superseded_by: ADR-0094
 ---
 
 # ADR-0016 — Milestone review is incremental, keeps only correctness findings and stops after three rounds
