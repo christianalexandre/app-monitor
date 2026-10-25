@@ -90,6 +90,42 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
 
+### First milestone review
+
+Findings of the `code-review` of `45d382c..6172cd4`. Five are correctness
+findings and became four tasks (the two `to_curl` replays share one).
+Five went to DEBT-0071 (a refused settings write not reported, `dev` as
+the packaged server's version, the HAR cap counted in characters, the
+header serializer copied, durations sorted per read). None was rejected.
+
+- [ ] **M6.R1 A switch turned off during launch is overwritten.**
+  `McpController.start` reads `mcp.enabled` outside its lock and then
+  writes the result to `enabled`, so a `setEnabled(false)` made while that
+  read is in flight is undone: the server binds and the settings show it
+  on, while the store says off, so the next launch is off.
+  Accept: `./gradlew :desktop:app:test` with a test that turns the switch
+  off while `start`'s read is held, and the server stays off.
+- [ ] **M6.R2 `diff_runs` racing close names a run that exists as unknown.**
+  `DiffRuns.call` checks `isClosing` before `storage.runs()`, which returns
+  an empty list once the store closes, so the tool answers
+  "no run with id N" instead of "App Monitor is closing".
+  Accept: `./gradlew :desktop:mcp:test` with a case where the store closes
+  between the check and the read, answered with the closing error.
+- [ ] **M6.R3 `to_curl` commands that curl cannot replay.** Every stored
+  header is replayed with `-H`, so a body cut by the device (or a stored
+  `Transfer-Encoding: chunked`) sends a `Content-Length` that does not
+  match the body, and the server waits or refuses; a `HEAD` with a stored
+  body emits `--head` with `--data-raw`, which curl refuses ("You can only
+  select one HTTP request method!").
+  Accept: `./gradlew :desktop:mcp:test` — `ToCurlTest` runs both commands
+  against its local server and receives the request.
+- [ ] **M6.R4 `export_har` adds a field HAR 1.2 does not allow.**
+  `jsonResult` puts a top-level `warnings` key next to `log` when events
+  were not saved; HAR 1.2 only allows custom fields that start with `_`,
+  so the saved file is not a valid HAR.
+  Accept: `./gradlew :desktop:mcp:test` — the HAR with lost writes passes
+  the HAR 1.2 field check, the warning still in it; SDD 10 updated.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):

@@ -1,0 +1,52 @@
+---
+id: DEBT-0071
+title: Non-correctness findings of the first M6 milestone review
+status: Open
+date: 2026-10-25
+trigger: "The first PR after PLAN-0007 M6.R4 is `[x]` that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release"
+paid_date:
+---
+
+# DEBT-0071 — Non-correctness findings of the first M6 milestone review
+
+## What is missing
+
+Findings of the `code-review` of `45d382c..6172cd4` that are not wrong
+results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
+
+- **A refused settings write is not reported.** `Storage.setSetting`
+  ignores `queue.enqueue`'s result. A failed batch is already counted in
+  the storage health the settings show; only a write after `close`, when
+  no switch or token button is reachable, goes unseen.
+- **The packaged server says `dev`.** `McpController` builds `McpServer`
+  without a version, so `initialize`'s `serverInfo.version` and the HAR's
+  `creator.version` are `dev` in every build.
+- **The HAR cap counts characters.** `ExportHar` measures the 32 MiB cap
+  with `String.length` and serializes each entry twice (once to measure).
+  Non-ASCII bodies can pass the cap in UTF-8 bytes.
+- **Header serializer copied.** `ExportHar.toHar` repeats `GetRequest`'s
+  header `toJson`, and the enum-name formatting is repeated in
+  `GetRequest`, `Filters` and `ListRuns`.
+- **Durations sorted per read.** `EndpointStats`' `Tally.durations()` sorts
+  a copy each call, two or three times per endpoint in `diff_runs`.
+
+## Why it was accepted
+
+No wrong data an agent acts on: a setting refused only after close, a
+version label, a soft size bound, and duplication or work that changes how
+hard the next change is, not what a tool answers. M6.R1 to M6.R4 fix the
+findings that do.
+
+## Trigger
+
+The first PR after PLAN-0007 M6.R4 is `[x]` that touches
+`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`,
+`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`,
+`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`,
+`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or
+`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or
+the first desktop release (the version label).
+
+## How it was paid
+
+> Filled when closing.
