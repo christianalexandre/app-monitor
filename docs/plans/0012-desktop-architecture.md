@@ -41,7 +41,7 @@ task that lands each module.
   201, `MockTests`' mocked answer, instead of 200), twice in a row; the
   suite alone passes. The two suites run in parallel and the mock rules
   are process-wide. Accept: `make swift` green twice in a row.
-- [x] **H2.2a Domain and data for traffic.** `desktop/domain` (runs,
+- [x] **H2.2a Domain and data for traffic.** (#263) `desktop/domain` (runs,
   sessions, exchanges, the detail model, repository interfaces) and
   `desktop/data` (repositories over `desktop/storage`, mappers); the
   traffic panes of `ui/App.kt` read runs, sessions, requests and one
