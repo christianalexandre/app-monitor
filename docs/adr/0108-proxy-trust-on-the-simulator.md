@@ -1,7 +1,7 @@
 ---
 id: ADR-0108
 title: How a simulator's gRPC client trusts the proxy
-status: Proposed # Proposed | Accepted | Superseded | Rejected
+status: Accepted # Proposed | Accepted | Superseded | Rejected
 date: 2026-10-25
 superseded_by:
 ---
@@ -83,9 +83,23 @@ keychain reset) instead of adding one.
 
 ## Decision
 
-Empty while `Proposed`. Accepting 1 or 4 supersedes ADR-0101 D.1 and
-rewrites M8.8; 2 and 3 keep it.
+Option 1. Accepted by the agent on the owner's standing instruction of
+2026-10-25 (take the recommended options while the owner is away); it
+also follows the standing "short setup" decision, as it removes the
+keychain install and reset steps.
+
+- The proxy command in the settings sets both `grpc_proxy` and
+  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` (the data directory's `proxy-ca.pem`)
+  through `SIMCTL_CHILD_`; the same two variables go in an Xcode scheme.
+- This replaces ADR-0101 D.1: no keychain button. The rest of ADR-0101
+  stands.
+- M8.8 first checks that a simulator app reads a file under the Mac's
+  data directory; if it cannot, M8.8 stops with a new ADR.
 
 ## Consequences
 
-To be written with the decision.
+- The iOS sample gains `grpc/grpc-ios` (Apache-2.0) in Debug only; its
+  build time is measured in M8.8.
+- A client that reads only the keychain (`URLSession` or Network.framework
+  pointed at the proxy by the app) is not served; it is not on ADR-0101
+  B.1's path.

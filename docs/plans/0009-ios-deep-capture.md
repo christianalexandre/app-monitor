@@ -89,12 +89,14 @@ evidence before the code.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test :desktop:app:test`
   — a failed gRPC call from each writer shows as an error in every
   reader above.
-- [!] **M8.8 The proxy and the simulator.** (`docs/proxy-simulator-trust`; blocked on ADR-0108 `Proposed`: neither iOS gRPC client trusts what ADR-0101 D.1 installs) "Install CA on booted
-  simulators" per ADR-0101 D.1, an iOS sample button that makes a gRPC
-  call through it.
-  Accept: `./gradlew :desktop:app:test` (the button against a fake
-  `simctl`) and `make e2e-ios` with the proxy on — the sample's gRPC
-  call stored as a `PROXY` exchange with its messages.
+- [ ] **M8.8 The proxy and the simulator.** (ADR-0108 option 1, replacing ADR-0101 D.1) First check that a
+  simulator app reads a file under the Mac's data directory. Then the
+  settings' proxy command sets `grpc_proxy` and
+  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` through `SIMCTL_CHILD_`, and an iOS
+  sample button makes a TLS gRPC-Core call (`grpc/grpc-ios`, Debug only).
+  Accept: `./gradlew :desktop:app:test` (the command's text) and
+  `make e2e-ios` with the proxy on — the sample's gRPC call stored as a
+  `PROXY` exchange with its messages.
 
 ## Outcome
 
