@@ -40,7 +40,7 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 
 | Event | Sent when | Body |
 | --- | --- | --- |
-| `RequestStarted` | Before `chain.proceed` | Written into a sink that keeps `maxBodyBytes` and stops the write past them. One-shot or duplex: not read, `body_truncated` with an empty body. No body: empty, no size. A `Content-Type` from the body is added to the headers when the app set none. |
+| `RequestStarted` | Before `chain.proceed`, after a request breakpoint | Written into a sink that keeps `maxBodyBytes` and stops the write past them. One-shot or duplex: not read, `body_truncated` with an empty body. No body: empty, no size. A `Content-Type` from the body is added to the headers when the app set none. |
 | `ResponseReceived` | When the app reaches the end of the body or closes it; at once for `Content-Length: 0` and `101` | Copied as the app reads it, never read ahead: the app's call is not delayed. `body_size` is the bytes read when the end was reached, else `Content-Length` when known. |
 | `RequestFailed` | `chain.proceed` throws | `error` is the exception's `toString()`; the exception is rethrown unchanged. |
 
@@ -63,6 +63,30 @@ interceptor answers without `chain.proceed` (ADR-0115):
 - WebSocket upgrades are never mocked: the interceptor skips them first.
 - Tests: `MockAnswerTest` against `mockwebserver3` (no request reaches
   it, delay kept, failure, unmatched call untouched).
+
+### A held call
+
+When `MonitorBridge.breakpointFor` returns a rule (SDD 04, ADR-0118,
+ADR-0123), the interceptor holds the call on its own thread
+(`runBlocking`), checking `Call.isCanceled()` every 50 ms:
+
+| Stage | Held | The hit carries | Then |
+| --- | --- | --- | --- |
+| Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value. `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
+| Response | After `chain.proceed` or a mock's answer, before the app reads the body (not for `101` or `Content-Length: 0`) | The request as sent and the response, its body peeked up to `maxBodyBytes` (`BufferedSource.peek`, not consumed) | The resume's status and headers applied; a replaced body is the app's whole body and `ResponseReceived` is sent at once with it; otherwise the body is captured as the app reads it |
+
+- An abort, a cancel or an interrupt during the wait, or an edit OkHttp
+  refuses ("Breakpoint edit refused: …": a URL that does not parse, a
+  method that refuses the body) sends `RequestStarted` when not yet
+  sent, then `RequestFailed`, and throws an `IOException`
+  (`InterruptedIOException` for an interrupt).
+- No answer within the hit's timeout, or the session's end: the call
+  goes on unchanged.
+- WebSocket upgrades are never held.
+- Tests: `BreakpointTest` against `mockwebserver3` (a request edited
+  with the masked header kept, aborted, a refused edit, a response
+  edited, an unchanged one read whole past its held part, a mocked
+  response held, a cancel while held).
 
 ### A call sent again
 

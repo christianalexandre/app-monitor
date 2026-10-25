@@ -32,10 +32,20 @@ internal fun MockRule.matches(
     method: String,
     host: String,
     path: String,
+): Boolean = ruleMatches(this.method, this.host, this.path, method, host, path)
+
+/** ADR-0110 B.1, the matcher a breakpoint shares (ADR-0118 A.1). */
+internal fun ruleMatches(
+    ruleMethod: String,
+    ruleHost: String,
+    rulePath: String,
+    method: String,
+    host: String,
+    path: String,
 ): Boolean {
-    if (this.method.isNotEmpty() && this.method != method) return false
-    if (!this.host.equals(host, ignoreCase = true)) return false
-    val wanted = this.path.split('/')
+    if (ruleMethod.isNotEmpty() && ruleMethod != method) return false
+    if (!ruleHost.equals(host, ignoreCase = true)) return false
+    val wanted = rulePath.split('/')
     val actual = path.split('/')
     return wanted.size == actual.size && wanted.indices.all { wanted[it] == "*" || wanted[it] == actual[it] }
 }

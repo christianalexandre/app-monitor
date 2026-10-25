@@ -16,9 +16,9 @@ the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
 (ADR-0119). Replays in `store/Replays.kt`, sent from the request
 detail in `ui/App.kt` or asked by MCP's `replay_request` and confirmed in
 its dialog (ADR-0121). The Kotlin SDKs list the channel, serve the
-rules (SDD 04, 05, 08, ADR-0115) and send a request again (ADR-0122);
-the Swift SDK serves the rules (SDD 06, 07, ADR-0117). No SDK holds a
-call yet, and the Swift SDK replays none (PLAN-0010).
+rules (SDD 04, 05, 08, ADR-0115), send a request again (ADR-0122) and
+hold a call at a breakpoint (ADR-0123); the Swift SDK serves the rules
+(SDD 06, 07, ADR-0117), and holds and replays none yet (PLAN-0010).
 
 ## How it works
 
@@ -274,6 +274,8 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `desktop/server` |
 | A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
 | An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
+| A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end | `MonitorClientBreakpointsTest` in `sdk/core` |
+| OkHttp and Ktor hold a request and a response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, an OkHttp call cancelled while held | `BreakpointTest` in `sdk/android-okhttp` and `sdk/ktor` |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 
 ## Limits
@@ -283,8 +285,8 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
-- No SDK holds a call yet: both read `BreakpointRules` as an envelope
-  they drop (PLAN-0010 M9.14, M9.11).
+- The Swift SDK holds no call yet: it reads `BreakpointRules` as an
+  envelope it drops (PLAN-0010 M9.11).
 - The Swift SDK drops `ReplayRequest`, so "Send again" to an iOS app
   using it says "Sent" and nothing follows (PLAN-0010 M9.11).
 - The held call's dialog covers the window while the call waits

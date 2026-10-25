@@ -1,13 +1,22 @@
 package appmonitor.sdk.okhttp
 
+import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.MockRule
+import appmonitor.v1.RequestStarted
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -24,7 +33,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Sends each call's request, response and failure to the running `AppMonitor` (ADR-0017, ADR-0018), answers a
- * call the desktop's mock rule matches (ADR-0110), and sends a call again when the desktop asks (ADR-0111). Add
+ * call the desktop's mock rule matches (ADR-0110), holds one at its breakpoint, and sends a call again when the
+ * desktop asks (ADR-0111). Add
  * it with `addInterceptor`, one event set per call; `addNetworkInterceptor` gives one per network hop, with
  * bodies still compressed as on the wire. It captures nothing until `AppMonitor.start` runs.
  */
@@ -44,37 +54,225 @@ public class AppMonitorInterceptor : Interceptor {
     }
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request()
+        val original = chain.request()
         val options = sink.options
-        if (options == null || request.tag(WebSocketCapture::class.java) != null) return chain.proceed(request)
+        if (options == null || original.tag(WebSocketCapture::class.java) != null) return chain.proceed(original)
         val id = newRequestId()
         val masking = Masking(options)
-        val mock = sink.mockFor(request.method, request.url.toString())
         val call = chain.call()
         val replayOf = replays[call]
+        val request = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf)
+        val mock = sink.mockFor(request.method, request.url.toString())
         sink.emit("RequestStarted") {
             requestStarted(id, request, masking, request.body.capture(options.maxBodyBytes), mock?.id, replayOf)
         }
         sink.keepForReplay(id) { replay(call, id) }
-        if (mock != null) return answer(chain, request, mock, id, masking)
-        val response =
+        if (mock != null) {
+            val answered = answer(chain, request, mock, id)
+            val known = checkNotNull(mock.response).body.let { CapturedBody(it, truncated = false, size = it.size.toLong()) }
+            val (mocked, body) = holdResponse(call, request, answered, known, id, masking, options.maxBodyBytes)
+            sink.emit("ResponseReceived") { responseReceived(id, mocked, masking, checkNotNull(body)) }
+            return mocked
+        }
+        val received =
             try {
                 chain.proceed(request)
             } catch (e: Exception) {
                 sink.emit("RequestFailed") { requestFailed(id, e) }
                 throw e
             }
-        val body = response.body
-        if (response.code == SWITCHING_PROTOCOLS || body.contentLength() == 0L) {
-            val empty = if (response.code == SWITCHING_PROTOCOLS) CapturedBody.NONE else CapturedBody.EMPTY
-            sink.emit("ResponseReceived") { responseReceived(id, response, masking, empty) }
+        if (received.code == SWITCHING_PROTOCOLS || received.body.contentLength() == 0L) {
+            val empty = if (received.code == SWITCHING_PROTOCOLS) CapturedBody.NONE else CapturedBody.EMPTY
+            sink.emit("ResponseReceived") { responseReceived(id, received, masking, empty) }
+            return received
+        }
+        val (response, replaced) = holdResponse(call, request, received, null, id, masking, options.maxBodyBytes)
+        if (replaced != null) {
+            sink.emit("ResponseReceived") { responseReceived(id, response, masking, replaced) }
             return response
         }
         val capturing =
-            CapturingResponseBody(body, options.maxBodyBytes) { captured ->
+            CapturingResponseBody(response.body, options.maxBodyBytes) { captured ->
                 sink.emit("ResponseReceived") { responseReceived(id, response, masking, captured) }
             }
         return response.newBuilder().body(capturing).build()
+    }
+
+    /** ADR-0111 A.1, C.1: [request] as its breakpoint lets it go, edited or not; an abort or a bad edit fails the call. */
+    private fun holdRequest(
+        call: Call,
+        request: Request,
+        id: String,
+        masking: Masking,
+        limit: Int,
+        replayOf: String?,
+    ): Request {
+        val stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST
+        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return request
+        val started = requestStarted(id, request, masking, request.body.capture(limit), replayOf = replayOf)
+        val outcome =
+            held(call, id, started) { BreakpointHit(rule_id = rule.id, stage = stage, request = started, timeout_ms = rule.timeout_ms) }
+        val failure =
+            when (outcome) {
+                is BreakpointOutcome.Abort -> {
+                    IOException(outcome.message)
+                }
+
+                is BreakpointOutcome.Resume -> {
+                    try {
+                        return edited(request, outcome) ?: request
+                    } catch (e: IOException) {
+                        e
+                    }
+                }
+            }
+        sink.emit("RequestStarted") { started }
+        sink.emit("RequestFailed") { requestFailed(id, failure) }
+        throw failure
+    }
+
+    /** [request] with the resume's fields; null when unchanged; throws an [IOException] for an edit OkHttp refuses. */
+    private fun edited(
+        request: Request,
+        outcome: BreakpointOutcome.Resume,
+    ): Request? {
+        val changes = outcome.changes ?: return null
+        if (changes.method == null && changes.url == null && changes.body == null && !outcome.changesHeaders) return null
+        val headers =
+            Headers
+                .Builder()
+                .apply {
+                    outcome.headers(request.headers.toList()).forEach { (n, v) ->
+                        addUnsafeNonAscii(n, v)
+                    }
+                }.build()
+        val url = changes.url?.let { it.toHttpUrlOrNull() ?: throw IOException("Breakpoint edit refused: not a URL: $it") } ?: request.url
+        val type = (headers["Content-Type"] ?: request.body?.contentType()?.toString())?.toMediaTypeOrNull()
+        val body = changes.body?.toRequestBody(type) ?: request.body
+        return try {
+            request
+                .newBuilder()
+                .url(url)
+                .headers(headers)
+                .method(changes.method ?: request.method, body)
+                .build()
+        } catch (e: IllegalArgumentException) {
+            throw IOException("Breakpoint edit refused: ${e.message}", e)
+        }
+    }
+
+    /**
+     * ADR-0111 A.1, C.1: [response] as its breakpoint lets the app read it, with the body when it was replaced or
+     * known as [body]; an abort fails the call. The held body is peeked, so the app still reads it whole.
+     */
+    private fun holdResponse(
+        call: Call,
+        request: Request,
+        response: Response,
+        body: CapturedBody?,
+        id: String,
+        masking: Masking,
+        limit: Int,
+    ): Pair<Response, CapturedBody?> {
+        val stage = BreakpointStage.BREAKPOINT_STAGE_RESPONSE
+        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return response to body
+        val seen =
+            body ?: try {
+                peek(response, limit)
+            } catch (e: IOException) {
+                response.close()
+                sink.emit("RequestFailed") { requestFailed(id, e) }
+                throw e
+            }
+        val outcome =
+            try {
+                held(call, id, null) {
+                    BreakpointHit(
+                        rule_id = rule.id,
+                        stage = stage,
+                        request = requestStarted(id, request, masking, request.body.capture(limit)),
+                        response = responseReceived(id, response, masking, seen),
+                        timeout_ms = rule.timeout_ms,
+                    )
+                }
+            } catch (e: IOException) {
+                response.close()
+                throw e
+            }
+        val changes =
+            when (outcome) {
+                is BreakpointOutcome.Abort -> {
+                    response.close()
+                    val failure = IOException(outcome.message)
+                    sink.emit("RequestFailed") { requestFailed(id, failure) }
+                    throw failure
+                }
+
+                is BreakpointOutcome.Resume -> {
+                    outcome.changes ?: return response to body
+                }
+            }
+        val headers =
+            Headers
+                .Builder()
+                .apply {
+                    outcome.headers(response.headers.toList()).forEach { (n, v) ->
+                        addUnsafeNonAscii(n, v)
+                    }
+                }.build()
+        val edited = response.newBuilder().code(changes.status_code ?: response.code).headers(headers)
+        val replaced = changes.body ?: return edited.build() to body
+        response.close()
+        val type = (headers["Content-Type"] ?: response.body.contentType()?.toString())?.toMediaTypeOrNull()
+        return edited.body(replaced.toResponseBody(type)).build() to
+            CapturedBody(replaced, truncated = false, size = replaced.size.toLong())
+    }
+
+    /** At most [limit] bytes of [response]'s body, read ahead of the app without consuming them. */
+    private fun peek(
+        response: Response,
+        limit: Int,
+    ): CapturedBody {
+        val peek = response.body.source().peek()
+        val more = peek.request(limit + 1L)
+        val bytes = peek.readByteString(minOf(peek.buffer.size, limit.toLong()))
+        val length = response.body.contentLength().takeIf { it >= 0 }
+        return CapturedBody(bytes, truncated = more, size = if (more) length else bytes.size.toLong())
+    }
+
+    /**
+     * Sends the [hit] and blocks the call's thread until the desktop answers (ADR-0111 B.1); a cancel or an interrupt
+     * fails the call. [started] is captured before the failure when the request was not yet.
+     */
+    private fun held(
+        call: Call,
+        id: String,
+        started: RequestStarted?,
+        hit: () -> BreakpointHit,
+    ): BreakpointOutcome {
+        val failure: IOException =
+            try {
+                return runBlocking {
+                    val outcome = async { sink.hold(hit()) }
+                    var answered: BreakpointOutcome? = null
+                    while (answered == null) {
+                        answered = withTimeoutOrNull(CANCEL_POLL_MS) { outcome.await() }
+                        if (answered == null && call.isCanceled()) {
+                            outcome.cancel()
+                            throw IOException("Canceled")
+                        }
+                    }
+                    answered
+                }
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                InterruptedIOException("interrupted")
+            } catch (e: IOException) {
+                e
+            }
+        if (started != null) sink.emit("RequestStarted") { started }
+        sink.emit("RequestFailed") { requestFailed(id, failure) }
+        throw failure
     }
 
     /** ADR-0122 B.1: a clone of the app's call through its own client, read to the end so its response is captured whole. */
@@ -117,7 +315,6 @@ public class AppMonitorInterceptor : Interceptor {
         request: Request,
         rule: MockRule,
         id: String,
-        masking: Masking,
     ): Response {
         try {
             if (rule.delay_ms > 0) Thread.sleep(rule.delay_ms)
@@ -147,13 +344,14 @@ public class AppMonitorInterceptor : Interceptor {
                 .sentRequestAtMillis(now)
                 .receivedResponseAtMillis(now)
                 .build()
-        val body = CapturedBody(mocked.body, truncated = false, size = mocked.body.size.toLong())
-        sink.emit("ResponseReceived") { responseReceived(id, response, masking, body) }
         return response
     }
 
     private companion object {
         const val SWITCHING_PROTOCOLS = 101
+
+        // How often a held call checks that the app did not cancel it.
+        const val CANCEL_POLL_MS = 50L
     }
 }
 

@@ -1,6 +1,10 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.BreakpointAbort
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointResume
+import appmonitor.v1.BreakpointRules
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -100,6 +104,9 @@ internal class MonitorClient(
 
     /** The desktop's mock rules while a session that accepted `interaction` is up. */
     val mocks: MockRuleSet = MockRuleSet()
+
+    /** The desktop's breakpoints and the calls they hold, while a session that accepted `interaction` is up. */
+    val breakpoints: Breakpoints = Breakpoints()
 
     /** The requests a `ReplayRequest` can name, kept by the capture modules; emptied when a session ends. */
     val replays: RecentRequests = RecentRequests()
@@ -290,6 +297,7 @@ internal class MonitorClient(
                 for (frame in ws.incoming) receive(frame, accepted)
             } finally {
                 mocks.clear()
+                breakpoints.clear()
                 replays.clear()
             }
             sender.cancel()
@@ -306,10 +314,45 @@ internal class MonitorClient(
         if (envelope.channel !in accepted) return
         if (envelope.channel != Protocol.CHANNEL_INTERACTION) return
         when (envelope.type) {
-            "MockRules" -> runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
-            "ReplayRequest" -> runCatching { ReplayRequest.ADAPTER.decode(envelope.payload) }.onSuccess { replay(it.request_id) }
+            "MockRules" -> {
+                runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
+            }
+
+            "BreakpointRules" -> {
+                runCatching {
+                    BreakpointRules.ADAPTER.decode(
+                        envelope.payload,
+                    )
+                }.onSuccess { breakpoints.replace(it.rules) }
+            }
+
+            "BreakpointResume" -> {
+                runCatching { BreakpointResume.ADAPTER.decode(envelope.payload) }.onSuccess { breakpoints.resume(it) }
+            }
+
+            "BreakpointAbort" -> {
+                runCatching { BreakpointAbort.ADAPTER.decode(envelope.payload) }.onSuccess { breakpoints.abort(it) }
+            }
+
+            "ReplayRequest" -> {
+                runCatching { ReplayRequest.ADAPTER.decode(envelope.payload) }.onSuccess { replay(it.request_id) }
+            }
         }
     }
+
+    /** Sends [hit] and waits for the desktop's answer (ADR-0111 A.1, B.1). */
+    @OptIn(InternalAppMonitorApi::class)
+    suspend fun hold(hit: BreakpointHit): BreakpointOutcome =
+        breakpoints.hold(hit) {
+            send(
+                Envelope(
+                    channel = Protocol.CHANNEL_INTERACTION,
+                    type = "BreakpointHit",
+                    payload = it.encodeByteString(),
+                    timestamp_ms = Clock.System.now().toEpochMilliseconds(),
+                ),
+            )
+        }
 
     /** ADR-0120 A.1: a request not sent again is answered with `ReplayRefused`. */
     private fun replay(requestId: String) {

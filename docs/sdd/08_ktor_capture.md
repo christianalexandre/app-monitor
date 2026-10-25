@@ -42,7 +42,7 @@ app ── HttpClient { install(AppMonitorKtor) }
 
 | Event | Sent when | Body |
 | --- | --- | --- |
-| `RequestStarted` | Before the engine, once the headers are final | `setBody` of a string, bytes or a serialized object (`ByteArrayContent`), cut at `maxBodyBytes`. A stream (`ChannelWriterContent`, `ReadChannelContent`, multipart, upload progress): not read, empty with `body_truncated` and its length when known. No body: empty, no size. The content's `Content-Type` is added to the headers when absent. |
+| `RequestStarted` | Before the engine, once the headers are final and a request breakpoint let it go | `setBody` of a string, bytes or a serialized object (`ByteArrayContent`), cut at `maxBodyBytes`. A stream (`ChannelWriterContent`, `ReadChannelContent`, multipart, upload progress): not read, empty with `body_truncated` and its length when known. No body: empty, no size. The content's `Content-Type` is added to the headers when absent. |
 | `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, read with `readRawBytes()` and cut. A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
 | `RequestFailed` | The engine or the receive pipeline throws, or the saved body's read is cancelled | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
 
@@ -65,6 +65,31 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 - Tests: `MockAnswerTest` against `MockEngine` on the JVM, the Android
   host and the simulator (engine never called, streamed read,
   `expectSuccess`, failure, unmatched call untouched).
+
+### A held call
+
+When `MonitorBridge.breakpointFor` returns a rule (SDD 04, ADR-0118,
+ADR-0123), the `Monitoring` interceptor suspends in
+`MonitorBridge.hold` (`Breakpoints.kt`):
+
+| Stage | Held | The hit carries | Then |
+| --- | --- | --- | --- |
+| Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back (`Content-Type` into the body, the content's own headers left to it), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
+| Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`, DEBT-0083) set as the pipeline's subject: the replacement body, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
+
+- An abort, or an edit Ktor refuses ("Breakpoint edit refused: …": a
+  URL that is not absolute, a method that does not parse), sends
+  `RequestStarted` when not yet sent, then `RequestFailed`, and throws a
+  `kotlinx.io.IOException`. A cancellation during the wait is captured
+  as `RequestFailed` and rethrown.
+- No answer within the hit's timeout, or the session's end: the call
+  goes on unchanged.
+- A replaced response is read once, as a mocked one: the receive
+  pipeline already ran on the original.
+- Tests: `BreakpointTest` against `MockEngine` on the JVM, the Android
+  host and the simulator (a request edited with the masked header kept,
+  aborted, a refused edit, a response edited, a status alone changed, a
+  mocked response held).
 
 ### A call sent again
 

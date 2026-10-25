@@ -2,7 +2,11 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.BreakpointOutcome
 import appmonitor.sdk.core.MonitorBridge
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
@@ -44,6 +48,16 @@ internal interface CaptureSink {
         requestId: String,
         replay: () -> String?,
     ) = Unit
+
+    /** The desktop's breakpoint holding [stage] of this call (ADR-0118 A.1), or null. */
+    fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? = null
+
+    /** Sends [hit] and waits for the desktop's answer, at most its timeout (ADR-0111 B.1). */
+    suspend fun hold(hit: BreakpointHit): BreakpointOutcome = BreakpointOutcome.UNCHANGED
 }
 
 internal object MonitorSink : CaptureSink {
@@ -60,6 +74,14 @@ internal object MonitorSink : CaptureSink {
         requestId: String,
         replay: () -> String?,
     ) = MonitorBridge.keepForReplay(requestId, replay)
+
+    override fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? = MonitorBridge.breakpointFor(method, url, stage)
+
+    override suspend fun hold(hit: BreakpointHit): BreakpointOutcome = MonitorBridge.hold(hit)
 }
 
 /** The value a masked header, query or fragment parameter, URL user name or password is sent with (ADR-0018). */
