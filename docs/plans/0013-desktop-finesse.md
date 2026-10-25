@@ -58,7 +58,7 @@ task too large for one PR is split at once.
   Accept: storage, data and traffic tests — a saved exchange survives a
   restart; an issue made from live requests keeps them. Built as one run
   marked `saved` (ADR-0143); MCP's `save_issue` saves live ids too.
-- [ ] **H3.3 Compare devices in a run.** Endpoint by device columns
+- [x] **H3.3 Compare devices in a run.** Endpoint by device columns
   (count, status classes, median, p95, size) in `insights`.
   Accept: `./gradlew :desktop:feature:insights:test` — a run with two
   devices shows both columns with their numbers.

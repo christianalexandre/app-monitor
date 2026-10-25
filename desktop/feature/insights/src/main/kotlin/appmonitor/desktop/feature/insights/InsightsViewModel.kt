@@ -3,6 +3,7 @@ package appmonitor.desktop.feature.insights
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import appmonitor.desktop.domain.BenchmarkRepository
+import appmonitor.desktop.domain.DeviceComparison
 import appmonitor.desktop.domain.EndpointDiff
 import appmonitor.desktop.domain.EndpointGroups
 import appmonitor.desktop.domain.ExchangeFilter
@@ -16,9 +17,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
-/** [benchmarks] and [diff] are null while read and once closed; [exportNote] is the last HAR export's line. */
+/** [benchmarks], [byDevice] and [diff] are null while read and once closed; [exportNote] is the last HAR export's line. */
 data class InsightsState(
     val benchmarks: EndpointGroups? = null,
+    val byDevice: DeviceComparison? = null,
     val diff: EndpointDiff? = null,
     val exportNote: String? = null,
 )
@@ -32,7 +34,9 @@ class InsightsViewModel(
     val state: StateFlow<InsightsState> = mutableState.asStateFlow()
 
     private var benchmarksRead: Job? = null
+    private var byDeviceRead: Job? = null
     private var diffRead: Job? = null
+    private var exports = 0
 
     /** Reads what [filter] matches again; a read still running is dropped. */
     fun readBenchmarks(filter: ExchangeFilter) {
@@ -47,6 +51,24 @@ class InsightsViewModel(
     fun closeBenchmarks() {
         benchmarksRead?.cancel()
         mutableState.update { it.copy(benchmarks = null) }
+    }
+
+    /** Reads run [runId] per endpoint and device under [filter]; a read still running is dropped. */
+    fun readByDevice(
+        filter: ExchangeFilter,
+        runId: Long,
+    ) {
+        closeByDevice()
+        byDeviceRead =
+            viewModelScope.launch {
+                val comparison = benchmarks.byDevice(filter, runId)
+                mutableState.update { it.copy(byDevice = comparison) }
+            }
+    }
+
+    fun closeByDevice() {
+        byDeviceRead?.cancel()
+        mutableState.update { it.copy(byDevice = null) }
     }
 
     /** Compares [runId] with [baseRunId] under [filter]; a read still running is dropped. */
@@ -68,15 +90,16 @@ class InsightsViewModel(
         mutableState.update { it.copy(diff = null) }
     }
 
-    /** Writes what [filter] matches to [file]; [InsightsState.exportNote] says how it went. */
+    /** Writes what [filter] matches to [file]; [InsightsState.exportNote] says how the newest export went. */
     fun exportHar(
         filter: ExchangeFilter,
         file: File,
     ) {
+        val export = ++exports
         mutableState.update { it.copy(exportNote = "Exporting…") }
         viewModelScope.launch {
             val note = noteOf(hars.write(filter, file), file)
-            mutableState.update { it.copy(exportNote = note) }
+            if (export == exports) mutableState.update { it.copy(exportNote = note) }
         }
     }
 }

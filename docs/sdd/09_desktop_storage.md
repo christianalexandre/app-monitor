@@ -412,6 +412,12 @@ goes to `LiveTraffic` first; then:
   stored body bytes), most called first; `EndpointGroups.truncated` when a
   matching row is left past the cap. `endpoint_stats`, `diff_runs` (SDD
   10) and the window's benchmarks (SDD 01) read through it; it only reads.
+- `groupByEndpointAndDevice(runId, filter, maxExchanges)` (`Endpoints.kt`,
+  ADR-0140 D) is the same paging over run `runId`, each row tallied under
+  its endpoint and its session's device id (`DeviceGroups`,
+  `DeviceTallies`); the run's sessions are read first and again when a row
+  names a session that joined since. `RunDevice` names a device as its
+  last `Hello` did. The window's "By device" reads it.
 - `diffEndpoints(base, run)` (`EndpointDiff.kt`, ADR-0097) compares two
   `EndpointGroups` per endpoint: added, gone, changed (`EndpointChange`,
   the rule in SDD 10's *Changed*), unchanged as a count, truncated when
@@ -480,6 +486,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 | Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
+| A run per endpoint and device: one column per device in the order it joined, a device reconnected during the run counted once, what came before Record left out, the filter applied, its own run id ignored | `StoredRepositoriesTest` in `desktop/data` (H3.3); the window's "By device" in `BenchmarksUiTest` (`devices.png`) |
 | Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |
 

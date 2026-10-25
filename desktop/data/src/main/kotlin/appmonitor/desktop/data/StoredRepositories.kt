@@ -6,6 +6,7 @@ import appmonitor.desktop.domain.BreakpointChange
 import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.CapturedFrame
+import appmonitor.desktop.domain.DeviceComparison
 import appmonitor.desktop.domain.EndpointDiff
 import appmonitor.desktop.domain.EndpointGroups
 import appmonitor.desktop.domain.Exchange
@@ -41,6 +42,7 @@ import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.diffEndpoints
 import appmonitor.desktop.storage.groupByEndpoint
+import appmonitor.desktop.storage.groupByEndpointAndDevice
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.MockRule
 import kotlinx.coroutines.flow.Flow
@@ -193,6 +195,12 @@ internal class StoredBenchmarkRepository(
             storage.groupByEndpoint(stored.copy(runId = runId), maxExchanges),
         ).toDomain()
     }
+
+    override suspend fun byDevice(
+        filter: ExchangeFilter,
+        runId: Long,
+        maxExchanges: Long,
+    ): DeviceComparison = storage.groupByEndpointAndDevice(runId, filter.toStored(), maxExchanges).toDomain()
 }
 
 internal class StoredTrafficQueryRepository(

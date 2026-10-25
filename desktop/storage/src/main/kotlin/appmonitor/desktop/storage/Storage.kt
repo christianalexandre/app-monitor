@@ -659,6 +659,10 @@ class Storage private constructor(
     suspend fun sessions(runId: Long): List<StoredSession> =
         read(emptyList()) { sessionQueries.ofRun(runId).executeAsList().map { it.toStored() } }
 
+    /** Each session of run [runId] with its device, in the order the sessions joined it. */
+    internal suspend fun sessionDevices(runId: Long): Map<Long, RunDevice> =
+        read(emptyMap()) { sessionQueries.ofRun(runId).executeAsList().associate { it.id to RunDevice(it.device_id, it.device_name) } }
+
     /** A page of a run's exchanges in arrival order; the next page passes the last [StoredExchange.id] as [afterId]. */
     suspend fun exchangesOfRun(
         runId: Long,

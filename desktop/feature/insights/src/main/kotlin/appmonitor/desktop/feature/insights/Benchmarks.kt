@@ -35,6 +35,7 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.EndpointStats
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.ui.formatDuration
@@ -85,7 +86,7 @@ data class BenchmarkRow(
             val classes = tally.statusClasses.mapIndexedNotNull { index, n -> if (n == 0L) null else "${index + 1}xx $n" }
             val failed = if (tally.failed == 0L) emptyList() else listOf("failed ${tally.failed}")
             return BenchmarkRow(
-                "${tally.endpoint.method ?: "—"} ${tally.endpoint.host.orEmpty()}${tally.endpoint.path}",
+                endpointLabel(tally.endpoint),
                 tally.count.toString(),
                 (classes + failed).joinToString(" · ").ifEmpty { "—" },
                 String.format(Locale.ROOT, "%.1f %%", tally.errorRate * 100),
@@ -99,9 +100,12 @@ data class BenchmarkRow(
     }
 }
 
+/** Method, host and path, as every insights table names an endpoint. */
+internal fun endpointLabel(endpoint: Endpoint): String = "${endpoint.method ?: "—"} ${endpoint.host.orEmpty()}${endpoint.path}"
+
 /**
  * Per endpoint numbers of the exchanges [filter] matches across every device of the run it names, read when opened and
- * on "Refresh" (SDD 01); [scope] says which run and filter in the title.
+ * on "Refresh" (SDD 01), or per device of that run with "By device"; [scope] says which run and filter in the title.
  */
 @Composable
 fun Benchmarks(
@@ -119,11 +123,15 @@ fun Benchmarks(
             .value.benchmarks
     var column by remember { mutableStateOf(BenchmarkColumn.COUNT) }
     var descending by remember { mutableStateOf(true) }
+    var byDevice by remember { mutableStateOf(false) }
+    val runId = filter.runId
     DialogCard(DialogWidth.Table) {
         Text("Benchmarks", role = TextRole.Title)
         Text(scope, role = TextRole.Caption)
         val loaded = groups
-        if (loaded == null) {
+        if (byDevice && runId != null) {
+            ByDevice(filter, runId, reads, viewModel)
+        } else if (loaded == null) {
             Placeholder("Reading requests…")
         } else {
             Text(
@@ -173,6 +181,9 @@ fun Benchmarks(
             }
         }
         DialogActions {
+            if (runId != null) {
+                TextButton(if (byDevice) "By endpoint" else "By device", onClick = { byDevice = !byDevice }, Modifier.testTag(BY_DEVICE))
+            }
             TextButton("Refresh", onClick = { reads++ })
             TextButton("Close", onClick = onClose)
         }
