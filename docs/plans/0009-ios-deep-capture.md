@@ -89,7 +89,7 @@ evidence before the code.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test :desktop:app:test`
   — a failed gRPC call from each writer shows as an error in every
   reader above.
-- [ ] **M8.8 The proxy and the simulator.** "Install CA on booted
+- [!] **M8.8 The proxy and the simulator.** (`docs/proxy-simulator-trust`; blocked on ADR-0108 `Proposed`: neither iOS gRPC client trusts what ADR-0101 D.1 installs) "Install CA on booted
   simulators" per ADR-0101 D.1, an iOS sample button that makes a gRPC
   call through it.
   Accept: `./gradlew :desktop:app:test` (the button against a fake

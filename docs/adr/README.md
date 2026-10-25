@@ -125,3 +125,4 @@ Rules:
 | [0105](0105-proxy-and-certificate-libraries.md) | Netty and Bouncy Castle for the desktop proxy | Accepted |
 | [0106](0106-proxy-http2-and-grpc.md) | How the desktop proxy relays HTTP/2 and stores gRPC | Accepted |
 | [0107](0107-grpc-status-in-the-desktop.md) | The desktop stores grpc-status in its own column | Accepted |
+| [0108](0108-proxy-trust-on-the-simulator.md) | How a simulator's gRPC client trusts the proxy | Proposed |
