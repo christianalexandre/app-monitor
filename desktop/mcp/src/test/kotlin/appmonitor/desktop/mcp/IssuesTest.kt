@@ -203,12 +203,14 @@ class IssuesTest {
         }
 
     @Test
-    fun onlySaveIssueAndCreateMockAreMarkedAsWriting() =
+    fun onlySaveIssueCreateMockAndReplayRequestAreMarkedAsWriting() =
         withServer { running ->
             val tools = running.client { it.listTools().tools }
             val writing = tools.filter { it.annotations?.readOnlyHint != true }.map { it.name }
-            assertEquals(listOf(SaveIssue.NAME, CreateMock.NAME), writing)
+            assertEquals(listOf(SaveIssue.NAME, CreateMock.NAME, AskReplay.NAME), writing)
             assertEquals(false, tools.single { it.name == SaveIssue.NAME }.annotations?.destructiveHint)
+            val replay = tools.single { it.name == AskReplay.NAME }.annotations
+            assertEquals(true to true, replay?.destructiveHint to replay?.openWorldHint, "a confirmed POST runs again on a server")
             assertTrue(tools.any { it.name == ListIssues.NAME })
         }
 

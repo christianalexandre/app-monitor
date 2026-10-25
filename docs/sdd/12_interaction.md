@@ -14,7 +14,8 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 (`store/BreakpointPush.kt`), the held calls in `store/HeldCalls.kt` and
 the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
 (ADR-0119). Replays in `store/Replays.kt`, sent from the request
-detail in `ui/App.kt`; no SDK holds a call or replays one yet (PLAN-0010). The Kotlin SDKs list the channel and
+detail in `ui/App.kt` or asked by MCP's `replay_request` and confirmed in
+its dialog (ADR-0121); no SDK holds a call or replays one yet (PLAN-0010). The Kotlin SDKs list the channel and
 serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
 (SDD 06, 07, ADR-0117).
 
@@ -185,7 +186,9 @@ first envelope to its end.
 | --- | --- |
 | `send(sessionId, requestId)` | queues `ReplayRequest` and answers `SENT`; `SESSION_ENDED` when the session is over, `NOT_TAKEN` when the device did not accept `interaction`. Clears that request's refusal |
 | a `ReplayRefused` from a connected session | keeps its reason in `refused`, by session and request id |
-| the session ends | forgets the session and its refusals |
+| `ask(replay)` (`ReplayAsks`, from `replay_request`) | keeps it in `asked`, oldest first, and answers `WAITING`; the same exchange again is the same one. `SESSION_ENDED`, `NOT_TAKEN` as `send`, `TOO_MANY` past 20 waiting (ADR-0121) |
+| `answer(replay, send)` | drops it from `asked`; `send` true goes through `send` |
+| the session ends | forgets the session, its refusals and its asked replays |
 
 In the window, a request's detail has "Send again" beside "Mock this"
 (not for a WebSocket, a connection or the desktop's proxy). Its label reads
@@ -197,6 +200,12 @@ take replays", or "The app did not send it again: <reason>". A replay's
 row is marked `replay`; its detail says "Replay of an earlier request"
 with "Show original", which clears the filter and opens it, or "Replay of
 a request no longer stored".
+
+A replay an agent asked (SDD 10) opens a dialog on its own, the oldest
+first, as an approval and a held call (ADR-0121 B.1): "An agent asks to
+send this request again", the method and URL, the device, app and
+exchange id, how many more wait, and "Refuse" or the same "Send again"
+label. Nothing is sent before "Send again" (ADR-0005).
 
 ### The push
 
@@ -256,6 +265,8 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | `replay_of` kept in every list reader, linked only within its session; a version-6 file migrates | `ReplayedExchangeTest` in `desktop/storage` |
 | "Send again" reaches a stand-in device; its replay marked, linked to the original; a refusal shown | `ReplayTest` in `desktop/app` (`replay.png`) |
 | No replay to a device without `interaction` or to an ended session; a new send clears a refusal | `ReplayTest` |
+| A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
+| An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 
 ## Limits
@@ -268,6 +279,5 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 - No SDK holds a call or replays one yet: both read `BreakpointRules`
   and `ReplayRequest` as envelopes they drop, so "Send again" says "Sent"
   and nothing follows (PLAN-0010 M9.10, M9.11).
-- No MCP tool asks a replay yet (PLAN-0010 M9.13).
 - The held call's dialog covers the window while the call waits
   (ADR-0119).

@@ -3,7 +3,7 @@ id: DEBT-0073
 title: Non-correctness findings of the third M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt` or `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt`, or a `setEnabled` called off the UI dispatcher"
+trigger: "The first PR that touches `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt`, or a CI failure of `switchTurnedOffAsStartWritesItEndsOff`"
 paid_date:
 ---
 
@@ -56,6 +56,12 @@ one `sent` filter keeps the first zero `Content-Length`, however written
 `keepZeroLength` flag, and the description says "when no body is sent".
 Left: the two `McpController` parts, in files this PR does not change;
 the trigger is narrowed to them.
+
+Fired by PLAN-0010 M9.13 (`feat/replay-from-mcp`), which passes the
+replays to `McpController`. Paid: `setEnabled` takes `lock` with the
+switch as it is then, not its own `on`, so the last call wins whatever
+order the lock is taken in. Left: the race test's odds, in
+`McpWiringTest.kt`, which this PR does not change; re-triggered to it.
 
 ## How it was paid
 

@@ -142,7 +142,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   it sent again (ADR-0111 D.1), null for a call the app made; rows written
   before version 7 keep null. `exchange(id)` gives
   `ExchangeDetail.replayOfId`, the row of that request id in the same
-  session, null once it is gone (ADR-0120 B.1).
+  session, null once it is gone (ADR-0120 B.1); `replayOriginals(rows)`
+  resolves the same for a page of rows in one read, and `session(id)`
+  reads one session (`replay_request`, ADR-0121).
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
 - Runs take the same queue (ADR-0084): `newRun()` ends the current run and

@@ -3,7 +3,7 @@ id: DEBT-0072
 title: Non-correctness findings of the second M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`"
+trigger: "The first PR that touches `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt` or the `readSwitch` parameter of `McpController`"
 paid_date:
 ---
 
@@ -58,6 +58,11 @@ Paid: a `HEAD` whose body the device cut says the original size
 `ToCurlTest` case asserts no stored `Transfer-Encoding` and no non-zero
 `Content-Length` in the command. Left: `McpController`'s `readSwitch`
 seam.
+
+Fired by PLAN-0010 M9.13 (`feat/replay-from-mcp`), which adds a
+`replays` parameter to `McpController`. Not paid: the `readSwitch` seam
+is set by `McpWiringTest`'s race tests, which this PR does not change;
+re-triggered to that test or the parameter itself.
 
 ## How it was paid
 

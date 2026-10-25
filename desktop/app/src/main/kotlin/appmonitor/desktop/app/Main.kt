@@ -62,7 +62,7 @@ fun main() {
     val store = TrafficStore(storage)
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
-    val mcp = McpController(storage, access)
+    val mcp = McpController(storage, access, replays = store.replays)
     val proxy = ProxyController(storage, directory)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }

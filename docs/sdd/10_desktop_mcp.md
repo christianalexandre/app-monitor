@@ -1,12 +1,12 @@
 # 10 — Desktop MCP server
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP from inside
-the desktop process (ADR-0005), read-only but for issues and mock rules. Decisions:
+the desktop process (ADR-0005), read-only but for issues, mock rules and replays asked. Decisions:
 ADR-0089 (what the tools return), ADR-0090 (who can call, port, on by
 default), ADR-0091 (clients), ADR-0092 (SDK, transport, modules), ADR-0095
-and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1). Code: `desktop/mcp/`, used by
+and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1), ADR-0121 (`replay_request`). Code: `desktop/mcp/`, used by
 `desktop/app`; it reads `desktop/storage` (SDD 09) and writes to it only
-through `save_issue`, `create_mock` and the two settings below. Client setup: the README's *Ask your AI
+through `save_issue`, `create_mock` and the two settings below; `replay_request` leaves its replay to `desktop/app`. Client setup: the README's *Ask your AI
 agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
 ## How it works
@@ -42,7 +42,9 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
   only, `listChanged = false`. Every tool is annotated `readOnlyHint: true`
   but `save_issue` and `create_mock`: `readOnlyHint`, `destructiveHint` and
   `idempotentHint` false (they create and edit, never delete, ADR-0095
-  C.1, ADR-0114 C.1).
+  C.1, ADR-0114 C.1), and `replay_request`: `readOnlyHint` and
+  `idempotentHint` false, `destructiveHint` and `openWorldHint` true (a
+  confirmed `POST` runs again on a server, ADR-0121 C.1).
 - Steps 1 and 2 are one Ktor application plugin (`accessCheck`), before the
   SDK's routing; `<port>` is the local port the connection reached. Step 1:
   exactly one `Host`, `127.0.0.1:<port>` or
@@ -161,12 +163,15 @@ refused or reset. `grpc_status` is the last `grpc-status` response header
 as a number, null when there is none (ADR-0107). `mock_rule_id` is the
 rule that answered the exchange on the device, null when the network did
 (ADR-0110 E.1); `get_request` adds `mock_rule_name`, null once the rule is
-deleted (ADR-0116).
+deleted (ADR-0116). `replay` is true for a call the app sent again
+(ADR-0111 D.1); `replay_of` is the original's exchange id in the same
+session, null when it is not a replay or the original is gone
+(`replayOriginals`, `ExchangeDetail.replayOfId`, ADR-0121 D.1).
 
 | Tool | Input | Output | Store |
 | --- | --- | --- | --- |
 | `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform` (`android`, `ios`, `jvm`, `unspecified`), `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`, null on a page short of `limit`. Newest first. | `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
-| `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `grpc_status`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`, `mock_rule_id`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
+| `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `grpc_status`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`, `mock_rule_id`, `replay`, `replay_of`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
 | `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `mock_rule_name`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). `part` leaves the other side `null`; `body_offset` applies to both bodies, frame payloads start at 0. Frames: `direction` `sent`/`received`, `opcode` `text`, `binary`, `ping`, `pong`, `close`. The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame; `next_after_id` is set when it stopped early or is full to `frames_limit`. `connection` (`sent_bytes`, `received_bytes`, each null until it closed) for a connection, which has `request` and `response` null; null for any other exchange. Unknown id: "no exchange with id N". | `exchange(id)`, `frames(id, afterId, limit)` |
 | `endpoint_stats` | filter fields, `limit` (1–500, 50) | `endpoints[]` by count, descending, then by key: `method`, `host`, `path`, `count`, `status` (`1xx`…`5xx`, `failed`: counts), `error_rate`, `duration_ms` (`min`, `p50`, `p95`, `p99`, `max`; null when no exchange has both times), `request_bytes`, `response_bytes` (totals; a connection's bytes sent and received, its `path` `:port`); `endpoint_count` (before `limit`), `exchanges_read`, `truncated` | `searchExchangeSizes(filter, afterId, limit)`: the rows with their stored body sizes, 0 when none |
 | `diff_runs` | `base_run_id`, `run_id` (required), filter fields, `limit` (1–500, 50, per list) | `base_run_id`, `run_id`; `added[]` (in `run_id` only) and `gone[]` (in `base_run_id` only), as `endpoint_stats`' endpoints; `changed[]` (`method`, `host`, `path`, and `count`, `error_rate`, `p50_ms`, `p95_ms`, each `base`, `run`, `delta`); `added_count`, `gone_count`, `changed_count` (before `limit`); `unchanged` (a count); `truncated` (either run hit the read cap). Unknown run: "no run with id N". | `runs()`, then `endpoint_stats`' grouping once per run |
@@ -175,6 +180,7 @@ deleted (ADR-0116).
 | `list_issues` | `status` (`open`, `resolved`), `tag` (exact), `limit` (1–100, 20), `before_id` | `issues[]`: `id`, `title`, `note`, `tags[]` (sorted), `status`, `source` (`window`, `mcp`), `created_at`, `updated_at`, `exchange_ids[]` (ascending); `next_before_id`. Newest first. | `issuePage(filter, beforeId, limit)`: issues and their links in one read |
 | `save_issue` | `id` (omit to create), `title`, `note`, `tags[]` (0–50), `status`, `exchange_ids[]` (1–1 000) | `created`, `issue` as in `list_issues` | `createIssue(…, IssueSource.MCP)` or `updateIssue(id, IssueChange)`, then `issuePage` |
 | `create_mock` | `app_id`, `name`, `host`, `path` (required), `method`, `delay_ms` (≥ 0, 0); `status_code` (100–599) with `headers[]` (`name`, `value`; 0–100) and `body` (text) or `body_base64`, or `failure_message` | `mock`: `id`, `app_id`, `name`, `enabled`, `pending` (true), `source` (`mcp`), `method` (null: any), `host`, `path`, `delay_ms`, `response` (`status_code`, `headers[]`, `body_bytes`) or null, `failure_message` or null, `created_at`, `updated_at` | `createMock(…, MockSource.MCP)`, then `mocks()` |
+| `replay_request` | `id` (required) | `replay`: `exchange_id`, `status` (`waiting`) | `exchange(id)`, `session(id)`, then `ReplayAsks.ask` |
 
 Details the table leaves out:
 
@@ -271,6 +277,19 @@ Details the table leaves out:
   error is one sentence and writes nothing; a lost batch is "the rule was
   not saved: <error>". No tool lists, edits, confirms or deletes a rule.
   Code: `Mocks.kt`.
+- **Replays** (`replay_request`, ADR-0111 E.1, ADR-0121): the tool hands
+  an `AskedReplay` (exchange id, the server's session id, request id,
+  method, URL, device name, app id) to the `ReplayAsks` `McpServer` was
+  given, `desktop/app`'s `Replays` (SDD 12), and answers at once with
+  `status: "waiting"`: nothing reaches the device before the developer
+  clicks "Send again" in the window (ADR-0005). Errors, nothing asked: an
+  unknown id; a connection ("it has no HTTP request to send again"), a URL
+  starting with `ws` ("it cannot be sent again") or a proxy exchange
+  ("only an app sends a request again"), as the window shows no button
+  for them; no `ReplayAsks` ("replay is not available"). Errors the
+  window answers: the session ended, the device did not accept
+  `interaction`, `ReplayAsks.MAX_WAITING` (20) already waiting. The same
+  exchange asked while it waits is the same replay. Code: `AskReplay.kt`.
 
 ### Lifecycle
 
@@ -303,7 +322,8 @@ writes) and a hook run before each tool (a call held in flight).
 | Connections in every tool | `ConnectionToolsTest`, the `CONNECTION` fixtures: `search_requests` row without status, `get_request`'s `connection`, `to_curl` refused, `endpoint_stats` bytes per port, `diff_runs` added, `export_har` leaving them out | M8.4 |
 | gRPC status in the tools | `GrpcStatusToolsTest`, a failed call from the adapter's and the proxy's headers: `search_requests`' `grpc_status`, `endpoint_stats` and `diff_runs` error rate | M8.7 |
 | `create_mock` | `MocksTest`: a rule over HTTP stored pending, sent to no device until confirmed; a failure with any method, a base64 body; every argument error, nothing written; closing store | M9.3 |
-| `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue` and `create_mock` annotated as writing | M7.3 |
+| `replay_request`, `replay`, `replay_of` | `ReplayTest`: the asked replay handed over with its session and answered `waiting`; connection, WebSocket, proxy and unknown id refused, nothing asked; each answer of the window as its error; no `ReplayAsks`; rows of `search_requests` and `get_request` linking a replay to its original, null once it is gone; `desktop/app`'s `ReplayTest` sends it to a stand-in device only once confirmed | M9.13 |
+| `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue`, `create_mock` and `replay_request` annotated as writing, `replay_request` destructive and open world | M7.3 |
 | `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body, once, however written; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
 
 ## Limits
@@ -313,5 +333,8 @@ writes) and a hook run before each tool (a call held in flight).
 - No stdio transport; stdio-only clients go through `mcp-remote`
   (ADR-0091, DEBT-0069).
 - `to_curl` writes POSIX shell, not PowerShell or `cmd`.
+- `replay_request` does not tell the agent that the developer refused the
+  replay or that the device sent `ReplayRefused`: no replay row shows up
+  (ADR-0121). A waiting replay is lost at quit and when its session ends.
 - Text search and "failed only" walk the exchanges (DEBT-0063,
   re-triggered at M6.4).

@@ -2,6 +2,7 @@ package appmonitor.desktop.app.store
 
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
+import appmonitor.desktop.mcp.ReplayAsks
 import appmonitor.desktop.mcp.mcpPort
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CancellationException
@@ -42,6 +43,7 @@ internal class McpController(
     private val storage: Storage,
     private val access: McpAccess,
     val port: Int = mcpPort(),
+    private val replays: ReplayAsks? = null,
     private val readSwitch: suspend () -> String? = { storage.setting(KEY_ENABLED) },
 ) {
     private val lock = Mutex()
@@ -76,7 +78,8 @@ internal class McpController(
             mutableEnabled.value = on
         }
         storage.setSetting(KEY_ENABLED, on.toString())
-        lock.withLock { if (on) startLocked() else stopLocked() }
+        // DEBT-0073: the switch as it is now, so an earlier call that takes the lock last does not undo a later one.
+        lock.withLock { if (mutableEnabled.value) startLocked() else stopLocked() }
     }
 
     /** A new token at once; clients with the old one get `401`. */
@@ -102,7 +105,7 @@ internal class McpController(
     private suspend fun startLocked() {
         if (closed || server != null) return
         mutableStatus.value = McpStatus.Starting
-        val next = McpServer(storage, access, port)
+        val next = McpServer(storage, access, port, replays = replays)
         mutableStatus.value =
             try {
                 McpStatus.Running(next.start()).also { server = next }

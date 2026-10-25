@@ -97,8 +97,9 @@ needs its own decision is split as soon as that shows.
   Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:app:test`.
   A stand-in device gets the request from the window; a replayed
   exchange is stored and linked to its original.
-- [ ] **M9.13 Replay from MCP.** (split from M9.9; a new id so the ids
-  ADRs cite stay) Per ADR-0111 E.1: an MCP tool asks a replay that waits
+- [x] **M9.13 Replay from MCP.** (`feat/replay-from-mcp`; split from M9.9; a new id so the ids
+  ADRs cite stay; ADR-0121: the asked replay in `Replays`' memory, a dialog opened on its own,
+  `replay_request` answering `waiting` at once, rows with `replay` and `replay_of` as the original's exchange id) Per ADR-0111 E.1: an MCP tool asks a replay that waits
   for a confirmation in the window (ADR-0005); MCP rows carry
   `replay_of`. SDD 10 and 12 updated.
   Accept: `./gradlew :desktop:mcp:test :desktop:app:test`. A stand-in

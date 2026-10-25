@@ -17,8 +17,8 @@ internal object SearchRequests {
 
     val description =
         "Searches the stored HTTP and WebSocket exchanges, oldest first: method, URL, status, failure, timing, capture " +
-            "layer and frame count, no headers or bodies (get_request has them). Unset filters match all. Page with " +
-            "next_after_id. $DATA_NOTE"
+            "layer, frame count, and replay_of, the exchange a replay sent again; no headers or bodies (get_request has " +
+            "them). Unset filters match all. Page with next_after_id. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -47,8 +47,9 @@ internal object SearchRequests {
         val afterId = arguments.long("after_id", 0..Long.MAX_VALUE, 0)!!
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val exchanges = storage.searchExchanges(filter, afterId, limit)
+        val originals = storage.replayOriginals(exchanges)
         return buildJsonObject {
-            put("requests", JsonArray(exchanges.map { it.toRowJson() }))
+            put("requests", JsonArray(exchanges.map { it.toRowJson(originals[it.id]) }))
             put("next_after_id", (if (exchanges.size.toLong() == limit) exchanges.last().id else null).json())
         }
     }
