@@ -46,16 +46,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import appmonitor.desktop.app.store.CapturedBody
-import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.HeldCalls
-import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.ProxyStatus
 import appmonitor.desktop.app.store.ReplayKey
 import appmonitor.desktop.app.store.ReplaySent
 import appmonitor.desktop.app.store.Replays
-import appmonitor.desktop.app.store.durationOf
+import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.toStored
+import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.AppSurface
 import appmonitor.desktop.designsystem.Checkbox
@@ -75,21 +74,27 @@ import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.VerticalDivider
 import appmonitor.desktop.designsystem.selectableItem
+import appmonitor.desktop.domain.CapturedBody
+import appmonitor.desktop.domain.CapturedFrame
+import appmonitor.desktop.domain.Exchange
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.Run
+import appmonitor.desktop.domain.RunRepository
+import appmonitor.desktop.domain.Session
+import appmonitor.desktop.domain.StatusClass
+import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.domain.durationOf
 import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
-import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.desktop.storage.RetentionStatus
-import appmonitor.desktop.storage.StatusClass
 import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredApproval
-import appmonitor.desktop.storage.StoredExchange
-import appmonitor.desktop.storage.StoredRun
-import appmonitor.desktop.storage.StoredSession
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
@@ -108,7 +113,8 @@ import java.util.Locale
 
 /**
  * The shown run's sessions, requests and request, under the device to approve, the runs or the settings ([mcp] when
- * given; [onForget] gets null for every pair). Every pane reads [storage] and follows its commits (SDD 09).
+ * given; [onForget] gets null for every pair). Every pane reads [traffic], [runRepository] or [storage] and follows
+ * their commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -128,9 +134,11 @@ internal fun AppMonitorApp(
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
     heldCalls: HeldCalls? = null,
     replays: Replays? = null,
+    runRepository: RunRepository = remember(storage) { storage.runRepository() },
+    traffic: TrafficRepository = remember(storage) { storage.trafficRepository() },
 ) {
-    val currentRun by storage.currentRun.collectAsState()
-    val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
+    val currentRun by runRepository.currentRun.collectAsState()
+    val runs by remember(runRepository) { runRepository.observeRuns() }.collectAsState(emptyList())
     var shown by remember { mutableStateOf<ShownRun>(ShownRun.Current) }
     val shownRunId =
         when (val choice = shown) {
@@ -138,8 +146,8 @@ internal fun AppMonitorApp(
             ShownRun.All -> null
             is ShownRun.Earlier -> choice.id
         }
-    val sessions by remember(storage, shownRunId) { storage.observeSessions(shownRunId) }.collectAsState(emptyList())
-    val health by storage.health.collectAsState()
+    val sessions by remember(traffic, shownRunId) { traffic.observeSessions(shownRunId) }.collectAsState(emptyList())
+    val health by remember(traffic) { traffic.health }.collectAsState(StoreHealth())
     val retention by storage.retention.collectAsState()
     val retentionStatus by storage.retentionStatus.collectAsState()
     val scope = rememberCoroutineScope()
@@ -147,7 +155,7 @@ internal fun AppMonitorApp(
     var selectedRequest by remember { mutableStateOf<Long?>(null) }
     val session = sessions.firstOrNull { it.id == selectedSession } ?: sessions.firstOrNull()
     var filter by remember { mutableStateOf(ExchangeFilter()) }
-    val pages = key(session?.id, filter) { rememberExchangePages(storage, session?.id, filter) }
+    val pages = key(session?.id, filter) { rememberExchangePages(traffic, session?.id, filter) }
     val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
     var settingsOpen by remember { mutableStateOf(false) }
     var runsOpen by remember { mutableStateOf(false) }
@@ -159,13 +167,13 @@ internal fun AppMonitorApp(
     var breakpointsOpen by remember { mutableStateOf(false) }
     val held by remember(heldCalls) { heldCalls?.held ?: MutableStateFlow(emptyList()) }.collectAsState()
     val askedReplays by remember(replays) { replays?.asked ?: MutableStateFlow(emptyList()) }.collectAsState()
-    val everySession by remember(storage) { storage.observeSessions(null) }.collectAsState(emptyList())
+    val everySession by remember(traffic) { traffic.observeSessions(null) }.collectAsState(emptyList())
     val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
     var benchmarksOpen by remember { mutableStateOf(false) }
     var diffOpen by remember { mutableStateOf(false) }
     // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
-    var marked by remember { mutableStateOf(emptyMap<Long, StoredExchange>()) }
-    var saving by remember { mutableStateOf<Map<Long, StoredExchange>?>(null) }
+    var marked by remember { mutableStateOf(emptyMap<Long, Exchange>()) }
+    var saving by remember { mutableStateOf<Map<Long, Exchange>?>(null) }
     var exportNote by remember { mutableStateOf<String?>(null) }
     val runTitle = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
 
@@ -207,7 +215,7 @@ internal fun AppMonitorApp(
                     onExportHar = {
                         pickHarFile(harFileName(shownRunId))?.let { file ->
                             exportNote = "Exporting…"
-                            scope.launch { exportNote = exportHar(storage, filter.copy(runId = shownRunId), file) }
+                            scope.launch { exportNote = exportHar(storage, filter.copy(runId = shownRunId).toStored(), file) }
                         }
                     },
                     exportNote = exportNote,
@@ -223,6 +231,7 @@ internal fun AppMonitorApp(
                         key(row.id) {
                             StoredRequestDetail(
                                 storage,
+                                traffic,
                                 row,
                                 replays?.let { ReplayTarget(it, session?.serverSessionId.orEmpty()) },
                                 onShowOriginal = { id ->
@@ -276,11 +285,11 @@ internal fun AppMonitorApp(
                         runsOpen = false
                     },
                     onNewRun = {
-                        scope.launch { storage.newRun() }
+                        scope.launch { runRepository.newRun() }
                         shown = ShownRun.Current
                         runsOpen = false
                     },
-                    onRename = { id, name -> scope.launch { storage.rename(id, name) } },
+                    onRename = { id, name -> scope.launch { runRepository.rename(id, name) } },
                     onCompare = {
                         runsOpen = false
                         diffOpen = true
@@ -310,7 +319,7 @@ internal fun AppMonitorApp(
             if (benchmarksOpen) {
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
-                Benchmarks(storage, filter.copy(runId = shownRunId), scope) { benchmarksOpen = false }
+                Benchmarks(storage, filter.copy(runId = shownRunId).toStored(), scope) { benchmarksOpen = false }
             }
             if (diffOpen) {
                 val scope =
@@ -321,7 +330,7 @@ internal fun AppMonitorApp(
                     } else {
                         "Every device of each run, under the request filter"
                     }
-                RunDiff(storage, runs, filter, scope) { diffOpen = false }
+                RunDiff(storage, runs, filter.toStored(), scope) { diffOpen = false }
             }
             if (heldCalls != null) {
                 // A newer hit under the same request and stage is a new form, not the old one's edits.
@@ -379,41 +388,40 @@ internal fun StorageUnavailable(
 
 /** The first rows of a session's requests [filter] matches; [loadMore] asks for one more page once the last one is full. */
 private class ExchangePages(
-    val rows: List<StoredExchange>,
+    val rows: List<Exchange>,
     val loadMore: () -> Unit,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Composable
 private fun rememberExchangePages(
-    storage: Storage,
+    traffic: TrafficRepository,
     sessionId: Long?,
     filter: ExchangeFilter,
 ): ExchangePages {
-    val limit = remember(sessionId, filter) { MutableStateFlow(Storage.PAGE_SIZE) }
-    val rows by remember(storage, sessionId, filter) {
+    val limit = remember(sessionId, filter) { MutableStateFlow(TrafficRepository.PAGE_SIZE) }
+    val rows by remember(traffic, sessionId, filter) {
         if (sessionId == null) {
             flowOf(emptyList())
         } else {
-            limit.flatMapLatest { storage.observeExchanges(filter.copy(sessionId = sessionId), it) }
+            limit.flatMapLatest { traffic.observeExchanges(filter.copy(sessionId = sessionId), it) }
         }
     }.collectAsState(emptyList())
-    return ExchangePages(rows) { if (rows.size >= limit.value) limit.value += Storage.PAGE_SIZE }
+    return ExchangePages(rows) { if (rows.size >= limit.value) limit.value += TrafficRepository.PAGE_SIZE }
 }
 
 /** Reads one exchange, its bodies and its first frames again whenever its [row] changes. */
 @Composable
 private fun StoredRequestDetail(
     storage: Storage,
-    row: StoredExchange,
+    traffic: TrafficRepository,
+    row: Exchange,
     replay: ReplayTarget?,
     onShowOriginal: (Long) -> Unit,
     onMock: (HttpExchange) -> Unit,
 ) {
-    var frameLimit by remember { mutableStateOf(Storage.PAGE_SIZE) }
-    val exchange by produceState<HttpExchange?>(null, row, frameLimit) {
-        value = storage.exchange(row.id)?.let { HttpExchange(it, storage.frames(row.id, limit = frameLimit)) }
-    }
+    var frameLimit by remember { mutableStateOf(TrafficRepository.PAGE_SIZE) }
+    val exchange by produceState<HttpExchange?>(null, row, frameLimit) { value = traffic.exchange(row.id, frameLimit) }
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
     var copyNote by remember { mutableStateOf<String?>(null) }
@@ -436,7 +444,10 @@ private fun StoredRequestDetail(
             ?: sent?.let(::noteOf)
     val onReplay = replay?.let { { sent = it.replays.send(it.sessionId, row.requestId) } }
     exchange?.let {
-        RequestDetail(it, onCopyCurl, copyNote, { onMock(it) }, onReplay, replayNote, onShowOriginal) { frameLimit += Storage.PAGE_SIZE }
+        RequestDetail(it, onCopyCurl, copyNote, { onMock(it) }, onReplay, replayNote, onShowOriginal) {
+            frameLimit +=
+                TrafficRepository.PAGE_SIZE
+        }
     } ?: Placeholder("Loading…")
 }
 
@@ -514,7 +525,7 @@ private sealed interface ShownRun {
 /** Every run, newest first, and "All runs"; [onShow] gets null for all of them. A blank name makes a run unnamed. */
 @Composable
 private fun RunList(
-    runs: List<StoredRun>,
+    runs: List<Run>,
     currentRun: Long,
     shownRunId: Long?,
     onShow: (Long?) -> Unit,
@@ -773,10 +784,10 @@ private fun proxyStateOf(status: ProxyStatus): Pair<String, Boolean> =
 
 @Composable
 private fun DeviceList(
-    sessions: List<StoredSession>,
-    selected: StoredSession?,
+    sessions: List<Session>,
+    selected: Session?,
     status: String,
-    health: StorageHealth,
+    health: StoreHealth,
     retentionStatus: RetentionStatus,
     modifier: Modifier,
     onSettings: () -> Unit,
@@ -787,7 +798,7 @@ private fun DeviceList(
     onMocks: () -> Unit,
     breakpointsLabel: String,
     onBreakpoints: () -> Unit,
-    onSelect: (StoredSession) -> Unit,
+    onSelect: (Session) -> Unit,
 ) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -838,17 +849,17 @@ private fun DeviceList(
 @Composable
 private fun RequestList(
     pages: ExchangePages,
-    selected: StoredExchange?,
+    selected: Exchange?,
     filter: ExchangeFilter,
     onFilter: (ExchangeFilter) -> Unit,
     modifier: Modifier,
     marked: Set<Long>,
-    onMark: (StoredExchange, Boolean) -> Unit,
+    onMark: (Exchange, Boolean) -> Unit,
     onSaveAsIssue: () -> Unit,
     onBenchmarks: () -> Unit,
     onExportHar: () -> Unit,
     exportNote: String?,
-    onSelect: (StoredExchange) -> Unit,
+    onSelect: (Exchange) -> Unit,
 ) {
     val exchanges = pages.rows
     val list = rememberLazyListState()
@@ -1216,7 +1227,7 @@ private fun statusOf(exchange: HttpExchange): String =
         else -> "…"
     }
 
-internal fun statusOf(exchange: StoredExchange): String =
+internal fun statusOf(exchange: Exchange): String =
     when {
         exchange.failed -> "failed"
         exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
@@ -1254,10 +1265,10 @@ private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
 internal const val CONNECTION_BYTES = "connection-bytes"
 
 /** A run's name, or its start time while it has none (ADR-0084 B.1). */
-internal fun titleOf(run: StoredRun): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
+internal fun titleOf(run: Run): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
 
 private fun spanOf(
-    run: StoredRun,
+    run: Run,
     current: Boolean,
 ): String =
     listOfNotNull(

@@ -34,12 +34,12 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.domain.Run
 import appmonitor.desktop.storage.EndpointChange
 import appmonitor.desktop.storage.EndpointDiff
 import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StoredRun
 import appmonitor.desktop.storage.diffEndpoints
 import appmonitor.desktop.storage.groupByEndpoint
 import java.util.Locale
@@ -89,7 +89,7 @@ internal data class DiffRow(
 @Composable
 internal fun RunDiff(
     storage: Storage,
-    runs: List<StoredRun>,
+    runs: List<Run>,
     filter: ExchangeFilter,
     scope: String,
     onClose: () -> Unit,
@@ -140,7 +140,7 @@ internal fun RunDiff(
 @Composable
 private fun RunPicker(
     label: String,
-    runs: List<StoredRun>,
+    runs: List<Run>,
     selected: Long?,
     tag: String,
     modifier: Modifier,

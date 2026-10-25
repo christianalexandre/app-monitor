@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.data.toDomain
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
 import appmonitor.desktop.designsystem.DialogCard
@@ -157,7 +158,7 @@ private fun IssueEditor(
             Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xxs), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                 Text(exchange.method ?: "—", Modifier.width(96.dp), role = TextRole.BodyStrong, maxLines = 1)
                 Text(exchange.url ?: exchange.requestId, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(statusOf(exchange), Modifier.width(56.dp))
+                Text(statusOf(exchange.toDomain()), Modifier.width(56.dp))
             }
         }
     }

@@ -18,6 +18,8 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.McpSettings
 import appmonitor.desktop.app.ui.ProxySettings
 import appmonitor.desktop.app.ui.StorageUnavailable
+import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
@@ -60,6 +62,8 @@ fun main() {
             return
         }
     val store = TrafficStore(storage)
+    val runRepository = storage.runRepository()
+    val traffic = storage.trafficRepository()
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
     val mcp = McpController(storage, access, replays = store.replays)
@@ -118,6 +122,8 @@ fun main() {
                                 onResetProxyCa = { scope.launch { proxy.resetCa() } },
                                 heldCalls = store.heldCalls,
                                 replays = store.replays,
+                                runRepository = runRepository,
+                                traffic = traffic,
                             )
                         }
                     }

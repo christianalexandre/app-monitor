@@ -126,6 +126,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Docs consistency | `make docs-check` | active |
 | Desktop screens use only the design system (no Material, raw color, spacing or radius outside `desktop/designsystem`) | `make designsystem-check` | active; in `make check`; `scripts/designsystem_check.sh`, its test in `make scripts-test`; ADR-0133, ADR-0134, guideline 05 |
 | Design system gallery (every component in light and dark) | `./gradlew :desktop:designsystem:test` | active; JVM, in `make build`; screenshots `gallery-light.png` and `gallery-dark.png` in `desktop/designsystem/build/screenshots/`; ADR-0134 |
+| Desktop data tests (the domain's repositories over a real store, mappers) | `./gradlew :desktop:data:test` | active; JVM, in `make build`; store in a temporary directory; ADR-0135 |
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |

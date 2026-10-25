@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":desktop:data"))
     implementation(project(":desktop:designsystem"))
     implementation(project(":desktop:mcp"))
     implementation(project(":desktop:proxy"))

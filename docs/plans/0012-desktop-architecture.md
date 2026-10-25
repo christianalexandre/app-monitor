@@ -41,10 +41,19 @@ task that lands each module.
   201, `MockTests`' mocked answer, instead of 200), twice in a row; the
   suite alone passes. The two suites run in parallel and the mock rules
   are process-wide. Accept: `make swift` green twice in a row.
-- [ ] **H2.2 Domain, data and the traffic feature.** `desktop/domain`,
-  `desktop/data`, Koin and view models; `desktop/feature/traffic`
-  (devices, approvals, requests, detail, runs, replay) moved out of
-  `ui/App.kt`; `desktop/app` keeps the window and the wiring.
+- [x] **H2.2a Domain and data for traffic.** `desktop/domain` (runs,
+  sessions, exchanges, the detail model, repository interfaces) and
+  `desktop/data` (repositories over `desktop/storage`, mappers); the
+  traffic panes of `ui/App.kt` read runs, sessions, requests and one
+  request through them. Split from H2.2 (too large for one PR).
+  Accept: `./gradlew :desktop:data:test :desktop:app:test` — the traffic
+  panes call no `Storage` function but curl's.
+  Deviation: done before H2.F1, which H2.1 added above it while this was
+  under way; H2.F1 is next.
+- [ ] **H2.2b The traffic feature.** Koin and view models;
+  `desktop/feature/traffic` (devices, approvals, requests, detail, runs,
+  replay) moved out of `ui/App.kt`; `desktop/app` keeps the window and the
+  wiring.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   the traffic tests pass against a view model over fake repositories and
   against the real store; no feature imports `desktop/storage`.
@@ -54,7 +63,8 @@ task that lands each module.
 - [ ] **H2.4 Insights and settings.** `desktop/feature/insights` (issues,
   benchmarks, run diff, export) and `desktop/feature/settings`
   (retention, MCP, proxy).
-  Accept: their moved UI tests pass; `desktop/app` holds no screen.
+  Accept: their moved UI tests pass; `desktop/app` holds no screen;
+  `desktop/data`'s mappers are `internal` again (ADR-0135).
 - [ ] **H2.5 MCP through the repositories.** `desktop/mcp` depends on
   `desktop/domain`, not `desktop/storage`.
   Accept: `./gradlew :desktop:mcp:test` unchanged and green; `desktop/mcp`'s

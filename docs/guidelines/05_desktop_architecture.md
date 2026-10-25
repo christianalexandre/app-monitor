@@ -26,6 +26,16 @@ ADR-0133 join this chapter as they land (PLAN-0012).
 - **A component knows no domain model.** It takes strings, numbers and
   lambdas; a type from `desktop/storage`, `desktop/server` or `protocol`
   stays in the screen.
+- **A screen reads data through a `desktop/domain` repository**
+  (`RunRepository`, `TrafficRepository`), never `desktop/storage`'s
+  types; a pane not moved yet (PLAN-0012) is the exception, not the
+  model (ADR-0135).
+- **`desktop/domain` is pure Kotlin**: `:protocol` and coroutines only;
+  no Compose, SQLDelight or Ktor. A model mirrors a store row and keeps
+  the protocol's messages (`Hello`, `Header`) as they are.
+- **`desktop/data` maps, nothing else**: an `internal` repository over
+  `Storage` and one `toDomain()` or `toStored()` per type in
+  `Mappers.kt`, covered by `desktop/data`'s tests.
 - **Every component is in the gallery.** A new one is added to
   `GalleryTest`, which renders it in light and dark
   (`desktop/designsystem/build/screenshots/gallery-*.png`).
