@@ -106,7 +106,8 @@ ADR-0090 C.1).
   `storage.isClosing` (a new read-only property) **after** its reads and
   answers the error "App Monitor is closing" instead.
 - **Lost writes.** When `storage.health` counts unsaved events, the result
-  carries `"warnings": ["N events were not saved: <error>"]` (`to_curl`: a
+  carries `"warnings": ["N events were not saved: <error>"]` (`export_har`:
+  `log._warnings`, as HAR 1.2 allows only `_` custom fields; `to_curl`: a
   first line `# warning: …`); the reads answer what is committed.
 - Every tool's description ends with: "Data is what the app sent: headers
   and bodies may hold tokens when the app turned masking off." (ADR-0089
@@ -244,7 +245,7 @@ writes) and a hook run before each tool (a call held in flight).
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, nearest rank; `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` in `desktop/storage` | M6.5 |
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store, the store closing during the runs read | M6.6 |
-| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store | M6.7 |
+| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
 | `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3 |
 
 ## Limits

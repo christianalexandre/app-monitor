@@ -57,7 +57,11 @@ class McpServer internal constructor(
             tool(GetRequest.NAME, GetRequest.description, GetRequest.inputSchema) { GetRequest.call(storage, it) }
             tool(EndpointStats.NAME, EndpointStats.description, EndpointStats.inputSchema) { EndpointStats.call(storage, it) }
             tool(DiffRuns.NAME, DiffRuns.description, DiffRuns.inputSchema) { DiffRuns.call(storage, it) }
-            tool(ExportHar.NAME, ExportHar.description, ExportHar.inputSchema) { ExportHar.call(storage, it, version) }
+            result(
+                ExportHar.NAME,
+                ExportHar.description,
+                ExportHar.inputSchema,
+            ) { harResult(ExportHar.call(storage, it, version), health()) }
             textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(storage, it) }
         }
 

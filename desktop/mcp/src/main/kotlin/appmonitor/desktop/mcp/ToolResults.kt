@@ -44,6 +44,17 @@ internal fun jsonResult(
     return CallToolResult(content = listOf(TextContent(body.toString())))
 }
 
+/** [har] as [jsonResult], the warning in `log._warnings`: HAR 1.2 allows no other custom field. */
+internal fun harResult(
+    har: JsonObject,
+    health: StorageHealth,
+): CallToolResult {
+    val log = har.getValue("log") as JsonObject
+    val body =
+        warning(health)?.let { JsonObject(mapOf("log" to JsonObject(log + ("_warnings" to JsonArray(listOf(JsonPrimitive(it))))))) } ?: har
+    return CallToolResult(content = listOf(TextContent(body.toString())))
+}
+
 private val isoUtc = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
 
 /** ISO 8601 UTC with milliseconds, null kept as JSON null. */

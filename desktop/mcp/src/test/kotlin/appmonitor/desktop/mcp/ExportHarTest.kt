@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.storage.StorageHealth
 import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.WebSocketFrame
@@ -54,6 +55,8 @@ class ExportHarTest {
         assertEquals(setOf("log"), har.keys)
         val log = har.obj("log")
         log.assertFields("log", "log")
+        val logFields = setOf("version", "creator", "browser", "pages", "entries", "comment")
+        log.keys.forEach { assertTrue(it in logFields || it.startsWith("_"), "log.$it is not HAR 1.2 and does not start with _") }
         assertEquals("1.2", log.str("version"))
         log.obj("creator").assertFields("creator", "log.creator")
         log["entries"]!!.jsonArray.forEachIndexed { i, element ->
@@ -234,6 +237,19 @@ class ExportHarTest {
             assertEquals("the HAR is past 0 MiB: narrow the filter or use bodies: none", error.message)
             ExportHar.call(running.storage, mapOf("bodies" to JsonPrimitive("none")).let(::JsonObject), "test", maxText = 1_000)
             assertEquals(32L * 1024 * 1024, ExportHar.MAX_TEXT)
+        }
+
+    @Test
+    fun lostWritesAreAWarningInsideTheLog() =
+        withServer(health = { StorageHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
+            running.store(request("r1") to 1_000L)
+            val har = running.export().json
+            assertHar12(har)
+            assertEquals(
+                listOf("3 events were not saved: disk I/O error"),
+                har.obj("log")["_warnings"]!!.jsonArray.map { it.jsonPrimitive.content },
+            )
+            assertEquals(1, har.entries().size)
         }
 
     @Test
