@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import ObjectiveC
+import SwiftProtobuf
 import os
 
 /// Where captured events go: the running monitor, or a test double.
@@ -15,6 +16,13 @@ protocol CaptureSink: AnyObject, Sendable {
 
     /// Keeps what sends `requestID`'s task again for a `ReplayRequest`; dropped outside a session (ADR-0122 A.1).
     func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?)
+
+    /// The desktop's first breakpoint holding this call at `stage`, nil outside a session (ADR-0118).
+    func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
+
+    /// Sends `hit` and calls `done` once with how the task goes on; the result drops the hold (ADR-0111 A.1).
+    func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
+        -> @Sendable () -> Void
 }
 
 extension MonitorHolder: CaptureSink {
@@ -28,6 +36,21 @@ extension MonitorHolder: CaptureSink {
 
     func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
         client?.replays.keep(requestID, replay)
+    }
+
+    func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
+    {
+        client?.breakpoints.match(method: method, url: url, stage: stage)
+    }
+
+    func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
+        -> @Sendable () -> Void
+    {
+        guard let client else {
+            done(.unchanged)
+            return {}
+        }
+        return client.breakpoints.hold(hit, send: { client.send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
     }
 }
 
@@ -71,18 +94,29 @@ final class TaskCapture: @unchecked Sendable {
     let requestURL: URL?
     /// Set at the first resume; `MockProtocol` answers the task with it.
     let mock: Appmonitor_V1_MockRule?
+    /// Set at the first resume: `HoldProtocol` loads the task, first holding its request at `requestHold`.
+    let held: Bool
+    let requestHold: Appmonitor_V1_BreakpointRule?
+    /// A held task's request at resume: by `startLoading` its `httpBody` is a stream.
+    let heldRequest: URLRequest?
     private let lock = NSLock()
     private var response: URLResponse?
     private var body = Data()
     private var received: Int64 = 0
     private var finished = false
 
-    init(sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?, mock: Appmonitor_V1_MockRule? = nil) {
+    init(
+        sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?, mock: Appmonitor_V1_MockRule? = nil,
+        held: Bool = false, requestHold: Appmonitor_V1_BreakpointRule? = nil, request: URLRequest? = nil
+    ) {
         self.sink = sink
         masking = Masking(options)
         limit = options.maxBodyBytes
         self.requestURL = requestURL
         self.mock = mock
+        self.held = held || requestHold != nil
+        self.requestHold = requestHold
+        heldRequest = self.held ? request : nil
     }
 
     func didReceive(_ response: URLResponse) {
@@ -186,6 +220,22 @@ func requestStarted(
     mock: Appmonitor_V1_MockRule? = nil,
     replayOf: String? = nil
 ) throws -> Data {
+    try requestStartedEvent(
+        request, id: id, masking: masking, limit: limit, upload: upload, streamed: streamed, mock: mock,
+        replayOf: replayOf
+    ).serializedBytes()
+}
+
+func requestStartedEvent(
+    _ request: URLRequest?,
+    id: String,
+    masking: Masking,
+    limit: Int,
+    upload: UploadBody? = nil,
+    streamed: Bool = false,
+    mock: Appmonitor_V1_MockRule? = nil,
+    replayOf: String? = nil
+) -> Appmonitor_V1_RequestStarted {
     var event = Appmonitor_V1_RequestStarted()
     event.requestID = id
     event.method = request?.httpMethod ?? "GET"
@@ -214,16 +264,44 @@ func requestStarted(
     default:
         break
     }
-    return try event.serializedBytes()
+    return event
+}
+
+/// Wraps `message` for the `interaction` channel.
+func interactionEnvelope(_ type: String, _ message: some SwiftProtobuf.Message) -> Appmonitor_V1_Envelope {
+    var envelope = Appmonitor_V1_Envelope()
+    envelope.channel = ProtocolConstants.channelInteraction
+    envelope.type = type
+    envelope.payload = (try? message.serializedBytes()) ?? Data()
+    envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
+    return envelope
 }
 
 /// The Objective-C runtime hooks of ADR-0043; every replaced method calls the original unchanged.
 enum Hooks {
     nonisolated(unsafe) private static var captureKey: UInt8 = 0
     nonisolated(unsafe) private static var uploadKey: UInt8 = 0
+    nonisolated(unsafe) private static var skipKey: UInt8 = 0
+    private static let sessionSelector = NSSelectorFromString("session")
 
     static func capture(of task: AnyObject) -> TaskCapture? {
         objc_getAssociatedObject(task, &captureKey) as? TaskCapture
+    }
+
+    /// The body an upload constructor gave `task`.
+    static func upload(of task: AnyObject) -> UploadBody? {
+        (objc_getAssociatedObject(task, &uploadKey) as? UploadBox)?.body
+    }
+
+    /// The session that made `task`, through the `session` selector ADR-0046's hooks read.
+    static func session(of task: URLSessionTask) -> URLSession? {
+        guard task.responds(to: sessionSelector) else { return nil }
+        return task.perform(sessionSelector)?.takeUnretainedValue() as? URLSession
+    }
+
+    /// `task` is the SDK's own, sending a held task: never captured, held or mocked.
+    static func skip(_ task: URLSessionTask) {
+        objc_setAssociatedObject(task, &skipKey, true, .OBJC_ASSOCIATION_RETAIN)
     }
 
     static func install() -> Bool {
@@ -298,6 +376,7 @@ enum Hooks {
     private static func started(_ task: URLSessionTask) {
         let sink = URLSessionCapture.sink
         guard capture(of: task) == nil, WebSocketHooks.capture(of: task) == nil,
+            objc_getAssociatedObject(task, &skipKey) == nil,
             let options = sink.options, !(task is URLSessionStreamTask)
         else { return }
         let request = task.currentRequest ?? task.originalRequest
@@ -309,20 +388,27 @@ enum Hooks {
             return WebSocketHooks.started(task, sink: sink, options: options)
         }
         guard scheme == "http" || scheme == "https" else { return }
-        let mock =
-            MockHooks.installed && task is URLSessionDataTask && !BackgroundHooks.isBackground(task)
-            ? sink.mock(method: request?.httpMethod ?? "GET", url: request?.url?.absoluteString ?? "") : nil
-        let capture = TaskCapture(sink: sink, options: options, requestURL: request?.url, mock: mock)
+        let local = MockHooks.installed && task is URLSessionDataTask && !BackgroundHooks.isBackground(task)
+        let (method, url) = (request?.httpMethod ?? "GET", request?.url?.absoluteString ?? "")
+        let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
+        let streamed = upload == nil && (task is URLSessionUploadTask || request?.httpBodyStream != nil)
+        let holds = local && !streamed
+        let requestHold = holds ? sink.breakpoint(method: method, url: url, stage: .request) : nil
+        let held = requestHold != nil || (holds && sink.breakpoint(method: method, url: url, stage: .response) != nil)
+        let mock = local && requestHold == nil ? sink.mock(method: method, url: url) : nil
+        let capture = TaskCapture(
+            sink: sink, options: options, requestURL: request?.url, mock: mock, held: held, requestHold: requestHold,
+            request: request)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         BackgroundHooks.started(task, capture)
-        let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
+        sink.keepForReplay(
+            capture.id, Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
+        if requestHold != nil { return }  // HoldProtocol sends it once the hold ends (ADR-0123 C.1)
         emit(sink, "RequestStarted") {
             try requestStarted(
                 request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload?.body,
                 streamed: task is URLSessionUploadTask, mock: mock, replayOf: Replay.original(of: task))
         }
-        sink.keepForReplay(
-            capture.id, Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
     }
 
     private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {

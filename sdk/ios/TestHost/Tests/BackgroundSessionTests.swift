@@ -31,6 +31,20 @@ final class Sink: CaptureSink, @unchecked Sendable {
         replays.keep(requestID, replay)
     }
 
+    /// The breakpoints a session would hold; a background task is never held (ADR-0125).
+    let breakpoints = Breakpoints()
+
+    func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
+    {
+        breakpoints.match(method: method, url: url, stage: stage)
+    }
+
+    func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
+        -> @Sendable () -> Void
+    {
+        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+    }
+
     func started() throws -> Appmonitor_V1_RequestStarted {
         try Appmonitor_V1_RequestStarted(serializedBytes: #require(all.first { $0.type == "RequestStarted" }).payload)
     }
@@ -190,7 +204,7 @@ final class BackgroundSessionTests {
         #expect(delegate.callbacks.suffix(3) == ["didReceiveData", "didFinishCollecting", "didComplete"])
     }
 
-    @Test func aFileUploadAMockRuleMatchesStillGoesToTheNetwork() async throws {
+    @Test func aFileUploadAMockRuleOrBreakpointMatchesStillGoesToTheNetwork() async throws {
         let sink = capture()
         var rule = Appmonitor_V1_MockRule()
         rule.id = 1
@@ -198,6 +212,13 @@ final class BackgroundSessionTests {
         rule.path = "/echo"
         rule.failure = Appmonitor_V1_MockFailure()
         sink.rules.replace([rule])
+        var breakpoint = Appmonitor_V1_BreakpointRule()
+        breakpoint.host = "127.0.0.1"
+        breakpoint.path = "/echo"
+        breakpoint.request = true
+        breakpoint.response = true
+        breakpoint.timeoutMs = 60_000
+        sink.breakpoints.replace([breakpoint])
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try Data("payload".utf8).write(to: file)
         var request = URLRequest(url: server.url("/echo"))
@@ -206,6 +227,7 @@ final class BackgroundSessionTests {
         await run(session.uploadTask(with: request, fromFile: file))
 
         #expect(try !sink.started().hasMockRuleID)
+        #expect(!sink.all.contains { $0.type == "BreakpointHit" })
         #expect(String(decoding: delegate.received, as: UTF8.self) == "payload")
         #expect(delegate.callbacks.last == "didComplete")
     }

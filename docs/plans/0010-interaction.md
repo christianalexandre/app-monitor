@@ -125,8 +125,9 @@ needs its own decision is split as soon as that shows.
   `sdk/ios` for data and upload tasks. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one
   replay asserted end to end.
-- [ ] **M9.15 Breakpoints in the iOS SDK.** (split from M9.11; a new id so
-  the ids ADRs cite stay) `sdk/ios` holds a matching data or upload task,
+- [x] **M9.15 Breakpoints in the iOS SDK.** (split from M9.11; a new id so
+  the ids ADRs cite stay; `feat/ios-sdk-breakpoints`; ADR-0125: `HoldProtocol` before `MockProtocol`, the task
+  sent on through a copy of its session's configuration, streamed bodies not held; DEBT-0085, DEBT-0086) `sdk/ios` holds a matching data or upload task,
   resumes it edited, aborts it, and lets one time out, per ADR-0111 and
   ADR-0118. SDD 06 and 07 updated.
   Accept: `make swift` and `make swift-sim`.

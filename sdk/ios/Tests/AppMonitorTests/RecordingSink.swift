@@ -35,6 +35,34 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
         replays.keep(requestID, replay)
     }
 
+    /// The breakpoints `breakpoint` and `hold` answer from, as a session's `MonitorClient` keeps them.
+    let breakpoints = Breakpoints()
+
+    func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
+    {
+        breakpoints.match(method: method, url: url, stage: stage)
+    }
+
+    func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
+        -> @Sendable () -> Void
+    {
+        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+    }
+
+    /// The `BreakpointHit` sent so far at `stage`, waited for up to 5 s.
+    func hit(_ stage: Appmonitor_V1_BreakpointStage) async throws -> Appmonitor_V1_BreakpointHit {
+        for _ in 0..<100 {
+            if let hit = try all.filter({ $0.type == "BreakpointHit" })
+                .map({ try Appmonitor_V1_BreakpointHit(serializedBytes: $0.payload) })
+                .first(where: { $0.stage == stage })
+            {
+                return hit
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw CaptureTestError.noExchange("breakpoint hit")
+    }
+
     /// The `RequestStarted` whose URL is `url`, and the event that ended it, waited for up to 5 s.
     func exchange(_ url: URL) async throws -> (Appmonitor_V1_RequestStarted, Appmonitor_V1_Envelope) {
         try await exchange(url.absoluteString)

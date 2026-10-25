@@ -27,12 +27,19 @@ final class MockRuleSet: @unchecked Sendable {
 
 extension Appmonitor_V1_MockRule {
     func matches(method: String, host: String, path: String) -> Bool {
-        if !self.method.isEmpty && self.method != method { return false }
-        if self.host.lowercased() != host.lowercased() { return false }
-        let wanted = self.path.split(separator: "/", omittingEmptySubsequences: false)
-        let actual = path.split(separator: "/", omittingEmptySubsequences: false)
-        return wanted.count == actual.count && zip(wanted, actual).allSatisfy { $0 == "*" || $0 == $1 }
+        ruleMatches(self.method, self.host, self.path, method: method, host: host, path: path)
     }
+}
+
+/// ADR-0110 B.1, for mock rules and breakpoints alike (ADR-0118 A.1).
+func ruleMatches(
+    _ ruleMethod: String, _ ruleHost: String, _ rulePath: String, method: String, host: String, path: String
+) -> Bool {
+    if !ruleMethod.isEmpty && ruleMethod != method { return false }
+    if ruleHost.lowercased() != host.lowercased() { return false }
+    let wanted = rulePath.split(separator: "/", omittingEmptySubsequences: false)
+    let actual = path.split(separator: "/", omittingEmptySubsequences: false)
+    return wanted.count == actual.count && zip(wanted, actual).allSatisfy { $0 == "*" || $0 == $1 }
 }
 
 /// RFC 3986 appendix B, as `sdk/core` reads it (ADR-0115 B.1): the host without user info or port, and the
@@ -88,27 +95,37 @@ final class MockProtocol: URLProtocol, @unchecked Sendable {
     private func answer(_ rule: Appmonitor_V1_MockRule) {
         timer = nil
         guard let url = request.url else { return }
+        switch Self.answer(rule, url) {
+        case .success(let (response, data)):
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
+            client?.urlProtocolDidFinishLoading(self)
+        case .failure(let error):
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    /// The rule's response or failure for a task loading `url`; `HoldProtocol` answers a held task with it.
+    static func answer(_ rule: Appmonitor_V1_MockRule, _ url: URL) -> Result<(HTTPURLResponse, Data), NSError> {
         switch rule.answer {
         case .response(let mocked):
-            let fields = Dictionary(mocked.headers.map { ($0.name, $0.value) }) { "\($0), \($1)" }
             let response = HTTPURLResponse(
-                url: url, statusCode: Int(mocked.statusCode), httpVersion: "HTTP/1.1", headerFields: fields)!
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            if !mocked.body.isEmpty { client?.urlProtocol(self, didLoad: mocked.body) }
-            client?.urlProtocolDidFinishLoading(self)
+                url: url, statusCode: Int(mocked.statusCode), httpVersion: "HTTP/1.1",
+                headerFields: headerFields(mocked.headers.map { ($0.name, $0.value) }))!
+            return .success((response, mocked.body))
         case .failure(let failure):
-            let error = NSError(
-                domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost,
-                userInfo: [NSLocalizedDescriptionKey: failure.message, NSURLErrorFailingURLErrorKey: url])
-            client?.urlProtocol(self, didFailWithError: error)
+            return .failure(
+                NSError(
+                    domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost,
+                    userInfo: [NSLocalizedDescriptionKey: failure.message, NSURLErrorFailingURLErrorKey: url]))
         case nil:
-            client?.urlProtocol(self, didFailWithError: URLError(.unknown))
+            return .failure(URLError(.unknown) as NSError)
         }
     }
 }
 
-/// Puts `MockProtocol` first in every configuration's `protocolClasses` but a background one's, read by
-/// every session when a task starts, `URLSession.shared` and sessions made before `start` included.
+/// Puts `HoldProtocol` and `MockProtocol` first in every configuration's `protocolClasses` but a background
+/// one's, read by every session when a task starts, `URLSession.shared` and sessions made before `start` included.
 enum MockHooks {
     nonisolated(unsafe) private(set) static var installed = false
 
@@ -122,8 +139,8 @@ enum MockHooks {
         let block: @convention(block) (AnyObject) -> NSArray? = { object in
             let classes = original(object, selector)
             guard (object as? URLSessionConfiguration)?.identifier == nil else { return classes }
-            let others = (classes as? [AnyClass] ?? []).filter { $0 != MockProtocol.self }
-            return ([MockProtocol.self] + others) as NSArray
+            let others = (classes as? [AnyClass] ?? []).filter { $0 != HoldProtocol.self && $0 != MockProtocol.self }
+            return ([HoldProtocol.self, MockProtocol.self] + others) as NSArray
         }
         method_setImplementation(method, imp_implementationWithBlock(block))
         installed = true
