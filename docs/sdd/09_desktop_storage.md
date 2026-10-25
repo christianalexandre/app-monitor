@@ -287,8 +287,14 @@ closes the approved devices (ADR-0083). A failure goes to
   exchange ids, in one transaction (`list_issues`, SDD 10).
 - `searchExchangeSizes(filter, afterId, limit)` is the same search with
   each row's stored body sizes (`bodies.size` of both parts, 0 when the
-  part has no row), read by two subqueries on the `bodies` key;
-  `endpoint_stats` pages through it (SDD 10).
+  part has no row), read by two subqueries on the `bodies` key.
+- `groupByEndpoint(filter, maxExchanges)` (`Endpoints.kt`, ADR-0097)
+  pages through `searchExchangeSizes`, oldest first, at most 100 000 rows,
+  and groups them per endpoint (`EndpointTally`: count, status classes,
+  failed, error rate, `Durations` min, p50, p95, p99, max by nearest rank,
+  stored body bytes), most called first; `EndpointGroups.truncated` when a
+  matching row is left past the cap. `endpoint_stats`, `diff_runs` (SDD
+  10) and the window's benchmarks (SDD 01) read through it; it only reads.
 - The window's request list is the selected session's exchanges under a
   filter bar: search field, method, status class, failed only. The device
   and app are the session picked in the device list, the run the run

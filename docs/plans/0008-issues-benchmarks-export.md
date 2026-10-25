@@ -50,7 +50,7 @@ the lifecycle table lists every call class against each store state.
   edits and lists an issue, unknown exchange ids refused, a save while
   the store closes is an error; the issue then shown by `desktop/app`'s
   store.
-- [ ] **M7.4 Benchmarks in the window.** `endpoint_stats`' grouping moved
+- [x] **M7.4 Benchmarks in the window.** `endpoint_stats`' grouping moved
   where both `desktop/mcp` and `desktop/app` use it, p99 added to both; a
   benchmarks view of the selected run or the filter: per endpoint count,
   status classes, error rate, p50/p95/p99, bytes, sortable.
