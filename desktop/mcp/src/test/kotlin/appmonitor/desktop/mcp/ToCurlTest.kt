@@ -135,6 +135,34 @@ class ToCurlTest {
         }
 
     @Test
+    fun storedFramingHeadersAreLeftToCurl() =
+        withServer { running ->
+            val headers = listOf(Header("Content-Length", "3000"), Header("Transfer-Encoding", "chunked"), Header("X-Kept", "1"))
+            val id =
+                running.store(
+                    request("r1", "POST", "http://127.0.0.1:1/", headers, "abc".encodeUtf8(), bodyTruncated = true, bodySize = 3_000),
+                )
+            val command = running.curl(id)
+            assertTrue("Content-Length" !in command && "Transfer-Encoding" !in command, command)
+            val received = run(command)
+            assertEquals("abc".encodeUtf8(), received.body)
+            assertEquals("3", received.headers.single { it.first == "content-length" }.second)
+            assertEquals("1", received.headers.single { it.first == "x-kept" }.second)
+        }
+
+    @Test
+    fun aHeadWithAStoredBodyLeavesItOut() =
+        withServer { running ->
+            val headers = listOf(Header("Content-Length", "3"))
+            val id = running.store(request("r1", "HEAD", "http://127.0.0.1:1/h", headers, "abc".encodeUtf8()))
+            val command = running.curl(id)
+            assertEquals("# body of 3 bytes left out: curl sends none with --head", command.lines().first())
+            val received = run(command)
+            assertEquals("HEAD", received.method)
+            assertEquals(0, received.body.size)
+        }
+
+    @Test
     fun lostWritesAreACommentLine() =
         withServer(health = { StorageHealth(notSaved = 2, lastError = "disk full") }) { running ->
             val id = running.store(request("r1", url = "http://127.0.0.1:1/"))
