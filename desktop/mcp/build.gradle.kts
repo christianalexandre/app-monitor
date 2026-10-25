@@ -7,6 +7,7 @@ plugins {
 
 dependencies {
     api(project(":desktop:storage"))
+    api(project(":desktop:domain"))
     implementation(libs.mcp.kotlin.sdk.server)
     implementation(libs.ktor.server.cio)
     implementation(libs.kotlinx.serialization.json)

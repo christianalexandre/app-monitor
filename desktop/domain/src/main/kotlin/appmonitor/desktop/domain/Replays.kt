@@ -36,3 +36,26 @@ interface ExportRepository {
     /** `to_curl`'s command for exchange [id], or why there is none (SDD 10). */
     suspend fun curl(id: Long): Result<String>
 }
+
+/** A replay an agent asked, for the developer to send or refuse (ADR-0121). [sessionId] is the server's session id. */
+data class AskedReplay(
+    val exchangeId: Long,
+    val sessionId: String,
+    val requestId: String,
+    val method: String?,
+    val url: String?,
+    val deviceName: String,
+    val appId: String,
+)
+
+/** The replays agents asked that wait for the developer, until answered or their session ends (ADR-0121 A.1). */
+interface AskedReplayRepository {
+    /** Oldest first. */
+    val asked: StateFlow<List<AskedReplay>>
+
+    /** Sends [replay] when [send], else drops it; null when it no longer waits. */
+    fun answer(
+        replay: AskedReplay,
+        send: Boolean,
+    ): ReplaySent?
+}

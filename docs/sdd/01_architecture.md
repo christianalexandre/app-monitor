@@ -347,7 +347,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
 - gRPC status (ADR-0107): a call whose `grpc_status` is other than 0 shows
   `grpc N` as its status in the row and the detail, and counts as an error
   in benchmarks and the run diff.
-- Approval: `DeviceApprovals.pending` drives a panel over the three panes,
+- Approval: `DeviceApprovals.pending`, read as `PendingApproval`s through
+  `ApprovalStore` and `DecisionsViewModel`, drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call
   `ApprovalStore.decide`, which answers the connections at once and queues

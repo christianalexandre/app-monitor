@@ -92,7 +92,6 @@ fun main() {
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
                             val scope = rememberCoroutineScope()
-                            val pending by approvals.pending.collectAsState()
                             val answered by remember { approvals.stored }.collectAsState(emptyList())
                             val mcpStatus by mcp.status.collectAsState()
                             val mcpEnabled by mcp.enabled.collectAsState()
@@ -102,8 +101,7 @@ fun main() {
                             AppMonitorApp(
                                 storage,
                                 status,
-                                pending,
-                                onDecide = { device, approved -> scope.launch { approvals.decide(device, approved) } },
+                                approvals,
                                 answered = answered,
                                 onForget = { key -> scope.launch { if (key == null) approvals.forgetAll() else approvals.forget(key) } },
                                 onClearAll = {

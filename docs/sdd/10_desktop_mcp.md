@@ -278,7 +278,7 @@ Details the table leaves out:
   not saved: <error>". No tool lists, edits, confirms or deletes a rule.
   Code: `Mocks.kt`.
 - **Replays** (`replay_request`, ADR-0111 E.1, ADR-0121): the tool hands
-  an `AskedReplay` (exchange id, the server's session id, request id,
+  a `desktop/domain` `AskedReplay` (exchange id, the server's session id, request id,
   method, URL, device name, app id) to the `ReplayAsks` `McpServer` was
   given, `desktop/app`'s `Replays` (SDD 12), and answers at once with
   `status: "waiting"`: nothing reaches the device before the developer

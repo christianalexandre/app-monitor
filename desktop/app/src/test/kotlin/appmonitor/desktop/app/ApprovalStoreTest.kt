@@ -38,7 +38,7 @@ class ApprovalStoreTest {
             launch(dir) { approvals, port, disconnected ->
                 // Nobody decides here: an asked device would time out.
                 replay(Target(HOST, port))
-                assertEquals(emptyList(), approvals.pending.value)
+                assertEquals(emptyList(), approvals.approvals.pending.value)
 
                 approvals.forget(key)
                 assertEquals(listOf(key), disconnected)
@@ -56,7 +56,7 @@ class ApprovalStoreTest {
             launch(dir) { approvals, port, _ ->
                 val rejected = runCatching { replay(Target(HOST, port)) }.exceptionOrNull()
                 assertTrue(rejected?.message.orEmpty().contains("VIOLATED_POLICY"), "closed at once: $rejected")
-                assertEquals(emptyList(), approvals.pending.value)
+                assertEquals(emptyList(), approvals.approvals.pending.value)
                 assertEquals(listOf(false), approvals.stored.first().map { it.approved })
 
                 approvals.forgetAll()

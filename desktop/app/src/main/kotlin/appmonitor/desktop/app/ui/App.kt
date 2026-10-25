@@ -48,6 +48,7 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.RunRepository
@@ -61,20 +62,17 @@ import appmonitor.desktop.feature.mocks.MockList
 import appmonitor.desktop.feature.mocks.MocksViewModel
 import appmonitor.desktop.feature.mocks.mockDraftOf
 import appmonitor.desktop.feature.mocks.mocksLabel
+import appmonitor.desktop.feature.traffic.PendingDecisions
 import appmonitor.desktop.feature.traffic.TrafficLinks
 import appmonitor.desktop.feature.traffic.TrafficScreen
 import appmonitor.desktop.feature.traffic.TrafficViewModel
-import appmonitor.desktop.feature.traffic.replayLabelOf
-import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.server.DeviceKey
-import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.desktop.storage.RetentionStatus
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredApproval
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinIsolatedContext
 import org.koin.compose.viewmodel.koinViewModel
@@ -86,15 +84,14 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * The traffic panes under the device to approve, the runs or the settings ([mcp] when given; [onForget] gets null for
+ * The traffic panes under the device to approve ([approvals] when given), the runs or the settings ([mcp] when given; [onForget] gets null for
  * every pair). Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
     storage: Storage,
     status: String,
-    pending: List<PendingDevice> = emptyList(),
-    onDecide: (PendingDevice, approved: Boolean) -> Unit = { _, _ -> },
+    approvals: ApprovalRepository? = null,
     answered: List<StoredApproval> = emptyList(),
     onForget: (DeviceKey?) -> Unit = {},
     onClearAll: () -> Unit = {},
@@ -117,7 +114,8 @@ internal fun AppMonitorApp(
             traffic,
             replays,
             heldCalls,
-        ) { koinApplication { modules(appModule(storage, runRepository, traffic, replays, heldCalls)) } }
+            approvals,
+        ) { koinApplication { modules(appModule(storage, runRepository, traffic, replays, heldCalls, approvals)) } }
     DisposableEffect(koin) { onDispose { koin.close() } }
     // ADR-0136: the window's view models live as long as this composition.
     val owner = remember(koin) { WindowViewModels() }
@@ -127,8 +125,6 @@ internal fun AppMonitorApp(
             AppMonitorWindow(
                 storage,
                 status,
-                pending,
-                onDecide,
                 answered,
                 onForget,
                 onClearAll,
@@ -139,7 +135,6 @@ internal fun AppMonitorApp(
                 onProxyEnabled,
                 onResetProxyCa,
                 pickHarFile,
-                replays,
                 traffic,
             )
         }
@@ -154,8 +149,6 @@ private class WindowViewModels : ViewModelStoreOwner {
 private fun AppMonitorWindow(
     storage: Storage,
     status: String,
-    pending: List<PendingDevice>,
-    onDecide: (PendingDevice, approved: Boolean) -> Unit,
     answered: List<StoredApproval>,
     onForget: (DeviceKey?) -> Unit,
     onClearAll: () -> Unit,
@@ -166,7 +159,6 @@ private fun AppMonitorWindow(
     onProxyEnabled: (Boolean) -> Unit,
     onResetProxyCa: () -> Unit,
     pickHarFile: (suggested: String) -> File?,
-    replays: Replays?,
     traffic: TrafficRepository,
 ) {
     val viewModel = koinViewModel<TrafficViewModel>()
@@ -185,7 +177,6 @@ private fun AppMonitorWindow(
     var breakpointsOpen by remember { mutableStateOf(false) }
     val breakpoints by koinViewModel<BreakpointsViewModel>().state.collectAsState()
     val held = breakpoints.held
-    val askedReplays by remember(replays) { replays?.asked ?: MutableStateFlow(emptyList()) }.collectAsState()
     val everySession by remember(traffic) { traffic.observeSessions(null) }.collectAsState(emptyList())
     val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
     var benchmarksOpen by remember { mutableStateOf(false) }
@@ -290,10 +281,7 @@ private fun AppMonitorWindow(
             }
             // A newer hit under the same request and stage is a new form, not the old one's edits.
             held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1) } }
-            if (replays != null) {
-                askedReplays.firstOrNull()?.let { AskedReplayDialog(it, askedReplays.size - 1) { send -> replays.answer(it, send) } }
-            }
-            pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
+            PendingDecisions()
         }
     }
 }
@@ -336,53 +324,6 @@ internal fun StorageUnavailable(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ApprovalDialog(
-    device: PendingDevice,
-    waiting: Int,
-    onDecide: (PendingDevice, approved: Boolean) -> Unit,
-) {
-    DialogCard(DialogWidth.Narrow) {
-        Text(
-            "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.key.appId} wants to connect",
-            role = TextRole.BodyStrong,
-        )
-        Text(
-            listOf(device.hello.os_version, device.hello.app_version, "device ${device.key.deviceId}")
-                .filter { it.isNotEmpty() }
-                .joinToString(" · "),
-            role = TextRole.Caption,
-        )
-        if (waiting > 0) Text("$waiting more waiting", role = TextRole.Caption)
-        DialogActions {
-            TextButton("Reject", onClick = { onDecide(device, false) })
-            TextButton("Approve", onClick = { onDecide(device, true) })
-        }
-    }
-}
-
-/** ADR-0005, ADR-0121 B.1: nothing an agent asks reaches the device before "Send again". */
-@Composable
-private fun AskedReplayDialog(
-    replay: AskedReplay,
-    waiting: Int,
-    onAnswer: (send: Boolean) -> Unit,
-) {
-    DialogCard(DialogWidth.Narrow) {
-        Text("An agent asks to send this request again", role = TextRole.BodyStrong)
-        Text("${replay.method ?: "—"} ${replay.url ?: replay.requestId}")
-        Text(
-            "${replay.deviceName.ifEmpty { "Unnamed device" }} — ${replay.appId} · exchange ${replay.exchangeId}",
-            role = TextRole.Caption,
-        )
-        if (waiting > 0) Text("$waiting more waiting", role = TextRole.Caption)
-        DialogActions {
-            TextButton("Refuse", onClick = { onAnswer(false) }, Modifier.testTag(REFUSE_REPLAY))
-            TextButton(replayLabelOf(replay.method), onClick = { onAnswer(true) }, Modifier.testTag(CONFIRM_REPLAY))
         }
     }
 }
@@ -638,9 +579,5 @@ internal const val PROXY_STATUS = "proxy-status"
 internal const val PROXY_RESET_CA = "proxy-reset-ca"
 
 internal const val MCP_STATUS = "mcp-status"
-
-internal const val CONFIRM_REPLAY = "confirm-replay"
-
-internal const val REFUSE_REPLAY = "refuse-replay"
 
 internal val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())

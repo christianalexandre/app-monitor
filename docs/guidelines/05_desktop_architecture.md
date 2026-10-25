@@ -30,8 +30,9 @@ ADR-0133 join this chapter as they land (PLAN-0012).
 - **A screen reads data through a `desktop/domain` repository**
   (`RunRepository`, `TrafficRepository`, `ReplayRepository`,
   `ExportRepository`, `MockRepository`, `BreakpointRepository`,
-  `HeldCallRepository`), never `desktop/storage`'s types; a pane not moved
-  yet (PLAN-0012) is the exception, not the model (ADR-0135).
+  `HeldCallRepository`, `ApprovalRepository`, `AskedReplayRepository`),
+  never `desktop/storage`'s types; a pane not moved yet (PLAN-0012) is
+  the exception, not the model (ADR-0135).
 - **A screen lives in a feature module**, `desktop/feature/<name>`, which
   depends on `desktop/domain`, `desktop/ui` and `desktop/designsystem`
   only: never on `desktop/data`, `desktop/storage`, `desktop/server`,

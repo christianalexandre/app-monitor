@@ -63,14 +63,12 @@ class LiveDeviceScreenshots {
         try {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent {
-                    val pending by approvals.pending.collectAsState()
                     val answered by remember { approvals.stored }.collectAsState(emptyList())
                     AppMonitorApp(
                         storage,
                         "Listening on port $port",
-                        pending,
-                        { device, approved -> scope.launch { approvals.decide(device, approved) } },
-                        answered,
+                        approvals = approvals,
+                        answered = answered,
                     )
                 }
                 println("liveScreenshots: data in $dir, listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")

@@ -70,13 +70,19 @@ task that lands each module.
   feature while `desktop/app`'s other screens use them. Paid DEBT-0088's
   "Show original" item: the view model reads an original past the
   loaded pages by id.
-- [ ] **H2.2c Approvals and an agent's replays.** The device approval
+- [x] **H2.2c Approvals and an agent's replays.** (`refactor/desktop-approvals-asked-replays`) The device approval
   dialog and the dialog of a replay an agent asked move to
   `desktop/feature/traffic`, behind domain interfaces implemented in
   `desktop/app` (`ApprovalStore`, `Replays`).
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   `approval.png` and `replay-asked.png` unchanged; `ui/App.kt` holds no
   `PendingDevice` or `AskedReplay`.
+  Deviation: `AskedReplay` moved from `desktop/mcp` to `desktop/domain`
+  rather than being mirrored, so `desktop/mcp` depends on `desktop/domain`
+  ahead of H2.5. The two dialogs are `PendingDecisions` over one
+  `DecisionsViewModel`; `ApprovalRepository.pending` is a `Flow`, as the
+  store maps the server's list. Both screenshots compared byte for byte
+  against `origin/dev`'s.
 - [x] **H2.3 Mocks and breakpoints.** (`refactor/desktop-mocks-breakpoints-features`)
   `desktop/feature/mocks` and
   `desktop/feature/breakpoints` on the same layers; the labels they share
