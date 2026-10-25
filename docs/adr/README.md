@@ -110,3 +110,4 @@ Rules:
 | [0090](0090-who-can-call-the-mcp-server.md) | Who can call the MCP server, on which port, and whether it is on by default | Accepted |
 | [0091](0091-which-mcp-clients-and-setup-docs.md) | Which MCP clients the desktop serves, and what the setup docs cover | Accepted |
 | [0092](0092-mcp-server-platform-primitives.md) | MCP server on the Kotlin MCP SDK 0.15.0, stateless Streamable HTTP on Ktor CIO | Accepted |
+| [0093](0093-gradle-plugin-for-the-release-swap.md) | A Gradle plugin swaps the SDK for its no-ops in release builds | Accepted |
