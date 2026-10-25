@@ -3,8 +3,8 @@
 How `sdk/ios` turns every `URLSession` task of the app into `network`
 envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
-`BackgroundCapture.swift`, `Mocks.swift` and `Masking.swift`; the mechanism is ADR-0043
-(WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117), what is masked and
+`BackgroundCapture.swift`, `Mocks.swift`, `Replays.swift` and `Masking.swift`; the mechanism is ADR-0043
+(WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117, replay ADR-0124), what is masked and
 bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
 the last section (ADR-0099).
 
@@ -83,6 +83,28 @@ The desktop's rules (SDD 12) answer a task without the network
   response, body and error, so `ResponseReceived` and `RequestFailed`
   are the same as from the network, masking included.
 - A missing getter logs one line and mocks nothing.
+
+### One task sent again
+
+The desktop's `ReplayRequest` (SDD 12) sends a captured task again
+through the app's own session (ADR-0111 D.1, ADR-0124):
+
+- **Kept at the first resume**, by the hook that sends `RequestStarted`:
+  a sender per HTTP task, by request id, in the session's
+  `MonitorClient` (`RecentRequests`, the last 200; emptied when the
+  session ends). It holds the task's `originalRequest` and upload body,
+  and its session weakly.
+- **Sent** as a new task on that session with a completion handler that
+  drops the result, so the app's delegate gets no data or completion for
+  it: a data task (a download task included), or an upload task from the
+  same data or file. The task is captured as any other, mocked if a rule
+  matches, with `RequestStarted.replay_of` the original's request id.
+- **Refused** with `ReplayRefused` and a reason: a request not kept (an
+  older one, a past session's, a WebSocket), a background session's task,
+  a streamed body, a session the app released, or one it invalidated,
+  read from `NSURLSession`'s `_invalid_ivar` before the task is made: a
+  task made on an invalidated session raises an exception that ends the
+  app (DEBT-0084 for the race).
 
 ### One WebSocket task
 
@@ -213,6 +235,9 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 ## Limits
 
 - A mocked `3xx` reaches the app as is; the protocol never redirects.
+- A replay of a redirected task sends its first request again; a
+  WebSocket is refused as not kept.
+- Breakpoints are not read yet: `BreakpointRules` is dropped (PLAN-0010 M9.15).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).

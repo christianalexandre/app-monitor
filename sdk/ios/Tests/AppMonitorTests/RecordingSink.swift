@@ -28,6 +28,13 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
         rules.match(method: method, url: url)
     }
 
+    /// The requests `keepForReplay` got, as a session's `MonitorClient` keeps them.
+    let replays = RecentRequests()
+
+    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+        replays.keep(requestID, replay)
+    }
+
     /// The `RequestStarted` whose URL is `url`, and the event that ended it, waited for up to 5 s.
     func exchange(_ url: URL) async throws -> (Appmonitor_V1_RequestStarted, Appmonitor_V1_Envelope) {
         try await exchange(url.absoluteString)

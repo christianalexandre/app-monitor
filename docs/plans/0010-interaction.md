@@ -118,10 +118,18 @@ needs its own decision is split as soon as that shows.
   `AppMonitorKtor` hold a matching call, resume it edited, abort it, and
   let one time out. SDD 04, 05 and 08 updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`.
-- [ ] **M9.11 Breakpoints and replay in the iOS SDK.** The same in
+- [x] **M9.11 Replay in the iOS SDK.** (`feat/ios-sdk-replay`; split: the
+  breakpoints are M9.15, done next; ADR-0124: a new task on the task's own session with a completion handler
+  that drops the result, an invalidated session refused from `_invalid_ivar`, `make e2e-ios --replay /json`;
+  DEBT-0084) The same in
   `sdk/ios` for data and upload tasks. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one
   replay asserted end to end.
+- [ ] **M9.15 Breakpoints in the iOS SDK.** (split from M9.11; a new id so
+  the ids ADRs cite stay) `sdk/ios` holds a matching data or upload task,
+  resumes it edited, aborts it, and lets one time out, per ADR-0111 and
+  ADR-0118. SDD 06 and 07 updated.
+  Accept: `make swift` and `make swift-sim`.
 - [ ] **M9.12 OkHttp injection by the Gradle plugin.** The plugin module
   of ADR-0093, injection only (the release swap stays M10), per ADR-0112.
   Gradle TestKit tests on a consumer project. The Android sample drops

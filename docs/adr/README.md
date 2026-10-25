@@ -141,3 +141,4 @@ Rules:
 | [0121](0121-replay-from-mcp.md) | A replay an agent asks waits in memory for a click, and the tool answers at once | Accepted |
 | [0122](0122-replay-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep and send a request again | Accepted |
 | [0123](0123-breakpoints-in-the-kotlin-sdks.md) | How the Kotlin SDKs hold a call at a breakpoint | Accepted |
+| [0124](0124-replay-in-the-ios-sdk.md) | How the iOS SDK keeps and sends a task again | Accepted |
