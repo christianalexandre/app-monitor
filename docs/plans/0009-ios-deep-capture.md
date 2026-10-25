@@ -40,7 +40,7 @@ evidence before the code.
   storage, its install on the simulator, and duplicates with the SDK's
   own capture.
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M8.2 grpc-swift adapter.** The interceptor per ADR-0099 in
+- [x] **M8.2 grpc-swift adapter.** The interceptor per ADR-0099 in
   `sdk/ios`, unary and streaming calls as `ADAPTER` exchanges (method
   path, metadata, messages, `grpc-status`), its product in both
   manifests, its public API dumped and checked in debug and release

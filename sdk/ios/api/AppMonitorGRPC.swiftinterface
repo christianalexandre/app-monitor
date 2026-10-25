@@ -1,0 +1,5 @@
+@available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *)
+public struct AppMonitorGRPCInterceptor : GRPCCore.ClientInterceptor {
+  public init()
+  public func intercept<Input, Output>(request: GRPCCore.StreamingClientRequest<Input>, context: GRPCCore.ClientContext, next: (_ request: GRPCCore.StreamingClientRequest<Input>, _ context: GRPCCore.ClientContext) async throws -> GRPCCore.StreamingClientResponse<Output>) async throws -> GRPCCore.StreamingClientResponse<Output> where Input : Swift.Sendable, Output : Swift.Sendable
+}
