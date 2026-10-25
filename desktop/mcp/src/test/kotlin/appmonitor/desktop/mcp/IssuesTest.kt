@@ -203,11 +203,11 @@ class IssuesTest {
         }
 
     @Test
-    fun onlySaveIssueIsMarkedAsWriting() =
+    fun onlySaveIssueAndCreateMockAreMarkedAsWriting() =
         withServer { running ->
             val tools = running.client { it.listTools().tools }
             val writing = tools.filter { it.annotations?.readOnlyHint != true }.map { it.name }
-            assertEquals(listOf(SaveIssue.NAME), writing)
+            assertEquals(listOf(SaveIssue.NAME, CreateMock.NAME), writing)
             assertEquals(false, tools.single { it.name == SaveIssue.NAME }.annotations?.destructiveHint)
             assertTrue(tools.any { it.name == ListIssues.NAME })
         }

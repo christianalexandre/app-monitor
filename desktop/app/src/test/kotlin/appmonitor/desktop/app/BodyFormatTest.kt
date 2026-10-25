@@ -129,10 +129,20 @@ class BodyFormatTest {
     }
 
     @Test
-    fun `cuts a long line after short ones at the character bound`() {
+    fun `cuts before a long line after short ones, then inside it, each chunk within the character bound`() {
         val chunks = chunked("short\n" + "x".repeat(CHUNK_CHARS + 1))
 
-        assertEquals(listOf("short\n" + "x".repeat(CHUNK_CHARS), "x"), chunks)
+        assertEquals(listOf("short", "x".repeat(CHUNK_CHARS), "x"), chunks)
+    }
+
+    @Test
+    fun `no chunk passes the character bound`() {
+        val rendered = List(40) { "y".repeat(it * 997 % 12_000) }.joinToString("\n")
+
+        val chunks = chunked(rendered)
+
+        assertEquals(rendered.replace("\n", ""), chunks.joinToString("").replace("\n", ""))
+        assertTrue(chunks.all { it.length <= CHUNK_CHARS }, chunks.map { it.length }.toString())
     }
 
     @Test

@@ -21,18 +21,23 @@ internal fun mockRulesEnvelope(
     rules: List<MockRule>,
     atMs: Long,
 ): Envelope {
-    var size = 0L
-    val kept =
-        rules.takeWhile { rule ->
-            size += MockRule.ADAPTER.encodedSizeWithTag(1, rule)
-            size <= MAX_RULES_BYTES
-        }
+    val kept = rules.take(fittingRules(rules))
     return Envelope(
         channel = Protocol.CHANNEL_INTERACTION,
         type = "MockRules",
         payload = MockRules(kept).encodeByteString(),
         timestamp_ms = atMs,
     )
+}
+
+/** How many of [rules], from the first, one `MockRules` envelope holds (ADR-0113 C.1); the window marks the others. */
+internal fun fittingRules(rules: List<MockRule>): Int {
+    var size = 0L
+    return rules
+        .takeWhile { rule ->
+            size += MockRule.ADAPTER.encodedSizeWithTag(1, rule)
+            size <= MAX_RULES_BYTES
+        }.size
 }
 
 // Room for the envelope's own fields and the payload's length.

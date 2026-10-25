@@ -24,7 +24,7 @@ internal enum class BodyFormat(
 private val JSON_LITERAL = Regex("true|false|null|-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?")
 
 /** UTF-8 text of [body], or null when it is not valid UTF-8. */
-private fun utf8OrNull(body: ByteString): String? =
+internal fun utf8OrNull(body: ByteString): String? =
     try {
         Charsets.UTF_8
             .newDecoder()
@@ -176,7 +176,10 @@ internal fun renderBody(
     return RenderedBody(chosen, chunked(render(body, chosen)))
 }
 
-/** [rendered] cut at a line break after [CHUNK_LINES] lines or [CHUNK_CHARS] characters, inside a line only past [CHUNK_CHARS]. */
+/**
+ * [rendered] cut at a line break after [CHUNK_LINES] lines, or before a line that would pass [CHUNK_CHARS] characters;
+ * inside a line only when that line alone passes them. A chunk holds at most [CHUNK_CHARS] characters, plus one surrogate.
+ */
 internal fun chunked(rendered: String): List<String> {
     val chunks = ArrayList<String>()
     var start = 0
@@ -189,7 +192,11 @@ internal fun chunked(rendered: String): List<String> {
             chunks += rendered.substring(start, index)
             start = index + 1
             lines = 0
-        } else if (index - lineStart >= CHUNK_CHARS && !rendered[index].isLowSurrogate()) {
+        } else if (index - start >= CHUNK_CHARS && lineStart > start) {
+            chunks += rendered.substring(start, lineStart - 1)
+            start = lineStart
+            lines = 0
+        } else if (index - start >= CHUNK_CHARS && !rendered[index].isLowSurrogate()) {
             chunks += rendered.substring(start, index)
             start = index
             lineStart = index
