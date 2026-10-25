@@ -44,7 +44,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   Accept: `swift test --package-path sdk/ios` — a held task whose
   delegate rejects a challenge fails as without the breakpoint, and a
   redirect the delegate refuses is not followed.
-- [x] **H1.4 Background tasks from before `start`.** DEBT-0039: a
+- [x] **H1.4 Background tasks from before `start`.** (#257) DEBT-0039: a
   background transfer resumed before `AppMonitor.start`, or in an earlier
   launch, is captured when it completes, with its start time marked as
   unknown rather than invented.
