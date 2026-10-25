@@ -1,7 +1,7 @@
 ---
 id: ADR-0112
 title: The Gradle plugin adds the OkHttp interceptor in debug builds
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -102,11 +102,14 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+A.1, B.1, C.1, D.1, E.1 (every recommended option).
+
+Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 
-- If accepted: setup for a native Android app shrinks by the interceptor
+- setup for a native Android app shrinks by the interceptor
   line, once the plugin is published (M10). Until then the README keeps
   the line, and SDD 05 says what the plugin does.
 - `sdk/android-okhttp` gains one public entry point,

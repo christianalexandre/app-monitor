@@ -1,7 +1,7 @@
 ---
 id: ADR-0110
 title: Mock rules from the desktop, served by the SDKs
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -146,11 +146,14 @@ Recommended: 1. It adds no setup step (`AGENTS.md`, short setup).
 
 ## Decision
 
-Empty while `Proposed`.
+A.1, B.1, C.1, D.1, E.1, F.1, G.1 (every recommended option).
+
+Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 
-- If accepted: a new channel `interaction` with its messages and fixtures,
+- a new channel `interaction` with its messages and fixtures,
   and a storage migration for the rules. Each SDK gains a rule matcher
   that runs one shared vector (`protocol/fixtures/`).
 - With D.1, `sdk/ktor` depends on a Ktor `@InternalAPI` (a DEBT whose

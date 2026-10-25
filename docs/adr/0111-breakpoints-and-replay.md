@@ -1,7 +1,7 @@
 ---
 id: ADR-0111
 title: Breakpoints hold a call on the device; replay goes through the app
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -107,11 +107,14 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+A.1, B.1, C.1, D.1, E.1 (every recommended option).
+
+Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 
-- If accepted: new `interaction` messages (`BreakpointHit`,
+- new `interaction` messages (`BreakpointHit`,
   `BreakpointResume`, `BreakpointAbort`, `ReplayRequest`) and a
   `replay_of` field in `RequestStarted`. Each SDK keeps a bounded
   in-memory map of recent requests.

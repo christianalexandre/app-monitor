@@ -127,6 +127,6 @@ Rules:
 | [0107](0107-grpc-status-in-the-desktop.md) | The desktop stores grpc-status in its own column | Accepted |
 | [0108](0108-proxy-trust-on-the-simulator.md) | How a simulator's gRPC client trusts the proxy | Accepted |
 | [0109](0109-grpc-core-in-the-ios-sample.md) | gRPC-Core in the iOS sample and the proxy in the iOS end to end | Accepted |
-| [0110](0110-mock-rules.md) | Mock rules from the desktop, served by the SDKs | Proposed |
-| [0111](0111-breakpoints-and-replay.md) | Breakpoints hold a call on the device; replay goes through the app | Proposed |
-| [0112](0112-okhttp-injection-by-the-gradle-plugin.md) | The Gradle plugin adds the OkHttp interceptor in debug builds | Proposed |
+| [0110](0110-mock-rules.md) | Mock rules from the desktop, served by the SDKs | Accepted |
+| [0111](0111-breakpoints-and-replay.md) | Breakpoints hold a call on the device; replay goes through the app | Accepted |
+| [0112](0112-okhttp-injection-by-the-gradle-plugin.md) | The Gradle plugin adds the OkHttp interceptor in debug builds | Accepted |

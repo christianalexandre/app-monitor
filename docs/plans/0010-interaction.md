@@ -31,8 +31,8 @@ by hand, `URLProtocol`, AGP instrumentation) are written down with their
 evidence before the code. M8's split rule kept: a task whose second half
 needs its own decision is split as soon as that shows.
 
-- [!] **M9.1 Interaction decisions.** (ADR-0110, ADR-0111, ADR-0112
-  `Proposed`, waiting for the owner) One stop:
+- [x] **M9.1 Interaction decisions.** (ADR-0110, ADR-0111, ADR-0112
+  accepted with every recommended option) One stop:
   (a) mocks: where a rule is matched, what it matches and answers, which
   captures serve it, how a mocked exchange shows, who creates rules
   (window, MCP under ADR-0005's confirmation), the SDK's public API;
