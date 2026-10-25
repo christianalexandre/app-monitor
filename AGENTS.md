@@ -58,6 +58,22 @@ iteration) only when the decision touches:
    similar, or that costs money.
 4. **Security / privacy** — what is captured, masked, stored or exposed.
 
+Exception (ADR-0094): a public API or security / privacy decision whose
+every recommended option follows a **standing owner decision** below is
+`Accepted` by the agent, citing it. Product scope and licensing / cost
+always stop. Only the owner adds to this list:
+
+- **Debug only.** Release builds hold no SDK code (ADR-0072, ADR-0073,
+  ADR-0093).
+- **Little masking.** No masking rule beyond today's without a concrete
+  case; `masking = false` turns all off (ADR-0034). The desktop stores and
+  serves traffic as the device sent it (ADR-0081, ADR-0089).
+- **Local exposure only.** MCP on loopback with `Host`/`Origin` checks and a
+  token (ADR-0090); devices on the LAN only after approval (ADR-0083).
+- **Short setup.** A few copy-paste steps, each documented: dependency,
+  Gradle block, Run Script, import, start. An option that removes or
+  shortens a step qualifies; one that adds a step does not.
+
 ## The loop
 
 `/next` runs one iteration: pick the next task of the active plan in
@@ -147,11 +163,12 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Sample host tests (WebSocket echo listener) | `./gradlew :samples:android:testDebugUnitTest` | active; JVM, no device |
 | Run the sample on an emulator | `adb install -r samples/android/build/outputs/apk/debug/android-debug.apk` | active; allow the local network prompt on Android 17+; `make server` or `make desktop` running |
 | Release gate on any ref (branch job, desktop tests on ubuntu, macOS, windows) | `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]` | active; also on every PR to `main`; `head` (default `dev`) is the branch checked as the PR head; ADR-0052, DEBT-0046 |
+| Apply the `dev` ruleset (`conventions`, `docs`, `check` required) after editing it | `gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604902 --input .github/rulesets/protect-dev.json` | active; check with `gh api repos/christianalexandre/app-monitor/rules/branches/dev`; auto-merge on in the repository settings; ADR-0094 |
 | Apply the `main` ruleset (gate required) after editing it | `gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604903 --input .github/rulesets/protect-main.json` | active; check with `gh api repos/christianalexandre/app-monitor/rules/branches/main`; ADR-0053, DEBT-0048 |
 | Loop and end to end script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, `scripts/test_debt_check.sh`, `scripts/test_sim_list.sh` (simulator list parser) and `scripts/test_e2e_lib.sh` (end to end assertions on a crafted log), ADR-0013, ADR-0075 |
 | Branch name check | `make branch-check` | active |
 | Open DEBTs whose trigger names a file the branch changes | `make debt-check` | active; `BASE=<ref>` (default `origin/dev`), committed and uncommitted changes, exits 0 unless the base does not resolve; `/next` self-check, ADR-0051, ADR-0061 |
-| Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS`, `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019) |
+| Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS` (50), `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019); PRs merge on auto, ADR-0094 |
 | Follow the running loop live | `make loop-watch` | active |
 | Create the loop worktree | `make loop-worktree` | active; honours `LOOP_WORKTREE`; open `claude` there once to accept the trust dialog |
 

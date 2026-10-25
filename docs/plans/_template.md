@@ -16,6 +16,8 @@ sharpened.
 
 ## Tasks
 
+<!-- Four to six tasks; no standalone design or docs sync task (ADR-0094). -->
+
 - [ ] **MN.1 Short name.** What it delivers, which modules it touches.
   Accept: the command or observable result that proves it.
 
