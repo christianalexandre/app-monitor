@@ -111,8 +111,10 @@ needs its own decision is split as soon as that shows.
   and refuse one they no longer keep. SDD 04, 05 and 08 updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`
   and `make e2e-android`, with one replay asserted end to end.
-- [ ] **M9.14 Breakpoints in the Kotlin SDKs.** (split from M9.10; a new
-  id so the ids ADRs cite stay) `sdk/core`, `AppMonitorInterceptor` and
+- [x] **M9.14 Breakpoints in the Kotlin SDKs.** (`feat/kotlin-sdk-breakpoints`; split from M9.10; a new
+  id so the ids ADRs cite stay; ADR-0123: `Breakpoints` in the session's `MonitorClient`, OkHttp waiting on its
+  thread and checking for a cancel, request hold before the mock lookup, a refused edit failing the call, Ktor's
+  edited response a new call; DEBT-0083 widened) `sdk/core`, `AppMonitorInterceptor` and
   `AppMonitorKtor` hold a matching call, resume it edited, abort it, and
   let one time out. SDD 04, 05 and 08 updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`.

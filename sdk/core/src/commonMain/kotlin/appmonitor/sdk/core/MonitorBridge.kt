@@ -1,5 +1,8 @@
 package appmonitor.sdk.core
 
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.Envelope
 import appmonitor.v1.MockRule
 
@@ -25,6 +28,16 @@ public object MonitorBridge {
         method: String,
         url: String,
     ): MockRule? = monitor.client?.mocks?.match(method, url)
+
+    /** The desktop's first breakpoint holding [stage] of the call (ADR-0118 A.1); null when none or no desktop is connected. */
+    public fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? = monitor.client?.breakpoints?.match(method, url, stage)
+
+    /** Sends [hit] and suspends until the desktop resumes or aborts it, at most its timeout (ADR-0111 B.1). */
+    public suspend fun hold(hit: BreakpointHit): BreakpointOutcome = monitor.client?.hold(hit) ?: BreakpointOutcome.UNCHANGED
 
     /**
      * Keeps [replay] to send [requestId]'s call again when the desktop asks (ADR-0111 D.1); it returns null once

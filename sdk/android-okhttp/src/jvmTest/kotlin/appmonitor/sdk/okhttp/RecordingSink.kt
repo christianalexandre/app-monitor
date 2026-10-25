@@ -2,6 +2,10 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.Envelope
 import appmonitor.v1.MockRule
 import appmonitor.v1.RequestFailed
@@ -17,6 +21,9 @@ import kotlin.test.assertNotNull
 internal class RecordingSink(
     override val options: AppMonitorOptions? = AppMonitorOptions(),
     private val mocks: List<MockRule> = emptyList(),
+    private val breakpoints: List<BreakpointRule> = emptyList(),
+    /** How the desktop answers each hit. */
+    private val answer: suspend (BreakpointHit) -> BreakpointOutcome = { BreakpointOutcome.UNCHANGED },
 ) : CaptureSink {
     private val envelopes = LinkedBlockingQueue<Envelope>()
 
@@ -29,7 +36,26 @@ internal class RecordingSink(
     override fun mockFor(
         method: String,
         url: String,
-    ): MockRule? = mocks.firstOrNull { url.substringAfter("://").substringAfter('/').substringBefore('?') == it.path.removePrefix("/") }
+    ): MockRule? = mocks.firstOrNull { pathOf(url) == it.path }
+
+    override fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? =
+        breakpoints.firstOrNull {
+            pathOf(url) == it.path && if (stage == BreakpointStage.BREAKPOINT_STAGE_REQUEST) it.request else it.response
+        }
+
+    /** Every hit, in order. */
+    val hits: LinkedBlockingQueue<BreakpointHit> = LinkedBlockingQueue()
+
+    override suspend fun hold(hit: BreakpointHit): BreakpointOutcome {
+        hits.put(hit)
+        return answer(hit)
+    }
+
+    private fun pathOf(url: String) = "/" + url.substringAfter("://").substringAfter('/').substringBefore('?')
 
     /** What [keepForReplay] kept, by request id. */
     val replays: MutableMap<String, () -> String?> = java.util.concurrent.ConcurrentHashMap()

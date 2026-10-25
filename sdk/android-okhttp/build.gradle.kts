@@ -15,6 +15,7 @@ kotlin {
             api(project(":sdk:core"))
             api(libs.okhttp)
             implementation(project(":protocol"))
+            implementation(libs.kotlinx.coroutines.core)
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))

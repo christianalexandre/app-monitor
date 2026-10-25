@@ -15,10 +15,13 @@ import io.ktor.utils.io.InternalAPI
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.io.IOException
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 
-/** ADR-0110 C.1: the rule's answer after its delay, as a call built without the engine; a failure is an [IOException]. */
-@OptIn(InternalAPI::class) // DEBT-0083
+/**
+ * ADR-0110 C.1: the rule's answer after its delay, as a call built without the engine, its `ResponseReceived` left
+ * to the caller; a failure is an [IOException].
+ */
 internal suspend fun answer(
     client: HttpClient,
     sink: CaptureSink,
@@ -26,7 +29,6 @@ internal suspend fun answer(
     content: OutgoingContent,
     rule: MockRule,
     id: String,
-    masking: Masking,
 ): HttpClientCall {
     try {
         delay(rule.delay_ms)
@@ -39,23 +41,34 @@ internal suspend fun answer(
         throw e
     }
     val mocked = checkNotNull(rule.response)
+    return builtCall(
+        client,
+        request,
+        content,
+        HttpStatusCode.fromValue(mocked.status_code),
+        Headers.build { for (header in mocked.headers) append(header.name, header.value_) },
+        ByteReadChannel(mocked.body.toByteArray()),
+    ) { client.engine.dispatcher + Job(it) }
+}
+
+/** A call made of [request] and a response built here, without the engine (DEBT-0083). */
+@OptIn(InternalAPI::class)
+internal fun builtCall(
+    client: HttpClient,
+    request: HttpRequestBuilder,
+    content: OutgoingContent,
+    status: HttpStatusCode,
+    headers: Headers,
+    body: ByteReadChannel,
+    version: HttpProtocolVersion = HttpProtocolVersion.HTTP_1_1,
+    requestTime: GMTDate = GMTDate(),
+    callContext: (executionContext: Job) -> CoroutineContext,
+): HttpClientCall {
     val requestData =
         HttpRequestBuilder()
             .takeFromWithExecutionContext(request)
-            .apply { body = content }
+            .apply { this.body = content }
             .build()
-    val headers = Headers.build { for (header in mocked.headers) append(header.name, header.value_) }
-    val responseData =
-        HttpResponseData(
-            statusCode = HttpStatusCode.fromValue(mocked.status_code),
-            requestTime = GMTDate(),
-            headers = headers,
-            version = HttpProtocolVersion.HTTP_1_1,
-            body = ByteReadChannel(mocked.body.toByteArray()),
-            callContext = client.engine.dispatcher + Job(requestData.executionContext),
-        )
-    val call = HttpClientCall(client, requestData, responseData)
-    val body = CapturedBody(mocked.body, truncated = false, size = mocked.body.size.toLong())
-    sink.emit("ResponseReceived") { responseReceived(id, call.response, masking, body) }
-    return call
+    val responseData = HttpResponseData(status, requestTime, headers, version, body, callContext(requestData.executionContext))
+    return HttpClientCall(client, requestData, responseData)
 }
