@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import okio.ByteString
 
 /** `to_curl` (SDD 10): one stored request as a POSIX shell cURL command. */
 internal object ToCurl {
@@ -13,7 +14,8 @@ internal object ToCurl {
 
     val description =
         "Returns one stored request, by the id search_requests gives, as a POSIX shell cURL command: method, URL, " +
-            "every header as stored and the body (a binary one piped through base64 -d). $DATA_NOTE"
+            "every header as stored but Content-Length and Transfer-Encoding, which curl sets from the body, and the body " +
+            "(a binary one piped through base64 -d; none for HEAD). $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -36,28 +38,38 @@ internal object ToCurl {
         if (storage.isClosing) throw ToolError(CLOSING)
         if (detail == null) throw ToolError("no exchange with id $id")
         val request = detail.request ?: throw ToolError("exchange $id has no request stored")
-        val body = slice(request.body, 0, request.body.size.toLong())
+        val head = request.method == "HEAD"
+        // curl refuses --head beside a body, and -X HEAD waits for a response body.
+        val stored = if (head) ByteString.EMPTY else request.body
+        val body = slice(stored, 0, stored.size.toLong())
         // A shell argument cannot hold NUL, so such a body goes the binary way.
         val text = body.text?.takeUnless { '\u0000' in it }
         val lines = mutableListOf<String>()
-        if (request.body_truncated) {
+        if (head && request.body.size > 0) {
+            lines += "# body of ${request.body.size} bytes left out: curl sends none with --head"
+        } else if (request.body_truncated) {
             lines += "# body truncated by the device: ${request.body.size} of ${request.body_size ?: "unknown"} bytes"
         }
         val command =
             buildList {
-                val method = if (request.method == "HEAD") "--head" else "-X ${quote(request.method)}"
+                val method = if (head) "--head" else "-X ${quote(request.method)}"
                 add("curl --globoff $method ${quote(request.url)}")
                 // curl drops a header given as `Name:`; `Name;` sends it empty.
-                request.headers.forEach { add("-H ${quote(if (it.value_.isEmpty()) "${it.name};" else "${it.name}: ${it.value_}")}") }
+                request.headers.filter { it.name.lowercase() !in FRAMING }.forEach {
+                    add("-H ${quote(if (it.value_.isEmpty()) "${it.name};" else "${it.name}: ${it.value_}")}")
+                }
                 when {
-                    request.body.size == 0 -> Unit
+                    stored.size == 0 -> Unit
                     text != null -> add("--data-raw ${quote(text)}")
                     else -> add("--data-binary @-")
                 }
             }.joinToString(" \\\n  ")
-        lines += if (request.body.size > 0 && text == null) "printf %s ${quote(request.body.base64())} | base64 -d | $command" else command
+        lines += if (stored.size > 0 && text == null) "printf %s ${quote(stored.base64())} | base64 -d | $command" else command
         return lines.joinToString("\n")
     }
+
+    /** A stored one would not match a body cut by the device; curl computes its own. */
+    private val FRAMING = setOf("content-length", "transfer-encoding")
 
     /** [value] in single quotes, each `'` written as `'\''`. */
     fun quote(value: String) = "'" + value.replace("'", "'\\''") + "'"

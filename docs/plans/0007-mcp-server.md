@@ -111,7 +111,7 @@ header serializer copied, durations sorted per read). None was rejected.
   "no run with id N" instead of "App Monitor is closing".
   Accept: `./gradlew :desktop:mcp:test` with a case where the store closes
   between the check and the read, answered with the closing error.
-- [ ] **M6.R3 `to_curl` commands that curl cannot replay.** Every stored
+- [x] **M6.R3 `to_curl` commands that curl cannot replay.** (`fix/mcp-to-curl-replay`; `Content-Length` and `Transfer-Encoding` left to curl, a `HEAD`'s stored body left out with a comment line) Every stored
   header is replayed with `-H`, so a body cut by the device (or a stored
   `Transfer-Encoding: chunked`) sends a `Content-Length` that does not
   match the body, and the server waits or refuses; a `HEAD` with a stored
