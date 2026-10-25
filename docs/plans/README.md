@@ -48,6 +48,7 @@ record of how the milestone was actually built once it is done.
 | [0010](0010-interaction.md) | M9 | Interaction | Done |
 | [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
+| [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Active |
 
 ## Roadmap
 
