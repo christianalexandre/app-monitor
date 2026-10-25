@@ -1,9 +1,9 @@
 ---
 id: ADR-0139
 title: The window shows live traffic by default; a run is a recording started and stopped by hand
-status: Accepted # Proposed | Accepted | Superseded | Rejected
+status: Superseded # Proposed | Accepted | Superseded | Rejected
 date: 2026-10-25
-superseded_by:
+superseded_by: ADR-0140
 ---
 
 # ADR-0139 — The window shows live traffic by default; a run is a recording started and stopped by hand
