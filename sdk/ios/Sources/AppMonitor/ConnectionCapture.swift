@@ -11,6 +11,7 @@ enum ConnectionCapture {
     nonisolated(unsafe) private static var current: CaptureSink = monitor
     nonisolated(unsafe) private static var loopback = false
     nonisolated(unsafe) private static var names: [String: String] = [:]
+    nonisolated(unsafe) private static var desktops: Set<String> = []
     nonisolated(unsafe) private static var open: [Int32: (id: String, sink: CaptureSink)] = [:]
 
     /// Resolved names kept for `connect`; the table starts over past this many addresses.
@@ -25,6 +26,12 @@ enum ConnectionCapture {
     static var reportsLoopback: Bool {
         get { lock.withLock { loopback } }
         set { lock.withLock { loopback = newValue } }
+    }
+
+    /// Marks `host:port` as a desktop: a socket to it, another SDK's in this app included, is not reported
+    /// (ADR-0100 C.1). `host` is matched against the peer's address and the name it was resolved from.
+    static func desktopFound(host: String, port: UInt16) {
+        lock.withLock { _ = desktops.insert("\(host.lowercased()):\(port)") }
     }
 
     /// Rebinds once per process; false when a socket call cannot be found, and nothing is reported.
@@ -55,8 +62,13 @@ enum ConnectionCapture {
         let sink = self.sink
         guard sink.options?.captureConnections == true, let peer = Peer(address) else { return false }
         if peer.isLoopback && !reportsLoopback { return false }
+        let host: String? = lock.withLock {
+            let host = names[peer.address] ?? peer.address
+            let desktop = [peer.address, host.lowercased()].contains { desktops.contains("\($0):\(peer.port)") }
+            return desktop ? nil : host
+        }
+        guard let host else { return false }
         let id = UUID().uuidString.lowercased()
-        let host = lock.withLock { names[peer.address] } ?? peer.address
         emit(sink, "RequestStarted", at: started) {
             var event = Appmonitor_V1_RequestStarted()
             event.requestID = id
@@ -79,7 +91,6 @@ enum ConnectionCapture {
         emit(sink, "ResponseReceived") {
             var event = Appmonitor_V1_ResponseReceived()
             event.requestID = id
-            event.bodyTruncated = received > 0
             event.bodySize = received
             event.sentSize = sent
             return try event.serializedBytes()

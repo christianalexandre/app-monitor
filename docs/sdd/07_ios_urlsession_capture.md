@@ -265,11 +265,15 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 | `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once |
 | `read`, `readv`, `recv`, `recvfrom`, `recvmsg` | Bytes read, added to the socket's count (one table lookup when the socket is not counted) |
 | `write`, `writev`, `send`, `sendto`, `sendmsg` | Bytes written, likewise |
-| `close` | Before the original: `ResponseReceived` with status 0, no body, `body_size` read, `sent_size` written; a pending `SO_ERROR`, or a socket that never connected and moved no byte, is `RequestFailed` instead |
+| `close` | Before the original: `ResponseReceived` with status 0, no body and not `body_truncated`, `body_size` read, `sent_size` written; a pending `SO_ERROR`, or a socket that never connected and moved no byte, is `RequestFailed` instead |
 
 - **Not reported**: loopback addresses (`127.0.0.0/8`, `::1`, mapped
-  IPv4), where the desktop is on the simulator; sockets numbered 4096 and
-  up; Network.framework's `nw_connection_*` (DEBT-0076).
+  IPv4), where the desktop is on the simulator; a desktop the SDK found,
+  every mDNS answer and the manual host, by address or the name it was
+  resolved from and its port, where another SDK of the app, `sdk/core`
+  in a KMP app, connects too (ADR-0100 C.1); one opened before that
+  answer is reported (DEBT-0090); sockets numbered 4096 and up;
+  Network.framework's `nw_connection_*` (DEBT-0076).
 - **Errors** read `NSPOSIXErrorDomain <errno>: <strerror>`, e.g.
   `NSPOSIXErrorDomain 61: Connection refused`.
 - **Cost**: a rebound `write` on a socket that is not counted measured
@@ -280,8 +284,10 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
   image against `TestSocketServer` on loopback (loopback reported for the
   test): a blocking client by name with its bytes and duration, a
   non-blocking connect counted once, a refused port, loopback, the option
-  off and an idle monitor, and a `MonitorClient` to a `TestDesktop` that
-  reports nothing. It runs in `swift test` and, hosted in `TestHost` on
+  off and an idle monitor, a `MonitorClient` to a `TestDesktop` that
+  reports nothing, and sockets to desktops found by a `FakeBrowser` and a
+  manual host on TEST-NET-1 addresses, skipped while another port on the
+  same address is reported. It runs in `swift test` and, hosted in `TestHost` on
   the simulator, in `make swift-sim`.
 
 ## Limits

@@ -1,10 +1,10 @@
 ---
 id: PLAN-0011
 title: Hardening before the field test
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H1
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0011 — Hardening before the field test (H1)
@@ -66,7 +66,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   Deviation: `<debug-overrides>` cannot allow cleartext (trust anchors
   only), so the README shows the samples' debug source set config and
   ADR-0132 corrects ADR-0017 F's snippet.
-- [ ] **H1.R2 iOS connection capture skips the KMP SDK's own socket.**
+- [x] **H1.R2 iOS connection capture skips the KMP SDK's own socket.**
   ADR-0100 C.1: the SDK's own desktop socket is never reported, but
   `ConnectionCapture.connected` skips only loopback peers. On a physical
   iPhone, `sdk/core`'s CIO socket to the desktop is reported.
@@ -96,10 +96,29 @@ reported again. Nine findings:
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#253); H1.1 the field-test path review (#254); H1.2
+  Ktor on OkHttp captured once (#255); H1.3 a held iOS task asks the
+  app's delegate (#256); H1.4 iOS background tasks from before `start`
+  (#257); H1.R1 the setup a real app needs in the README and a cleartext
+  log naming a real fix (#258); H1.R2 another SDK's socket to a desktop
+  the iOS SDK found not reported (this PR, which closes the plan).
+- **Decisions**: ADR-0129 (Ktor marks its captures beside the OkHttp
+  SDK), ADR-0130 (a held iOS task asks the app's delegate), ADR-0131
+  (background tasks resumed before `start` adopted), ADR-0132 (cleartext
+  allowed by a debug source set config, correcting ADR-0017 F's snippet).
+- **Debt**: DEBT-0039, DEBT-0085 and DEBT-0087 paid, DEBT-0060 paid by
+  #258, DEBT-0081's `ConnectionCapture.swift` item by this PR. DEBT-0089
+  created with the review's three non-correctness findings. DEBT-0090
+  created: a desktop socket another SDK opens before the iOS SDK's first
+  mDNS answer for it is still reported, a start-up ordering the review
+  bar puts in a DEBT. No correctness finding that
+  normal use hits is left open.
+- **Deviations**: H1.4's start time is the task's real one, from its
+  metrics, rather than marked unknown (ADR-0131). H1.R1 found that
+  `<debug-overrides>` cannot allow cleartext and showed the samples'
+  debug source set config instead (ADR-0132). DEBT-0086 stayed open: it
+  needs an end to end that holds a call, not a field-test fix.
+- **Lessons**: reviewing the path a real app runs, rather than one
+  milestone's diff, found four problems the samples hid, three of them
+  in the README. A sample that works proves the code, not the
+  instructions; the field test should start from the README alone.

@@ -63,7 +63,10 @@ func discovery(
     config: DiscoveryConfig = DiscoveryConfig(),
     log: @escaping @Sendable (String) -> Void
 ) -> Discover {
-    if let host = options.host { return manualDiscovery(Endpoint(host: host, port: UInt16(options.port))) }
+    if let host = options.host {
+        ConnectionCapture.desktopFound(host: host, port: UInt16(options.port))
+        return manualDiscovery(Endpoint(host: host, port: UInt16(options.port)))
+    }
     let failureLogged = QueueFlag()
     return { queue, found in
         let round = MdnsRound(queue: queue, onSimulator: onSimulator, config: config, found: found)
@@ -128,6 +131,7 @@ private final class MdnsRound: @unchecked Sendable {
 
     private func offer(_ answer: DesktopAnswer) {
         guard found != nil else { return }
+        ConnectionCapture.desktopFound(host: answer.host, port: answer.port)
         let hadCandidate = selector.hasCandidate
         if let chosen = selector.offer(answer) {
             finish(chosen)
