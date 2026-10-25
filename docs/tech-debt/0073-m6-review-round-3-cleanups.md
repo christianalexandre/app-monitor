@@ -3,7 +3,7 @@ id: DEBT-0073
 title: Non-correctness findings of the third M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt`, or a CI failure of `switchTurnedOffAsStartWritesItEndsOff`"
+trigger: "The first PR that changes `McpWiringTest`'s `switchTurnedOffAsStartWritesItEndsOff` or `McpController`'s locking, or a CI failure of that test"
 paid_date:
 ---
 
@@ -43,11 +43,9 @@ any SDK in this repository stores.
 
 ## Trigger
 
-The first PR after PLAN-0007 closes that touches
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`,
-`desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt` or
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`, or a
-`setEnabled` called off the UI dispatcher.
+The first PR that changes `McpWiringTest`'s
+`switchTurnedOffAsStartWritesItEndsOff` or `McpController`'s locking, or a
+CI failure of that test.
 
 Fired by PLAN-0008 M7.6 (`feat/har-curl-export-in-window`), which splits
 `ToCurl.command` out for the window. It paid the three `to_curl` parts:
@@ -62,6 +60,11 @@ replays to `McpController`. Paid: `setEnabled` takes `lock` with the
 switch as it is then, not its own `on`, so the last call wins whatever
 order the lock is taken in. Left: the race test's odds, in
 `McpWiringTest.kt`, which this PR does not change; re-triggered to it.
+
+Fired by PLAN-0012 H2.4c (`refactor/desktop-settings-feature`), which
+renames the status type in `McpWiringTest.kt` and `McpController.kt`.
+Not paid: the race test and the locking are unchanged; re-triggered to
+them, so a rename does not fire it.
 
 ## How it was paid
 

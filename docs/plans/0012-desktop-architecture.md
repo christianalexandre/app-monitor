@@ -119,10 +119,23 @@ task that lands each module.
   with `formatDateTime`, which the settings' answered devices show too.
   Paid DEBT-0074's in-flight guard and single query in
   `IssuesViewModel`.
-- [ ] **H2.4c Settings.** `desktop/feature/settings` (retention,
-  approvals answered, MCP, proxy).
+- [x] **H2.4c Settings.** (`refactor/desktop-settings-feature`)
+  `desktop/feature/settings` (retention, approvals answered, MCP, proxy).
   Accept: their moved UI tests pass; `desktop/app` holds no screen;
   `desktop/data`'s mappers are `internal` again (ADR-0135).
+  Deviation: `StorageUnavailable`, the window shown when the store does
+  not open, moved too, so `desktop/app` holds no screen. `McpStatus` and
+  `ProxyStatus` became one `ServiceStatus` in `desktop/domain`;
+  `McpController` and `ProxyController` implement `McpRepository` and
+  `ProxyRepository`, `ApprovalStore` `AnsweredDeviceRepository`.
+  `Exports.har` in `desktop/mcp` takes the window's domain filter and
+  maps it itself, the last caller of the public `toStored()`; H2.5
+  removes that copy with the rest of `desktop/mcp`'s store access.
+  `settings.png`, `proxy.png` and `mcp-port-taken.png` compared against
+  `origin/dev`'s: the same but for the run's start time.
+  Paid DEBT-0081's `ProxyController` item: a failed proxy start leaves
+  no empty session. DEBT-0072 and DEBT-0073 re-triggered to the code
+  they name, not the files a rename touches.
 - [ ] **H2.5 MCP through the repositories.** `desktop/mcp` depends on
   `desktop/domain`, not `desktop/storage`.
   Accept: `./gradlew :desktop:mcp:test` unchanged and green; `desktop/mcp`'s

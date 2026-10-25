@@ -8,12 +8,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
-import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.domain.AskedReplay
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplaySent
+import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.feature.traffic.CONFIRM_REPLAY
 import appmonitor.desktop.feature.traffic.REFUSE_REPLAY
 import appmonitor.desktop.feature.traffic.REPLAYED
@@ -132,7 +132,7 @@ class ReplayTest {
                 val mcp = McpController(storage, access, 0, replays = store.replays)
                 runBlocking { mcp.start() }
                 try {
-                    val port = assertIs<McpStatus.Running>(mcp.status.value).port
+                    val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
                     val answer = callTool(port, access.token.value, id)
                     assertTrue("waiting" in answer, answer)
                     // ReplayRequests reach the device in send order: a marker sent now comes first unless req-1 left early.

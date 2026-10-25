@@ -3,7 +3,7 @@ id: DEBT-0072
 title: Non-correctness findings of the second M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt` or the `readSwitch` parameter of `McpController`"
+trigger: "The first PR that changes `McpController`'s `readSwitch` parameter or the race tests of `McpWiringTest` that set it"
 paid_date:
 ---
 
@@ -39,7 +39,8 @@ the filter itself lowercases. M6.R5 and M6.R6 fix the findings that do.
 
 ## Trigger
 
-The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`.
+The first PR that changes `McpController`'s `readSwitch` parameter or the
+race tests of `McpWiringTest` that set it.
 
 Fired by PLAN-0008 M7.3 (`feat/save-and-list-issues-mcp`), which adds
 `list_issues` and `save_issue` and touches `ToolResults.kt`. It paid three
@@ -63,6 +64,12 @@ Fired by PLAN-0010 M9.13 (`feat/replay-from-mcp`), which adds a
 `replays` parameter to `McpController`. Not paid: the `readSwitch` seam
 is set by `McpWiringTest`'s race tests, which this PR does not change;
 re-triggered to that test or the parameter itself.
+
+Fired by PLAN-0012 H2.4c (`refactor/desktop-settings-feature`), which
+renames the status type `McpWiringTest` asserts (`ServiceStatus`) and
+makes `McpController` a domain `McpRepository`. Not paid: the race tests
+that set `readSwitch` are unchanged; re-triggered to the parameter or
+those tests, so a rename does not fire it.
 
 ## How it was paid
 

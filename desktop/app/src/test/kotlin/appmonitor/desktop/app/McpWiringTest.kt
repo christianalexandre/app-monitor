@@ -1,8 +1,8 @@
 package appmonitor.desktop.app
 
 import appmonitor.desktop.app.store.McpController
-import appmonitor.desktop.app.store.McpStatus
-import appmonitor.desktop.app.ui.claudeMcpAdd
+import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.storage.Storage
@@ -53,7 +53,7 @@ class McpWiringTest {
 
                 runBlocking { mcp.start() }
 
-                assertEquals(McpStatus.PortTaken(taken.localPort), mcp.status.value)
+                assertEquals(ServiceStatus.PortTaken(taken.localPort), mcp.status.value)
                 runBlocking { mcp.close() }
             }
         }
@@ -63,13 +63,13 @@ class McpWiringTest {
         withStorage { storage ->
             val mcp = McpController(storage, runBlocking { McpAccess.open(storage) }, 0)
             runBlocking { mcp.start() }
-            val port = assertIs<McpStatus.Running>(mcp.status.value).port
+            val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             val order = mutableListOf<String>()
 
             runBlocking {
                 stopAll(mcp::close, { order += "server" }) {
                     order += "storage"
-                    assertEquals(McpStatus.Off, mcp.status.value)
+                    assertEquals(ServiceStatus.Off, mcp.status.value)
                     ServerSocket(port, 0, loopback).close()
                 }
             }
@@ -94,26 +94,26 @@ class McpWiringTest {
             val access = runBlocking { McpAccess.open(storage) }
             val mcp = McpController(storage, access, 0)
             runBlocking { mcp.start() }
-            val port = assertIs<McpStatus.Running>(mcp.status.value).port
+            val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             assertEquals(200, initialize(port, access.token.value))
 
             runBlocking {
                 mcp.setEnabled(false)
                 storage.flush()
             }
-            assertEquals(McpStatus.Off, mcp.status.value)
+            assertEquals(ServiceStatus.Off, mcp.status.value)
             ServerSocket(port, 0, loopback).close()
 
             val relaunched = McpController(storage, access, 0)
             runBlocking { relaunched.start() }
             assertEquals(false, relaunched.enabled.value)
-            assertEquals(McpStatus.Off, relaunched.status.value)
+            assertEquals(ServiceStatus.Off, relaunched.status.value)
 
             runBlocking { relaunched.setEnabled(true) }
-            assertIs<McpStatus.Running>(relaunched.status.value)
+            assertIs<ServiceStatus.Running>(relaunched.status.value)
             runBlocking { relaunched.close() }
             runBlocking { relaunched.setEnabled(true) }
-            assertEquals(McpStatus.Off, relaunched.status.value, "closed stays off")
+            assertEquals(ServiceStatus.Off, relaunched.status.value, "closed stays off")
         }
 
     @Test
@@ -137,7 +137,7 @@ class McpWiringTest {
             }
 
             assertEquals(false, mcp.enabled.value)
-            assertEquals(McpStatus.Off, mcp.status.value)
+            assertEquals(ServiceStatus.Off, mcp.status.value)
             assertEquals("false", runBlocking { storage.setting(McpController.KEY_ENABLED) })
             runBlocking { mcp.close() }
         }
@@ -159,7 +159,7 @@ class McpWiringTest {
                 off.join()
 
                 assertEquals(false, mcp.enabled.value, "round $round")
-                assertEquals(McpStatus.Off, mcp.status.value, "round $round")
+                assertEquals(ServiceStatus.Off, mcp.status.value, "round $round")
                 runBlocking { mcp.close() }
             }
         }
@@ -189,7 +189,7 @@ class McpWiringTest {
             val access = runBlocking { McpAccess.open(storage) }
             val mcp = McpController(storage, access, 0)
             runBlocking { mcp.start() }
-            val port = assertIs<McpStatus.Running>(mcp.status.value).port
+            val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
             val old = access.token.value
 
             runBlocking { mcp.regenerate() }
@@ -201,7 +201,7 @@ class McpWiringTest {
 
     @Test
     fun theCommandCarriesTheAddressAndToken() {
-        val command = claudeMcpAdd(47475, "abc")
+        val command = claudeMcpAdd(47475, McpServer.PATH, "abc")
 
         assertEquals(
             "claude mcp add --transport http app-monitor http://127.0.0.1:47475/mcp --header \"Authorization: Bearer abc\"",

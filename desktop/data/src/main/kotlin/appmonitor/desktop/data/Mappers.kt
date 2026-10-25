@@ -24,12 +24,16 @@ import appmonitor.desktop.domain.Mock
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.Retention
+import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeDetail
+import appmonitor.desktop.storage.RetentionSettings
+import appmonitor.desktop.storage.RetentionStatus
 import appmonitor.desktop.storage.StorageHealth
 import appmonitor.desktop.storage.StoredBreakpoint
 import appmonitor.desktop.storage.StoredExchange
@@ -55,12 +59,12 @@ import appmonitor.desktop.storage.MockSource as StoredMockSource
 import appmonitor.desktop.storage.MockWrite as StoredMockWrite
 import appmonitor.desktop.storage.StatusClass as StoredStatusClass
 
-fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs)
+internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs)
 
 internal fun StoredSession.toDomain(): Session =
     Session(id, runId, serverSessionId, hello, peerAddress, connectedAtMs, disconnectedAtMs, lastEnvelopeAtMs)
 
-fun StoredExchange.toDomain(): Exchange =
+internal fun StoredExchange.toDomain(): Exchange =
     Exchange(
         id = id,
         sessionId = sessionId,
@@ -82,7 +86,7 @@ fun StoredExchange.toDomain(): Exchange =
 
 internal fun StorageHealth.toDomain(): StoreHealth = StoreHealth(notSaved, lastError)
 
-fun ExchangeFilter.toStored(): StoredExchangeFilter =
+internal fun ExchangeFilter.toStored(): StoredExchangeFilter =
     StoredExchangeFilter(
         text = text,
         method = method,
@@ -205,3 +209,9 @@ internal fun StoredIssueWrite.toDomain(): IssueWrite =
         StoredIssueWrite.UnknownIssue -> IssueWrite.UnknownIssue
         StoredIssueWrite.NotSaved -> IssueWrite.NotSaved
     }
+
+internal fun RetentionSettings.toDomain(): Retention = Retention(maxAgeDays, maxBytes)
+
+internal fun Retention.toStored(): RetentionSettings = RetentionSettings(maxAgeDays, maxBytes)
+
+internal fun RetentionStatus.toDomain(): RetentionState = RetentionState(usedBytes, keptOverBound, lastError)

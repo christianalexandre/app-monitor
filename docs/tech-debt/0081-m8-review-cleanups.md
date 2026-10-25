@@ -3,7 +3,7 @@ id: DEBT-0081
 title: Non-correctness findings of the M8 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`, `sdk/ios/Sources/AppMonitorConnections/connections.c`, `sdk/ios/Sources/AppMonitor/ConnectionCapture.swift`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt` or `scripts/e2e_ios.sh`"
+trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`, `sdk/ios/Sources/AppMonitorConnections/connections.c` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`"
 paid_date:
 ---
 
@@ -78,3 +78,8 @@ for `Listening on port`. The other items are open.
 `ConnectionCapture.swift` paid in `fix/ios-skip-kmp-desktop-socket`: a
 closed connection's `ResponseReceived` no longer sets `body_truncated`,
 as `protocol/fixtures/connection_closed.bin` already showed.
+
+`ProxyController.kt` paid in `refactor/desktop-settings-feature`
+(PLAN-0012 H2.4c): the recording is built closed and opened once the
+server listens, so a taken port leaves no session
+(`ProxyWiringTest`'s `a taken port is a status`). The other items are open.

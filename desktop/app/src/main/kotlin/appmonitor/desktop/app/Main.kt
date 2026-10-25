@@ -1,9 +1,7 @@
 package appmonitor.desktop.app
 
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
@@ -15,11 +13,9 @@ import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.McpSettings
-import appmonitor.desktop.app.ui.ProxySettings
-import appmonitor.desktop.app.ui.StorageUnavailable
 import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.trafficRepository
+import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
@@ -92,18 +88,11 @@ fun main() {
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
                             val scope = rememberCoroutineScope()
-                            val answered by remember { approvals.stored }.collectAsState(emptyList())
-                            val mcpStatus by mcp.status.collectAsState()
-                            val mcpEnabled by mcp.enabled.collectAsState()
-                            val mcpToken by mcp.token.collectAsState()
-                            val proxyStatus by proxy.status.collectAsState()
-                            val proxyEnabled by proxy.enabled.collectAsState()
                             AppMonitorApp(
                                 storage,
                                 status,
                                 approvals,
-                                answered = answered,
-                                onForget = { key -> scope.launch { if (key == null) approvals.forgetAll() else approvals.forget(key) } },
+                                answered = approvals,
                                 onClearAll = {
                                     scope.launch {
                                         approvals.forgetAll()
@@ -112,12 +101,8 @@ fun main() {
                                         proxy.afterClearAll()
                                     }
                                 },
-                                mcp = McpSettings(mcpStatus, mcpEnabled, mcp.port, mcpToken),
-                                onMcpEnabled = { scope.launch { mcp.setEnabled(it) } },
-                                onRegenerateToken = { scope.launch { mcp.regenerate() } },
-                                proxy = ProxySettings(proxyStatus, proxyEnabled, proxy.port, proxy.caFile.toString()),
-                                onProxyEnabled = { scope.launch { proxy.setEnabled(it) } },
-                                onResetProxyCa = { scope.launch { proxy.resetCa() } },
+                                mcp = mcp,
+                                proxy = proxy,
                                 heldCalls = store.heldCalls,
                                 replays = store.replays,
                                 runRepository = runRepository,

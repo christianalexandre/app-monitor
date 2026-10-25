@@ -1,5 +1,7 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.ProxyRepository
+import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.proxy.ProxyCa
 import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.proxy.ProxyServer
@@ -21,25 +23,6 @@ import java.net.BindException
 import java.nio.file.Path
 import javax.net.ssl.TrustManagerFactory
 
-/** What the settings show about the proxy (SDD 11). */
-internal sealed interface ProxyStatus {
-    data object Off : ProxyStatus
-
-    data object Starting : ProxyStatus
-
-    data class Running(
-        val port: Int,
-    ) : ProxyStatus
-
-    data class PortTaken(
-        val port: Int,
-    ) : ProxyStatus
-
-    data class Failed(
-        val message: String,
-    ) : ProxyStatus
-}
-
 /**
  * Starts and stops the proxy with the `proxy.enabled` switch (missing = off, ADR-0004); each start builds a server and
  * a session of its own. A taken port or any start failure is a [status], never a throw. Once [close]d it stays off.
@@ -47,9 +30,9 @@ internal sealed interface ProxyStatus {
 internal class ProxyController(
     private val storage: Storage,
     private val directory: Path,
-    val port: Int = proxyPort(),
+    override val port: Int = proxyPort(),
     private val upstreamTrust: TrustManagerFactory? = null,
-) {
+) : ProxyRepository {
     private val lock = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var server: ProxyServer? = null
@@ -57,14 +40,16 @@ internal class ProxyController(
     private var closed = false
     private val switchLock = Any()
     private var switched = false
-    private val mutableStatus = MutableStateFlow<ProxyStatus>(ProxyStatus.Off)
+    private val mutableStatus = MutableStateFlow<ServiceStatus>(ServiceStatus.Off)
     private val mutableEnabled = MutableStateFlow(false)
 
-    val status: StateFlow<ProxyStatus> = mutableStatus.asStateFlow()
-    val enabled: StateFlow<Boolean> = mutableEnabled.asStateFlow()
+    override val status: StateFlow<ServiceStatus> = mutableStatus.asStateFlow()
+    override val enabled: StateFlow<Boolean> = mutableEnabled.asStateFlow()
+    override val host: String get() = ProxyServer.HOST
 
     /** Where the CA certificate is once the proxy started; what `curl --cacert` and simulators take. */
-    val caFile: Path get() = directory.resolve(ProxyCa.CERTIFICATE_FILE)
+    val caPath: Path get() = directory.resolve(ProxyCa.CERTIFICATE_FILE)
+    override val caFile: String get() = caPath.toString()
 
     /** Reads the switch and starts the proxy when it is on. */
     suspend fun start() {
@@ -80,7 +65,7 @@ internal class ProxyController(
     }
 
     /** Persists the switch, then starts or stops the proxy. */
-    suspend fun setEnabled(on: Boolean) {
+    override suspend fun setEnabled(on: Boolean) {
         synchronized(switchLock) {
             switched = true
             mutableEnabled.value = on
@@ -90,7 +75,7 @@ internal class ProxyController(
     }
 
     /** Deletes the CA (ADR-0101 C.1); a running proxy restarts with a new one. */
-    suspend fun resetCa() =
+    override suspend fun resetCa() =
         lock.withLock {
             val running = server != null
             stopLocked()
@@ -116,23 +101,24 @@ internal class ProxyController(
 
     private suspend fun startLocked() {
         if (closed || server != null) return
-        mutableStatus.value = ProxyStatus.Starting
+        mutableStatus.value = ServiceStatus.Starting
         val next =
             try {
                 val ca = withContext(Dispatchers.IO) { ProxyCa.loadOrCreate(directory) }
-                val nextRecording = ProxyRecording(storage, scope)
+                val nextRecording = ProxyRecording(storage, scope, open = false)
                 ProxyServer(ca, nextRecording::record, port, upstreamTrust) to nextRecording
             } catch (e: CancellationException) {
-                mutableStatus.value = ProxyStatus.Off
+                mutableStatus.value = ServiceStatus.Off
                 throw e
             } catch (e: Exception) {
-                mutableStatus.value = ProxyStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
+                mutableStatus.value = ServiceStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
                 return
             }
         val (nextServer, nextRecording) = next
         mutableStatus.value =
             try {
-                ProxyStatus.Running(withContext(Dispatchers.IO) { nextServer.start() }).also {
+                ServiceStatus.Running(withContext(Dispatchers.IO) { nextServer.start() }).also {
+                    nextRecording.open()
                     server = nextServer
                     recording = nextRecording
                 }
@@ -140,13 +126,13 @@ internal class ProxyController(
                 withContext(NonCancellable + Dispatchers.IO) { nextServer.stop() }
                 withContext(NonCancellable) { nextRecording.close() }
                 if (e is CancellationException) {
-                    mutableStatus.value = ProxyStatus.Off
+                    mutableStatus.value = ServiceStatus.Off
                     throw e
                 }
                 if (e is BindException) {
-                    ProxyStatus.PortTaken(port)
+                    ServiceStatus.PortTaken(port)
                 } else {
-                    ProxyStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
+                    ServiceStatus.Failed(e.message ?: e::class.simpleName ?: "unknown error")
                 }
             }
     }
@@ -158,7 +144,7 @@ internal class ProxyController(
         recording = null
         withContext(NonCancellable + Dispatchers.IO) { stopping?.stop() }
         withContext(NonCancellable) { written?.close() }
-        mutableStatus.value = ProxyStatus.Off
+        mutableStatus.value = ServiceStatus.Off
     }
 
     companion object {
