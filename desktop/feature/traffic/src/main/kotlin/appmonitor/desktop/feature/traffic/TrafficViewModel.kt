@@ -84,7 +84,10 @@ data class TrafficState(
     fun refuses(session: Session): Boolean = disconnected.any { it.deviceId == session.hello.device_id && it.appId == session.hello.app_id }
 }
 
-/** The picked request [id] of [appId], read again whenever its row changes; null [exchange] while it loads, null [id] once gone. */
+/**
+ * The picked request [id] of [appId], read again whenever its row changes; null [exchange] while it loads, null [id] once
+ * gone. [curl] is the cURL tab's command, or why there is none, null while it loads or another tab is shown.
+ */
 data class DetailState(
     val id: Long? = null,
     val appId: String = "",
@@ -92,6 +95,8 @@ data class DetailState(
     val copyNote: String? = null,
     val replayNote: String? = null,
     val canReplay: Boolean = false,
+    val tab: DetailTab = DetailTab.Summary,
+    val curl: Result<String>? = null,
 )
 
 /** The traffic panes: devices, requests, one request and the runs (SDD 09); every list follows the live list or the store. */
@@ -117,6 +122,7 @@ class TrafficViewModel(
     private val limit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val frameLimit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val copyNote = MutableStateFlow<String?>(null)
+    private val tab = MutableStateFlow(DetailTab.Summary)
     private val sent = MutableStateFlow<ReplaySent?>(null)
     private val saveNote = MutableStateFlow<String?>(null)
 
@@ -166,6 +172,14 @@ class TrafficViewModel(
 
     private val refused = replays?.refused ?: MutableStateFlow(emptyMap())
 
+    private val curl =
+        combine(picked, tab) { id, tab -> id.takeIf { tab == DetailTab.Curl } }
+            .distinctUntilChanged()
+            .transformLatest { id ->
+                emit(null)
+                if (id != null) emit(exports.curl(id))
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private val detail =
         combine(exchange, picked, copyNote, sent, refused) { (readId, read), id, copyNote, sent, refused ->
             val session = pickedSessionOf()
@@ -181,7 +195,7 @@ class TrafficViewModel(
                         ?: sent?.let(::noteOf),
                 canReplay = replays != null,
             )
-        }
+        }.combine(combine(tab, curl, ::Pair)) { detail, (tab, curl) -> detail.copy(tab = tab, curl = curl) }
 
     private val lists =
         combine(
@@ -317,14 +331,30 @@ class TrafficViewModel(
         frameLimit.value += TrafficRepository.PAGE_SIZE
     }
 
-    /** Hands the picked request's cURL command to [copy]; the note says what happened. */
-    fun copyCurl(copy: (String) -> Unit) {
+    fun selectTab(tab: DetailTab) {
+        this.tab.value = tab
+    }
+
+    /** Hands [part] of the picked request to [copy]; the note says what happened. */
+    fun copy(
+        part: DetailPart,
+        copy: (String) -> Unit,
+    ) {
         val id = picked.value ?: return
         viewModelScope.launch {
+            val text =
+                if (part == DetailPart.Curl) {
+                    exports.curl(id)
+                } else {
+                    exchange.value.second
+                        ?.takeIf { it.id == id }
+                        ?.let { textOf(it, part) }
+                        ?.let { Result.success(it) } ?: Result.failure(IllegalStateException("Nothing to copy"))
+                }
             copyNote.value =
-                exports.curl(id).fold(
-                    { command ->
-                        copy(command)
+                text.fold(
+                    { copied ->
+                        copy(copied)
                         "Copied"
                     },
                     { it.message },

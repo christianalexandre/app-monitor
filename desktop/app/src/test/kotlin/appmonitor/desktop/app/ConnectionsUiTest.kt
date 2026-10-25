@@ -8,7 +8,6 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.desktop.feature.traffic.CONNECTION_BYTES
-import appmonitor.desktop.feature.traffic.COPY_CURL
 import appmonitor.desktop.feature.traffic.EXPORT_HAR
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.tools.fakeclient.Fixtures
@@ -54,8 +53,8 @@ class ConnectionsUiTest {
                 awaitText("Sent 512 B · Received 2048 B")
                 onNodeWithText("Status closed · Duration 1.50 s · Connection layer").assertExists()
                 onNodeWithTag(CONNECTION_BYTES).assertExists()
-                onNodeWithTag(COPY_CURL).assertDoesNotExist()
-                onNodeWithText("Request headers").assertDoesNotExist()
+                onNodeWithText("cURL").assertDoesNotExist()
+                onNodeWithText("Headers").assertDoesNotExist()
                 screenshot("connections.png")
 
                 onNodeWithTag(BENCHMARKS).performClick()

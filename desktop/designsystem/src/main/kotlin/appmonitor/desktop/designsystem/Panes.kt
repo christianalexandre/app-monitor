@@ -10,18 +10,25 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.Text as MaterialText
 
 /** What a [Badge] says of its subject; each tone has its own color in light and dark. */
@@ -76,6 +83,44 @@ fun Toolbar(
         Divider()
     }
 }
+
+/** Text tabs in one row ruled below, the [selected] one strong and underlined in the primary color. */
+@Composable
+fun Tabs(
+    tabs: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            tabs.forEachIndexed { index, label -> Tab(label, index == selected) { onSelect(index) } }
+        }
+        Divider()
+    }
+}
+
+@Composable
+private fun Tab(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val color = AppMonitorTheme.colors.primary
+    Text(
+        label,
+        Modifier
+            .selectable(selected, role = Role.Tab, onClick = onClick)
+            .drawBehind {
+                val height = TAB_INDICATOR.toPx()
+                if (selected) drawRect(color, Offset(0f, size.height - height), Size(size.width, height))
+            }.padding(horizontal = Spacing.md, vertical = Spacing.md),
+        role = if (selected) TextRole.SmallStrong else TextRole.Small,
+        maxLines = 1,
+    )
+}
+
+private val TAB_INDICATOR = 2.dp
 
 /** What a whole pane shows when it has nothing: [title], and the [hint] of what to do next, centred in it. */
 @Composable

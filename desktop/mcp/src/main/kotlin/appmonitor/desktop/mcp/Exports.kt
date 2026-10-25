@@ -5,7 +5,7 @@ import appmonitor.desktop.domain.TrafficQueryRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
-/** The window's "Export HAR" and "Copy as cURL" (SDD 01): `export_har`'s and `to_curl`'s code (ADR-0098). */
+/** The window's "Export HAR" and the detail's cURL tab (SDD 01): `export_har`'s and `to_curl`'s code (ADR-0098). */
 object Exports {
     /** Exchanges one HAR holds, as `export_har`'s `max_entries` at most. */
     const val MAX_ENTRIES = ExportHar.MAX_ENTRIES

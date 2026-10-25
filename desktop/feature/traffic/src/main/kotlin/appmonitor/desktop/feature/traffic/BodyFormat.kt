@@ -9,9 +9,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okio.ByteString
-import java.nio.ByteBuffer
-import java.nio.charset.CharacterCodingException
-import java.nio.charset.CodingErrorAction
 
 internal enum class BodyFormat(
     val label: String,
@@ -109,7 +106,7 @@ private fun String.nextSignificant(from: Int): Char? {
 }
 
 /** Classic hex dump: offset, 16 bytes in hex, printable ASCII. */
-private fun hexDump(body: ByteString): String {
+internal fun hexDump(body: ByteString): String {
     val bytes = body.toByteArray()
     val out = StringBuilder(bytes.size / 16 * ROW_LENGTH + ROW_LENGTH)
     for (offset in bytes.indices step 16) {

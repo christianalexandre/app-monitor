@@ -1,16 +1,16 @@
 package appmonitor.desktop.app
 
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import androidx.compose.ui.text.AnnotatedString
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.feature.traffic.COPY_CURL
+import appmonitor.desktop.feature.traffic.COPY
+import appmonitor.desktop.feature.traffic.CURL
+import appmonitor.desktop.feature.traffic.DetailPart
 import appmonitor.desktop.feature.traffic.EXPORT_HAR
 import appmonitor.desktop.mcp.assertHar12
 import appmonitor.desktop.mcp.runCurl
@@ -32,16 +32,6 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class ExportUiTest {
-    private class FakeClipboard : ClipboardManager {
-        var copied: AnnotatedString? = null
-
-        override fun setText(annotatedString: AnnotatedString) {
-            copied = annotatedString
-        }
-
-        override fun getText() = copied
-    }
-
     private val body = "name=it's \"quoted\" \$HOME " + "x".repeat(20_000)
 
     @Test
@@ -88,8 +78,10 @@ class ExportUiTest {
 
                 onNodeWithText("http://127.0.0.1:1/items?q=a%20b").performClick()
                 // The detail pane reads the exchange off the UI thread.
-                awaitTag(COPY_CURL)
-                onNodeWithTag(COPY_CURL).performClick()
+                awaitText("cURL")
+                onNodeWithText("cURL").performClick()
+                awaitTag(CURL)
+                onNodeWithTag(COPY + DetailPart.Curl.name).performClick()
                 awaitText("Copied")
                 screenshot("export.png")
             }

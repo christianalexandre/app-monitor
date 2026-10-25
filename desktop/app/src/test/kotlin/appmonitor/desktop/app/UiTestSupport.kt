@@ -1,12 +1,19 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.AnnotatedString
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +31,25 @@ internal fun ComposeUiTest.awaitText(
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.awaitTag(tag: String) =
     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+
+/** Keeps the last text copied, in place of the system clipboard. */
+internal class FakeClipboard : ClipboardManager {
+    var copied: AnnotatedString? = null
+
+    override fun setText(annotatedString: AnnotatedString) {
+        copied = annotatedString
+    }
+
+    override fun getText() = copied
+}
+
+/** Opens the request detail's tab named [label]; the pick keeps it for the next request. */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.showTab(label: String) {
+    val tab = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+    waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(tab).fetchSemanticsNodes().isNotEmpty() }
+    onNode(tab).performClick()
+}
 
 /** The window's theme in these tests: light, dark only while [screenshot] takes its second picture. */
 internal object TestAppearance : AppearanceRepository {

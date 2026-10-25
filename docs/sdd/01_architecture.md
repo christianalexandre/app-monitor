@@ -354,13 +354,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   device of the shown run (or every run) under the request filter: the
   first 1 000 exchanges, oldest first, bodies whole, refused past 32 MiB;
   a line under the buttons says how many were written, or why not, and
-  how many connections were left out. "Copy as cURL" in the request detail
-  puts `to_curl`'s command for that exchange on the clipboard and says
-  "Copied". Both go through `desktop/mcp`'s `Exports`.
+  how many connections were left out. The request detail's cURL tab
+  shows `to_curl`'s command for that exchange and "Copy" puts it on the
+  clipboard. Both go through `desktop/mcp`'s `Exports`.
 - Connections (ADR-0104): a `CONNECTION` exchange's row shows `CONNECT`,
   `tcp://host:port` and `open`, `closed` or `failed` as its status; its
   detail shows the layer caption, then bytes sent and received instead of
-  headers and bodies, with no "Copy as cURL". Benchmarks and the run diff
+  headers and bodies: its detail has only the Summary and Timing tabs. Benchmarks and the run diff
   list it as `CONNECT host:port` (`connections.png`).
 - gRPC status (ADR-0107): a call whose `grpc_status` is other than 0 shows
   `grpc N` as its status in the row and the detail, and counts as an error
@@ -401,7 +401,17 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   "mocked" and "replay" badges, the start time to the millisecond and the
   duration. An empty pane says why and what to do next: "No requests yet"
   (live, recording or a stored run, each with its hint), "No requests
-  match" (a filter is set), "Select a request". The
+  match" (a filter is set), "Select a request".
+- Request detail (ADR-0147): the method and URL, a copy note, "Mock this"
+  and "Send again" over five tabs: Summary (caption, error, replay link,
+  URL, connection bytes), Headers (request and response), Body (request
+  and response bodies, then WebSocket frames), Timing (started and ended
+  to the millisecond in this machine's zone, duration, frames: the
+  protocol carries no finer phase) and cURL. The tab picked stays for the
+  next request. Each part has "Copy": the URL, headers as `Name: value`
+  lines, a body whole as the device sent it (UTF-8, else its hex dump,
+  not the indented view), the timing lines, the cURL command; the note
+  says "Copied", "Nothing to copy" or why not. The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
   when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
