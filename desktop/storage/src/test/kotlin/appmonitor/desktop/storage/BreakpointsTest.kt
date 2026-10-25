@@ -71,6 +71,7 @@ class BreakpointsTest {
                 connection.createStatement().use {
                     it.execute("DROP TABLE breakpoint_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
+                    it.execute("ALTER TABLE runs DROP COLUMN saved")
                     it.execute("PRAGMA user_version = 5")
                 }
             }
@@ -80,7 +81,7 @@ class BreakpointsTest {
                 assertEquals(1, storage.observeActiveBreakpoints(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(7, dir.queryLong("PRAGMA user_version"))
+            assertEquals(8, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

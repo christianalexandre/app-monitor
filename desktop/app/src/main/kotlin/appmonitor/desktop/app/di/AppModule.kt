@@ -55,7 +55,7 @@ internal fun appModule(
         single<ExportRepository> { get<StorageExports>() }
         single<HarRepository> { get<StorageExports>() }
         single<BenchmarkRepository> { storage.benchmarkRepository(live) }
-        single<IssueRepository> { storage.issueRepository() }
+        single<IssueRepository> { storage.issueRepository(live) }
         single<MockRepository> { storage.mockRepository() }
         single<BreakpointRepository> { storage.breakpointRepository() }
         single<RetentionRepository> { storage.retentionRepository() }

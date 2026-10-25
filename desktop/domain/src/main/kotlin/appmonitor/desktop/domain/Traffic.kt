@@ -6,12 +6,14 @@ import appmonitor.v1.Hello
 import appmonitor.v1.WebSocketFrame
 import okio.ByteString
 
-/** One run: the sessions between two "New run" (SDD 09). [name] is null until the developer names it. */
+/** One stored run: a recording between Record and Stop, or "Saved" (SDD 09). [name] is null until the developer names it. */
 data class Run(
     val id: Long,
     val name: String?,
     val startedAtMs: Long,
     val endedAtMs: Long?,
+    /** True for the "Saved" collection, false for a recording (ADR-0140 C). */
+    val saved: Boolean = false,
 )
 
 /** One connection of an app, with the `Hello` it opened with. */

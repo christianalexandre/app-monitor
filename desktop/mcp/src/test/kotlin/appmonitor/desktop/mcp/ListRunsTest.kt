@@ -35,6 +35,7 @@ class ListRunsTest {
             assertEquals(listOf(second, storage.runId), runs.map { it.long("id") })
             assertEquals(listOf(1L, 2L), runs.map { it.long("exchange_count") })
             assertEquals(listOf(true, false), runs.map { it["current"]!!.jsonPrimitive.boolean })
+            assertEquals(listOf(false, false), runs.map { it["saved"]!!.jsonPrimitive.boolean })
             assertEquals(JsonNull, runs[0]["ended_at"])
             assertEquals("1970-01-01T00:00:01.000Z", runs[1]["started_at"]!!.jsonPrimitive.content)
             val session = runs[1]["sessions"]!!.jsonArray.single().jsonObject

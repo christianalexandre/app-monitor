@@ -167,6 +167,16 @@ class LiveTraffic(
                 .toMap()
         }
 
+    /** What [Storage.save] needs of each exchange of [ids] still in the list, in arrival order; the others are left out. */
+    fun copies(ids: Collection<Long>): List<LiveCopy> =
+        synchronized(lock) {
+            ids.distinct().sorted().mapNotNull { id ->
+                val exchange = exchanges[id] ?: return@mapNotNull null
+                val session = sessions[exchange.row.sessionId]?.row ?: return@mapNotNull null
+                LiveCopy(id, exchange.row.requestId, session, exchange.envelopes())
+            }
+        }
+
     /** A page of an exchange's WebSocket frames, in the order the device sent them. */
     fun frames(
         exchangeId: Long,
@@ -326,6 +336,25 @@ class LiveTraffic(
         bytes = bodies + frameBytes
     }
 
+    // The events the store would have been given, as far as the list kept them.
+    private fun LiveExchange.envelopes(): List<Envelope> {
+        fun envelope(
+            type: String,
+            payload: ByteString,
+            atMs: Long?,
+        ) = Envelope(Protocol.CHANNEL_NETWORK, type, payload, atMs ?: 0)
+        val requestId = row.requestId
+        return buildList {
+            request?.let { add(envelope("RequestStarted", it.encodeByteString(), row.startedAtMs)) }
+            frames.forEach {
+                val frame = WebSocketFrame(requestId, it.direction, it.opcode, it.payload, it.payloadTruncated, it.payloadSize)
+                add(envelope("WebSocketFrame", frame.encodeByteString(), it.atMs))
+            }
+            response?.let { add(envelope("ResponseReceived", it.encodeByteString(), row.endedAtMs)) }
+            if (row.failed) add(envelope("RequestFailed", RequestFailed(requestId, row.error.orEmpty()).encodeByteString(), row.endedAtMs))
+        }
+    }
+
     private fun LiveExchange.sizes(): ExchangeSizes =
         if (row.isConnection) {
             ExchangeSizes(row, requestBytes = response?.sent_size ?: 0, responseBytes = response?.body_size ?: 0)
@@ -360,5 +389,13 @@ class LiveTraffic(
         fun isLive(id: Long): Boolean = id >= FIRST_ID
     }
 }
+
+/** One live exchange as [LiveTraffic.copies] gives it: its live [id], its [session] and the events that make it. */
+class LiveCopy(
+    val id: Long,
+    val requestId: String,
+    val session: StoredSession,
+    val envelopes: List<Envelope>,
+)
 
 private fun String.asciiLowercase(): String = String(CharArray(length) { this[it].let { c -> if (c in 'A'..'Z') c + 32 else c } })

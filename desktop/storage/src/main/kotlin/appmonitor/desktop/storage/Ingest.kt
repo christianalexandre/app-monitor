@@ -154,6 +154,18 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Copies live exchanges into the saved run (ADR-0143); [done] gets [outcome], each live id's stored id, or nothing. */
+    class Save(
+        val copies: List<LiveCopy>,
+        val atMs: Long,
+    ) : StorageItem {
+        val done = CompletableDeferred<Map<Long, Long>>()
+
+        // Set by the writer as it applies the item, cleared when its batch rolls back.
+        var outcome: Map<Long, Long>? = null
+        override val sessionId: String? get() = null
+    }
+
     /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
@@ -230,6 +242,7 @@ internal class Ingest(
                 if (it is StorageItem.SaveIssue) it.outcome = null
                 if (it is StorageItem.SaveMock) it.outcome = null
                 if (it is StorageItem.SaveBreakpoint) it.outcome = null
+                if (it is StorageItem.Save) it.outcome = null
             }
             val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
             disconnects.forEach { item ->
@@ -336,9 +349,36 @@ internal class Ingest(
                 database.breakpointQueries.delete(item.id)
             }
 
+            is StorageItem.Save -> {
+                item.outcome = save(item)
+            }
+
             is StorageItem.Barrier -> {
                 Unit
             }
+        }
+    }
+
+    // One saved session per live one, kept across saves; an exchange saved before is not written again.
+    private fun save(item: StorageItem.Save): Map<Long, Long> {
+        val run =
+            database.runQueries.savedId().executeAsOneOrNull() ?: run {
+                database.runQueries.insertSaved(item.atMs)
+                database.runQueries.lastId().executeAsOne()
+            }
+        return item.copies.associate { copy ->
+            val live = copy.session
+            val session =
+                database.sessionQueries.idInRun(run, live.serverSessionId).executeAsOneOrNull()
+                    ?: insertSession(run, live.serverSessionId, live.hello, live.peerAddress, live.connectedAtMs).also {
+                        database.sessionQueries.disconnect(live.disconnectedAtMs ?: item.atMs, it)
+                    }
+            val stored =
+                database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull() ?: run {
+                    copy.envelopes.forEach { network(session, it) }
+                    exchange(session, copy.requestId)
+                }
+            copy.id to stored
         }
     }
 
@@ -449,7 +489,18 @@ internal class Ingest(
         rows[sessionId]?.let { return it }
         val (connected, run) = connections[sessionId] ?: return null
         if (run == LiveTraffic.NO_RUN) return null
-        val hello = connected.hello
+        val id = insertSession(run, connected.serverSessionId, connected.hello, connected.peerAddress, connected.atMs)
+        rows = rows + (sessionId to id)
+        return id
+    }
+
+    private fun insertSession(
+        run: Long,
+        serverSessionId: String,
+        hello: Hello,
+        peerAddress: String?,
+        atMs: Long,
+    ): Long {
         database.deviceQueries.upsert(hello.device_id, hello.platform.value.toLong(), hello.device_name, hello.os_version)
         val device = database.deviceQueries.idOf(hello.device_id).executeAsOne()
         database.appQueries.insertIfAbsent(hello.app_id)
@@ -458,16 +509,14 @@ internal class Ingest(
             run_id = run,
             device_ref = device,
             app_ref = app,
-            server_session_id = connected.serverSessionId,
+            server_session_id = serverSessionId,
             hello = hello.encode(),
             app_version = hello.app_version,
             sdk_name = hello.sdk_name,
-            peer_address = connected.peerAddress,
-            connected_at_ms = connected.atMs,
+            peer_address = peerAddress,
+            connected_at_ms = atMs,
         )
-        val id = database.sessionQueries.lastId().executeAsOne()
-        rows = rows + (sessionId to id)
-        return id
+        return database.sessionQueries.lastId().executeAsOne()
     }
 
     private fun received(

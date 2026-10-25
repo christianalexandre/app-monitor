@@ -38,13 +38,23 @@ sealed interface ShownRun {
     ) : ShownRun
 }
 
-/** The stored runs, the one being [recording], and what the window shows; [shownRunId] is null for the live list. */
+/**
+ * The stored runs, the one being [recording], what the window shows and what the last Save did; [shownRunId] is null for
+ * the live list.
+ */
 data class RunsState(
     val runs: List<Run> = emptyList(),
     val recording: Long? = null,
     val shown: ShownRun = ShownRun.Live,
+    val saveNote: String? = null,
 ) {
     val shownRunId: Long? get() = (shown as? ShownRun.Stored)?.id
+
+    /** The recordings, newest first, without "Saved". */
+    val recordings: List<Run> get() = runs.filterNot { it.saved }
+
+    /** The "Saved" collection, null before the first Save (ADR-0140 C). */
+    val saved: Run? get() = runs.firstOrNull { it.saved }
 
     val title: String get() = shownRunId?.let { id -> runs.firstOrNull { it.id == id }?.let(::titleOf) ?: "" } ?: LIVE
 }
@@ -98,9 +108,10 @@ class TrafficViewModel(
     private val frameLimit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val copyNote = MutableStateFlow<String?>(null)
     private val sent = MutableStateFlow<ReplaySent?>(null)
+    private val saveNote = MutableStateFlow<String?>(null)
 
     private val runs =
-        combine(runRepository.observeRuns().onStart { emit(emptyList()) }, runRepository.recording, shown, ::RunsState)
+        combine(runRepository.observeRuns().onStart { emit(emptyList()) }, runRepository.recording, shown, saveNote, ::RunsState)
             .stateIn(viewModelScope, SharingStarted.Eagerly, RunsState(recording = runRepository.recording.value))
 
     private val sessions =
@@ -220,6 +231,17 @@ class TrafficViewModel(
     /** The marked exchanges, or the picked one when none is. */
     fun toSave(): Map<Long, Exchange> = marked.value.ifEmpty { row.value?.let { mapOf(it.id to it) }.orEmpty() }
 
+    /** Stores what [toSave] gives in "Saved" (ADR-0140 C); the saved ones are unmarked. */
+    fun save() {
+        val ids = toSave().keys
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            val saved = traffic.save(ids)
+            marked.update { it - saved.keys }
+            saveNote.value = if (saved.size == ids.size) "Saved ${saved.size} to Saved" else "Saved ${saved.size} of ${ids.size} to Saved"
+        }
+    }
+
     fun clearMarked() {
         marked.value = emptyMap()
     }
@@ -234,6 +256,7 @@ class TrafficViewModel(
     /** Empties the live list (ADR-0140 A); a pick in it goes with it. */
     fun clear() {
         traffic.clear()
+        saveNote.value = null
         if (shown.value == ShownRun.Live) {
             selectedRequest.value = null
             original.value = null

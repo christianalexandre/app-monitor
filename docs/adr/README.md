@@ -160,3 +160,4 @@ Rules:
 | [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) | Live traffic stays in memory; only recordings and what the user saves are stored | Accepted |
 | [0141](0141-the-live-list-is-held-as-the-store-s-rows-in-memory.md) | The live list is held as the store's rows in memory, its ids apart from the store's | Accepted |
 | [0142](0142-a-recorder-sink-stores-what-starts-while-recording.md) | A Recorder sink stores what starts while recording, one session row per run | Accepted |
+| [0143](0143-save-copies-live-exchanges-into-one-saved-run.md) | Save copies live exchanges into one "Saved" run, marked by a column | Accepted |

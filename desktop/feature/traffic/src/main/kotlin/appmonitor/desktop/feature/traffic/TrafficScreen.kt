@@ -132,7 +132,10 @@ fun TrafficScreen(
     }
 }
 
-/** The live list, then every stored run, newest first; [onShow] gets null for the live list. A blank name makes a run unnamed. */
+/**
+ * The live list, "Saved", then every recording, newest first; [onShow] gets null for the live list. A blank name makes a
+ * recording unnamed.
+ */
 @Composable
 private fun RunList(
     state: RunsState,
@@ -141,7 +144,7 @@ private fun RunList(
     onCompare: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val runs = state.runs
+    val runs = state.recordings
     val shownRunId = state.shownRunId
     var editing by remember { mutableStateOf<Long?>(null) }
     var draft by remember { mutableStateOf("") }
@@ -152,6 +155,19 @@ private fun RunList(
             Modifier.fillMaxWidth().selectableItem(shownRunId == null) { onShow(null) }.padding(vertical = Spacing.md),
             role = TextRole.BodyStrong,
         )
+        state.saved?.let { saved ->
+            Text(
+                titleOf(saved),
+                Modifier
+                    .fillMaxWidth()
+                    .selectableItem(saved.id == shownRunId) { onShow(saved.id) }
+                    .padding(vertical = Spacing.md)
+                    .testTag(SAVED_RUN),
+                role = TextRole.BodyStrong,
+            )
+        }
+        Text("Recordings", role = TextRole.Caption)
+        if (runs.isEmpty()) Text("None yet: Record stores what the devices send until Stop", role = TextRole.Caption)
         LazyColumn(Modifier.heightIn(max = 240.dp)) {
             items(runs, key = { it.id }) { run ->
                 Row(
@@ -163,7 +179,7 @@ private fun RunList(
                         TextButton("Save", onClick = {
                             onRename(run.id, draft)
                             editing = null
-                        })
+                        }, Modifier.testTag(SAVE_RUN_NAME))
                     } else {
                         Column(Modifier.weight(1f)) {
                             Text(titleOf(run), role = TextRole.BodyStrong)
@@ -283,9 +299,16 @@ private fun RequestList(
                 } else {
                     TextButton("Stop recording", onClick = viewModel::stop, Modifier.testTag(RECORD))
                 }
+                TextButton(
+                    if (marked.isEmpty()) "Save" else "Save ${marked.size}",
+                    onClick = viewModel::save,
+                    Modifier.testTag(SAVE),
+                    enabled = marked.isNotEmpty() || state.row != null,
+                )
                 TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
             }
         }
+        state.runs.saveNote?.let { Text(it, Modifier.padding(horizontal = Spacing.lg).testTag(SAVE_NOTE), role = TextRole.Caption) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
             TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))

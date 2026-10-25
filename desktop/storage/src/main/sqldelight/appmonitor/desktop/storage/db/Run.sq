@@ -1,9 +1,10 @@
--- A time window on the desktop, across devices (ADR-0084).
+-- A time window on the desktop, across devices (ADR-0084); `saved` marks the one collection Save writes to (ADR-0143).
 CREATE TABLE runs (
   id INTEGER PRIMARY KEY,
   name TEXT,
   started_at_ms INTEGER NOT NULL,
-  ended_at_ms INTEGER
+  ended_at_ms INTEGER,
+  saved INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX runs_started_at_ms ON runs(started_at_ms);
@@ -13,6 +14,12 @@ INSERT INTO runs(started_at_ms) VALUES (?);
 
 lastId:
 SELECT last_insert_rowid();
+
+insertSaved:
+INSERT INTO runs(name, started_at_ms, ended_at_ms, saved) VALUES ('Saved', :atMs, :atMs, 1);
+
+savedId:
+SELECT id FROM runs WHERE saved = 1 LIMIT 1;
 
 end:
 UPDATE runs SET ended_at_ms = :endedAtMs WHERE id = :id;
@@ -44,6 +51,7 @@ SELECT * FROM runs WHERE id < :beforeId ORDER BY id DESC LIMIT :limit;
 deleteEmptyBefore:
 DELETE FROM runs
 WHERE name IS NULL
+  AND saved = 0
   AND ended_at_ms < :before
   AND NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.run_id = runs.id);
 

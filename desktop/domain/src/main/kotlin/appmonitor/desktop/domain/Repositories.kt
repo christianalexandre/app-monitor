@@ -47,6 +47,12 @@ interface TrafficRepository {
     /** Empties the live list (ADR-0140 A); the sessions still connected stay, stored runs are untouched. */
     fun clear()
 
+    /**
+     * Stores the live exchanges among [exchangeIds] in "Saved" (ADR-0140 C); returns each one's stored id by its live id.
+     * Stored ids, and live ones gone from the list or not written, are left out.
+     */
+    suspend fun save(exchangeIds: Collection<Long>): Map<Long, Long>
+
     companion object {
         const val PAGE_SIZE = 200L
     }

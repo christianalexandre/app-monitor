@@ -7,6 +7,11 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeDetail
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueRepository
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficQueryRepository
@@ -58,6 +63,35 @@ internal class LiveTrafficRepository(
         }
 
     override fun clear() = live.clear()
+
+    override suspend fun save(exchangeIds: Collection<Long>): Map<Long, Long> =
+        storage.save(live.copies(exchangeIds.filter(LiveTraffic::isLive)))
+}
+
+// A live id still in the list is saved first; one that is not reaches the store as is and comes back unknown.
+internal class LiveIssueRepository(
+    private val storage: Storage,
+    private val live: LiveTraffic,
+    private val stored: IssueRepository = StoredIssueRepository(storage),
+) : IssueRepository by stored {
+    override suspend fun create(
+        title: String,
+        note: String,
+        tags: Collection<String>,
+        exchangeIds: Collection<Long>,
+        source: IssueSource,
+        status: IssueStatus,
+    ): IssueWrite = stored.create(title, note, tags, stored(exchangeIds), source, status)
+
+    override suspend fun update(
+        id: Long,
+        change: IssueChange,
+    ): IssueWrite = stored.update(id, change.copy(exchangeIds = change.exchangeIds?.let { stored(it) }))
+
+    private suspend fun stored(ids: Collection<Long>): List<Long> {
+        val saved = storage.save(live.copies(ids.filter(LiveTraffic::isLive)))
+        return ids.map { saved[it] ?: it }.distinct()
+    }
 }
 
 internal class LiveTrafficQueryRepository(
