@@ -64,8 +64,8 @@ needs its own decision is split as soon as that shows.
   shared matching vector in `protocol/fixtures/`. SDD 04, 05 and 08
   updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`.
-- [ ] **M9.5 Mocked exchanges in the desktop, end to end.** (split from
-  M9.4) The desktop stores `RequestStarted.mock_rule_id` (a migration)
+- [x] **M9.5 Mocked exchanges in the desktop, end to end.** (`feat/mocked-exchanges`; split from
+  M9.4; ADR-0116: column `mock_rule_id` (migration `4.sqm`), a deleted rule shown by id, `--mocks FILE` on the headless server; the Android sample's `418, or a mock` button) The desktop stores `RequestStarted.mock_rule_id` (a migration)
   and the window and `get_request` show an exchange as mocked, with its
   rule's name. The headless server (`make server`) can be given rules
   to push, so an end to end asserts one. SDD 09, 10 and 12 updated.

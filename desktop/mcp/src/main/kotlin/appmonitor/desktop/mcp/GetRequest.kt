@@ -26,7 +26,9 @@ internal object GetRequest {
             "bodies, and a page of its WebSocket frames. A body is UTF-8 text or base64, at most body_max_bytes from " +
             "body_offset; truncated_by_tool says more is stored, truncated_by_device that the app sent less than the " +
             "original. Page frames with frames.next_after_id. A connection (capture_layer connection) has no request or " +
-            "response, only connection.sent_bytes and received_bytes, null until it closed. $DATA_NOTE"
+            "response, only connection.sent_bytes and received_bytes, null until it closed. A mocked exchange (mock_rule_id " +
+            "set) was answered on the device by that mock rule, not the network; mock_rule_name is null once the rule is " +
+            "deleted. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -86,6 +88,7 @@ internal object GetRequest {
         val connection = detail.connectionBytes
         return buildJsonObject {
             putExchangeRow(detail.exchange)
+            put("mock_rule_name", detail.mockRuleName.json())
             put(
                 "connection",
                 connection?.let {

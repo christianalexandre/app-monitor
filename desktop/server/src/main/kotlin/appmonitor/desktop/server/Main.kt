@@ -13,11 +13,24 @@ import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.PrintStream
 import java.nio.file.Path
+import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
 /** Headless server: logs every session and envelope to stdout until the process is stopped. */
 fun main(args: Array<String>) {
     val options = parseArgs(args, System.err) ?: exitProcess(2)
+    val mocks =
+        options.mocksFile?.let { file ->
+            try {
+                readMockRules(file.readText())
+            } catch (e: IOException) {
+                System.err.println("Cannot read $file: ${e.message}")
+                exitProcess(2)
+            } catch (e: IllegalArgumentException) {
+                System.err.println("Bad rules in $file: ${e.message}")
+                exitProcess(2)
+            }
+        }
     val server = AppMonitorServer(ServerConfig(port = options.port))
     runBlocking {
         val bound = startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook)
@@ -33,6 +46,9 @@ fun main(args: Array<String>) {
                 println(
                     "[${session.id}] connected: ${device.device_name} (${device.platform}) ${device.app_id} ${device.app_version} ${device.sdk_name}",
                 )
+                if (mocks != null && session.send(mockRulesEnvelope(mocks, System.currentTimeMillis()))) {
+                    println("[${session.id}] sent ${mocks.rules.size} mock rules")
+                }
                 session.envelopes.collect { println("[${session.id}] ${describe(it)}") }
                 println("[${session.id}] disconnected")
             }
@@ -52,11 +68,13 @@ internal suspend fun startWithShutdownHook(
 internal data class ServerArgs(
     val port: Int = Protocol.DEFAULT_PORT,
     val proxyDirectory: Path? = null,
+    val mocksFile: Path? = null,
 )
 
 /**
  * `--port` (default [Protocol.DEFAULT_PORT]) and `--proxy DIR`, which also runs the proxy of SDD 11 with its CA in DIR
- * and logs its exchanges as the `proxy` session; on a bad argument prints one line on [err] and returns null.
+ * and logs its exchanges as the `proxy` session, and `--mocks FILE`, rules ([readMockRules]) sent to every device that
+ * lists the `interaction` channel; on a bad argument prints one line on [err] and returns null.
  */
 internal fun parseArgs(
     args: Array<String>,
@@ -75,13 +93,16 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
             when (name) {
                 "--port" -> options.copy(port = value.toIntOrNull()?.takeIf { it in 0..MAX_PORT } ?: return null)
                 "--proxy" -> options.copy(proxyDirectory = Path.of(value))
+                "--mocks" -> options.copy(mocksFile = Path.of(value))
                 else -> return null
             }
     }
     return options
 }
 
-private const val USAGE = "Usage: server [--port PORT] [--proxy DIR], PORT from 0 (ephemeral) to 65535, DIR the proxy's CA directory"
+private const val USAGE =
+    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE], PORT from 0 (ephemeral) to 65535, DIR the proxy's CA " +
+        "directory, FILE mock rules as JSON"
 
 private const val MAX_PORT = 65_535
 
@@ -91,7 +112,9 @@ internal fun describe(envelope: Envelope): String {
         try {
             when (name) {
                 "network/RequestStarted" -> {
-                    RequestStarted.ADAPTER.decode(envelope.payload).run { "$request_id $method $url" }
+                    RequestStarted.ADAPTER.decode(envelope.payload).run {
+                        "$request_id $method $url" + (mock_rule_id?.let { " mock $it" } ?: "")
+                    }
                 }
 
                 "network/ResponseReceived" -> {

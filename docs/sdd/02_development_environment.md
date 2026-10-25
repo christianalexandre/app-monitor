@@ -95,6 +95,12 @@ paths the samples call and a WebSocket echo on `/ws`; `target` replaces
 `https://httpbin.org` and `wss://echo.websocket.org` with it. Without
 `target` the samples call the public services.
 
+The server is started with `--mocks build/e2e-android/mocks.json`, one
+rule (id 1) for `GET 10.0.2.2/status/418` that answers 200 `mocked`; the
+server sends it to the device after `HelloAck` (ADR-0116). The sample's last
+button, `418, or a mock`, calls that path, and its line asserts the
+`RequestStarted` carries `mock 1`: the SDK answered it without the network.
+
 `host` and `port` restart the SDK on that desktop only, and again only when
 they change, so a rotation keeps the connection, a new launch on another port
 moves to it and a process death reconnects to the same desktop; `runAll`

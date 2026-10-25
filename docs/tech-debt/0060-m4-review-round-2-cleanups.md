@@ -3,7 +3,7 @@ id: DEBT-0060
 title: Non-correctness findings of the second M4 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/MonitorClientTest.kt` or `scripts/e2e_lib.sh`
+trigger: The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/MonitorClientTest.kt`
 paid_date:
 ---
 
@@ -34,7 +34,11 @@ says the call may throw, and the shared code is in
 
 ## Trigger
 
-The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/MonitorClientTest.kt` or `scripts/e2e_lib.sh`.
+The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/MonitorClientTest.kt`.
+
+Fired by PLAN-0010 M9.5 (`feat/mocked-exchanges`), which adds `mock:<id>`
+to `scripts/e2e_lib.sh`'s `missing`. Its `e2e_lib.sh` item was already
+paid, so the trigger now names `MonitorClientTest.kt` only.
 
 ## How it was paid
 

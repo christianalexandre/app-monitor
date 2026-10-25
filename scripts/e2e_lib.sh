@@ -90,7 +90,8 @@ foreign_urls() {
 }
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
-# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT.
+# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, or mock:<rule id>
+# for a request that rule answered on the device (ADR-0110).
 # Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
 missing() {
   local method url terminal frames id frame
@@ -103,6 +104,11 @@ missing() {
     fi
     grep -q " network/$terminal $id " "$server_log" || echo "$method $url: no $terminal for $id"
     for frame in $frames; do
+      if [[ "$frame" == mock:* ]]; then
+        awk -v i="$id" -v r="${frame#mock:}" '$2 == "network/RequestStarted" && $3 == i && $6 == "mock" && $7 == r { f = 1 }
+          END { exit !f }' "$server_log" || echo "$method $url: not answered by mock rule ${frame#mock:}"
+        continue
+      fi
       grep -q " network/WebSocketFrame $id ${frame%%:*} ${frame#*:}," "$server_log" \
         || echo "$method $url: no WebSocketFrame ${frame%%:*} ${frame#*:} for $id"
     done

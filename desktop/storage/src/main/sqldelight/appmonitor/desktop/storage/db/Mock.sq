@@ -26,6 +26,9 @@ SELECT last_insert_rowid();
 exists:
 SELECT count(*) FROM mock_rules WHERE id = ?;
 
+nameOf:
+SELECT name FROM mock_rules WHERE id = ?;
+
 update:
 UPDATE mock_rules
 SET name = coalesce(:name, name), enabled = coalesce(:enabled, enabled), rule = coalesce(:rule, rule), updated_at_ms = :atMs

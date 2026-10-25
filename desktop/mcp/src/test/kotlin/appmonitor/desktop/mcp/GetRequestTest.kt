@@ -1,6 +1,10 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.storage.MockSource
+import appmonitor.desktop.storage.MockWrite
 import appmonitor.v1.Header
+import appmonitor.v1.MockResponse
+import appmonitor.v1.MockRule
 import appmonitor.v1.WebSocketFrame
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -26,6 +30,23 @@ class GetRequestTest {
     }
 
     private suspend fun Running.get(arguments: Map<String, Any?>) = client { it.callTool(GetRequest.NAME, arguments) }.json
+
+    @Test
+    fun aMockedExchangeNamesItsRule() =
+        withServer { running ->
+            val rule = MockRule(host = "api.example.com", path = "/items/*", response = MockResponse(status_code = 503))
+            val saved = running.storage.createMock(hello().app_id, "items down", rule, MockSource.WINDOW)
+            val ruleId = (saved as MockWrite.Saved).id
+            val mocked = running.store(request("m").copy(mock_rule_id = ruleId), response("m", 503))
+            val result = running.get(mapOf("id" to mocked))
+            assertEquals(ruleId, result["mock_rule_id"]!!.jsonPrimitive.long)
+            assertEquals("items down", result.str("mock_rule_name"))
+            running.storage.deleteMock(ruleId)
+            running.storage.flush()
+            assertEquals(JsonNull, running.get(mapOf("id" to mocked))["mock_rule_name"])
+            val plain = running.store(request("n"), response("n"))
+            assertEquals(JsonNull, running.get(mapOf("id" to plain))["mock_rule_id"])
+        }
 
     @Test
     fun headersAndBodiesAsStored() =
