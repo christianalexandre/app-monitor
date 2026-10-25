@@ -288,7 +288,9 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
   reports nothing, and sockets to desktops found by a `FakeBrowser` and a
   manual host on TEST-NET-1 addresses, skipped while another port on the
   same address is reported. It runs in `swift test` and, hosted in `TestHost` on
-  the simulator, in `make swift-sim`.
+  the simulator, in `make swift-sim`. It nests with `URLSessionCaptureTests`
+  and `GRPCCaptureTests` in the serialized `ProcessWideHooks`: a mock rule
+  another suite set answers its `URLSession` call otherwise.
 
 ## Limits
 

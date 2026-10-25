@@ -1,6 +1,10 @@
 import Foundation
+import Testing
 
 @testable import AppMonitor
+
+// The suites that swap a process-wide sink nest here, so none runs beside another.
+@Suite(.serialized) enum ProcessWideHooks {}
 
 /// Records envelopes as the running monitor would buffer them; `options` nil plays "not started".
 final class RecordingSink: CaptureSink, @unchecked Sendable {

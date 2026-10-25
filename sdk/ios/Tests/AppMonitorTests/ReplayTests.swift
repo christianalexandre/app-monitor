@@ -48,7 +48,7 @@ struct RecentRequestsTests {
 }
 
 // Inside the capture suite: the hooks are process-wide, one test at a time owns `URLSessionCapture.sink`.
-extension URLSessionCaptureTests {
+extension ProcessWideHooks.URLSessionCaptureTests {
     /// The `RequestStarted` events sent so far for `url`.
     func starts(_ url: URL) throws -> [Appmonitor_V1_RequestStarted] {
         try sink.all.filter { $0.type == "RequestStarted" }

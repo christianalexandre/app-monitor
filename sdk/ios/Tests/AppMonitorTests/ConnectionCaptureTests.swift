@@ -87,224 +87,227 @@ struct AnsweringBrowser: MdnsBrowser {
     }
 }
 
-// `ConnectionCapture.sink` is process-wide: one test at a time owns it.
-@Suite(.serialized)
-final class ConnectionCaptureTests {
-    let sink = RecordingSink()
+extension ProcessWideHooks {
+    // `ConnectionCapture.sink` is process-wide: one test at a time owns it.
+    @Suite(.serialized)
+    final class ConnectionCaptureTests {
+        let sink = RecordingSink()
 
-    init() {
-        #expect(ConnectionCapture.install())
-        ConnectionCapture.sink = sink
-        ConnectionCapture.reportsLoopback = true
-    }
+        init() {
+            #expect(ConnectionCapture.install())
+            ConnectionCapture.sink = sink
+            ConnectionCapture.reportsLoopback = true
+        }
 
-    deinit {
-        ConnectionCapture.sink = monitor
-        ConnectionCapture.reportsLoopback = false
-    }
+        deinit {
+            ConnectionCapture.sink = monitor
+            ConnectionCapture.reportsLoopback = false
+        }
 
-    /// The `RequestStarted` to `port` and the event that ended it, waited for up to 5 s; the host is the
-    /// name a `getaddrinfo` of any test resolved last.
-    func connection(_ port: UInt16) async throws -> (Appmonitor_V1_Envelope, Appmonitor_V1_Envelope) {
-        for _ in 0..<100 {
-            let events = sink.all
-            let toPort = { (envelope: Appmonitor_V1_Envelope) in
-                envelope.type == "RequestStarted" && self.startedURL(envelope)?.hasSuffix(":\(port)") == true
-            }
-            if let started = events.first(where: toPort) {
-                let id = try Appmonitor_V1_RequestStarted(serializedBytes: started.payload).requestID
-                if let end = events.first(where: { $0.type != "RequestStarted" && requestID($0) == id }) {
-                    return (started, end)
+        /// The `RequestStarted` to `port` and the event that ended it, waited for up to 5 s; the host is the
+        /// name a `getaddrinfo` of any test resolved last.
+        func connection(_ port: UInt16) async throws -> (Appmonitor_V1_Envelope, Appmonitor_V1_Envelope) {
+            for _ in 0..<100 {
+                let events = sink.all
+                let toPort = { (envelope: Appmonitor_V1_Envelope) in
+                    envelope.type == "RequestStarted" && self.startedURL(envelope)?.hasSuffix(":\(port)") == true
                 }
+                if let started = events.first(where: toPort) {
+                    let id = try Appmonitor_V1_RequestStarted(serializedBytes: started.payload).requestID
+                    if let end = events.first(where: { $0.type != "RequestStarted" && requestID($0) == id }) {
+                        return (started, end)
+                    }
+                }
+                try await Task.sleep(nanoseconds: 50_000_000)
             }
-            try await Task.sleep(nanoseconds: 50_000_000)
+            throw POSIXError(.ETIMEDOUT)
         }
-        throw POSIXError(.ETIMEDOUT)
-    }
 
-    func startedURL(_ envelope: Appmonitor_V1_Envelope) -> String? {
-        try? Appmonitor_V1_RequestStarted(serializedBytes: envelope.payload).url
-    }
-
-    func requestID(_ envelope: Appmonitor_V1_Envelope) -> String? {
-        switch envelope.type {
-        case "ResponseReceived": try? Appmonitor_V1_ResponseReceived(serializedBytes: envelope.payload).requestID
-        case "RequestFailed": try? Appmonitor_V1_RequestFailed(serializedBytes: envelope.payload).requestID
-        default: nil
+        func startedURL(_ envelope: Appmonitor_V1_Envelope) -> String? {
+            try? Appmonitor_V1_RequestStarted(serializedBytes: envelope.payload).url
         }
-    }
 
-    @Test func rawSocketClientIsOneConnectionWithItsNameBytesAndDuration() async throws {
-        let server = try TestSocketServer(expected: 8, reply: Data("world!!".utf8))
-        var hints = addrinfo()
-        hints.ai_family = AF_INET
-        hints.ai_socktype = SOCK_STREAM
-        var resolved: UnsafeMutablePointer<addrinfo>?
-        #expect(getaddrinfo("localhost", "\(server.port)", &hints, &resolved) == 0)
-        let address = try #require(resolved).pointee.ai_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
-            $0.pointee
+        func requestID(_ envelope: Appmonitor_V1_Envelope) -> String? {
+            switch envelope.type {
+            case "ResponseReceived": try? Appmonitor_V1_ResponseReceived(serializedBytes: envelope.payload).requestID
+            case "RequestFailed": try? Appmonitor_V1_RequestFailed(serializedBytes: envelope.payload).requestID
+            default: nil
+            }
         }
-        freeaddrinfo(resolved)
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        #expect(connect(fd, address) == 0)
-        _ = send(fd, "hello", 5, 0)
-        _ = Darwin.write(fd, "abc", 3)
-        var buffer = [UInt8](repeating: 0, count: 16)
-        var received = 0
-        while case let n = recv(fd, &buffer, buffer.count, 0), n > 0 { received += n }
-        try await Task.sleep(nanoseconds: 20_000_000)
-        Darwin.close(fd)
 
-        let (startedEnvelope, end) = try await connection(server.port)
-        let started = try Appmonitor_V1_RequestStarted(serializedBytes: startedEnvelope.payload)
-        #expect(started.url == "tcp://localhost:\(server.port)")
-        #expect(started.method == "CONNECT")
-        #expect(started.captureLayer == .connection)
-        #expect(started.body.isEmpty && !started.hasBodySize)
-        #expect(end.type == "ResponseReceived")
-        let response = try Appmonitor_V1_ResponseReceived(serializedBytes: end.payload)
-        #expect(response.statusCode == 0)
-        #expect(response.body.isEmpty && !response.bodyTruncated)
-        #expect(response.sentSize == 8)
-        #expect(response.bodySize == Int64(received) && received == 7)
-        #expect(end.timestampMs - startedEnvelope.timestampMs >= 20)
-        #expect(sink.all.count == 2)
-    }
+        @Test func rawSocketClientIsOneConnectionWithItsNameBytesAndDuration() async throws {
+            let server = try TestSocketServer(expected: 8, reply: Data("world!!".utf8))
+            var hints = addrinfo()
+            hints.ai_family = AF_INET
+            hints.ai_socktype = SOCK_STREAM
+            var resolved: UnsafeMutablePointer<addrinfo>?
+            #expect(getaddrinfo("localhost", "\(server.port)", &hints, &resolved) == 0)
+            let address = try #require(resolved).pointee.ai_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                $0.pointee
+            }
+            freeaddrinfo(resolved)
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            #expect(connect(fd, address) == 0)
+            _ = send(fd, "hello", 5, 0)
+            _ = Darwin.write(fd, "abc", 3)
+            var buffer = [UInt8](repeating: 0, count: 16)
+            var received = 0
+            while case let n = recv(fd, &buffer, buffer.count, 0), n > 0 { received += n }
+            try await Task.sleep(nanoseconds: 20_000_000)
+            Darwin.close(fd)
 
-    @Test func nonBlockingConnectIsCountedOnceFromInProgress() async throws {
-        let server = try TestSocketServer(expected: 4, reply: Data("ok".utf8))
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
-        #expect([0, EINPROGRESS].contains(connect(fd, loopback(port: server.port))))
-        var ready = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
-        _ = poll(&ready, 1, 2000)
-        #expect([EISCONN, 0].contains(connect(fd, loopback(port: server.port))))
-        _ = send(fd, "ping", 4, 0)
-        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK)
-        var buffer = [UInt8](repeating: 0, count: 16)
-        while recv(fd, &buffer, buffer.count, 0) > 0 {}
-        Darwin.close(fd)
+            let (startedEnvelope, end) = try await connection(server.port)
+            let started = try Appmonitor_V1_RequestStarted(serializedBytes: startedEnvelope.payload)
+            #expect(started.url == "tcp://localhost:\(server.port)")
+            #expect(started.method == "CONNECT")
+            #expect(started.captureLayer == .connection)
+            #expect(started.body.isEmpty && !started.hasBodySize)
+            #expect(end.type == "ResponseReceived")
+            let response = try Appmonitor_V1_ResponseReceived(serializedBytes: end.payload)
+            #expect(response.statusCode == 0)
+            #expect(response.body.isEmpty && !response.bodyTruncated)
+            #expect(response.sentSize == 8)
+            #expect(response.bodySize == Int64(received) && received == 7)
+            #expect(end.timestampMs - startedEnvelope.timestampMs >= 20)
+            #expect(sink.all.count == 2)
+        }
 
-        let (_, end) = try await connection(server.port)
-        let response = try Appmonitor_V1_ResponseReceived(serializedBytes: end.payload)
-        #expect(response.sentSize == 4 && response.bodySize == 2)
-        #expect(sink.all.count == 2)
-    }
+        @Test func nonBlockingConnectIsCountedOnceFromInProgress() async throws {
+            let server = try TestSocketServer(expected: 4, reply: Data("ok".utf8))
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+            #expect([0, EINPROGRESS].contains(connect(fd, loopback(port: server.port))))
+            var ready = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+            _ = poll(&ready, 1, 2000)
+            #expect([EISCONN, 0].contains(connect(fd, loopback(port: server.port))))
+            _ = send(fd, "ping", 4, 0)
+            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK)
+            var buffer = [UInt8](repeating: 0, count: 16)
+            while recv(fd, &buffer, buffer.count, 0) > 0 {}
+            Darwin.close(fd)
 
-    @Test func refusedPortFailsWithItsErrno() async throws {
-        let refused = try freePort()
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        defer { Darwin.close(fd) }
-        #expect(connect(fd, loopback(port: refused)) == ECONNREFUSED)
+            let (_, end) = try await connection(server.port)
+            let response = try Appmonitor_V1_ResponseReceived(serializedBytes: end.payload)
+            #expect(response.sentSize == 4 && response.bodySize == 2)
+            #expect(sink.all.count == 2)
+        }
 
-        let (_, end) = try await connection(refused)
-        #expect(end.type == "RequestFailed")
-        let failed = try Appmonitor_V1_RequestFailed(serializedBytes: end.payload)
-        #expect(failed.error == "NSPOSIXErrorDomain 61: Connection refused")
-    }
+        @Test func refusedPortFailsWithItsErrno() async throws {
+            let refused = try freePort()
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            defer { Darwin.close(fd) }
+            #expect(connect(fd, loopback(port: refused)) == ECONNREFUSED)
 
-    @Test func loopbackIsNotReportedInTheApp() async throws {
-        ConnectionCapture.reportsLoopback = false
-        let server = try TestSocketServer(expected: 0, reply: Data())
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        #expect(connect(fd, loopback(port: server.port)) == 0)
-        Darwin.close(fd)
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(sink.all.isEmpty)
-    }
+            let (_, end) = try await connection(refused)
+            #expect(end.type == "RequestFailed")
+            let failed = try Appmonitor_V1_RequestFailed(serializedBytes: end.payload)
+            #expect(failed.error == "NSPOSIXErrorDomain 61: Connection refused")
+        }
 
-    @Test func nothingIsReportedWhenTurnedOffOrIdle() async throws {
-        for options in [AppMonitorOptions(captureConnections: false), nil] {
-            sink.options = options
+        @Test func loopbackIsNotReportedInTheApp() async throws {
+            ConnectionCapture.reportsLoopback = false
             let server = try TestSocketServer(expected: 0, reply: Data())
             let fd = socket(AF_INET, SOCK_STREAM, 0)
             #expect(connect(fd, loopback(port: server.port)) == 0)
             Darwin.close(fd)
-        }
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(sink.all.isEmpty)
-    }
-
-    @Test func theSDKsOwnDesktopConnectionIsNotReported() async throws {
-        let desktop = TestDesktop()
-        try await desktop.start()
-        defer { desktop.stop() }
-        let client = MonitorClient(hello: { appleHello() }, discover: manualDiscovery(desktop.endpoint), log: { _ in })
-        client.start()
-        defer { client.stop() }
-        #expect(await eventually { client.state == .connected })
-        var envelope = Appmonitor_V1_Envelope()
-        envelope.channel = ProtocolConstants.channelNetwork
-        envelope.type = "RequestStarted"
-        client.send(envelope)
-        #expect(await eventually { desktop.events.count == 1 })
-        #expect(sink.all.isEmpty)
-    }
-
-    /// Another SDK's socket to a desktop this one found, as `sdk/core`'s on a physical iPhone: non-loopback
-    /// addresses (TEST-NET-1), one answered by mDNS, one set as the manual host.
-    @Test func aDesktopFoundIsNotReportedOnAnyAddress() async throws {
-        let manualPort = try freePort()
-        let otherPort = try freePort()
-        let queue = DispatchQueue(label: "test.discovery")
-        for options in [AppMonitorOptions(), AppMonitorOptions(host: "192.0.2.2", port: Int(manualPort))] {
-            let discover = discovery(options, mdns: AnsweringBrowser(), onSimulator: false) { _ in }
-            let cancel = queue.sync { discover(queue) { _ in } }
-            try await Task.sleep(nanoseconds: 50_000_000)
-            queue.sync { cancel() }
-        }
-        let peers = [
-            ("192.0.2.1", ProtocolConstants.defaultPort), ("192.0.2.2", manualPort), ("192.0.2.1", otherPort),
-        ]
-        for (host, port) in peers {
-            var address = loopback(port: port)
-            address.sin_addr.s_addr = inet_addr(host)
-            let fd = socket(AF_INET, SOCK_STREAM, 0)
-            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
-            _ = connect(fd, address)
-            Darwin.close(fd)
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(sink.all.isEmpty)
         }
 
-        _ = try await connection(otherPort)
-        try await Task.sleep(nanoseconds: 100_000_000)
-        let started = sink.all.filter { $0.type == "RequestStarted" }.compactMap(startedURL)
-        #expect(started == ["tcp://192.0.2.1:\(otherPort)"])
-    }
-
-    @Test func urlSessionTrafficIsLeftToItsOwnCapture() async throws {
-        let server = TestHTTPServer()
-        try await server.start()
-        defer { server.stop() }
-        let session = URLSession(configuration: .ephemeral)
-        defer { session.invalidateAndCancel() }
-        let (_, response) = try await session.data(from: server.url("/ok"))
-        #expect((response as? HTTPURLResponse)?.statusCode == 200)
-        session.finishTasksAndInvalidate()
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(sink.all.isEmpty)
-    }
-
-    /// Prints the cost per `write` of the rebound call against the original, on an uncounted descriptor;
-    /// the best of five rounds each.
-    @Test func reboundWriteCost() throws {
-        let fd = open("/dev/null", O_WRONLY)
-        defer { Darwin.close(fd) }
-        typealias Write = @convention(c) (Int32, UnsafeRawPointer?, Int) -> Int
-        let original = unsafeBitCast(dlsym(UnsafeMutableRawPointer(bitPattern: -2), "write"), to: Write.self)
-        let calls = 200_000
-        func time(_ body: () -> Void) -> Double {
-            let start = DispatchTime.now().uptimeNanoseconds
-            body()
-            return Double(DispatchTime.now().uptimeNanoseconds - start) / Double(calls)
+        @Test func nothingIsReportedWhenTurnedOffOrIdle() async throws {
+            for options in [AppMonitorOptions(captureConnections: false), nil] {
+                sink.options = options
+                let server = try TestSocketServer(expected: 0, reply: Data())
+                let fd = socket(AF_INET, SOCK_STREAM, 0)
+                #expect(connect(fd, loopback(port: server.port)) == 0)
+                Darwin.close(fd)
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(sink.all.isEmpty)
         }
-        let byte: [UInt8] = [0]
-        var direct = Double.infinity
-        var rebound = Double.infinity
-        for _ in 0..<5 {
-            direct = min(direct, time { for _ in 0..<calls { _ = original(fd, byte, 1) } })
-            rebound = min(rebound, time { for _ in 0..<calls { _ = Darwin.write(fd, byte, 1) } })
+
+        @Test func theSDKsOwnDesktopConnectionIsNotReported() async throws {
+            let desktop = TestDesktop()
+            try await desktop.start()
+            defer { desktop.stop() }
+            let client = MonitorClient(
+                hello: { appleHello() }, discover: manualDiscovery(desktop.endpoint), log: { _ in })
+            client.start()
+            defer { client.stop() }
+            #expect(await eventually { client.state == .connected })
+            var envelope = Appmonitor_V1_Envelope()
+            envelope.channel = ProtocolConstants.channelNetwork
+            envelope.type = "RequestStarted"
+            client.send(envelope)
+            #expect(await eventually { desktop.events.count == 1 })
+            #expect(sink.all.isEmpty)
         }
-        print("connection capture: write \(Int(rebound)) ns rebound, \(Int(direct)) ns original")
-        #expect(rebound > 0 && direct > 0)
+
+        /// Another SDK's socket to a desktop this one found, as `sdk/core`'s on a physical iPhone: non-loopback
+        /// addresses (TEST-NET-1), one answered by mDNS, one set as the manual host.
+        @Test func aDesktopFoundIsNotReportedOnAnyAddress() async throws {
+            let manualPort = try freePort()
+            let otherPort = try freePort()
+            let queue = DispatchQueue(label: "test.discovery")
+            for options in [AppMonitorOptions(), AppMonitorOptions(host: "192.0.2.2", port: Int(manualPort))] {
+                let discover = discovery(options, mdns: AnsweringBrowser(), onSimulator: false) { _ in }
+                let cancel = queue.sync { discover(queue) { _ in } }
+                try await Task.sleep(nanoseconds: 50_000_000)
+                queue.sync { cancel() }
+            }
+            let peers = [
+                ("192.0.2.1", ProtocolConstants.defaultPort), ("192.0.2.2", manualPort), ("192.0.2.1", otherPort),
+            ]
+            for (host, port) in peers {
+                var address = loopback(port: port)
+                address.sin_addr.s_addr = inet_addr(host)
+                let fd = socket(AF_INET, SOCK_STREAM, 0)
+                _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+                _ = connect(fd, address)
+                Darwin.close(fd)
+            }
+
+            _ = try await connection(otherPort)
+            try await Task.sleep(nanoseconds: 100_000_000)
+            let started = sink.all.filter { $0.type == "RequestStarted" }.compactMap(startedURL)
+            #expect(started == ["tcp://192.0.2.1:\(otherPort)"])
+        }
+
+        @Test func urlSessionTrafficIsLeftToItsOwnCapture() async throws {
+            let server = TestHTTPServer()
+            try await server.start()
+            defer { server.stop() }
+            let session = URLSession(configuration: .ephemeral)
+            defer { session.invalidateAndCancel() }
+            let (_, response) = try await session.data(from: server.url("/ok"))
+            #expect((response as? HTTPURLResponse)?.statusCode == 200)
+            session.finishTasksAndInvalidate()
+            try await Task.sleep(nanoseconds: 100_000_000)
+            #expect(sink.all.isEmpty)
+        }
+
+        /// Prints the cost per `write` of the rebound call against the original, on an uncounted descriptor;
+        /// the best of five rounds each.
+        @Test func reboundWriteCost() throws {
+            let fd = open("/dev/null", O_WRONLY)
+            defer { Darwin.close(fd) }
+            typealias Write = @convention(c) (Int32, UnsafeRawPointer?, Int) -> Int
+            let original = unsafeBitCast(dlsym(UnsafeMutableRawPointer(bitPattern: -2), "write"), to: Write.self)
+            let calls = 200_000
+            func time(_ body: () -> Void) -> Double {
+                let start = DispatchTime.now().uptimeNanoseconds
+                body()
+                return Double(DispatchTime.now().uptimeNanoseconds - start) / Double(calls)
+            }
+            let byte: [UInt8] = [0]
+            var direct = Double.infinity
+            var rebound = Double.infinity
+            for _ in 0..<5 {
+                direct = min(direct, time { for _ in 0..<calls { _ = original(fd, byte, 1) } })
+                rebound = min(rebound, time { for _ in 0..<calls { _ = Darwin.write(fd, byte, 1) } })
+            }
+            print("connection capture: write \(Int(rebound)) ns rebound, \(Int(direct)) ns original")
+            #expect(rebound > 0 && direct > 0)
+        }
     }
 }
