@@ -7,8 +7,9 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 (`store/MockPush.kt`, started by `TrafficStore`); the outgoing queue in
 `desktop/server` (`DeviceSession.send`); the window's Mocks panel in
 `desktop/app` (`ui/Mocks.kt`, ADR-0114) and the `create_mock` tool in
-`desktop/mcp` (`Mocks.kt`, SDD 10). No SDK lists the channel yet
-(PLAN-0010), so no device is sent a rule.
+`desktop/mcp` (`Mocks.kt`, SDD 10). The Kotlin SDKs list the channel and
+serve the rules (SDD 04, 05, 08, ADR-0115); the Swift SDK does not yet
+(PLAN-0010).
 
 ## How it works
 
@@ -115,9 +116,14 @@ does not, and every one after it, are left out (ADR-0113 C.1).
 | "Mock this" on a stored exchange, edited and saved, reaches a connected stand-in device as one `MockRules`; framing and encoding headers left out | `MocksUiTest` in `desktop/app` |
 | An MCP rule pending, counted on the button, confirmed in the panel; an active rule past one frame marked | `MocksUiTest` (`mocks.png`) |
 | `create_mock` stores a pending rule no device gets until confirmed; its argument errors | `MocksTest` in `desktop/mcp` |
+| Which rule answers a request, one vector for every SDK | `protocol/fixtures/mock_matching.json`, `MockMatchingVectorTest` in `sdk/core` |
+| A device keeps the last set, empties it when the session ends | `MonitorClientMocksTest` in `sdk/core` |
+| OkHttp and Ktor answer a matching call without the network | `MockAnswerTest` in `sdk/android-okhttp` and `sdk/ktor` |
 
 ## Limits
 
 - A rule cannot be moved in its app's match order (DEBT-0082).
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
-- No SDK serves a rule yet (PLAN-0010).
+- The Swift SDK does not list the channel yet (PLAN-0010).
+- A mocked exchange carries `RequestStarted.mock_rule_id`, but the
+  desktop neither stores nor shows it yet (PLAN-0010).

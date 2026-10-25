@@ -4,6 +4,7 @@ import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
+import appmonitor.v1.MockRules
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
@@ -94,6 +95,9 @@ internal class MonitorClient(
     private var inConnect = false
 
     val state: StateFlow<ClientState> = mutableState.asStateFlow()
+
+    /** The desktop's mock rules while a session that accepted `interaction` is up. */
+    val mocks: MockRuleSet = MockRuleSet()
 
     /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
     val dropped: Long get() = buffer.dropped + synchronized(lock) { oversized }
@@ -277,11 +281,26 @@ internal class MonitorClient(
                         if (frame.channel in accepted) ws.send(Frame.Binary(true, frame.bytes))
                     }
                 }
-            // The desktop sends nothing after HelloAck; this ends with the connection.
-            for (frame in ws.incoming) Unit
+            try {
+                for (frame in ws.incoming) receive(frame, accepted)
+            } finally {
+                mocks.clear()
+            }
             sender.cancel()
         }
         return closeOutcome(ws)
+    }
+
+    /** A desktop's envelope on an accepted channel; one this SDK does not know, or cannot decode, is ignored. */
+    private fun receive(
+        frame: Frame,
+        accepted: Set<String>,
+    ) {
+        val envelope = (frame as? Frame.Binary)?.let { runCatching { Envelope.ADAPTER.decode(it.readBytes()) }.getOrNull() } ?: return
+        if (envelope.channel !in accepted) return
+        if (envelope.channel == Protocol.CHANNEL_INTERACTION && envelope.type == "MockRules") {
+            runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
+        }
     }
 
     /** The `HelloAck`, or null when the connection ended or broke the handshake (then closed 1002). */

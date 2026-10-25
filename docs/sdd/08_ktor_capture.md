@@ -46,6 +46,26 @@ app ── HttpClient { install(AppMonitorKtor) }
 | `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, read with `readRawBytes()` and cut. A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
 | `RequestFailed` | The engine or the receive pipeline throws, or the saved body's read is cancelled | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
 
+### A mocked call
+
+When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
+`Monitoring` interceptor answers instead of the engine (ADR-0115 C.1):
+
+- `RequestStarted` as above, cookies and the capture header included,
+  with `mock_rule_id`.
+- After `delay_ms`, a rule's response becomes an `HttpClientCall` built
+  as the engine builds one (DEBT-0083), its context the engine's
+  dispatcher and a new `Job`; it is set as the pipeline's subject and
+  `finish()` skips `Engine` and `Receive`. `ResponseReceived` is sent
+  with the whole body. A failure throws a `kotlinx.io.IOException` with
+  the rule's message after `RequestFailed`.
+- `Send` hooks outside the pipeline still see the call: `expectSuccess`
+  throws on a mocked `503`. Plugins on the receive pipeline (`SaveBody`,
+  response observers) do not run; the body can be read once.
+- Tests: `MockAnswerTest` against `MockEngine` on the JVM, the Android
+  host and the simulator (engine never called, streamed read,
+  `expectSuccess`, failure, unmatched call untouched).
+
 ### One WebSocket
 
 The upgrade is an exchange like any other: `RequestStarted` (masked, no

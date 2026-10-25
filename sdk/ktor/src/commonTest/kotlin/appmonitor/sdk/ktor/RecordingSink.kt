@@ -3,6 +3,7 @@ package appmonitor.sdk.ktor
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.v1.Envelope
+import appmonitor.v1.MockRule
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -13,6 +14,7 @@ import kotlin.test.assertTrue
 /** Records envelopes as the running monitor would buffer them; every event is sent before the call returns. */
 internal class RecordingSink(
     override var options: AppMonitorOptions? = AppMonitorOptions(),
+    private val mocks: List<MockRule> = emptyList(),
 ) : CaptureSink {
     private val envelopes = ArrayDeque<Envelope>()
 
@@ -20,6 +22,12 @@ internal class RecordingSink(
         assertEquals(Protocol.CHANNEL_NETWORK, envelope.channel)
         envelopes.addLast(envelope)
     }
+
+    // ADR-0110 B.1's matching is sdk/core's; a rule here answers the path it names on any host.
+    override fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = mocks.firstOrNull { url.substringAfter("://").substringAfter('/').substringBefore('?') == it.path.removePrefix("/") }
 
     val pending: Int get() = envelopes.size
 

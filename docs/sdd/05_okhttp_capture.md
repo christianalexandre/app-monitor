@@ -49,6 +49,21 @@ A request id is a random UUID shared by the call's events. Every
 (ADR-0038). Building an event
 never throws into the app's call: a failure drops that event.
 
+### A mocked call
+
+When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
+interceptor answers without `chain.proceed` (ADR-0115):
+
+- `RequestStarted` as above, with `mock_rule_id`.
+- After `delay_ms` (`Thread.sleep`), a rule's response becomes a
+  `Response` with its status, headers and body, protocol HTTP/1.1, and
+  `ResponseReceived` is sent at once with the whole body. A rule's
+  failure, a call cancelled during the delay or an interrupted delay
+  throws an `IOException` (the rule's message) after `RequestFailed`.
+- WebSocket upgrades are never mocked: the interceptor skips them first.
+- Tests: `MockAnswerTest` against `mockwebserver3` (no request reaches
+  it, delay kept, failure, unmatched call untouched).
+
 ### One WebSocket
 
 `AppMonitorWebSocketFactory` wraps any `WebSocket.Factory` (the

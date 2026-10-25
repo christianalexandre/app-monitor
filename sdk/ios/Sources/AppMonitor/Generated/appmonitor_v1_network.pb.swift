@@ -132,11 +132,23 @@ nonisolated struct Appmonitor_V1_RequestStarted: Sendable {
   /// Holds for every event of this request_id, WebSocket frames included.
   var captureLayer: Appmonitor_V1_CaptureLayer = .unspecified
 
+  /// The MockRule.id that answered the request on the device; absent when the
+  /// network did (ADR-0110 E.1).
+  var mockRuleID: Int64 {
+    get {_mockRuleID ?? 0}
+    set {_mockRuleID = newValue}
+  }
+  /// Returns true if `mockRuleID` has been explicitly set.
+  var hasMockRuleID: Bool {self._mockRuleID != nil}
+  /// Clears the value of `mockRuleID`. Subsequent reads from it will return its default value.
+  mutating func clearMockRuleID() {self._mockRuleID = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _bodySize: Int64? = nil
+  fileprivate var _mockRuleID: Int64? = nil
 }
 
 nonisolated struct Appmonitor_V1_ResponseReceived: Sendable {
@@ -364,7 +376,7 @@ nonisolated extension Appmonitor_V1_Header: SwiftProtobuf.Message, SwiftProtobuf
 
 nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RequestStarted"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}method\0\u{1}url\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0\u{3}capture_layer\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}method\0\u{1}url\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0\u{3}capture_layer\0\u{3}mock_rule_id\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -380,6 +392,7 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
       case 6: try { try decoder.decodeSingularBoolField(value: &self.bodyTruncated) }()
       case 7: try { try decoder.decodeSingularInt64Field(value: &self._bodySize) }()
       case 8: try { try decoder.decodeSingularEnumField(value: &self.captureLayer) }()
+      case 9: try { try decoder.decodeSingularInt64Field(value: &self._mockRuleID) }()
       default: break
       }
     }
@@ -414,6 +427,9 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
     if self.captureLayer != .unspecified {
       try visitor.visitSingularEnumField(value: self.captureLayer, fieldNumber: 8)
     }
+    try { if let v = self._mockRuleID {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 9)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -426,6 +442,7 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
     if lhs.bodyTruncated != rhs.bodyTruncated {return false}
     if lhs._bodySize != rhs._bodySize {return false}
     if lhs.captureLayer != rhs.captureLayer {return false}
+    if lhs._mockRuleID != rhs._mockRuleID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

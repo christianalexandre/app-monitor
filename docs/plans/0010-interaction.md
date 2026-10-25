@@ -58,27 +58,33 @@ needs its own decision is split as soon as that shows.
   Accept: `./gradlew :desktop:mcp:test :desktop:app:test`. A rule made in
   the window reaches a stand-in device as one envelope. An MCP rule stays
   inactive until confirmed. Offscreen screenshot `mocks.png`.
-- [ ] **M9.4 Mocks in the Kotlin SDKs.** `sdk/core` keeps the rules it
+- [x] **M9.4 Mocks in the Kotlin SDKs.** (`feat/kotlin-sdk-mocks`; split: the desktop's mark and the end to end are M9.5; ADR-0115: rules in the session's `MonitorClient`, matched in `sdk/core` from the URL string, Ktor answered at `Monitoring` with `finish()`; DEBT-0083 Ktor internal API) `sdk/core` keeps the rules it
   receives. `AppMonitorInterceptor` and `AppMonitorKtor` answer a
-  matching call without the network. The exchange carries its rule, and
-  the desktop shows it as mocked. A shared matching vector in
-  `protocol/fixtures/`. SDD 04, 05 and 08 updated.
-  Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`
+  matching call without the network. The exchange carries its rule. A
+  shared matching vector in `protocol/fixtures/`. SDD 04, 05 and 08
+  updated.
+  Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`.
+- [ ] **M9.5 Mocked exchanges in the desktop, end to end.** (split from
+  M9.4) The desktop stores `RequestStarted.mock_rule_id` (a migration)
+  and the window and `get_request` show an exchange as mocked, with its
+  rule's name. The headless server (`make server`) can be given rules
+  to push, so an end to end asserts one. SDD 09, 10 and 12 updated.
+  Accept: `./gradlew :desktop:storage:test :desktop:app:test :desktop:mcp:test`
   and `make e2e-android`, with one rule asserted end to end.
-- [ ] **M9.5 Mocks in the iOS SDK.** `sdk/ios` per ADR-0110: the same
+- [ ] **M9.6 Mocks in the iOS SDK.** `sdk/ios` per ADR-0110: the same
   vector, a matching task answered without the network, background
   sessions left as they are. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one rule
   asserted end to end.
-- [ ] **M9.6 Breakpoints and replay.** Per ADR-0111, in every SDK of M9.4
-  and M9.5 and in the window. Pause, edit, resume, abort and timeout. A
+- [ ] **M9.7 Breakpoints and replay.** Per ADR-0111, in every SDK of M9.4
+  and M9.6 and in the window. Pause, edit, resume, abort and timeout. A
   replay is started from an exchange's detail, or from MCP under
   confirmation.
   Accept: each SDK's tests above, which hold a call, resume it edited and
   let one time out. `./gradlew :desktop:app:test` with an offscreen
   screenshot `breakpoint.png`. A replayed exchange is stored and linked
   to its original.
-- [ ] **M9.7 OkHttp injection by the Gradle plugin.** The plugin module
+- [ ] **M9.8 OkHttp injection by the Gradle plugin.** The plugin module
   of ADR-0093, injection only (the release swap stays M10), per ADR-0112.
   Gradle TestKit tests on a consumer project. The Android sample drops
   its hand-written interceptor line. README setup and SDD 05 updated.

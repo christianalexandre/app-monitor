@@ -46,7 +46,7 @@ internal fun androidHello(context: Context): Hello {
         app_id = context.packageName,
         app_version = packageInfo.versionName.orEmpty(),
         sdk_version = SDK_VERSION,
-        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
         sdk_name = SDK_NAME,
     )
 }
