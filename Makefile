@@ -44,8 +44,8 @@ ios-sample: ## Build samples/ios in Debug and Release, keys and SDK in Debug onl
 
 samples: android-samples ios-sample kmp-sample ## Every sample app: Gradle builds and release checks, iOS and KMP (ADR-0076)
 
-android-samples: ## Android sample: build, lint, host tests, release holds no SDK (ADR-0030)
-	@./gradlew :samples:android:build
+android-samples: ## Android sample: build, lint, host tests, release holds no SDK; the Gradle plugin's TestKit tests (ADR-0030, ADR-0112)
+	@./gradlew :samples:android:build :gradle-plugin:functionalTest
 
 kmp-sample: ## Build samples/kmp, Android and iOS, debug and release, SDK in debug only (ADR-0073)
 	@scripts/kmp_sample_check.sh

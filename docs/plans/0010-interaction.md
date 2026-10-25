@@ -131,7 +131,7 @@ needs its own decision is split as soon as that shows.
   resumes it edited, aborts it, and lets one time out, per ADR-0111 and
   ADR-0118. SDD 06 and 07 updated.
   Accept: `make swift` and `make swift-sim`.
-- [ ] **M9.12 OkHttp injection by the Gradle plugin.** The plugin module
+- [x] **M9.12 OkHttp injection by the Gradle plugin.** (`feat/okhttp-injection-plugin`; ADR-0126: the SDK found in the variant's dependency graph, not by `loadClassData` (AGP shares OkHttp's transform across modules), APKs read with `dexdump`, `functionalTest` in `make android-samples`; DEBT-0087 Ktor's OkHttp engine captured twice) The plugin module
   of ADR-0093, injection only (the release swap stays M10), per ADR-0112.
   Gradle TestKit tests on a consumer project. The Android sample drops
   its hand-written interceptor line. README setup and SDD 05 updated.

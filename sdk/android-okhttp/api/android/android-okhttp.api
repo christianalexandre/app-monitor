@@ -3,6 +3,11 @@ public final class appmonitor/sdk/okhttp/AppMonitorInterceptor : okhttp3/Interce
 	public fun intercept (Lokhttp3/Interceptor$Chain;)Lokhttp3/Response;
 }
 
+public final class appmonitor/sdk/okhttp/AppMonitorOkHttp {
+	public static final field INSTANCE Lappmonitor/sdk/okhttp/AppMonitorOkHttp;
+	public static final fun install (Lokhttp3/OkHttpClient$Builder;)V
+}
+
 public final class appmonitor/sdk/okhttp/AppMonitorWebSocketFactory : okhttp3/WebSocket$Factory {
 	public fun <init> (Lokhttp3/WebSocket$Factory;)V
 	public fun newWebSocket (Lokhttp3/Request;Lokhttp3/WebSocketListener;)Lokhttp3/WebSocket;

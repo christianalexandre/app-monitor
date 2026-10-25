@@ -4,6 +4,7 @@ import org.gradle.api.artifacts.result.ResolvedDependencyResult
 
 plugins {
     id("appmonitor.android-app")
+    id("io.github.christianalexandre.appmonitor")
 }
 
 android {
