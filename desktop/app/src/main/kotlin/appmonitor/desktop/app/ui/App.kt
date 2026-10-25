@@ -25,16 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Card
-import androidx.compose.material.Checkbox
-import androidx.compose.material.Divider
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,6 +56,25 @@ import appmonitor.desktop.app.store.ReplayKey
 import appmonitor.desktop.app.store.ReplaySent
 import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.store.durationOf
+import appmonitor.desktop.designsystem.AppMonitorTheme
+import appmonitor.desktop.designsystem.AppSurface
+import appmonitor.desktop.designsystem.Checkbox
+import appmonitor.desktop.designsystem.CheckboxRow
+import appmonitor.desktop.designsystem.Choice
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Divider
+import appmonitor.desktop.designsystem.PaneTitle
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Section
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
+import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.designsystem.VerticalDivider
+import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
@@ -160,8 +169,8 @@ internal fun AppMonitorApp(
     var exportNote by remember { mutableStateOf<String?>(null) }
     val runTitle = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
 
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize()) {
+    AppMonitorTheme {
+        AppSurface {
             Row(Modifier.fillMaxSize()) {
                 DeviceList(
                     sessions,
@@ -184,7 +193,7 @@ internal fun AppMonitorApp(
                 ) {
                     selectedSession = it.id
                 }
-                Divider(Modifier.fillMaxHeight().width(1.dp))
+                VerticalDivider()
                 RequestList(
                     pages,
                     row,
@@ -205,7 +214,7 @@ internal fun AppMonitorApp(
                 ) {
                     selectedRequest = it.id
                 }
-                Divider(Modifier.fillMaxHeight().width(1.dp))
+                VerticalDivider()
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     if (row == null) {
                         Placeholder("Select a request")
@@ -338,13 +347,13 @@ internal fun StorageUnavailable(
 ) {
     var confirming by remember { mutableStateOf(false) }
     var cleared by remember { mutableStateOf<String?>(null) }
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("App Monitor could not open its data", style = MaterialTheme.typography.h6)
-                Text(error, color = MaterialTheme.colors.error)
-                Text(file, fontFamily = FontFamily.Monospace)
-                Text("No device is admitted until the file opens.", style = MaterialTheme.typography.caption)
+    AppMonitorTheme {
+        AppSurface {
+            Column(Modifier.padding(Spacing.xxl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("App Monitor could not open its data", role = TextRole.Title)
+                Text(error, error = true)
+                Text(file, role = TextRole.Code)
+                Text("No device is admitted until the file opens.", role = TextRole.Caption)
                 val result = cleared
                 when {
                     result != null -> {
@@ -352,15 +361,15 @@ internal fun StorageUnavailable(
                     }
 
                     confirming -> {
-                        Text("Delete this file and everything in it? This cannot be undone.", color = MaterialTheme.colors.error)
+                        Text("Delete this file and everything in it? This cannot be undone.", error = true)
                         Row {
-                            TextButton(onClick = { confirming = false }) { Text("Cancel") }
-                            TextButton(onClick = { cleared = onClearAll() }, Modifier.testTag(CONFIRM_CLEAR)) { Text("Delete everything") }
+                            TextButton("Cancel", onClick = { confirming = false })
+                            TextButton("Delete everything", onClick = { cleared = onClearAll() }, Modifier.testTag(CONFIRM_CLEAR))
                         }
                     }
 
                     else -> {
-                        TextButton(onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL)) { Text("Clear all data") }
+                        TextButton("Clear all data", onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL))
                     }
                 }
             }
@@ -450,25 +459,21 @@ private fun ApprovalDialog(
     waiting: Int,
     onDecide: (PendingDevice, approved: Boolean) -> Unit,
 ) {
-    Overlay {
-        Card(Modifier.width(420.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.key.appId} wants to connect",
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    listOf(device.hello.os_version, device.hello.app_version, "device ${device.key.deviceId}")
-                        .filter { it.isNotEmpty() }
-                        .joinToString(" · "),
-                    style = MaterialTheme.typography.caption,
-                )
-                if (waiting > 0) Text("$waiting more waiting", style = MaterialTheme.typography.caption)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onDecide(device, false) }) { Text("Reject") }
-                    TextButton(onClick = { onDecide(device, true) }) { Text("Approve") }
-                }
-            }
+    DialogCard(DialogWidth.Narrow) {
+        Text(
+            "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.key.appId} wants to connect",
+            role = TextRole.BodyStrong,
+        )
+        Text(
+            listOf(device.hello.os_version, device.hello.app_version, "device ${device.key.deviceId}")
+                .filter { it.isNotEmpty() }
+                .joinToString(" · "),
+            role = TextRole.Caption,
+        )
+        if (waiting > 0) Text("$waiting more waiting", role = TextRole.Caption)
+        DialogActions {
+            TextButton("Reject", onClick = { onDecide(device, false) })
+            TextButton("Approve", onClick = { onDecide(device, true) })
         }
     }
 }
@@ -480,21 +485,17 @@ private fun AskedReplayDialog(
     waiting: Int,
     onAnswer: (send: Boolean) -> Unit,
 ) {
-    Overlay {
-        Card(Modifier.width(420.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("An agent asks to send this request again", fontWeight = FontWeight.Medium)
-                Text("${replay.method ?: "—"} ${replay.url ?: replay.requestId}")
-                Text(
-                    "${replay.deviceName.ifEmpty { "Unnamed device" }} — ${replay.appId} · exchange ${replay.exchangeId}",
-                    style = MaterialTheme.typography.caption,
-                )
-                if (waiting > 0) Text("$waiting more waiting", style = MaterialTheme.typography.caption)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onAnswer(false) }, Modifier.testTag(REFUSE_REPLAY)) { Text("Refuse") }
-                    TextButton(onClick = { onAnswer(true) }, Modifier.testTag(CONFIRM_REPLAY)) { Text(replayLabelOf(replay.method)) }
-                }
-            }
+    DialogCard(DialogWidth.Narrow) {
+        Text("An agent asks to send this request again", role = TextRole.BodyStrong)
+        Text("${replay.method ?: "—"} ${replay.url ?: replay.requestId}")
+        Text(
+            "${replay.deviceName.ifEmpty { "Unnamed device" }} — ${replay.appId} · exchange ${replay.exchangeId}",
+            role = TextRole.Caption,
+        )
+        if (waiting > 0) Text("$waiting more waiting", role = TextRole.Caption)
+        DialogActions {
+            TextButton("Refuse", onClick = { onAnswer(false) }, Modifier.testTag(REFUSE_REPLAY))
+            TextButton(replayLabelOf(replay.method), onClick = { onAnswer(true) }, Modifier.testTag(CONFIRM_REPLAY))
         }
     }
 }
@@ -524,46 +525,42 @@ private fun RunList(
 ) {
     var editing by remember { mutableStateOf<Long?>(null) }
     var draft by remember { mutableStateOf("") }
-    Overlay {
-        Card(Modifier.width(520.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Runs", style = MaterialTheme.typography.h6)
-                Text(
-                    "All runs",
-                    Modifier.fillMaxWidth().selectable(shownRunId == null) { onShow(null) }.padding(vertical = 8.dp),
-                    fontWeight = FontWeight.Medium,
-                )
-                LazyColumn(Modifier.heightIn(max = 240.dp)) {
-                    items(runs, key = { it.id }) { run ->
-                        Row(
-                            Modifier.fillMaxWidth().selectable(run.id == shownRunId) { onShow(run.id) }.padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (run.id == editing) {
-                                OutlinedTextField(draft, { draft = it }, Modifier.weight(1f).testTag(RUN_NAME), singleLine = true)
-                                TextButton(onClick = {
-                                    onRename(run.id, draft)
-                                    editing = null
-                                }) { Text("Save") }
-                            } else {
-                                Column(Modifier.weight(1f)) {
-                                    Text(titleOf(run), fontWeight = FontWeight.Medium)
-                                    Text(spanOf(run, current = run.id == currentRun), style = MaterialTheme.typography.caption)
-                                }
-                                TextButton(onClick = {
-                                    draft = run.name.orEmpty()
-                                    editing = run.id
-                                }) { Text("Rename") }
-                            }
+    DialogCard(DialogWidth.Medium) {
+        Text("Runs", role = TextRole.Title)
+        Text(
+            "All runs",
+            Modifier.fillMaxWidth().selectableItem(shownRunId == null) { onShow(null) }.padding(vertical = Spacing.md),
+            role = TextRole.BodyStrong,
+        )
+        LazyColumn(Modifier.heightIn(max = 240.dp)) {
+            items(runs, key = { it.id }) { run ->
+                Row(
+                    Modifier.fillMaxWidth().selectableItem(run.id == shownRunId) { onShow(run.id) }.padding(vertical = Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (run.id == editing) {
+                        TextField(draft, { draft = it }, Modifier.weight(1f).testTag(RUN_NAME), singleLine = true)
+                        TextButton("Save", onClick = {
+                            onRename(run.id, draft)
+                            editing = null
+                        })
+                    } else {
+                        Column(Modifier.weight(1f)) {
+                            Text(titleOf(run), role = TextRole.BodyStrong)
+                            Text(spanOf(run, current = run.id == currentRun), role = TextRole.Caption)
                         }
+                        TextButton("Rename", onClick = {
+                            draft = run.name.orEmpty()
+                            editing = run.id
+                        })
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onCompare, Modifier.testTag(COMPARE_RUNS), enabled = runs.size > 1) { Text("Compare runs") }
-                    TextButton(onClick = onNewRun) { Text("New run") }
-                    TextButton(onClick = onClose) { Text("Close") }
-                }
             }
+        }
+        DialogActions {
+            TextButton("Compare runs", onClick = onCompare, Modifier.testTag(COMPARE_RUNS), enabled = runs.size > 1)
+            TextButton("New run", onClick = onNewRun)
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -603,74 +600,70 @@ private fun Settings(
     onClose: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
-    Overlay {
-        Card(Modifier.width(520.dp), elevation = 8.dp) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Settings", style = MaterialTheme.typography.h6)
-                Text("Retention", style = MaterialTheme.typography.subtitle2)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Choice("Keep", retention.maxAgeDays, AGE_CHOICES, ::ageOf, any = "Forever") {
-                        onRetention(retention.copy(maxAgeDays = it))
+    DialogCard(DialogWidth.Medium, scrollable = true) {
+        Text("Settings", role = TextRole.Title)
+        Text("Retention", role = TextRole.Heading)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Choice("Keep", retention.maxAgeDays, AGE_CHOICES, ::ageOf, any = "Forever") {
+                onRetention(retention.copy(maxAgeDays = it))
+            }
+            Choice("Up to", retention.maxBytes, SIZE_CHOICES, ::bytesOf, any = null) {
+                if (it != null) onRetention(retention.copy(maxBytes = it))
+            }
+        }
+        Text(
+            "${bytesOf(status.usedBytes)} on disk. Named runs and the requests of issues are kept past both limits.",
+            role = TextRole.Caption,
+        )
+        retentionWarning(
+            status,
+            retention,
+        )?.let { Text(it, error = true, role = TextRole.Caption) }
+        if (confirming) {
+            Text("Delete every run, request, issue and device answer? This cannot be undone.", error = true)
+            DialogActions {
+                TextButton("Cancel", onClick = { confirming = false })
+                TextButton("Delete everything", onClick = {
+                    confirming = false
+                    onClearAll()
+                }, Modifier.testTag(CONFIRM_CLEAR))
+            }
+        } else {
+            TextButton("Clear all data", onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL))
+        }
+        if (mcp != null) {
+            Divider()
+            McpSection(mcp, onMcpEnabled, onRegenerateToken)
+        }
+        if (proxy != null) {
+            Divider()
+            ProxySection(proxy, onProxyEnabled, onResetProxyCa)
+        }
+        Divider()
+        Text("Devices", role = TextRole.Heading)
+        if (answered.isEmpty()) Text("No device answered yet", role = TextRole.Caption)
+        LazyColumn(Modifier.heightIn(max = 240.dp)) {
+            items(answered, key = { "${it.deviceId}/${it.appId}" }) { pair ->
+                Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${pair.deviceName.ifEmpty { "Unnamed device" }} — ${pair.appId}", role = TextRole.BodyStrong)
+                        Text(
+                            listOf(
+                                if (pair.approved) "Approved" else "Rejected",
+                                DATE_FORMAT.format(Instant.ofEpochMilli(pair.decidedAtMs)),
+                                pair.osVersion,
+                                pair.appVersion,
+                            ).filter { it.isNotEmpty() }.joinToString(" · "),
+                            role = TextRole.Caption,
+                        )
                     }
-                    Choice("Up to", retention.maxBytes, SIZE_CHOICES, ::bytesOf, any = null) {
-                        if (it != null) onRetention(retention.copy(maxBytes = it))
-                    }
-                }
-                Text(
-                    "${bytesOf(status.usedBytes)} on disk. Named runs and the requests of issues are kept past both limits.",
-                    style = MaterialTheme.typography.caption,
-                )
-                retentionWarning(
-                    status,
-                    retention,
-                )?.let { Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption) }
-                if (confirming) {
-                    Text("Delete every run, request, issue and device answer? This cannot be undone.", color = MaterialTheme.colors.error)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { confirming = false }) { Text("Cancel") }
-                        TextButton(onClick = {
-                            confirming = false
-                            onClearAll()
-                        }, Modifier.testTag(CONFIRM_CLEAR)) { Text("Delete everything") }
-                    }
-                } else {
-                    TextButton(onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL)) { Text("Clear all data") }
-                }
-                if (mcp != null) {
-                    Divider()
-                    McpSection(mcp, onMcpEnabled, onRegenerateToken)
-                }
-                if (proxy != null) {
-                    Divider()
-                    ProxySection(proxy, onProxyEnabled, onResetProxyCa)
-                }
-                Divider()
-                Text("Devices", style = MaterialTheme.typography.subtitle2)
-                if (answered.isEmpty()) Text("No device answered yet", style = MaterialTheme.typography.caption)
-                LazyColumn(Modifier.heightIn(max = 240.dp)) {
-                    items(answered, key = { "${it.deviceId}/${it.appId}" }) { pair ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("${pair.deviceName.ifEmpty { "Unnamed device" }} — ${pair.appId}", fontWeight = FontWeight.Medium)
-                                Text(
-                                    listOf(
-                                        if (pair.approved) "Approved" else "Rejected",
-                                        DATE_FORMAT.format(Instant.ofEpochMilli(pair.decidedAtMs)),
-                                        pair.osVersion,
-                                        pair.appVersion,
-                                    ).filter { it.isNotEmpty() }.joinToString(" · "),
-                                    style = MaterialTheme.typography.caption,
-                                )
-                            }
-                            TextButton(onClick = { onForget(DeviceKey(pair.deviceId, pair.appId)) }) { Text("Forget") }
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onForget(null) }, enabled = answered.isNotEmpty()) { Text("Forget all") }
-                    TextButton(onClick = onClose) { Text("Close") }
+                    TextButton("Forget", onClick = { onForget(DeviceKey(pair.deviceId, pair.appId)) })
                 }
             }
+        }
+        DialogActions {
+            TextButton("Forget all", onClick = { onForget(null) }, enabled = answered.isNotEmpty())
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -683,29 +676,23 @@ private fun McpSection(
 ) {
     val clipboard = LocalClipboardManager.current
     val command = claudeMcpAdd((mcp.status as? McpStatus.Running)?.port ?: mcp.port, mcp.token)
-    Text("MCP server", style = MaterialTheme.typography.subtitle2)
-    Row(
-        Modifier.toggleable(mcp.enabled, onValueChange = onEnabled).testTag(MCP_SWITCH),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(mcp.enabled, onCheckedChange = null)
-        Text("Serve the stored traffic to AI agents over MCP")
-    }
+    Text("MCP server", role = TextRole.Heading)
+    CheckboxRow("Serve the stored traffic to AI agents over MCP", mcp.enabled, onEnabled, Modifier.testTag(MCP_SWITCH))
     val (state, error) = mcpStateOf(mcp.status)
     Text(
         state,
         Modifier.testTag(MCP_STATUS),
-        color = if (error) MaterialTheme.colors.error else Color.Unspecified,
-        style = MaterialTheme.typography.caption,
+        error = error,
+        role = TextRole.Caption,
     )
     if (mcp.enabled) {
-        Text("Add it to Claude Code:", style = MaterialTheme.typography.caption)
+        Text("Add it to Claude Code:", role = TextRole.Caption)
         SelectionContainer {
-            Text(command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.caption)
+            Text(command, role = TextRole.CodeCaption)
         }
         Row {
-            TextButton(onClick = { clipboard.setText(AnnotatedString(command)) }) { Text("Copy command") }
-            TextButton(onClick = onRegenerateToken) { Text("Regenerate token") }
+            TextButton("Copy command", onClick = { clipboard.setText(AnnotatedString(command)) })
+            TextButton("Regenerate token", onClick = onRegenerateToken)
         }
     }
 }
@@ -748,37 +735,29 @@ private fun ProxySection(
 ) {
     val clipboard = LocalClipboardManager.current
     val port = (proxy.status as? ProxyStatus.Running)?.port ?: proxy.port
-    Text("Proxy", style = MaterialTheme.typography.subtitle2)
-    Row(
-        Modifier.toggleable(proxy.enabled, onValueChange = onEnabled).testTag(PROXY_SWITCH),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(proxy.enabled, onCheckedChange = null)
-        Text("Record what apps send through a proxy on 127.0.0.1")
-    }
+    Text("Proxy", role = TextRole.Heading)
+    CheckboxRow("Record what apps send through a proxy on 127.0.0.1", proxy.enabled, onEnabled, Modifier.testTag(PROXY_SWITCH))
     val (state, error) = proxyStateOf(proxy.status)
     Text(
         state,
         Modifier.testTag(PROXY_STATUS),
-        color = if (error) MaterialTheme.colors.error else Color.Unspecified,
-        style = MaterialTheme.typography.caption,
+        error = error,
+        role = TextRole.Caption,
     )
     if (proxy.enabled) {
-        Text("Launch a simulator app through it, or try it with curl:", style = MaterialTheme.typography.caption)
+        Text("Launch a simulator app through it, or try it with curl:", role = TextRole.Caption)
         listOf(simulatorLaunch(port, proxy.caFile), curlThroughProxy(port, proxy.caFile)).forEach { command ->
             SelectionContainer {
-                Text(command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.caption)
+                Text(command, role = TextRole.CodeCaption)
             }
         }
         Row {
-            TextButton(
-                onClick = { clipboard.setText(AnnotatedString(simulatorLaunch(port, proxy.caFile))) },
-            ) { Text("Copy launch command") }
-            TextButton(onClick = onResetCa, Modifier.testTag(PROXY_RESET_CA)) { Text("Reset proxy CA") }
+            TextButton("Copy launch command", onClick = { clipboard.setText(AnnotatedString(simulatorLaunch(port, proxy.caFile))) })
+            TextButton("Reset proxy CA", onClick = onResetCa, Modifier.testTag(PROXY_RESET_CA))
         }
         Text(
             "After a reset, relaunch the apps started with the old CA.",
-            style = MaterialTheme.typography.caption,
+            role = TextRole.Caption,
         )
     }
 }
@@ -791,17 +770,6 @@ private fun proxyStateOf(status: ProxyStatus): Pair<String, Boolean> =
         is ProxyStatus.PortTaken -> "Port ${status.port} in use: quit what holds it, or set APPMONITOR_PROXY_PORT" to true
         is ProxyStatus.Failed -> "Failed: ${status.message}" to true
     }
-
-/** Dims the window and takes its clicks; [content] is centred. */
-@Composable
-internal fun Overlay(content: @Composable () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().background(SCRIM).clickable(remember { MutableInteractionSource() }, indication = null) {},
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun DeviceList(
@@ -823,40 +791,43 @@ private fun DeviceList(
 ) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onRuns, Modifier.weight(1f).padding(horizontal = 4.dp).testTag(RUNS)) {
-                Text("$runTitle ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton(onClick = onIssues, Modifier.testTag(ISSUES)) { Text("Issues") }
+            TextButton(
+                "$runTitle ▾",
+                onClick = onRuns,
+                Modifier.weight(1f).padding(horizontal = Spacing.xs).testTag(RUNS),
+                singleLine = true,
+            )
+            TextButton("Issues", onClick = onIssues, Modifier.testTag(ISSUES))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onMocks, Modifier.padding(horizontal = 4.dp).testTag(MOCKS)) { Text(mocksLabel) }
-            TextButton(onClick = onBreakpoints, Modifier.testTag(BREAKPOINTS)) { Text(breakpointsLabel) }
+            TextButton(mocksLabel, onClick = onMocks, Modifier.padding(horizontal = Spacing.xs).testTag(MOCKS))
+            TextButton(breakpointsLabel, onClick = onBreakpoints, Modifier.testTag(BREAKPOINTS))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Devices") }
-            TextButton(onClick = onSettings) { Text("Settings") }
+            TextButton("Settings", onClick = onSettings)
         }
-        Text(status, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.caption)
+        Text(status, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption)
         health.lastError?.let {
             Text(
                 "${health.notSaved} events not saved: $it",
-                Modifier.padding(horizontal = 12.dp),
-                color = MaterialTheme.colors.error,
-                style = MaterialTheme.typography.caption,
+                Modifier.padding(horizontal = Spacing.lg),
+                error = true,
+                role = TextRole.Caption,
             )
         }
         retentionWarning(retentionStatus)?.let {
-            Text(it, Modifier.padding(horizontal = 12.dp), color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption)
+            Text(it, Modifier.padding(horizontal = Spacing.lg), error = true, role = TextRole.Caption)
         }
         LazyColumn {
             items(sessions, key = { it.id }) { session ->
                 val hello = session.hello
-                Column(Modifier.fillMaxWidth().selectable(session.id == selected?.id) { onSelect(session) }.padding(12.dp)) {
-                    Text(hello.device_name, fontWeight = FontWeight.Medium)
-                    Text("${hello.app_id} ${hello.app_version}", style = MaterialTheme.typography.caption)
+                Column(Modifier.fillMaxWidth().selectableItem(session.id == selected?.id) { onSelect(session) }.padding(Spacing.lg)) {
+                    Text(hello.device_name, role = TextRole.BodyStrong)
+                    Text("${hello.app_id} ${hello.app_version}", role = TextRole.Caption)
                     Text(
                         "${hello.os_version} · ${if (session.disconnectedAtMs == null) "connected" else "disconnected"}",
-                        style = MaterialTheme.typography.caption,
+                        role = TextRole.Caption,
                     )
                 }
             }
@@ -894,22 +865,23 @@ private fun RequestList(
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Requests") }
-            TextButton(onClick = onBenchmarks, Modifier.testTag(BENCHMARKS)) { Text("Benchmarks") }
-            TextButton(onClick = onExportHar, Modifier.testTag(EXPORT_HAR)) { Text("Export HAR") }
+            TextButton("Benchmarks", onClick = onBenchmarks, Modifier.testTag(BENCHMARKS))
+            TextButton("Export HAR", onClick = onExportHar, Modifier.testTag(EXPORT_HAR))
             TextButton(
+                if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue",
                 onClick = onSaveAsIssue,
                 Modifier.testTag(SAVE_AS_ISSUE),
                 enabled = marked.isNotEmpty() || selected != null,
-            ) { Text(if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue") }
+            )
         }
-        exportNote?.let { Text(it, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.caption) }
+        exportNote?.let { Text(it, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption) }
         FilterBar(filter, onFilter)
         if (exchanges.isEmpty()) Placeholder(if (filter == ExchangeFilter()) "No requests yet" else "No requests match")
         LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
             items(exchanges, key = { it.id }) { exchange ->
                 Row(
-                    Modifier.fillMaxWidth().selectable(exchange.id == selected?.id) { onSelect(exchange) }.padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    Modifier.fillMaxWidth().selectableItem(exchange.id == selected?.id) { onSelect(exchange) }.padding(Spacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
@@ -917,7 +889,7 @@ private fun RequestList(
                         onCheckedChange = { onMark(exchange, it) },
                         Modifier.size(20.dp).testTag(MARK + exchange.requestId),
                     )
-                    Text(exchange.method ?: "—", Modifier.width(96.dp), fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(exchange.method ?: "—", Modifier.width(96.dp), role = TextRole.BodyStrong, maxLines = 1)
                     Text(
                         exchange.url ?: exchange.requestId,
                         Modifier.weight(1f),
@@ -925,10 +897,10 @@ private fun RequestList(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (exchange.mockRuleId != null) {
-                        Text("mocked", Modifier.testTag(MOCKED + exchange.requestId), style = MaterialTheme.typography.caption)
+                        Text("mocked", Modifier.testTag(MOCKED + exchange.requestId), role = TextRole.Caption)
                     }
                     if (exchange.replayOf != null) {
-                        Text("replay", Modifier.testTag(REPLAYED + exchange.requestId), style = MaterialTheme.typography.caption)
+                        Text("replay", Modifier.testTag(REPLAYED + exchange.requestId), role = TextRole.Caption)
                     }
                     Text(statusOf(exchange), Modifier.width(56.dp))
                     Text(durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "", Modifier.width(72.dp))
@@ -944,48 +916,18 @@ private fun FilterBar(
     filter: ExchangeFilter,
     onFilter: (ExchangeFilter) -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 12.dp)) {
-        OutlinedTextField(
+    Column(Modifier.padding(horizontal = Spacing.lg)) {
+        TextField(
             filter.text.orEmpty(),
             { onFilter(filter.copy(text = it.ifEmpty { null })) },
             Modifier.fillMaxWidth().testTag(SEARCH),
-            placeholder = { Text("Search URL") },
+            placeholder = "Search URL",
             singleLine = true,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Choice("Method", filter.method, METHODS, { it }) { onFilter(filter.copy(method = it)) }
             Choice("Status", filter.statusClass, StatusClass.entries, ::labelOf) { onFilter(filter.copy(statusClass = it)) }
-            Row(
-                Modifier.toggleable(filter.failedOnly) { onFilter(filter.copy(failedOnly = it)) }.padding(end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(filter.failedOnly, onCheckedChange = null)
-                Text("Failed only")
-            }
-        }
-    }
-}
-
-/** A button showing [label] and the [chosen] option, opening a menu of [any] (null when unset) and [options]. */
-@Composable
-internal fun <T : Any> Choice(
-    label: String,
-    chosen: T?,
-    options: List<T>,
-    nameOf: (T) -> String,
-    any: String? = "Any",
-    onChoose: (T?) -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { open = true }) { Text("$label: ${chosen?.let(nameOf) ?: any.orEmpty()} ▾") }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            (if (any == null) options else listOf(null) + options).forEach { option ->
-                DropdownMenuItem(onClick = {
-                    onChoose(option)
-                    open = false
-                }) { Text(option?.let(nameOf) ?: any.orEmpty()) }
-            }
+            CheckboxRow("Failed only", filter.failedOnly, { onFilter(filter.copy(failedOnly = it)) }, Modifier.padding(end = Spacing.md))
         }
     }
 }
@@ -1042,25 +984,25 @@ private fun RequestDetail(
     var openFrame by remember { mutableStateOf<Int?>(null) }
     val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     SelectionContainer {
-        LazyColumn(Modifier.fillMaxSize().padding(12.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(Spacing.lg)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}",
                         Modifier.weight(1f),
-                        fontWeight = FontWeight.Medium,
+                        role = TextRole.BodyStrong,
                     )
-                    copyNote?.let { Text(it, style = MaterialTheme.typography.caption) }
+                    copyNote?.let { Text(it, role = TextRole.Caption) }
                     if (exchange.connection == null) {
                         if (exchange.url?.startsWith("ws") !=
                             true
                         ) {
-                            TextButton(onClick = onMock, Modifier.testTag(MOCK_THIS)) { Text("Mock this") }
+                            TextButton("Mock this", onClick = onMock, Modifier.testTag(MOCK_THIS))
                             if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
-                                TextButton(onClick = onReplay, Modifier.testTag(SEND_AGAIN)) { Text(replayLabelOf(exchange.method)) }
+                                TextButton(replayLabelOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
                             }
                         }
-                        TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
+                        TextButton("Copy as cURL", onClick = onCopyCurl, Modifier.testTag(COPY_CURL))
                     }
                 }
                 Text(
@@ -1070,19 +1012,19 @@ private fun RequestDetail(
                         layerOf(exchange.captureLayer),
                         exchange.mockRuleId?.let { mockedBy(exchange) },
                     ).joinToString(" · "),
-                    style = MaterialTheme.typography.caption,
+                    role = TextRole.Caption,
                 )
-                exchange.error?.let { Text(it, color = MaterialTheme.colors.error) }
-                replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), style = MaterialTheme.typography.caption) }
+                exchange.error?.let { Text(it, error = true) }
+                replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
                 exchange.replayOf?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val original = exchange.replayOfId
                         Text(
                             if (original != null) "Replay of an earlier request" else "Replay of a request no longer stored",
-                            style = MaterialTheme.typography.caption,
+                            role = TextRole.Caption,
                         )
                         if (original != null) {
-                            TextButton(onClick = { onShowOriginal(original) }, Modifier.testTag(SHOW_ORIGINAL)) { Text("Show original") }
+                            TextButton("Show original", onClick = { onShowOriginal(original) }, Modifier.testTag(SHOW_ORIGINAL))
                         }
                     }
                 }
@@ -1091,7 +1033,7 @@ private fun RequestDetail(
                 item {
                     Section("Connection") {
                         Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
-                        Text("Metadata only: no headers or body are captured at this layer", style = MaterialTheme.typography.caption)
+                        Text("Metadata only: no headers or body are captured at this layer", role = TextRole.Caption)
                     }
                 }
                 return@LazyColumn
@@ -1112,7 +1054,7 @@ private fun RequestDetail(
                     }
                     if (index == openFrame && frameBody != null) body(frameBody)
                 }
-                if (exchange.frames.size < exchange.frameCount) item { TextButton(onClick = onMoreFrames) { Text("Show more frames") } }
+                if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
             }
         }
     }
@@ -1120,8 +1062,8 @@ private fun RequestDetail(
 
 @Composable
 private fun Headers(headers: List<Header>) {
-    if (headers.isEmpty()) Text("None", style = MaterialTheme.typography.caption)
-    headers.forEach { Text("${it.name}: ${it.value_}", fontFamily = FontFamily.Monospace) }
+    if (headers.isEmpty()) Text("None", role = TextRole.Caption)
+    headers.forEach { Text("${it.name}: ${it.value_}", role = TextRole.Code) }
 }
 
 /** One captured body and its rendering, which is null while it runs off the UI thread (ADR-0029). */
@@ -1148,12 +1090,12 @@ private fun rememberBodyView(
 private fun LazyListScope.body(view: BodyView) {
     val captured = view.captured
     item {
-        if (captured.truncated) Text(truncationNote(captured), style = MaterialTheme.typography.caption)
-        if (captured.bytes.size == 0 && !captured.truncated) Text("None", style = MaterialTheme.typography.caption)
+        if (captured.truncated) Text(truncationNote(captured), role = TextRole.Caption)
+        if (captured.bytes.size == 0 && !captured.truncated) Text("None", role = TextRole.Caption)
         if (captured.bytes.size > 0) {
             Row {
                 BodyFormat.entries.forEach { option ->
-                    TextButton(onClick = { view.choose(option) }, enabled = option != view.rendered?.format) { Text(option.label) }
+                    TextButton(option.label, onClick = { view.choose(option) }, enabled = option != view.rendered?.format)
                 }
             }
         }
@@ -1163,7 +1105,7 @@ private fun LazyListScope.body(view: BodyView) {
     if (chunks == null) {
         item { Placeholder("Rendering…") }
     } else {
-        items(chunks) { Text(it, Modifier.horizontalScroll(rememberScrollState()), fontFamily = FontFamily.Monospace, softWrap = false) }
+        items(chunks) { Text(it, Modifier.horizontalScroll(rememberScrollState()), role = TextRole.Code, softWrap = false) }
     }
 }
 
@@ -1174,7 +1116,7 @@ private fun FrameRow(
     open: Boolean,
     onClick: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().selectable(open, onClick).padding(vertical = 4.dp)) {
+    Column(Modifier.fillMaxWidth().selectableItem(open, onClick).padding(vertical = Spacing.xs)) {
         Text(
             listOfNotNull(
                 directionOf(frame.direction),
@@ -1182,30 +1124,10 @@ private fun FrameRow(
                 sizeOf(frame.payload),
                 startedAtMs?.let { "+${formatDuration(frame.atMs - it)}" },
             ).joinToString(" · "),
-            style = MaterialTheme.typography.caption,
+            role = TextRole.Caption,
         )
-        framePreview(frame)?.let { Text(it, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        framePreview(frame)?.let { Text(it, role = TextRole.Code, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
-}
-
-@Composable
-private fun Section(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Spacer(Modifier.height(16.dp))
-    Text(title, style = MaterialTheme.typography.subtitle2)
-    content()
-}
-
-@Composable
-private fun PaneTitle(title: String) {
-    Text(title, Modifier.padding(12.dp), style = MaterialTheme.typography.h6)
-}
-
-@Composable
-internal fun Placeholder(text: String) {
-    Text(text, Modifier.padding(12.dp), style = MaterialTheme.typography.caption)
 }
 
 private fun truncationNote(captured: CapturedBody): String =
@@ -1330,15 +1252,6 @@ private val SAFE_METHODS = setOf("GET", "HEAD", "OPTIONS")
 private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
 
 internal const val CONNECTION_BYTES = "connection-bytes"
-
-internal fun Modifier.selectable(
-    selected: Boolean,
-    onClick: () -> Unit,
-): Modifier = clickable(onClick = onClick).then(if (selected) Modifier.background(SELECTED) else Modifier)
-
-private val SELECTED = Color(0x1F2196F3)
-
-private val SCRIM = Color(0x66000000)
 
 /** A run's name, or its start time while it has none (ADR-0084 B.1). */
 internal fun titleOf(run: StoredRun): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))

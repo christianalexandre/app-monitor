@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt` (or its request detail moving to `desktop/feature/traffic`, PLAN-0012 H2.2), `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
 paid_date:
 ---
 
@@ -64,10 +64,17 @@ items in its file:
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
 - `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`
-- `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`
+- `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or the PR that moves its request detail into `desktop/feature/traffic` (PLAN-0012 H2.2)
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`
+
+`App.kt` fired by PLAN-0012 H2.1 (`refactor/desktop-design-system`),
+which swaps its Material calls for the design system's and changes
+nothing it does. "Show original" is re-triggered on PLAN-0012 H2.2,
+which moves the request list and detail into `desktop/feature/traffic`
+behind a view model: reading the original by id belongs there, and
+written in `App.kt` it would be rewritten one task later.
 
 ## How it was paid
 

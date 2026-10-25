@@ -120,10 +120,12 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | What | Command | State |
 | --- | --- | --- |
 | List make targets | `make help` | active; default goal |
-| Fast suite, what PRs to `dev` run | `make check` | active: `docs-check` + `lint` + `scripts-test` + `build` (sample apps excluded) + `swift` (host only); ADR-0076 |
+| Fast suite, what PRs to `dev` run | `make check` | active: `docs-check` + `designsystem-check` + `lint` + `scripts-test` + `build` (sample apps excluded) + `swift` (host only); ADR-0076 |
 | Fast suite plus simulator tests and sample apps (end to ends separate) | `make check-full` | active; `make check` + `make swift-sim` + `make samples`; simulator parts macOS with Xcode and XcodeGen; ADR-0076 |
 | Every sample app, debug and release, release checks | `make samples` | active; `android-samples` (`./gradlew :samples:android:build :gradle-plugin:functionalTest`) + `ios-sample` + `kmp-sample`; release gate `samples` job; ADR-0076 |
 | Docs consistency | `make docs-check` | active |
+| Desktop screens use only the design system (no Material, raw color, spacing or radius outside `desktop/designsystem`) | `make designsystem-check` | active; in `make check`; `scripts/designsystem_check.sh`, its test in `make scripts-test`; ADR-0133, ADR-0134, guideline 05 |
+| Design system gallery (every component in light and dark) | `./gradlew :desktop:designsystem:test` | active; JVM, in `make build`; screenshots `gallery-light.png` and `gallery-dark.png` in `desktop/designsystem/build/screenshots/`; ADR-0134 |
 | Kotlin lint (ktlint via Spotless) | `make lint` | active; fix with `./gradlew spotlessApply` |
 | Gradle build and tests | `make build` | active |
 | Protocol tests, all targets | `./gradlew :protocol:allTests` | active; JVM, Android host, iOS simulator |
@@ -174,7 +176,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | Release gate on any ref (branch job, desktop tests on ubuntu, macOS, windows) | `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]` | active; also on every PR to `main`; `head` (default `dev`) is the branch checked as the PR head; ADR-0052, DEBT-0046 |
 | Apply the `dev` ruleset (`conventions`, `docs`, `check` required) after editing it | `gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604902 --input .github/rulesets/protect-dev.json` | active; check with `gh api repos/christianalexandre/app-monitor/rules/branches/dev`; auto-merge on in the repository settings; ADR-0094 |
 | Apply the `main` ruleset (gate required) after editing it | `gh api -X PUT repos/christianalexandre/app-monitor/rulesets/25604903 --input .github/rulesets/protect-main.json` | active; check with `gh api repos/christianalexandre/app-monitor/rules/branches/main`; ADR-0053, DEBT-0048 |
-| Loop and end to end script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, `scripts/test_debt_check.sh`, `scripts/test_sim_list.sh` (simulator list parser) and `scripts/test_e2e_lib.sh` (end to end assertions on a crafted log), ADR-0013, ADR-0075 |
+| Loop and end to end script tests (bash) | `make scripts-test` | active; `scripts/test_loop.sh`, `scripts/test_debt_check.sh`, `scripts/test_sim_list.sh` (simulator list parser), `scripts/test_e2e_lib.sh` (end to end assertions on a crafted log) and `scripts/test_designsystem_check.sh`, ADR-0013, ADR-0075 |
 | Branch name check | `make branch-check` | active |
 | Open DEBTs whose trigger names a file the branch changes | `make debt-check` | active; `BASE=<ref>` (default `origin/dev`), committed and uncommitted changes, exits 0 unless the base does not resolve; `/next` self-check, ADR-0051, ADR-0061 |
 | Development loop, fresh session per iteration | `make loop` | active; worktree `../app-monitor-loop`, logs in `.loop/`; env `MAX_ITERATIONS` (50), `MAX_BUDGET_USD`, `ITERATION_TIMEOUT`, `LIMIT_RETRIES`, `PLAN_CHECKPOINT=1` (stop at each plan's close, ADR-0019); PRs merge on auto, ADR-0094 |

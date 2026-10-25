@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check check-full samples android-samples docs-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check check-full samples android-samples docs-check designsystem-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -8,12 +8,15 @@ export ANDROID_HOME
 help: ## List targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-check: docs-check lint scripts-test build swift ## Fast suite for PRs to dev: no simulator, sample app or end to end (ADR-0076)
+check: docs-check designsystem-check lint scripts-test build swift ## Fast suite for PRs to dev: no simulator, sample app or end to end (ADR-0076)
 
 check-full: check swift-sim samples ## Fast suite plus simulator tests and sample apps; end to ends stay separate (ADR-0076)
 
 docs-check: ## Docs frontmatter, indexes and ADR/DEBT references
 	@scripts/docs_check.sh
+
+designsystem-check: ## Desktop screens use the design system's tokens and components only (ADR-0133)
+	@scripts/designsystem_check.sh
 
 lint: ## ktlint via Spotless (fix with ./gradlew spotlessApply)
 	@./gradlew spotlessCheck
@@ -23,6 +26,7 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_debt_check.sh
 	@scripts/test_sim_list.sh
 	@scripts/test_e2e_lib.sh
+	@scripts/test_designsystem_check.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.
 SAMPLE_BUILDS := -x :samples:android:build -x :samples:kmp:shared:build -x :samples:kmp:androidApp:build

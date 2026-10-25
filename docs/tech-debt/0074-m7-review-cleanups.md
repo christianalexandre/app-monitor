@@ -3,7 +3,7 @@ id: DEBT-0074
 title: Non-correctness findings of the M7 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
+trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or moves `SaveIssueDialog`, the issue editor or `IssueList` into `desktop/feature/insights` (PLAN-0012 H2.4) or changes what they do, or the closing checks of `ExportHar.log` or `ToCurl.command`"
 paid_date:
 ---
 
@@ -48,7 +48,7 @@ duplicate check. None changes what normal use stores or shows.
 
 ## Trigger
 
-The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`.
+The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or moves `SaveIssueDialog`, the issue editor or `IssueList` into `desktop/feature/insights` (PLAN-0012 H2.4) or changes what they do, or the closing checks of `ExportHar.log` or `ToCurl.command`.
 
 Fired by PLAN-0009 M8.4, which touches `Export.kt` (the connections
 note), `Issues.kt` (the method column's width) and `Ingest.kt` (one line,
@@ -61,6 +61,13 @@ Fired again by PLAN-0010 M9.3 (`feat/mock-editor`), which only registers
 `create_mock` in `McpServer.kt`. Re-triggered on the wrapper itself: the
 item needs a seam between a tool's write and its read-back to be tested,
 and it is a shutdown race normal use does not hit (ADR-0094).
+
+Fired again by PLAN-0012 H2.1 (`refactor/desktop-design-system`), which
+swaps the issue dialogs' and list's Material calls for the design
+system's and changes nothing they do. Re-triggered on PLAN-0012 H2.4,
+which moves `Issues.kt` into `desktop/feature/insights` behind a view
+model: the in-flight guard and the single query belong in that view
+model, and written here they would be rewritten one task later.
 
 ## How it was paid
 
