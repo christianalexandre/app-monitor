@@ -1,10 +1,10 @@
 ---
 id: PLAN-0006
 title: Persistence and runs
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M5
 started: 2026-10-24
-finished:
+finished: 2026-10-24
 ---
 
 # PLAN-0006 — Persistence and runs (M5)
@@ -241,10 +241,41 @@ the closed driver.
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#171); M5.1 storage privacy, retention, approval and
+  run decisions (#172); M5.2 storage design and platform primitives on
+  paper (#173); M5.3 `desktop/storage` on SQLDelight (#174); M5.4 the
+  desktop app on storage, traffic shown after a restart (#175); M5.5
+  approvals persisted, forget in settings (#176); M5.6 named runs and the
+  run picker (#178); M5.7 search and filters (#179); M5.8 retention by age
+  and size, "Clear all data" (#180); M5.9 live check across a store reopen
+  and the packaged app (#181); M5.10 docs sync (#182). Three review
+  rounds: plan updates #183, #189, #193 and this PR; fixes M5.R1 (#184),
+  M5.R2 (#185), M5.R3 (#186), M5.R4 (#187), M5.R5 (#188), M5.R6 (#190),
+  M5.R7 (#191), M5.R8 (#192), M5.R9 (#194), M5.R10 (#195).
+- **Decisions**: ADR-0081 to ADR-0088.
+- **Debt**: DEBT-0062 to DEBT-0068 created. DEBT-0004 paid by M5.4, with
+  DEBT-0031's `TrafficState.kt` item; DEBT-0022 fired and re-triggered on
+  the write queue's `queueFullWaits` (10k requests peaked at 2.5 MiB of
+  64); DEBT-0028 fired and narrowed to unattended scripts; DEBT-0058 fired
+  on M5.7 and narrowed to grouping or whole-URL match; DEBT-0049's
+  `build.gradle.kts` trigger dropped. Review findings left open are only
+  non-correctness ones, in DEBT-0064, DEBT-0067 and DEBT-0068; DEBT-0065
+  and DEBT-0066 hold the CI flakes seen on the way. No correctness finding
+  is left open.
+- **Deviations**: M5.4 showed every stored session until M5.6's picker and
+  had no "Clear all data" in the storage failure window until M5.8; M5.5
+  opened the settings overlay that M5.8 extended; M5.6 chose a run list
+  overlay over a dropdown; M5.8 clears in place with `VACUUM` rather than
+  swapping the store (ADR-0088); M5.9 had no phone attached and no Screen
+  Recording permission, so the packaged app was shown by its database rows.
+  The reviews added M5.R1–M5.R10, and two families took three rounds each:
+  calls racing `Storage.close` (R3 writer calls, R7 calls dispatched on the
+  writer, R10 reads and observed queries) and a rolled back `Disconnected`
+  (R4 kept, R6 retried apart from the batch, R9 each one apart).
+- **Lessons**: SDD 09 described the write path and its failures, but not
+  what each kind of call does once `close` starts or once a write is lost,
+  so each review found the next call class or failure case. The next plan
+  that adds a component with a lifecycle (M6's MCP server on the store)
+  should list, before the code, every call class (writes, writer-dispatched
+  calls, reads, observed flows) against each state (open, closing, closed,
+  failed write) with the test that pins each cell.
