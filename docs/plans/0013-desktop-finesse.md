@@ -50,13 +50,14 @@ task too large for one PR is split at once.
   Accept: storage, data and traffic tests — a device connected before
   Record and one that reconnects during it are both in the run; after
   Stop new traffic is only in memory.
-- [ ] **H3.2b Save, and runs and "Saved" apart.** Save on selected live
+- [x] **H3.2b Save, and runs and "Saved" apart.** Save on selected live
   exchanges into a "Saved" collection (a migration marks it apart from
   recordings); runs and "Saved" listed apart and opened read-only; an
   issue saves its exchanges (until then "Save as issue" on live requests
   is refused).
   Accept: storage, data and traffic tests — a saved exchange survives a
-  restart; an issue made from live requests keeps them.
+  restart; an issue made from live requests keeps them. Built as one run
+  marked `saved` (ADR-0143); MCP's `save_issue` saves live ids too.
 - [ ] **H3.3 Compare devices in a run.** Endpoint by device columns
   (count, status classes, median, p95, size) in `insights`.
   Accept: `./gradlew :desktop:feature:insights:test` — a run with two

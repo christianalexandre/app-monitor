@@ -297,11 +297,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   not stored (SDD 09). The device list shows its sessions, oldest first,
   "connected" until they end, under "All devices"; "All devices" (the
   default) lists every device's requests in one list, a device only its
-  own. "Clear" above the request list empties the live list. The picker
-  opens "Live" and the stored runs, newest first: a run opens read-only,
-  on all its devices; "Rename" names a run (blank makes it unnamed again).
-  A launch still opens an empty run in the store, and nothing records
-  into it until PLAN-0013 H3.2's Record.
+  own. Above the request list, on the live list only: "Record" / "Stop
+  recording" (ADR-0142), "Save" (or "Save N") which stores the ticked
+  requests, or the selected one, in "Saved" and says how many it saved
+  (ADR-0143), and "Clear", which empties the live list. The picker opens
+  "Live", "Saved" once something is saved, then the recordings, newest
+  first: each opens read-only, on all its devices; "Rename" names a
+  recording (blank makes it unnamed again). No run opens at launch.
 - Reading: every pane follows the live list's reads, run again after each
   change, or a stored run's SQLDelight query flows, re-run after each
   commit that touches their table. The request list is the device's, or
@@ -312,7 +314,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   "N events not saved: <error>" under the status.
 - Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
   issue" (or "Save N as issue") above the list takes the ticked requests,
-  from any session or run, or the selected one, and asks a title (the
+  from any session or run, or the selected one (live ones are saved to
+  "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
   tags. "Issues" beside the run picker lists them newest first ("Open" or
   "Resolved", tags, request count, "in the window" or "by MCP", last

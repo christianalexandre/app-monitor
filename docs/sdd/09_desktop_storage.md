@@ -7,7 +7,8 @@ files, connection settings), ADR-0086 (opening, booleans, lost writes),
 ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
 (issues), ADR-0096 (issue rows, their writers, retention of their exchanges),
 ADR-0140 (live traffic in memory, only recordings stored), ADR-0141 (the live
-list's types, ids and bound), ADR-0142 (recording through `Recorder`).
+list's types, ids and bound), ADR-0142 (recording through `Recorder`),
+ADR-0143 (Save into one "Saved" run).
 Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
@@ -49,7 +50,7 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 
 | Table | Columns | Indexes |
 | --- | --- | --- |
-| `runs` | `name` (null = unnamed), `started_at_ms`, `ended_at_ms` | `started_at_ms` |
+| `runs` | `name` (null = unnamed), `started_at_ms`, `ended_at_ms`, `saved` (1 for the "Saved" collection, 0 for a recording) | `started_at_ms` |
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
 | `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms` | `run_id`; `last_envelope_at_ms` |
@@ -165,6 +166,14 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   run at launch nor after `clearAll`, `runId` is 0, and a session is only
   written once `Recorder` gives it a run. Tests keep the default, a run
   per launch.
+- **Save** (ADR-0140 C, ADR-0143): `save(copies)` takes
+  `LiveTraffic.copies(ids)` (each live exchange's session and the events
+  the live list kept) and writes them in one queue item into the run with
+  `saved = 1`, which the first save opens, named "Saved" and ended at
+  once. Each live session gets one session row there, found again by
+  `server_session_id`; each exchange is written by `Ingest`'s own event
+  code. One already saved is not written again. Returns each live id's
+  stored id once written, nothing when lost or closed.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
   `forget(deviceId, appId)` and `forgetAll()` delete; queued in click order,
@@ -248,8 +257,9 @@ applies them.
 `applyRetention()` runs on the writer thread, between batches, at open and
 every `RETENTION_INTERVAL` (10 minutes) from a coroutine `close` cancels:
 
-1. **Age.** Ended sessions (`disconnected_at_ms` set) of unnamed runs whose
-   last envelope (or connection) is older than the limit, oldest first, 50
+1. **Age.** Ended sessions (`disconnected_at_ms` set) of unnamed runs, never
+   the saved run's, whose last envelope (or connection) is older than the
+   limit, oldest first, 50
    per transaction; the cascades delete their exchanges, bodies, frames and
    raw envelopes. A session holding an exchange an issue links is kept
    (ADR-0095 B.1, ADR-0096 C.1): its other exchanges and its raw envelopes
@@ -320,7 +330,10 @@ through the routed repositories below.
   `trafficQueryRepository(live)`, `benchmarkRepository(live)`): a filter
   with a session goes where that session lives, else one with a run to
   the store, else the live list; a read by id by `isLive`; runs, run
-  diffs, health and issues are the store's.
+  diffs, health and issues are the store's. `TrafficRepository.save` and
+  `Storage.issueRepository(live)` save the live ids they are given first
+  (ADR-0143), so an issue made from live requests links their saved rows;
+  one gone from the live list comes back `UnknownExchanges`.
 
 ### Recorder
 
@@ -467,6 +480,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 | Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
+| Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |
 
 ## Limits

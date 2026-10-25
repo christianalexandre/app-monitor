@@ -176,7 +176,7 @@ session, null when it is not a replay or the original is gone
 
 | Tool | Input | Output | Store |
 | --- | --- | --- | --- |
-| `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform` (`android`, `ios`, `jvm`, `unspecified`), `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`, null on a page short of `limit`. Newest first. | `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
+| `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `saved` (the "Saved" collection, ADR-0143), `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform` (`android`, `ios`, `jvm`, `unspecified`), `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`, null on a page short of `limit`. Newest first. | `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
 | `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `grpc_status`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`, `mock_rule_id`, `replay`, `replay_of`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
 | `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `mock_rule_name`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). `part` leaves the other side `null`; `body_offset` applies to both bodies, frame payloads start at 0. Frames: `direction` `sent`/`received`, `opcode` `text`, `binary`, `ping`, `pong`, `close`. The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame; `next_after_id` is set when it stopped early or is full to `frames_limit`. `connection` (`sent_bytes`, `received_bytes`, each null until it closed) for a connection, which has `request` and `response` null; null for any other exchange. Unknown id: "no exchange with id N". | `exchange(id)`, `frames(id, afterId, limit)` |
 | `endpoint_stats` | filter fields, `limit` (1–500, 50) | `endpoints[]` by count, descending, then by key: `method`, `host`, `path`, `count`, `status` (`1xx`…`5xx`, `failed`: counts), `error_rate`, `duration_ms` (`min`, `p50`, `p95`, `p99`, `max`; null when no exchange has both times), `request_bytes`, `response_bytes` (totals; a connection's bytes sent and received, its `path` `:port`); `endpoint_count` (before `limit`), `exchanges_read`, `truncated` | `searchExchangeSizes(filter, afterId, limit)`: the rows with their stored body sizes, 0 when none |
@@ -267,8 +267,9 @@ Details the table leaves out:
   null), `tags` and `exchange_ids` replace the stored ones, and an edit
   with no field is refused; so an edit the developer makes in the window
   to another field meanwhile is kept, and on the same field the write the
-  writer queue takes last wins (SDD 09 lists every writer). The call
-  waits for its batch, then reads the issue back. Errors: an exchange not
+  writer queue takes last wins (SDD 09 lists every writer). A live
+  exchange id is saved to "Saved" first and the issue links the saved row
+  (ADR-0143). The call waits for its batch, then reads the issue back. Errors: an exchange not
   stored when the write reaches the writer, "no exchange with id 4, 7",
   nothing written; a deleted or unknown issue, "no issue with id N"; a
   closing store, "App Monitor is closing"; a lost batch, "the issue was not

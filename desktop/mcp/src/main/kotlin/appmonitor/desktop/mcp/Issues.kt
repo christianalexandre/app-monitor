@@ -134,7 +134,10 @@ internal object SaveIssue {
                         putJsonObject("items") { put("type", "integer") }
                         put("minItems", 1)
                         put("maxItems", MAX_EXCHANGES)
-                        put("description", "The exchanges, from any runs; replace the stored ones.")
+                        put(
+                            "description",
+                            "The exchanges, live or from any run; a live one is saved to \"Saved\" first. Replace the stored ones.",
+                        )
                     }
                 },
         )

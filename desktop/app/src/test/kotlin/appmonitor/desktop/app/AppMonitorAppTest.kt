@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -27,9 +28,14 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
+import appmonitor.desktop.feature.traffic.MARK
 import appmonitor.desktop.feature.traffic.RECORD
 import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.RUN_NAME
+import appmonitor.desktop.feature.traffic.SAVE
+import appmonitor.desktop.feature.traffic.SAVED_RUN
+import appmonitor.desktop.feature.traffic.SAVE_NOTE
+import appmonitor.desktop.feature.traffic.SAVE_RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
@@ -375,7 +381,7 @@ class AppMonitorAppTest {
                 onNodeWithTag(RUNS).performClick()
                 onAllNodesWithText("Rename")[0].performClick()
                 onNodeWithTag(RUN_NAME).performTextReplacement("Checkout on iPhone")
-                onNodeWithText("Save").performClick()
+                onNodeWithTag(SAVE_RUN_NAME).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.runs() }.first { it.id == second }.name != null }
                 awaitText("Checkout on iPhone")
                 onNodeWithText("Login on Pixel").assertExists()
@@ -468,7 +474,7 @@ class AppMonitorAppTest {
                 onNodeWithText("Live").assertExists()
                 onAllNodesWithText("Rename")[0].performClick()
                 onNodeWithTag(RUN_NAME).performTextReplacement("Checkout")
-                onNodeWithText("Save").performClick()
+                onNodeWithTag(SAVE_RUN_NAME).performClick()
                 awaitText("Checkout")
                 onNodeWithText("Checkout").performClick()
                 awaitText("https://a.example/during")
@@ -483,6 +489,42 @@ class AppMonitorAppTest {
             )
             runBlocking { storage.close(5.seconds) }
             Unit
+        }
+
+    @Test
+    fun `Save keeps the picked live requests in Saved, listed apart and read-only`() =
+        withStorage { storage ->
+            val live = LiveTraffic()
+            live.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/keep")),
+                envelope(RequestStarted(request_id = "r2", method = "GET", url = "https://a.example/also")),
+                envelope(RequestStarted(request_id = "r3", method = "GET", url = "https://a.example/drop")),
+            )
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", live = live) }
+
+                awaitText("https://a.example/keep")
+                onNodeWithTag(MARK + "r1").performClick()
+                onNodeWithTag(MARK + "r2").performClick()
+                onNodeWithText("Save 2").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(SAVE_NOTE).fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithText("Saved 2 to Saved").assertExists()
+                screenshot("saved.png")
+
+                onNodeWithTag(RUNS).performClick()
+                onNodeWithTag(SAVED_RUN).performClick()
+                awaitText("Saved ▾")
+                onNodeWithText("https://a.example/also").assertExists()
+                onNodeWithText("https://a.example/drop").assertDoesNotExist()
+                onNodeWithTag(SAVE).assertDoesNotExist()
+                onNodeWithTag(CLEAR).assertDoesNotExist()
+            }
+            val saved = runBlocking { storage.runs() }.single { it.saved }
+            assertEquals(
+                listOf("keep", "also"),
+                runBlocking { storage.allExchanges(saved.id) }.map { it.url!!.substringAfterLast('/') },
+            )
         }
 
     @Test

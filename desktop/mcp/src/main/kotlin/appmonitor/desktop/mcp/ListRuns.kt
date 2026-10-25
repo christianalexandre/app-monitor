@@ -10,15 +10,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-/** `list_runs` (SDD 10): runs newest first, with their sessions and exchange counts. */
+/** `list_runs` (SDD 10): recordings and "Saved" newest first, with their sessions and exchange counts. */
 internal object ListRuns {
     const val NAME = "list_runs"
     private const val MAX_LIMIT = 100L
     private const val DEFAULT_LIMIT = 20L
 
     val description =
-        "Lists the recorded runs, newest first: each run's time window, whether it is being recorded (`current`), its exchange " +
-            "count and the app sessions (device, app, SDK) that joined it. Page with next_before_id. $DATA_NOTE"
+        "Lists the recorded runs and the \"Saved\" collection (`saved`: true), newest first: each one's time window, whether it " +
+            "is being recorded (`current`), its exchange count and the app sessions (device, app, SDK) in it. Page with " +
+            "next_before_id. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -59,6 +60,7 @@ internal object ListRuns {
             put("started_at", time(run.startedAtMs))
             put("ended_at", time(run.endedAtMs))
             put("current", run.id == current)
+            put("saved", run.saved)
             put("exchange_count", exchangeCount)
             put("sessions", JsonArray(sessions.map { it.toJson() }))
         }

@@ -40,7 +40,7 @@ internal class McpController(
             storage.runRepository(),
             storage.trafficQueryRepository(live),
             storage.benchmarkRepository(live),
-            storage.issueRepository(),
+            storage.issueRepository(live),
             storage.mockRepository(),
         ),
     private val readSwitch: suspend () -> String? = { storage.setting(KEY_ENABLED) },

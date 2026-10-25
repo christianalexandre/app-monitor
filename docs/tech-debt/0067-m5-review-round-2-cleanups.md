@@ -78,3 +78,8 @@ findings name is unchanged.
 ## How it was paid
 
 > Filled when closing.
+
+Fired by PLAN-0013 H3.2b, whose rollback change is one more outcome
+cleared (the `Save` item, ADR-0143). The rollback, allocation, idle-pass
+cleanup and `/tmp` test these findings name are unchanged; the trigger
+stays.

@@ -68,7 +68,7 @@ import appmonitor.desktop.storage.RunSummary as StoredRunSummary
 import appmonitor.desktop.storage.SessionSummary as StoredSessionSummary
 import appmonitor.desktop.storage.StatusClass as StoredStatusClass
 
-internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs)
+internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs, saved)
 
 internal fun StoredSession.toDomain(): Session =
     Session(id, runId, serverSessionId, hello, peerAddress, connectedAtMs, disconnectedAtMs, lastEnvelopeAtMs)

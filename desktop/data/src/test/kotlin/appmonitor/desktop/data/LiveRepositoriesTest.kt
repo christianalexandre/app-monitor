@@ -2,6 +2,9 @@ package appmonitor.desktop.data
 
 import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.storage.LiveTraffic
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import appmonitor.desktop.storage.ExchangeFilter as StoredExchangeFilter
@@ -115,5 +119,37 @@ class LiveRepositoriesTest {
                 benchmarks.endpoints(ExchangeFilter(runId = storage.runId)).endpoints.map { it.endpoint },
             )
             assertTrue(benchmarks.diff(ExchangeFilter(), storage.runId, storage.runId).added.isEmpty())
+        }
+
+    @Test
+    fun `save stores live exchanges in Saved, and an issue made from live requests keeps them`() =
+        withStorage { storage ->
+            storage.record(envelope(RequestStarted("stored", "GET", "https://api.test/stored")))
+            val storedId = storage.searchExchanges(StoredExchangeFilter()).single().id
+            val live = LiveTraffic()
+            live.connected("s1", HELLO, null)
+            live.received("s1", envelope(RequestStarted("a", "GET", "https://api.test/a")))
+            live.received("s1", envelope(RequestStarted("b", "GET", "https://api.test/b")))
+            val (a, b) = live.searchExchanges(StoredExchangeFilter()).map { it.id }
+            val traffic = storage.trafficRepository(live)
+            val issues = storage.issueRepository(live)
+
+            val saved = traffic.save(listOf(a, storedId))
+            assertEquals(setOf(a), saved.keys, "a stored id is left out")
+            val run =
+                storage
+                    .runRepository()
+                    .observeRuns()
+                    .first()
+                    .single { it.saved }
+            assertEquals(listOf("a"), traffic.observeExchanges(ExchangeFilter(runId = run.id)).first().map { it.requestId })
+
+            val write = issues.create("Slow", "", emptyList(), listOf(b, storedId), IssueSource.WINDOW, IssueStatus.OPEN)
+            val id = assertIs<IssueWrite.Saved>(write).id
+            assertEquals(listOf("b", "stored"), issues.exchanges(id).map { it.requestId }.sorted())
+            assertEquals(listOf("a", "b"), traffic.observeExchanges(ExchangeFilter(runId = run.id)).first().map { it.requestId })
+
+            live.clear()
+            assertEquals(listOf("b", "stored"), issues.exchanges(id).map { it.requestId }.sorted())
         }
 }

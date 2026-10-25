@@ -65,6 +65,9 @@ fun Storage.breakpointRepository(): BreakpointRepository = StoredBreakpointRepos
 /** The issues of this store. */
 fun Storage.issueRepository(): IssueRepository = StoredIssueRepository(this)
 
+/** [issueRepository] saving each live exchange an issue links first (ADR-0140 C). */
+fun Storage.issueRepository(live: LiveTraffic): IssueRepository = LiveIssueRepository(this, live)
+
 /** The paged reads of this store, as the MCP tools make them. */
 fun Storage.trafficQueryRepository(): TrafficQueryRepository = StoredTrafficQueryRepository(this)
 
@@ -120,6 +123,8 @@ internal class StoredTrafficRepository(
 
     // The store holds no live list.
     override fun clear() = Unit
+
+    override suspend fun save(exchangeIds: Collection<Long>): Map<Long, Long> = emptyMap()
 }
 
 internal class StoredMockRepository(

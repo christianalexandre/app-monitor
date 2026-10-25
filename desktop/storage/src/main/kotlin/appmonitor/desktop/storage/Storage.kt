@@ -140,6 +140,7 @@ class Storage private constructor(
             if (it is StorageItem.SaveIssue) it.done.complete(it.outcome ?: IssueWrite.NotSaved)
             if (it is StorageItem.SaveMock) it.done.complete(it.outcome ?: MockWrite.NotSaved)
             if (it is StorageItem.SaveBreakpoint) it.done.complete(it.outcome ?: BreakpointWrite.NotSaved)
+            if (it is StorageItem.Save) it.done.complete(it.outcome.orEmpty())
         }
     }
 
@@ -211,6 +212,17 @@ class Storage private constructor(
         atMs: Long,
     ) {
         queue.enqueue(StorageItem.Connected(key, hello, peerAddress, atMs, serverSessionId = sessionId, run = run))
+    }
+
+    /**
+     * Stores [copies] in the saved run, which the first save opens (ADR-0143); one saved before is not written again.
+     * Returns each copy's stored exchange id by its live id once written, nothing if its batch was lost or the store is closed.
+     */
+    suspend fun save(copies: List<LiveCopy>): Map<Long, Long> {
+        if (copies.isEmpty()) return emptyMap()
+        val item = StorageItem.Save(copies, clock())
+        if (!queue.enqueue(item)) return emptyMap()
+        return item.done.await()
     }
 
     /**
@@ -517,7 +529,7 @@ class Storage private constructor(
             null
         }
 
-    suspend fun runs(): List<StoredRun> = read(emptyList()) { runQueries.all(::StoredRun).executeAsList() }
+    suspend fun runs(): List<StoredRun> = read(emptyList()) { runQueries.all(::storedRun).executeAsList() }
 
     /**
      * A page of runs, newest first, each with its sessions and exchange count, in one transaction; the next page passes
@@ -528,7 +540,7 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): List<RunSummary> =
         read(emptyList()) {
-            runQueries.pageNewestFirst(beforeId, limit, ::StoredRun).executeAsList().map { run ->
+            runQueries.pageNewestFirst(beforeId, limit, ::storedRun).executeAsList().map { run ->
                 RunSummary(
                     run = run,
                     exchangeCount = exchangeQueries.countOfRun(run.id).executeAsOne(),
@@ -551,7 +563,7 @@ class Storage private constructor(
         }
 
     /** Every run, newest first, again after each commit that changes one. */
-    fun observeRuns(): Flow<List<StoredRun>> = observe(database.runQueries.newestFirst(::StoredRun))
+    fun observeRuns(): Flow<List<StoredRun>> = observe(database.runQueries.newestFirst(::storedRun))
 
     /** The issues [filter] matches, newest first, again after each commit that changes an issue, its tags or exchanges. */
     fun observeIssues(filter: IssueFilter = IssueFilter()): Flow<List<StoredIssue>> =
@@ -915,7 +927,17 @@ data class StoredRun(
     val name: String?,
     val startedAtMs: Long,
     val endedAtMs: Long?,
+    /** True for the collection [Storage.save] writes to, false for a recording (ADR-0143). */
+    val saved: Boolean = false,
 )
+
+private fun storedRun(
+    id: Long,
+    name: String?,
+    startedAtMs: Long,
+    endedAtMs: Long?,
+    saved: Long,
+) = StoredRun(id, name, startedAtMs, endedAtMs, saved != 0L)
 
 data class RunSummary(
     val run: StoredRun,

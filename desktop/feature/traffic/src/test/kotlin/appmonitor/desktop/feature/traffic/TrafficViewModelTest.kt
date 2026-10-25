@@ -232,6 +232,37 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `Save stores the marked live requests and unmarks them, Saved apart from the recordings`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10), session(20, run = 2))
+            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10), exchange(3, session = 20))
+            val viewModel = viewModel()
+            viewModel.showRun(2)
+            viewModel.mark(viewModel.state.value.rows[0], true)
+            viewModel.showRun(null)
+            viewModel.mark(viewModel.state.value.rows[0], true)
+            viewModel.mark(viewModel.state.value.rows[1], true)
+            viewModel.save()
+            val state = viewModel.state.value
+            assertEquals(setOf(3L), state.marked.keys, "a stored one is not saved again")
+            assertEquals("Saved 2 of 3 to Saved", state.runs.saveNote)
+
+            runs.save()
+            assertEquals(
+                5L,
+                viewModel.state.value.runs.saved
+                    ?.id,
+            )
+            assertEquals(
+                listOf(2L, 1L),
+                viewModel.state.value.runs.recordings
+                    .map { it.id },
+            )
+            viewModel.clear()
+            assertNull(viewModel.state.value.runs.saveNote)
+        }
+
+    @Test
     fun `records into a new run and stops while the live list stays shown`() =
         runTest {
             val viewModel = viewModel()
@@ -257,6 +288,10 @@ class TrafficViewModelTest {
             runs.value = listOf(Run(id, null, 3_000, null)) + runs.value
             recording.value = id
             return id
+        }
+
+        fun save() {
+            runs.value = listOf(Run(5, "Saved", 5_000, 5_000, saved = true)) + runs.value
         }
 
         override suspend fun stop() {
@@ -296,6 +331,15 @@ class TrafficViewModelTest {
             id: Long,
             frameLimit: Long,
         ): HttpExchange? = exchanges.value.firstOrNull { it.id == id }?.let { HttpExchange(it.id, it.requestId, it.method, it.url) }
+
+        override suspend fun save(exchangeIds: Collection<Long>): Map<Long, Long> {
+            val live =
+                sessions.value
+                    .filter { it.runId == 0L }
+                    .map { it.id }
+                    .toSet()
+            return exchanges.value.filter { it.id in exchangeIds && it.sessionId in live }.associate { it.id to it.id + 1_000 }
+        }
 
         override fun clear() {
             val live =
