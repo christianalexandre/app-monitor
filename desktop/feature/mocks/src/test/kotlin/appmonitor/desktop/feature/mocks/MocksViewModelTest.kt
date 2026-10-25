@@ -110,6 +110,8 @@ private class FakeMocks : MockRepository {
 
     override fun observeMocks(): Flow<List<Mock>> = mocks
 
+    override suspend fun mocks(): List<Mock> = mocks.value
+
     override suspend fun create(
         appId: String,
         name: String,

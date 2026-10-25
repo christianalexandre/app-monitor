@@ -5,10 +5,10 @@ the desktop process (ADR-0005), read-only but for issues, mock rules and replays
 ADR-0089 (what the tools return), ADR-0090 (who can call, port, on by
 default), ADR-0091 (clients), ADR-0092 (SDK, transport, modules), ADR-0095
 and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1), ADR-0121 (`replay_request`). Code: `desktop/mcp/`, used by
-`desktop/app`; `list_runs`, `search_requests`, `get_request`,
-`endpoint_stats` and `diff_runs` read through `desktop/domain`'s
-repositories `desktop/app` hands it (`McpRepositories`, ADR-0138), the
-other tools read `desktop/storage` (SDD 09) directly; it writes only
+`desktop/app`; every tool, the token and the store's health go through
+`desktop/domain`'s repositories `desktop/app` hands it (`McpRepositories`,
+`SettingRepository`, ADR-0133, ADR-0138), so `desktop/mcp`'s main code
+does not depend on `desktop/storage` (SDD 09); it writes only
 through `save_issue`, `create_mock` and the two settings below; `replay_request` leaves its replay to `desktop/app`. Client setup: the README's *Ask your AI
 agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
@@ -25,11 +25,11 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
                                     mcpStatelessStreamableHttp: one session per request
                                                      │ tools/list, tools/call
                                                      ▼
-                                    repository or Storage reads (Dispatchers.IO, one transaction each);
-                                    save_issue: createIssue / updateIssue on the writer queue
+                                    repository reads (Dispatchers.IO, one transaction each);
+                                    save_issue: IssueRepository create / update on the writer queue
 ```
 
-- `McpServer(storage, repositories, access, port)` builds one SDK `Server` with every
+- `McpServer(repositories, access, port)` builds one SDK `Server` with every
   tool, and an `embeddedServer(CIO, host = "127.0.0.1", port)`;
   `start()` binds and returns the port, `stop()` stops it. The port is
   `47475`, or `APPMONITOR_MCP_PORT` when set to a number (ADR-0090 D.1);
@@ -72,7 +72,8 @@ ADR-0090 C.1).
   calls `McpController.afterClearAll()`, which regenerates the token and
   writes `mcp.enabled = false` back when the switch was off, so clearing
   data never turns on a server the developer turned off.
-- `McpAccess.open(storage)` reads or makes the token, `regenerate()`
+- `McpAccess.open(settings)` reads or makes the token through a
+  `SettingRepository`, `regenerate()`
   replaces it in memory at once and in the store through the queue.
 - The settings' "MCP server" section shows the switch, the state
   ("Listening on http://127.0.0.1:<port>/mcp", "Port <port> in use: quit
@@ -93,7 +94,7 @@ ADR-0090 C.1).
 
 ### Order in the app
 
-1. `openServices`: `Storage.open`, approvals, `McpAccess.open(storage)`;
+1. `openServices`: `Storage.open`, approvals, `McpAccess.open(storage.settingRepository())`;
    a failure after the open closes the store again.
 2. Device server and `McpController.start()` launched side by side in
    the serving scope; a failed MCP start (port taken) is a status in the
@@ -119,7 +120,7 @@ ADR-0090 C.1).
   `TrafficQueryRepository.isClosing` (the store's) **after** the tool returns or fails, and answers the
   error "App Monitor is closing" instead of either, so an unknown-id error
   made of an empty read is never what a closing store says.
-- **Lost writes.** When `storage.health` counts unsaved events, the result
+- **Lost writes.** When `TrafficQueryRepository.health` (the store's) counts unsaved events, the result
   carries `"warnings": ["N events were not saved: <error>"]` (`export_har`:
   `log._warnings`, as HAR 1.2 allows only `_` custom fields; `to_curl`: a
   first line `# warning: …`); the reads answer what is committed.

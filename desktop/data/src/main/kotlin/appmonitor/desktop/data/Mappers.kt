@@ -17,6 +17,8 @@ import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Issue
 import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueDetail
+import appmonitor.desktop.domain.IssueFilter
 import appmonitor.desktop.domain.IssueSource
 import appmonitor.desktop.domain.IssueStatus
 import appmonitor.desktop.domain.IssueWrite
@@ -54,6 +56,8 @@ import appmonitor.desktop.storage.EndpointDiff as StoredEndpointDiff
 import appmonitor.desktop.storage.EndpointGroups as StoredEndpointGroups
 import appmonitor.desktop.storage.ExchangeFilter as StoredExchangeFilter
 import appmonitor.desktop.storage.IssueChange as StoredIssueChange
+import appmonitor.desktop.storage.IssueDetail as StoredIssueDetail
+import appmonitor.desktop.storage.IssueFilter as StoredIssueFilter
 import appmonitor.desktop.storage.IssueSource as StoredIssueSource
 import appmonitor.desktop.storage.IssueStatus as StoredIssueStatus
 import appmonitor.desktop.storage.IssueWrite as StoredIssueWrite
@@ -228,7 +232,13 @@ internal fun IssueStatus.toStored(): StoredIssueStatus = StoredIssueStatus.value
 
 internal fun StoredIssueSource.toDomain(): IssueSource = IssueSource.valueOf(name)
 
-internal fun IssueChange.toStored(): StoredIssueChange = StoredIssueChange(title, note, tags, status?.toStored())
+internal fun IssueChange.toStored(): StoredIssueChange = StoredIssueChange(title, note, tags, status?.toStored(), exchangeIds)
+
+internal fun IssueSource.toStored(): StoredIssueSource = StoredIssueSource.valueOf(name)
+
+internal fun IssueFilter.toStored(): StoredIssueFilter = StoredIssueFilter(status?.toStored(), tag)
+
+internal fun StoredIssueDetail.toDomain(): IssueDetail = IssueDetail(issue.toDomain(), exchangeIds)
 
 internal fun StoredIssueWrite.toDomain(): IssueWrite =
     when (this) {

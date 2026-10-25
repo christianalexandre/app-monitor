@@ -1,7 +1,7 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.domain.ExchangeFilter
-import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.domain.TrafficQueryRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
@@ -14,19 +14,19 @@ object Exports {
 
     /** The first [MAX_ENTRIES] exchanges [filter] matches, oldest first, bodies whole; refused past `export_har`'s 32 MiB. */
     suspend fun har(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         filter: ExchangeFilter,
         version: String = "dev",
     ): Har {
-        val har = refusals { ExportHar.log(storage, filter.toStored(), MAX_ENTRIES, ExportHar.FULL, version) }
+        val har = refusals { ExportHar.log(queries, filter, MAX_ENTRIES, ExportHar.FULL, version) }
         return Har(pretty.encodeToString(JsonObject.serializer(), har.json), har.entries, har.more, har.connections)
     }
 
     /** Exchange [id]'s request as `to_curl` writes it; refused when the exchange or its request is not stored. */
     suspend fun curl(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         id: Long,
-    ): String = refusals { ToCurl.command(storage, id) }
+    ): String = refusals { ToCurl.command(queries, id) }
 
     private inline fun <T> refusals(block: () -> T): T =
         try {

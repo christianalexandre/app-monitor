@@ -1,6 +1,6 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.StorageHealth
+import appmonitor.desktop.domain.StoreHealth
 import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
@@ -32,27 +32,27 @@ internal fun errorResult(message: String) = CallToolResult(content = listOf(Text
 /** [text] as one [TextContent], after a `#` line per warning when [health] counts unsaved events (`to_curl`). */
 internal fun textResult(
     text: String,
-    health: StorageHealth,
+    health: StoreHealth,
 ) = CallToolResult(content = listOf(TextContent(listOfNotNull(warning(health)?.let { "# warning: $it" }, text).joinToString("\n"))))
 
-private fun warning(health: StorageHealth): String? =
+private fun warning(health: StoreHealth): String? =
     if (health.notSaved == 0L) null else "${health.notSaved} events were not saved" + (health.lastError?.let { ": $it" } ?: "")
 
 /** [result] as the text of one [TextContent], with a `warnings` field when [health] counts unsaved events. */
 internal fun jsonResult(
     result: JsonObject,
-    health: StorageHealth,
+    health: StoreHealth,
 ) = warned(result, health) { warnings -> JsonObject(this + ("warnings" to warnings)) }
 
 /** [har] as [jsonResult], the warning in `log._warnings`: HAR 1.2 allows no other custom field. */
 internal fun harResult(
     har: JsonObject,
-    health: StorageHealth,
+    health: StoreHealth,
 ) = warned(har, health) { warnings -> JsonObject(this + ("log" to JsonObject(getValue("log") as JsonObject + ("_warnings" to warnings)))) }
 
 private fun warned(
     result: JsonObject,
-    health: StorageHealth,
+    health: StoreHealth,
     add: JsonObject.(JsonArray) -> JsonObject,
 ): CallToolResult {
     val body = warning(health)?.let { result.add(JsonArray(listOf(JsonPrimitive(it)))) } ?: result

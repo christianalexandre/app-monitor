@@ -4,9 +4,9 @@ import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HarRepository
 import appmonitor.desktop.domain.HarWrite
+import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.desktop.mcp.ExportRefused
 import appmonitor.desktop.mcp.Exports
-import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,21 +15,21 @@ import java.io.IOException
 
 /** `to_curl`'s command for exchange [id], or why there is none. */
 internal suspend fun curlOf(
-    storage: Storage,
+    queries: TrafficQueryRepository,
     id: Long,
 ): Result<String> =
     try {
-        Result.success(Exports.curl(storage, id))
+        Result.success(Exports.curl(queries, id))
     } catch (e: ExportRefused) {
         Result.failure(e)
     }
 
-/** [ExportRepository] and [HarRepository] over the MCP tools' exports of [storage]. */
+/** [ExportRepository] and [HarRepository] over the MCP tools' exports of [queries]. */
 internal class StorageExports(
-    private val storage: Storage,
+    private val queries: TrafficQueryRepository,
 ) : ExportRepository,
     HarRepository {
-    override suspend fun curl(id: Long): Result<String> = curlOf(storage, id)
+    override suspend fun curl(id: Long): Result<String> = curlOf(queries, id)
 
     override suspend fun write(
         filter: ExchangeFilter,
@@ -37,7 +37,7 @@ internal class StorageExports(
     ): HarWrite =
         withContext(Dispatchers.IO) {
             try {
-                val har = Exports.har(storage, filter)
+                val har = Exports.har(queries, filter)
                 file.writeText(har.text)
                 HarWrite.Written(har.entries, har.more, Exports.MAX_ENTRIES, har.connections)
             } catch (e: ExportRefused) {

@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.tools.fakeclient.Fixtures
 import kotlinx.serialization.json.JsonArray
@@ -113,7 +114,7 @@ class ConnectionToolsTest {
                 },
             )
             assertEquals("1 connections left out: HAR holds HTTP exchanges only", log["comment"]!!.jsonPrimitive.content)
-            val har = Exports.har(running.storage, WindowFilter(runId = stored.run))
+            val har = Exports.har(running.storage.trafficQueryRepository(), WindowFilter(runId = stored.run))
             assertEquals(1 to 1, har.entries to har.connections)
             assertTrue(!har.more)
             assertHar12(

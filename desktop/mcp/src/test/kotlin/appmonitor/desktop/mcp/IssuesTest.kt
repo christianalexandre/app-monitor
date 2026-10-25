@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.IssueChange
 import appmonitor.desktop.storage.IssueSource
@@ -248,8 +249,8 @@ class IssuesTest {
             val data = dir.resolve("data")
             val storage = Storage.open(data) { 1_000 }
             runBlocking {
-                val access = McpAccess.open(storage)
-                val server = McpServer(storage, storage.repositories(), access, 0, "test")
+                val access = McpAccess.open(storage.settingRepository())
+                val server = McpServer(storage.repositories(), access, 0, "test")
                 val port = server.start()
                 try {
                     block(data, Running(storage, access, server, port))

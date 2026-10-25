@@ -1,10 +1,13 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.data.benchmarkRepository
+import appmonitor.desktop.data.issueRepository
+import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficQueryRepository
+import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StorageHealth
 import appmonitor.protocol.Protocol
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
@@ -76,17 +79,19 @@ internal fun withStorage(
 }
 
 /** The repositories `desktop/app` hands the server, over this store. */
-internal fun Storage.repositories() = McpRepositories(runRepository(), trafficQueryRepository(), benchmarkRepository())
+internal fun Storage.repositories() =
+    McpRepositories(runRepository(), trafficQueryRepository(), benchmarkRepository(), issueRepository(), mockRepository())
 
 /** A started server on a free port over a fresh store, stopped after [block]. */
 internal fun withServer(
-    health: () -> StorageHealth? = { null },
+    health: () -> StoreHealth? = { null },
     beforeTool: suspend () -> Unit = {},
     replays: ReplayAsks? = null,
     block: suspend (Running) -> Unit,
 ) = withStorage { storage ->
-    val access = McpAccess.open(storage)
-    val server = McpServer(storage, storage.repositories(), access, 0, "test", { health() ?: storage.health.value }, beforeTool, replays)
+    val access = McpAccess.open(storage.settingRepository())
+    val repositories = storage.repositories()
+    val server = McpServer(repositories, access, 0, "test", { health() ?: repositories.queries.health }, beforeTool, replays)
     val port = server.start()
     try {
         block(Running(storage, access, server, port))

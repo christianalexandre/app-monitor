@@ -7,6 +7,7 @@ import appmonitor.desktop.data.breakpointRepository
 import appmonitor.desktop.data.issueRepository
 import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.data.retentionRepository
+import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.domain.AnsweredDeviceRepository
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.AskedReplayRepository
@@ -48,7 +49,7 @@ internal fun appModule(
         includes(trafficModule, mocksModule, breakpointsModule, insightsModule, settingsModule)
         single<RunRepository> { runRepository }
         single<TrafficRepository> { traffic }
-        single { StorageExports(storage) }
+        single { StorageExports(storage.trafficQueryRepository()) }
         single<ExportRepository> { get<StorageExports>() }
         single<HarRepository> { get<StorageExports>() }
         single<BenchmarkRepository> { storage.benchmarkRepository() }

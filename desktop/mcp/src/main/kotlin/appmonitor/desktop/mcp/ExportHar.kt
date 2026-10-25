@@ -1,12 +1,12 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.CapturedFrame
+import appmonitor.desktop.domain.Exchange
+import appmonitor.desktop.domain.ExchangeDetail
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.TrafficQueryRepository
+import appmonitor.desktop.domain.TrafficRepository.Companion.PAGE_SIZE
 import appmonitor.desktop.mcp.Filters.putFilterProperties
-import appmonitor.desktop.storage.ExchangeDetail
-import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.StatusClass
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StoredExchange
-import appmonitor.desktop.storage.StoredFrame
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
@@ -22,7 +22,6 @@ import kotlinx.serialization.json.putJsonObject
 import okio.ByteString
 import java.net.URI
 import java.net.URLDecoder
-import appmonitor.desktop.domain.ExchangeFilter as DomainExchangeFilter
 
 /** `export_har` (SDD 10): the exchanges a filter matches, oldest first, as one HAR 1.2 log. */
 internal object ExportHar {
@@ -62,12 +61,12 @@ internal object ExportHar {
         )
 
     suspend fun call(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         arguments: JsonObject?,
         version: String,
         maxText: Long = MAX_TEXT,
     ): JsonObject {
-        val filter = Filters.filter(arguments).toStored()
+        val filter = Filters.filter(arguments)
         val maxEntries = arguments.long("max_entries", 1..MAX_ENTRIES, DEFAULT_ENTRIES)!!
         val cap =
             when (arguments.choice("bodies", bodyModes, "capped")) {
@@ -75,24 +74,24 @@ internal object ExportHar {
                 "capped" -> CAP
                 else -> FULL
             }
-        return log(storage, filter, maxEntries, cap, version, maxText).json
+        return log(queries, filter, maxEntries, cap, version, maxText).json
     }
 
     /** The first [maxEntries] exchanges [filter] matches as a HAR 1.2 log, each body and payload cut at [cap] bytes. */
     suspend fun log(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         filter: ExchangeFilter,
         maxEntries: Long,
         cap: Long,
         version: String,
         maxText: Long = MAX_TEXT,
     ): HarLog {
-        val (http, connections) = httpRows(storage, filter, maxEntries + 1)
+        val (http, connections) = httpRows(queries, filter, maxEntries + 1)
         var text = 0L
         val entries = mutableListOf<JsonObject>()
         for (row in http.take(maxEntries.toInt())) {
-            val detail = storage.exchange(row.id) ?: continue
-            val entry = entry(detail, allFrames(storage, row.id, row.frameCount), cap)
+            val detail = queries.detail(row.id) ?: continue
+            val entry = entry(detail, allFrames(queries, row.id, row.frameCount), cap)
             text += entry.toString().encodeToByteArray().size
             if (text > maxText) throw ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none")
             entries += entry
@@ -118,42 +117,42 @@ internal object ExportHar {
 
     /** The first [limit] HTTP exchanges [filter] matches, and how many connections the pages read held (ADR-0104). */
     private suspend fun httpRows(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         filter: ExchangeFilter,
         limit: Long,
-    ): Pair<List<StoredExchange>, Int> {
-        val http = mutableListOf<StoredExchange>()
+    ): Pair<List<Exchange>, Int> {
+        val http = mutableListOf<Exchange>()
         var connections = 0
         var afterId = 0L
         while (http.size < limit) {
-            val page = storage.searchExchanges(filter, afterId, Storage.PAGE_SIZE)
+            val page = queries.search(filter, afterId, PAGE_SIZE)
             for (row in page) {
                 if (http.size == limit.toInt()) break
                 if (row.isConnection) connections++ else http += row
             }
-            if (page.size < Storage.PAGE_SIZE) break
+            if (page.size < PAGE_SIZE) break
             afterId = page.last().id
         }
         return http to connections
     }
 
     private suspend fun allFrames(
-        storage: Storage,
+        queries: TrafficQueryRepository,
         exchangeId: Long,
         count: Long,
-    ): List<StoredFrame> {
+    ): List<CapturedFrame> {
         if (count == 0L) return emptyList()
-        val frames = mutableListOf<StoredFrame>()
+        val frames = mutableListOf<CapturedFrame>()
         while (true) {
-            val page = storage.frames(exchangeId, frames.lastOrNull()?.id ?: 0, Storage.PAGE_SIZE)
+            val page = queries.frames(exchangeId, frames.lastOrNull()?.id ?: 0, PAGE_SIZE)
             frames += page
-            if (page.size < Storage.PAGE_SIZE) return frames
+            if (page.size < PAGE_SIZE) return frames
         }
     }
 
     private fun entry(
         detail: ExchangeDetail,
-        frames: List<StoredFrame>,
+        frames: List<CapturedFrame>,
         cap: Long,
     ): JsonObject {
         val row = detail.exchange
@@ -218,13 +217,13 @@ internal object ExportHar {
                                     put("time", frame.atMs / 1000.0)
                                     put("opcode", rfcOpcode(frame.opcode))
                                     // HAR viewers read a binary frame's data (opcode 2) as base64.
-                                    val slice = slice(frame.payload, 0, cap)
+                                    val slice = slice(frame.payload.bytes, 0, cap)
                                     put("data", slice.text ?: slice.bytes.base64())
                                     if (cap > 0) {
                                         payloadComment(
-                                            frame.payload,
-                                            frame.payloadSize,
-                                            frame.payloadTruncated,
+                                            frame.payload.bytes,
+                                            frame.payload.originalSize,
+                                            frame.payload.truncated,
                                             slice,
                                         )?.let { put("comment", it) }
                                     }
@@ -304,16 +303,3 @@ internal class HarLog(
     val more: Boolean,
     val connections: Int,
 )
-
-/** The store's filter of the tools' domain one, while `export_har` reads the store. */
-internal fun DomainExchangeFilter.toStored() =
-    ExchangeFilter(
-        text = text,
-        method = method,
-        statusClass = statusClass?.let { StatusClass.valueOf(it.name) },
-        failedOnly = failedOnly,
-        deviceId = deviceId,
-        appId = appId,
-        runId = runId,
-        sessionId = sessionId,
-    )

@@ -35,12 +35,22 @@ data class IssueFilter(
     fun matches(issue: Issue): Boolean = (status == null || issue.status == status) && (tag == null || tag in issue.tags)
 }
 
-/** What [IssueRepository.update] changes; a null field keeps what is stored, so two writers editing different fields both land. */
+/** [issue] with the ids of the exchanges it links, ascending. */
+data class IssueDetail(
+    val issue: Issue,
+    val exchangeIds: List<Long>,
+)
+
+/**
+ * What [IssueRepository.update] changes; a null field keeps what is stored, so two writers editing different fields both
+ * land. [tags] and [exchangeIds] replace the stored ones.
+ */
 data class IssueChange(
     val title: String? = null,
     val note: String? = null,
     val tags: Collection<String>? = null,
     val status: IssueStatus? = null,
+    val exchangeIds: Collection<Long>? = null,
 )
 
 /** What an issue write did, known once its batch is committed or lost. */
@@ -72,15 +82,24 @@ interface IssueRepository {
     /** The exchanges issue [id] links, in arrival order. */
     suspend fun exchanges(id: Long): List<Exchange>
 
-    /** An issue from the window linking [exchangeIds]; throws for a blank title or no exchange. */
+    /** The issues [filter] matches, newest first, below [beforeId]; the next page passes the last issue's id. */
+    suspend fun page(
+        filter: IssueFilter,
+        beforeId: Long,
+        limit: Long,
+    ): List<IssueDetail>
+
+    /** An issue from [source] linking [exchangeIds]; throws for a blank title or no exchange. */
     suspend fun create(
         title: String,
         note: String,
         tags: Collection<String>,
         exchangeIds: Collection<Long>,
+        source: IssueSource = IssueSource.WINDOW,
+        status: IssueStatus = IssueStatus.OPEN,
     ): IssueWrite
 
-    /** Throws for a blank title. */
+    /** Throws for a blank title or an empty [IssueChange.exchangeIds]. */
     suspend fun update(
         id: Long,
         change: IssueChange,
