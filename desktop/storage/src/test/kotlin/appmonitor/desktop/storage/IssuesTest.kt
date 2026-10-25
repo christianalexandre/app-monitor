@@ -220,6 +220,7 @@ class IssuesTest {
                     it.execute("DROP TABLE issues")
                     it.execute("ALTER TABLE exchanges DROP COLUMN grpc_status")
                     it.execute("ALTER TABLE exchanges DROP COLUMN mock_rule_id")
+                    it.execute("DROP TABLE breakpoint_rules")
                     it.execute("PRAGMA user_version = 1")
                 }
             }
@@ -229,7 +230,7 @@ class IssuesTest {
                 assertIs<IssueWrite.Saved>(storage.createIssue("A", "", emptyList(), listOf(idOf(storage, "r1")), IssueSource.WINDOW))
                 storage.close(5.seconds)
             }
-            assertEquals(5, dir.queryLong("PRAGMA user_version"))
+            assertEquals(6, dir.queryLong("PRAGMA user_version"))
         }
 
     private suspend fun exchanges(

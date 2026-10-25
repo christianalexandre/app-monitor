@@ -76,15 +76,39 @@ needs its own decision is split as soon as that shows.
   sessions left as they are. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one rule
   asserted end to end.
-- [ ] **M9.7 Breakpoints and replay.** Per ADR-0111, in every SDK of M9.4
-  and M9.6 and in the window. Pause, edit, resume, abort and timeout. A
-  replay is started from an exchange's detail, or from MCP under
-  confirmation.
-  Accept: each SDK's tests above, which hold a call, resume it edited and
-  let one time out. `./gradlew :desktop:app:test` with an offscreen
-  screenshot `breakpoint.png`. A replayed exchange is stored and linked
-  to its original.
-- [ ] **M9.8 OkHttp injection by the Gradle plugin.** The plugin module
+- [x] **M9.7 Breakpoints on the wire and in the desktop.** (`feat/breakpoint-channel`; split from the plan's M9.7, whose
+  window, replay and SDK halves are M9.8 to M9.11; ADR-0118: `BreakpointRules` beside `MockRules`, a hold named by request id and stage, a resume of `optional` fields and headers set or removed by name, held calls in memory, a timeout of 1 ms to 10 minutes; migration `5.sqm`) Per ADR-0111: the
+  breakpoint messages in `protocol` (fixtures, the Swift samples
+  mirrored). The desktop stores breakpoint rules per app (a migration),
+  sends them like mock rules, and holds each `BreakpointHit` a device
+  sends until it is resumed, edited or not, aborted, timed out or its
+  session ends. SDD 12 and 09 updated.
+  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:server:test :desktop:app:test`.
+  A stand-in device gets the rules after `HelloAck` and on a change; its
+  hit is held, and a resume carries only the changed fields.
+- [ ] **M9.8 Breakpoints in the window.** Rules made and turned on and
+  off in the window; a held call shown, edited, resumed or aborted.
+  Accept: `./gradlew :desktop:app:test`. A call held by a stand-in device
+  resumed edited from the window; offscreen screenshot `breakpoint.png`.
+- [ ] **M9.9 Replay on the wire and in the desktop.** Per ADR-0111 D.1
+  and E.1: `ReplayRequest` and `RequestStarted.replay_of`, stored and
+  linked (a migration), "Send again" in an exchange's detail, and an MCP
+  tool under ADR-0005's confirmation. SDD 09, 10 and 12 updated.
+  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:app:test :desktop:mcp:test`.
+  A stand-in device gets the request from the window, and from MCP only
+  once confirmed; a replayed exchange is stored and linked to its
+  original.
+- [ ] **M9.10 Breakpoints and replay in the Kotlin SDKs.** `sdk/core`,
+  `AppMonitorInterceptor` and `AppMonitorKtor` hold a matching call,
+  resume it edited, let one time out, and replay a recent request.
+  SDD 04, 05 and 08 updated.
+  Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`
+  and `make e2e-android`, with one replay asserted end to end.
+- [ ] **M9.11 Breakpoints and replay in the iOS SDK.** The same in
+  `sdk/ios` for data and upload tasks. SDD 06 and 07 updated.
+  Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one
+  replay asserted end to end.
+- [ ] **M9.12 OkHttp injection by the Gradle plugin.** The plugin module
   of ADR-0093, injection only (the release swap stays M10), per ADR-0112.
   Gradle TestKit tests on a consumer project. The Android sample drops
   its hand-written interceptor line. README setup and SDD 05 updated.

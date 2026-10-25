@@ -31,6 +31,44 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
+nonisolated enum Appmonitor_V1_BreakpointStage: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+  case unspecified // = 0
+  case request // = 1
+  case response // = 2
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .unspecified
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .request
+    case 2: self = .response
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .request: return 1
+    case .response: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Appmonitor_V1_BreakpointStage] = [
+    .unspecified,
+    .request,
+    .response,
+  ]
+
+}
+
 /// Desktop to device: every active rule for the device's app, in match
 /// order. Each one replaces the set before it; an empty set means no mocks.
 nonisolated struct Appmonitor_V1_MockRules: Sendable {
@@ -126,9 +164,191 @@ nonisolated struct Appmonitor_V1_MockFailure: Sendable {
   init() {}
 }
 
+/// Desktop to device: every enabled breakpoint for the device's app, in match
+/// order (ADR-0111, ADR-0118). Each one replaces the set before it; an empty
+/// set means no breakpoints.
+nonisolated struct Appmonitor_V1_BreakpointRules: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var rules: [Appmonitor_V1_BreakpointRule] = []
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+nonisolated struct Appmonitor_V1_BreakpointRule: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// The desktop's id for the rule, never reused.
+  var id: Int64 = 0
+
+  /// Matched as MockRule.method, host and path are.
+  var method: String = String()
+
+  var host: String = String()
+
+  var path: String = String()
+
+  /// Hold the request before it is sent; at least one of the two is set.
+  var request: Bool = false
+
+  /// Hold the response before the app reads it.
+  var response: Bool = false
+
+  /// After it the call goes on unchanged (ADR-0111 B.1); at least 1.
+  var timeoutMs: Int64 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+/// Device to desktop: a call waits for BreakpointResume or BreakpointAbort.
+/// (request.request_id, stage) names the hold; the device masks both messages
+/// as it masks their captures.
+nonisolated struct Appmonitor_V1_BreakpointHit: @unchecked Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var ruleID: Int64 {
+    get {_storage._ruleID}
+    set {_uniqueStorage()._ruleID = newValue}
+  }
+
+  var stage: Appmonitor_V1_BreakpointStage {
+    get {_storage._stage}
+    set {_uniqueStorage()._stage = newValue}
+  }
+
+  /// The request as it would be sent; at the response stage, as it was sent.
+  var request: Appmonitor_V1_RequestStarted {
+    get {_storage._request ?? Appmonitor_V1_RequestStarted()}
+    set {_uniqueStorage()._request = newValue}
+  }
+  /// Returns true if `request` has been explicitly set.
+  var hasRequest: Bool {_storage._request != nil}
+  /// Clears the value of `request`. Subsequent reads from it will return its default value.
+  mutating func clearRequest() {_uniqueStorage()._request = nil}
+
+  /// BREAKPOINT_STAGE_RESPONSE only: the response as the app would read it.
+  var response: Appmonitor_V1_ResponseReceived {
+    get {_storage._response ?? Appmonitor_V1_ResponseReceived()}
+    set {_uniqueStorage()._response = newValue}
+  }
+  /// Returns true if `response` has been explicitly set.
+  var hasResponse: Bool {_storage._response != nil}
+  /// Clears the value of `response`. Subsequent reads from it will return its default value.
+  mutating func clearResponse() {_uniqueStorage()._response = nil}
+
+  /// The rule's timeout, from when the device sent this.
+  var timeoutMs: Int64 {
+    get {_storage._timeoutMs}
+    set {_uniqueStorage()._timeoutMs = newValue}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+/// Desktop to device: the call goes on with only the fields the developer
+/// changed; everything absent keeps the device's own value (ADR-0111 C.1).
+nonisolated struct Appmonitor_V1_BreakpointResume: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var requestID: String = String()
+
+  var stage: Appmonitor_V1_BreakpointStage = .unspecified
+
+  /// BREAKPOINT_STAGE_REQUEST only.
+  var method: String {
+    get {_method ?? String()}
+    set {_method = newValue}
+  }
+  /// Returns true if `method` has been explicitly set.
+  var hasMethod: Bool {self._method != nil}
+  /// Clears the value of `method`. Subsequent reads from it will return its default value.
+  mutating func clearMethod() {self._method = nil}
+
+  var url: String {
+    get {_url ?? String()}
+    set {_url = newValue}
+  }
+  /// Returns true if `url` has been explicitly set.
+  var hasURL: Bool {self._url != nil}
+  /// Clears the value of `url`. Subsequent reads from it will return its default value.
+  mutating func clearURL() {self._url = nil}
+
+  /// BREAKPOINT_STAGE_RESPONSE only.
+  var statusCode: Int32 {
+    get {_statusCode ?? 0}
+    set {_statusCode = newValue}
+  }
+  /// Returns true if `statusCode` has been explicitly set.
+  var hasStatusCode: Bool {self._statusCode != nil}
+  /// Clears the value of `statusCode`. Subsequent reads from it will return its default value.
+  mutating func clearStatusCode() {self._statusCode = nil}
+
+  /// Every header of a name listed here is replaced by this list's ones.
+  var setHeaders: [Appmonitor_V1_Header] = []
+
+  /// Every header of these names is removed; names ignore case.
+  var removedHeaders: [String] = []
+
+  /// Replaces the body; at most Protocol.MAX_BODY_BYTES.
+  var body: Data {
+    get {_body ?? Data()}
+    set {_body = newValue}
+  }
+  /// Returns true if `body` has been explicitly set.
+  var hasBody: Bool {self._body != nil}
+  /// Clears the value of `body`. Subsequent reads from it will return its default value.
+  mutating func clearBody() {self._body = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _method: String? = nil
+  fileprivate var _url: String? = nil
+  fileprivate var _statusCode: Int32? = nil
+  fileprivate var _body: Data? = nil
+}
+
+/// Desktop to device: the call fails as a MockFailure does (ADR-0111 A.1).
+nonisolated struct Appmonitor_V1_BreakpointAbort: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var requestID: String = String()
+
+  var stage: Appmonitor_V1_BreakpointStage = .unspecified
+
+  var message: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "appmonitor.v1"
+
+nonisolated extension Appmonitor_V1_BreakpointStage: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0BREAKPOINT_STAGE_UNSPECIFIED\0\u{1}BREAKPOINT_STAGE_REQUEST\0\u{1}BREAKPOINT_STAGE_RESPONSE\0")
+}
 
 nonisolated extension Appmonitor_V1_MockRules: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MockRules"
@@ -316,6 +536,303 @@ nonisolated extension Appmonitor_V1_MockFailure: SwiftProtobuf.Message, SwiftPro
   }
 
   static func ==(lhs: Appmonitor_V1_MockFailure, rhs: Appmonitor_V1_MockFailure) -> Bool {
+    if lhs.message != rhs.message {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_BreakpointRules: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".BreakpointRules"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}rules\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.rules) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.rules.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.rules, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_BreakpointRules, rhs: Appmonitor_V1_BreakpointRules) -> Bool {
+    if lhs.rules != rhs.rules {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_BreakpointRule: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".BreakpointRule"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}method\0\u{1}host\0\u{1}path\0\u{1}request\0\u{1}response\0\u{3}timeout_ms\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularInt64Field(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.method) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.host) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.path) }()
+      case 5: try { try decoder.decodeSingularBoolField(value: &self.request) }()
+      case 6: try { try decoder.decodeSingularBoolField(value: &self.response) }()
+      case 7: try { try decoder.decodeSingularInt64Field(value: &self.timeoutMs) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.id != 0 {
+      try visitor.visitSingularInt64Field(value: self.id, fieldNumber: 1)
+    }
+    if !self.method.isEmpty {
+      try visitor.visitSingularStringField(value: self.method, fieldNumber: 2)
+    }
+    if !self.host.isEmpty {
+      try visitor.visitSingularStringField(value: self.host, fieldNumber: 3)
+    }
+    if !self.path.isEmpty {
+      try visitor.visitSingularStringField(value: self.path, fieldNumber: 4)
+    }
+    if self.request != false {
+      try visitor.visitSingularBoolField(value: self.request, fieldNumber: 5)
+    }
+    if self.response != false {
+      try visitor.visitSingularBoolField(value: self.response, fieldNumber: 6)
+    }
+    if self.timeoutMs != 0 {
+      try visitor.visitSingularInt64Field(value: self.timeoutMs, fieldNumber: 7)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_BreakpointRule, rhs: Appmonitor_V1_BreakpointRule) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.method != rhs.method {return false}
+    if lhs.host != rhs.host {return false}
+    if lhs.path != rhs.path {return false}
+    if lhs.request != rhs.request {return false}
+    if lhs.response != rhs.response {return false}
+    if lhs.timeoutMs != rhs.timeoutMs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_BreakpointHit: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".BreakpointHit"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}rule_id\0\u{1}stage\0\u{1}request\0\u{1}response\0\u{3}timeout_ms\0")
+
+  fileprivate class _StorageClass {
+    var _ruleID: Int64 = 0
+    var _stage: Appmonitor_V1_BreakpointStage = .unspecified
+    var _request: Appmonitor_V1_RequestStarted? = nil
+    var _response: Appmonitor_V1_ResponseReceived? = nil
+    var _timeoutMs: Int64 = 0
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _ruleID = source._ruleID
+      _stage = source._stage
+      _request = source._request
+      _response = source._response
+      _timeoutMs = source._timeoutMs
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularInt64Field(value: &_storage._ruleID) }()
+        case 2: try { try decoder.decodeSingularEnumField(value: &_storage._stage) }()
+        case 3: try { try decoder.decodeSingularMessageField(value: &_storage._request) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._response) }()
+        case 5: try { try decoder.decodeSingularInt64Field(value: &_storage._timeoutMs) }()
+        default: break
+        }
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._ruleID != 0 {
+        try visitor.visitSingularInt64Field(value: _storage._ruleID, fieldNumber: 1)
+      }
+      if _storage._stage != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._stage, fieldNumber: 2)
+      }
+      try { if let v = _storage._request {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+      } }()
+      try { if let v = _storage._response {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      if _storage._timeoutMs != 0 {
+        try visitor.visitSingularInt64Field(value: _storage._timeoutMs, fieldNumber: 5)
+      }
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_BreakpointHit, rhs: Appmonitor_V1_BreakpointHit) -> Bool {
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._ruleID != rhs_storage._ruleID {return false}
+        if _storage._stage != rhs_storage._stage {return false}
+        if _storage._request != rhs_storage._request {return false}
+        if _storage._response != rhs_storage._response {return false}
+        if _storage._timeoutMs != rhs_storage._timeoutMs {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_BreakpointResume: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".BreakpointResume"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}stage\0\u{1}method\0\u{1}url\0\u{3}status_code\0\u{3}set_headers\0\u{3}removed_headers\0\u{1}body\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.requestID) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.stage) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self._method) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self._url) }()
+      case 5: try { try decoder.decodeSingularInt32Field(value: &self._statusCode) }()
+      case 6: try { try decoder.decodeRepeatedMessageField(value: &self.setHeaders) }()
+      case 7: try { try decoder.decodeRepeatedStringField(value: &self.removedHeaders) }()
+      case 8: try { try decoder.decodeSingularBytesField(value: &self._body) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.requestID.isEmpty {
+      try visitor.visitSingularStringField(value: self.requestID, fieldNumber: 1)
+    }
+    if self.stage != .unspecified {
+      try visitor.visitSingularEnumField(value: self.stage, fieldNumber: 2)
+    }
+    try { if let v = self._method {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._url {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 4)
+    } }()
+    try { if let v = self._statusCode {
+      try visitor.visitSingularInt32Field(value: v, fieldNumber: 5)
+    } }()
+    if !self.setHeaders.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.setHeaders, fieldNumber: 6)
+    }
+    if !self.removedHeaders.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.removedHeaders, fieldNumber: 7)
+    }
+    try { if let v = self._body {
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 8)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_BreakpointResume, rhs: Appmonitor_V1_BreakpointResume) -> Bool {
+    if lhs.requestID != rhs.requestID {return false}
+    if lhs.stage != rhs.stage {return false}
+    if lhs._method != rhs._method {return false}
+    if lhs._url != rhs._url {return false}
+    if lhs._statusCode != rhs._statusCode {return false}
+    if lhs.setHeaders != rhs.setHeaders {return false}
+    if lhs.removedHeaders != rhs.removedHeaders {return false}
+    if lhs._body != rhs._body {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Appmonitor_V1_BreakpointAbort: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".BreakpointAbort"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{1}stage\0\u{1}message\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.requestID) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.stage) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.requestID.isEmpty {
+      try visitor.visitSingularStringField(value: self.requestID, fieldNumber: 1)
+    }
+    if self.stage != .unspecified {
+      try visitor.visitSingularEnumField(value: self.stage, fieldNumber: 2)
+    }
+    if !self.message.isEmpty {
+      try visitor.visitSingularStringField(value: self.message, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Appmonitor_V1_BreakpointAbort, rhs: Appmonitor_V1_BreakpointAbort) -> Bool {
+    if lhs.requestID != rhs.requestID {return false}
+    if lhs.stage != rhs.stage {return false}
     if lhs.message != rhs.message {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

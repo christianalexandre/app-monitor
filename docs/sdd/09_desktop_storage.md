@@ -41,8 +41,8 @@ Opening (`Storage.open(dir)`):
 
 ### Tables
 
-Every id is an `INTEGER PRIMARY KEY` (`mock_rules` adds `AUTOINCREMENT`,
-so a rule's id is never reused, ADR-0113 B.1); children reference their parent with
+Every id is an `INTEGER PRIMARY KEY` (`mock_rules` and `breakpoint_rules`
+add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children reference their parent with
 `ON DELETE CASCADE`, so deleting a session deletes all it holds.
 
 | Table | Columns | Indexes |
@@ -62,6 +62,7 @@ so a rule's id is never reused, ADR-0113 B.1); children reference their parent w
 | `issue_tags` | `issue_ref`, `tag` | primary key (`issue_ref`, `tag`); `tag` |
 | `issue_exchanges` | `issue_ref`, `exchange_ref` | primary key (`issue_ref`, `exchange_ref`); `exchange_ref` |
 | `mock_rules` | `app_id`, `position`, `name`, `enabled`, `pending`, `source` (`window` or `mcp`), `rule` (the `MockRule` without its id), `created_at_ms`, `updated_at_ms` | (`app_id`, `position`) |
+| `breakpoint_rules` | `app_id`, `position`, `name`, `enabled`, `rule` (the `BreakpointRule` without its id), `created_at_ms`, `updated_at_ms` | (`app_id`, `position`) |
 
 - `request_meta` / `response_meta` are the `RequestStarted` /
   `ResponseReceived` payload re-encoded with Wire **without** its body
@@ -87,13 +88,15 @@ so a rule's id is never reused, ADR-0113 B.1); children reference their parent w
 - Issues (ADR-0095, ADR-0096) are not under a session either; their tags and
   links cascade from the issue, and a link from its exchange. Tags are
   trimmed, blank ones dropped, line breaks turned to spaces, each once.
-- Mock rules (SDD 12) are not under a session: retention never touches
-  them; "Clear all data" does.
+- Mock and breakpoint rules (SDD 12) are not under a session: retention
+  never touches them; "Clear all data" does. A call a breakpoint holds is
+  not stored, only its `BreakpointHit` in `raw_envelopes` (ADR-0118 D.1).
 
 Migrations are `.sqm` files in `src/main/sqldelight/migrations/`, one per
 schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
 (version 2 to 3) `exchanges.grpc_status`, `3.sqm` (version 3 to 4)
-`mock_rules`, `4.sqm` (version 4 to 5) `exchanges.mock_rule_id`. The `.sq`
+`mock_rules`, `4.sqm` (version 4 to 5) `exchanges.mock_rule_id`, `5.sqm`
+(version 5 to 6) `breakpoint_rules`. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -368,6 +371,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Stored body sizes per row under a filter, 0 without a body | `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` (M6.5) |
 | The `CONNECTION` fixtures: no status, byte counts in the detail and the sizes, text search, no status class; endpoints per host and port, a refused one as failed, the run diff | `ConnectionTest` (M8.4) |
 | A mocked exchange: `mock_rule_id` in every list reader, its rule's name in the detail and null once deleted, a version-4 file migrates | `MockedExchangeTest` (M9.5); the list mark and detail line in `MockedExchangeUiTest` (`mocked.png`) |
+| Breakpoints per app in order, enabled only, kept across a restart and retention, gone with "Clear all data", ids not reused, bad ones refused, a version-5 file migrates | `BreakpointsTest` |
 | A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |

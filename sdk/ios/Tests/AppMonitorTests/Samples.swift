@@ -99,6 +99,63 @@ enum Samples {
         ]
     }
 
+    static let breakpointRules = Appmonitor_V1_BreakpointRules.with {
+        $0.rules = [
+            .with {
+                $0.id = 3
+                $0.host = "api.example.com"
+                $0.path = "/v1/items/*"
+                $0.request = true
+                $0.response = true
+                $0.timeoutMs = 60_000
+            },
+            .with {
+                $0.id = 4
+                $0.method = "POST"
+                $0.host = "api.example.com"
+                $0.path = "/v1/orders"
+                $0.request = true
+                $0.timeoutMs = 5_000
+            },
+        ]
+    }
+
+    static let breakpointHit = Appmonitor_V1_BreakpointHit.with {
+        $0.ruleID = 3
+        $0.stage = .response
+        $0.request = .with {
+            $0.requestID = "req-0004"
+            $0.method = "GET"
+            $0.url = "https://api.example.com/v1/items/42"
+            $0.headers = [header("Authorization", "██")]
+            $0.bodySize = 0
+            $0.captureLayer = .adapter
+        }
+        $0.response = .with {
+            $0.requestID = "req-0004"
+            $0.statusCode = 200
+            $0.headers = [header("Content-Type", "application/json")]
+            $0.body = Data(#"{"id":42}"#.utf8)
+            $0.bodySize = 9
+        }
+        $0.timeoutMs = 60_000
+    }
+
+    static let breakpointResume = Appmonitor_V1_BreakpointResume.with {
+        $0.requestID = "req-0004"
+        $0.stage = .response
+        $0.statusCode = 404
+        $0.setHeaders = [header("Cache-Control", "no-store")]
+        $0.removedHeaders = ["Content-Type"]
+        $0.body = Data()
+    }
+
+    static let breakpointAbort = Appmonitor_V1_BreakpointAbort.with {
+        $0.requestID = "req-0005"
+        $0.stage = .request
+        $0.message = "aborted on the desktop"
+    }
+
     /// Fixture file name to the message its envelope carries.
     static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
@@ -110,6 +167,10 @@ enum Samples {
         "connection_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", connectionStarted),
         "connection_closed.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", connectionClosed),
         "mock_rules.bin": (ProtocolConstants.channelInteraction, "MockRules", mockRules),
+        "breakpoint_rules.bin": (ProtocolConstants.channelInteraction, "BreakpointRules", breakpointRules),
+        "breakpoint_hit.bin": (ProtocolConstants.channelInteraction, "BreakpointHit", breakpointHit),
+        "breakpoint_resume.bin": (ProtocolConstants.channelInteraction, "BreakpointResume", breakpointResume),
+        "breakpoint_abort.bin": (ProtocolConstants.channelInteraction, "BreakpointAbort", breakpointAbort),
     ]
 
     /// Envelopes stamped later than `timestampMs`, by file name.

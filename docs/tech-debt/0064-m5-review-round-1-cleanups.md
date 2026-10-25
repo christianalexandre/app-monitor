@@ -89,6 +89,11 @@ items to `Ingest`: the session touch, the size loop and `WriteQueue` are
 untouched, and one shared `lastId` would move every insert's id read in
 a PR about a new table. One more copy for the mappings item.
 
+Fired by PLAN-0010 M9.7 (`feat/breakpoint-channel`), which adds the
+`breakpoint_rules` table with its own `lastId` (`Breakpoint.sq`) and two
+queued breakpoint items, for M9.2's reason. One more copy for the
+mappings item; the rest untouched.
+
 ## How it was paid
 
 > Filled when closing.

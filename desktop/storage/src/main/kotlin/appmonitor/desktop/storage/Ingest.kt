@@ -123,6 +123,26 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Creates a breakpoint for [appId] when [id] is null, else changes it; [done] gets [outcome], or not saved. */
+    class SaveBreakpoint(
+        val id: Long?,
+        val appId: String?,
+        val change: BreakpointChange,
+        val atMs: Long,
+    ) : StorageItem {
+        val done = CompletableDeferred<BreakpointWrite>()
+
+        // Set by the writer as it applies the item, cleared when its batch rolls back.
+        var outcome: BreakpointWrite? = null
+        override val sessionId: String? get() = null
+    }
+
+    data class DeleteBreakpoint(
+        val id: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     data class DeleteIssue(
         val id: Long,
     ) : StorageItem {
@@ -196,6 +216,7 @@ internal class Ingest(
             batch.forEach {
                 if (it is StorageItem.SaveIssue) it.outcome = null
                 if (it is StorageItem.SaveMock) it.outcome = null
+                if (it is StorageItem.SaveBreakpoint) it.outcome = null
             }
             val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
             disconnects.forEach { item ->
@@ -291,6 +312,14 @@ internal class Ingest(
                 database.mockQueries.delete(item.id)
             }
 
+            is StorageItem.SaveBreakpoint -> {
+                item.outcome = saveBreakpoint(item)
+            }
+
+            is StorageItem.DeleteBreakpoint -> {
+                database.breakpointQueries.delete(item.id)
+            }
+
             is StorageItem.Barrier -> {
                 Unit
             }
@@ -352,8 +381,25 @@ internal class Ingest(
         return MockWrite.Saved(item.id)
     }
 
+    private fun saveBreakpoint(item: StorageItem.SaveBreakpoint): BreakpointWrite {
+        val queries = database.breakpointQueries
+        val change = item.change
+        if (item.id == null) {
+            queries.insert(
+                appId = checkNotNull(item.appId),
+                name = change.name.orEmpty(),
+                rule = checkNotNull(change.rule).stored(),
+                atMs = item.atMs,
+            )
+            return BreakpointWrite.Saved(queries.lastId().executeAsOne())
+        }
+        if (queries.exists(item.id).executeAsOne() == 0L) return BreakpointWrite.UnknownBreakpoint
+        queries.update(change.name, change.enabled?.let { if (it) 1L else 0L }, change.rule?.stored(), item.atMs, item.id)
+        return BreakpointWrite.Saved(item.id)
+    }
+
     /**
-     * Deletes every row, issues, mock rules, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
+     * Deletes every row, issues, mock and breakpoint rules, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
      * connected are forgotten: what they send next is dropped.
      */
     fun clear(atMs: Long) {
@@ -361,6 +407,7 @@ internal class Ingest(
             database.transactionWithResult {
                 database.issueQueries.deleteAll()
                 database.mockQueries.deleteAll()
+                database.breakpointQueries.deleteAll()
                 database.exchangeQueries.deleteAll()
                 database.sessionQueries.deleteAll()
                 database.runQueries.deleteAll()

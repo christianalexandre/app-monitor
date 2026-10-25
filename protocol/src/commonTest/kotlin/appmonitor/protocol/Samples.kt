@@ -1,5 +1,11 @@
 package appmonitor.protocol
 
+import appmonitor.v1.BreakpointAbort
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointResume
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointRules
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
@@ -15,6 +21,7 @@ import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
 import com.squareup.wire.Message
+import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
 import okio.ByteString.Companion.toByteString
 
@@ -127,6 +134,73 @@ object Samples {
                 ),
         )
 
+    // ADR-0118: a request and response breakpoint for any method, then a request one for a POST.
+    val breakpointRules =
+        BreakpointRules(
+            rules =
+                listOf(
+                    BreakpointRule(
+                        id = 3,
+                        host = "api.example.com",
+                        path = "/v1/items/*",
+                        request = true,
+                        response = true,
+                        timeout_ms = 60_000,
+                    ),
+                    BreakpointRule(
+                        id = 4,
+                        method = "POST",
+                        host = "api.example.com",
+                        path = "/v1/orders",
+                        request = true,
+                        timeout_ms = 5_000,
+                    ),
+                ),
+        )
+
+    // A response held with its request, the token masked as the capture masks it.
+    val breakpointHit =
+        BreakpointHit(
+            rule_id = 3,
+            stage = BreakpointStage.BREAKPOINT_STAGE_RESPONSE,
+            request =
+                RequestStarted(
+                    request_id = "req-0004",
+                    method = "GET",
+                    url = "https://api.example.com/v1/items/42",
+                    headers = listOf(Header("Authorization", "██")),
+                    body_size = 0,
+                    capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
+                ),
+            response =
+                ResponseReceived(
+                    request_id = "req-0004",
+                    status_code = 200,
+                    headers = listOf(Header("Content-Type", "application/json")),
+                    body = """{"id":42}""".encodeUtf8(),
+                    body_size = 9,
+                ),
+            timeout_ms = 60_000,
+        )
+
+    // Only what the developer changed: the status, one header set and one removed, the body.
+    val breakpointResume =
+        BreakpointResume(
+            request_id = "req-0004",
+            stage = BreakpointStage.BREAKPOINT_STAGE_RESPONSE,
+            status_code = 404,
+            set_headers = listOf(Header("Cache-Control", "no-store")),
+            removed_headers = listOf("Content-Type"),
+            body = ByteString.EMPTY,
+        )
+
+    val breakpointAbort =
+        BreakpointAbort(
+            request_id = "req-0005",
+            stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST,
+            message = "aborted on the desktop",
+        )
+
     /** Fixture file name to the envelope it holds. */
     val envelopes: Map<String, Envelope> =
         mapOf(
@@ -140,6 +214,10 @@ object Samples {
             "connection_closed.bin" to
                 envelope(Protocol.CHANNEL_NETWORK, "ResponseReceived", connectionClosed, TIMESTAMP_MS + 1_500),
             "mock_rules.bin" to envelope(Protocol.CHANNEL_INTERACTION, "MockRules", mockRules),
+            "breakpoint_rules.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointRules", breakpointRules),
+            "breakpoint_hit.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointHit", breakpointHit),
+            "breakpoint_resume.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointResume", breakpointResume),
+            "breakpoint_abort.bin" to envelope(Protocol.CHANNEL_INTERACTION, "BreakpointAbort", breakpointAbort),
         )
 
     private fun envelope(

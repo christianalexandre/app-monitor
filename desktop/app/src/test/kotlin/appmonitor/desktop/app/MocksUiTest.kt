@@ -83,7 +83,11 @@ class MocksUiTest {
                             client.webSocket(host = "127.0.0.1", port = port, path = Protocol.WEBSOCKET_PATH) {
                                 val hello = HELLO.copy(channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_INTERACTION))
                                 send(Frame.Binary(true, Envelope(Protocol.CHANNEL_CORE, "Hello", hello.encodeByteString(), 1).encode()))
-                                for (frame in incoming) received.send(Envelope.ADAPTER.decode((frame as Frame.Binary).readBytes()))
+                                // Breakpoints are pushed beside the rules, in no set order (ADR-0118).
+                                for (frame in incoming) {
+                                    val envelope = Envelope.ADAPTER.decode((frame as Frame.Binary).readBytes())
+                                    if (envelope.type != "BreakpointRules") received.send(envelope)
+                                }
                             }
                         }
                     }

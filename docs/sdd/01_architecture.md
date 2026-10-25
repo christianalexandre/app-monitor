@@ -37,7 +37,7 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 | --- | --- |
 | `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077), `HelloAck` |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
-| `interaction` | `MockRules` (desktop → device, SDD 12, ADR-0113) |
+| `interaction` | `MockRules`, `BreakpointRules`, `BreakpointResume`, `BreakpointAbort` (desktop → device); `BreakpointHit` (device → desktop) (SDD 12, ADR-0113, ADR-0118) |
 
 `Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`
 is when the event happened on the sender. Constants shared by both ends
