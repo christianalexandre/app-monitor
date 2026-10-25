@@ -1,6 +1,5 @@
 package appmonitor.sample
 
-import appmonitor.sdk.okhttp.AppMonitorInterceptor
 import appmonitor.sdk.okhttp.AppMonitorWebSocketFactory
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -27,7 +26,6 @@ class SampleCalls(
     private val client =
         OkHttpClient
             .Builder()
-            .addInterceptor(AppMonitorInterceptor())
             .callTimeout(10, TimeUnit.SECONDS)
             .build()
     private val webSockets = AppMonitorWebSocketFactory(client)

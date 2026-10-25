@@ -143,3 +143,4 @@ Rules:
 | [0123](0123-breakpoints-in-the-kotlin-sdks.md) | How the Kotlin SDKs hold a call at a breakpoint | Accepted |
 | [0124](0124-replay-in-the-ios-sdk.md) | How the iOS SDK keeps and sends a task again | Accepted |
 | [0125](0125-breakpoints-in-the-ios-sdk.md) | How the iOS SDK holds a task at a breakpoint | Accepted |
+| [0126](0126-how-the-gradle-plugin-finds-the-sdk-and-is-tested.md) | How the Gradle plugin finds the SDK and is tested | Accepted |

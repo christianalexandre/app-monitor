@@ -58,7 +58,8 @@ Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
 owner's, with the steps to let them run (ADR-0055: no signing cost), Maven
 Central, SwiftPM tags, docs site, README with GIFs. The Gradle plugin that
 swaps the SDK for its no-ops in release builds, published with the SDK
-(ADR-0093).
+(ADR-0093); its TestKit consumer then resolves the published
+`appmonitor-okhttp` too, the module names of ADR-0126 A.1.
 
 ### Later — more debug channels
 

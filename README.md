@@ -125,7 +125,11 @@ val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
 ```
 
 Debug builds depend on `sdk/android-okhttp`, release builds on
-`sdk/okhttp-no-op` (same API, does nothing). A working app is in
+`sdk/okhttp-no-op` (same API, does nothing). The Gradle plugin
+`io.github.christianalexandre.appmonitor` adds the interceptor to every
+client of a debug build instead, library clients included; it is
+published with the SDK in M10 ([SDD 05](docs/sdd/05_okhttp_capture.md)).
+A working app, with the plugin and without the line, is in
 [`samples/android`](samples/android).
 
 ```swift

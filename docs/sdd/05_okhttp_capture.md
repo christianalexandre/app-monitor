@@ -36,6 +36,27 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 - **Body limit**: `maxBodyBytes`, 1 MiB by default and at most
   `Protocol.MAX_BODY_BYTES` (`AppMonitorOptions` rejects more, ADR-0025).
 
+### Added by the Gradle plugin
+
+`io.github.christianalexandre.appmonitor` (`gradle-plugin/`, ADR-0112,
+ADR-0126), applied in an Android app module, adds the interceptor
+without a line of code:
+
+- In each variant with `debuggable = true` whose dependency graph has
+  `appmonitor-okhttp`, OkHttp's `OkHttpClient.Builder.build()` calls
+  `AppMonitorOkHttp.install(this)` first (AGP instrumentation, scope
+  `ALL`: library clients included). `install` adds an
+  `AppMonitorInterceptor` unless the builder has one, application or
+  network: a hand-written line or a `newBuilder()` client gets none more.
+- Release variants, a variant without the SDK (one build line, "OkHttp is
+  not rewritten", when AGP runs the transform) and
+  `appMonitor { injectOkHttp = false }` leave OkHttp's bytes untouched.
+- WebSockets still need `AppMonitorWebSocketFactory` (ADR-0112 C.1).
+- Tests: `BuilderVisitorTest` (OkHttp's real `Builder` rewritten and
+  loaded), `OkHttpInjectionTest` (TestKit: a consumer's APKs read with
+  `dexdump`), `AppMonitorOkHttpTest` in the SDK. The Android sample has
+  no interceptor line; `make e2e-android` captures it.
+
 ### One HTTP call
 
 | Event | Sent when | Body |
