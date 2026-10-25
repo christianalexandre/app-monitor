@@ -39,3 +39,7 @@ const val REPLAY_NOTE = "replay-note"
 const val SHOW_ORIGINAL = "show-original"
 
 const val CONNECTION_BYTES = "connection-bytes"
+
+const val CONFIRM_REPLAY = "confirm-replay"
+
+const val REFUSE_REPLAY = "refuse-replay"

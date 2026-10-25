@@ -22,6 +22,8 @@ import appmonitor.desktop.app.ui.MCP_STATUS
 import appmonitor.desktop.app.ui.MCP_SWITCH
 import appmonitor.desktop.app.ui.McpSettings
 import appmonitor.desktop.app.ui.claudeMcpAdd
+import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.PendingApproval
 import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
@@ -29,7 +31,6 @@ import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
-import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.RetentionSettings
 import appmonitor.desktop.storage.StoredApproval
@@ -51,7 +52,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -188,10 +192,7 @@ class AppMonitorAppTest {
                 val replaying = async(Dispatchers.IO) { runCatching { replay(Target("127.0.0.1", port)) } }
                 try {
                     runDesktopComposeUiTest(width = 1280, height = 800) {
-                        setContent {
-                            val pending by approvals.pending.collectAsState()
-                            AppMonitorApp(storage, "Listening", pending, { device, approved -> approvals.decide(device.key, approved) })
-                        }
+                        setContent { AppMonitorApp(storage, "Listening", approvals = ServerApprovals(approvals)) }
 
                         waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
                         onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
@@ -216,17 +217,15 @@ class AppMonitorAppTest {
     @Test
     fun `Reject in the dialog decides the first pending device and shows the rest waiting`() =
         withStorage { storage ->
-            val pending =
-                listOf("app.a", "app.b").map {
-                    PendingDevice(
-                        DeviceKey("d1", it),
-                        Hello(device_name = "Pixel", device_id = "d1", app_id = it, os_version = "Android 16"),
-                    )
-                }
-            val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
+            val approvals =
+                RecordedApprovals(
+                    listOf("app.a", "app.b").map {
+                        PendingApproval("d1", it, Hello(device_name = "Pixel", device_id = "d1", app_id = it, os_version = "Android 16"))
+                    },
+                )
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", pending, { device, approved -> decisions += device.key to approved }) }
+                setContent { AppMonitorApp(storage, "Listening", approvals = approvals) }
 
                 onNodeWithText("Pixel — app.a wants to connect").assertExists()
                 onNodeWithText("1 more waiting").assertExists()
@@ -234,7 +233,7 @@ class AppMonitorAppTest {
                 onNodeWithText("Reject").performClick()
             }
 
-            assertEquals(listOf(DeviceKey("d1", "app.a") to false), decisions)
+            assertEquals(listOf(DeviceKey("d1", "app.a") to false), approvals.decisions)
         }
 
     @Test
@@ -726,5 +725,36 @@ class AppMonitorAppTest {
 
         assertTrue(stopped)
         ServerSocket(listening.getCompleted(), 0, InetAddress.getByName("127.0.0.1")).close()
+    }
+}
+
+/** The server's pending devices as the window reads them, answered straight to it. */
+private class ServerApprovals(
+    private val approvals: DeviceApprovals,
+) : ApprovalRepository {
+    override val pending: Flow<List<PendingApproval>> =
+        approvals.pending.map { list -> list.map { PendingApproval(it.key.deviceId, it.key.appId, it.hello) } }
+
+    override suspend fun decide(
+        device: PendingApproval,
+        approved: Boolean,
+    ) {
+        approvals.decide(DeviceKey(device.deviceId, device.appId), approved)
+    }
+}
+
+/** [pending] as given; every answer recorded, none applied. */
+private class RecordedApprovals(
+    devices: List<PendingApproval>,
+) : ApprovalRepository {
+    override val pending: Flow<List<PendingApproval>> = MutableStateFlow(devices)
+
+    val decisions = mutableListOf<Pair<DeviceKey, Boolean>>()
+
+    override suspend fun decide(
+        device: PendingApproval,
+        approved: Boolean,
+    ) {
+        decisions += DeviceKey(device.deviceId, device.appId) to approved
     }
 }

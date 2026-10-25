@@ -11,14 +11,14 @@ import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.CONFIRM_REPLAY
-import appmonitor.desktop.app.ui.REFUSE_REPLAY
+import appmonitor.desktop.domain.AskedReplay
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplaySent
+import appmonitor.desktop.feature.traffic.CONFIRM_REPLAY
+import appmonitor.desktop.feature.traffic.REFUSE_REPLAY
 import appmonitor.desktop.feature.traffic.REPLAYED
 import appmonitor.desktop.feature.traffic.SEND_AGAIN
 import appmonitor.desktop.feature.traffic.SHOW_ORIGINAL
-import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.mcp.ReplayAnswer

@@ -1,12 +1,13 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.PendingApproval
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
-import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredApproval
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * The developer's answers per (`device_id`, `app_id`), kept in [storage] across restarts (ADR-0083). [disconnect]
@@ -17,19 +18,18 @@ internal class ApprovalStore private constructor(
     /** What the server asks; holds the stored answers from the start. */
     val approvals: DeviceApprovals,
     private val disconnect: (DeviceKey) -> Unit,
-) {
-    /** Devices waiting for [decide], in arrival order. */
-    val pending: StateFlow<List<PendingDevice>> get() = approvals.pending
+) : ApprovalRepository {
+    override val pending: Flow<List<PendingApproval>> =
+        approvals.pending.map { list -> list.map { PendingApproval(it.key.deviceId, it.key.appId, it.hello) } }
 
     /** Every stored answer, again after each change. */
     val stored: Flow<List<StoredApproval>> = storage.observeApprovals()
 
-    /** Answers every connection of [device] at once, then stores the answer. */
-    suspend fun decide(
-        device: PendingDevice,
+    override suspend fun decide(
+        device: PendingApproval,
         approved: Boolean,
     ) {
-        approvals.decide(device.key, approved)
+        approvals.decide(DeviceKey(device.deviceId, device.appId), approved)
         storage.decided(device.hello, approved)
     }
 

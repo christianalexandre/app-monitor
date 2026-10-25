@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.AskedReplay
 import appmonitor.desktop.storage.Storage
 import appmonitor.v1.CaptureLayer
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
@@ -7,17 +8,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-
-/** A replay an agent asked, for the developer to send or refuse (ADR-0121). [sessionId] is the server's session id. */
-data class AskedReplay(
-    val exchangeId: Long,
-    val sessionId: String,
-    val requestId: String,
-    val method: String?,
-    val url: String?,
-    val deviceName: String,
-    val appId: String,
-)
 
 /** What [ReplayAsks.ask] did with a replay. */
 enum class ReplayAnswer {

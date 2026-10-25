@@ -1,9 +1,10 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.AskedReplay
+import appmonitor.desktop.domain.AskedReplayRepository
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.ReplaySent
-import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.ReplayAnswer
 import appmonitor.desktop.mcp.ReplayAsks
 import appmonitor.desktop.server.DeviceSession
@@ -25,7 +26,8 @@ import java.util.concurrent.ConcurrentHashMap
 internal class Replays(
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ReplayAsks,
-    ReplayRepository {
+    ReplayRepository,
+    AskedReplayRepository {
     private val sessions = ConcurrentHashMap<String, DeviceSession>()
 
     private val mutableRefused = MutableStateFlow<Map<ReplayKey, String>>(emptyMap())
@@ -34,8 +36,7 @@ internal class Replays(
 
     private val mutableAsked = MutableStateFlow<List<AskedReplay>>(emptyList())
 
-    /** Replays an agent asked, oldest first, until the developer [answer]s them or their session ends. */
-    val asked: StateFlow<List<AskedReplay>> = mutableAsked.asStateFlow()
+    override val asked: StateFlow<List<AskedReplay>> = mutableAsked.asStateFlow()
 
     internal fun opened(session: DeviceSession) {
         sessions[session.id] = session
@@ -64,8 +65,7 @@ internal class Replays(
         return answer
     }
 
-    /** Sends [replay] when [send], else drops it; null when it no longer waits. */
-    fun answer(
+    override fun answer(
         replay: AskedReplay,
         send: Boolean,
     ): ReplaySent? {

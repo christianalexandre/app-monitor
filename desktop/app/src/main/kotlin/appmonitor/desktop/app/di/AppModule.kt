@@ -4,6 +4,8 @@ import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.ui.StorageExports
 import appmonitor.desktop.data.breakpointRepository
 import appmonitor.desktop.data.mockRepository
+import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.AskedReplayRepository
 import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HeldCallRepository
@@ -25,6 +27,7 @@ internal fun appModule(
     traffic: TrafficRepository,
     replays: Replays?,
     heldCalls: HeldCallRepository?,
+    approvals: ApprovalRepository?,
 ): Module =
     module {
         includes(trafficModule, mocksModule, breakpointsModule)
@@ -33,6 +36,10 @@ internal fun appModule(
         single<ExportRepository> { StorageExports(storage) }
         single<MockRepository> { storage.mockRepository() }
         single<BreakpointRepository> { storage.breakpointRepository() }
-        if (replays != null) single<ReplayRepository> { replays }
+        if (replays != null) {
+            single<ReplayRepository> { replays }
+            single<AskedReplayRepository> { replays }
+        }
+        if (approvals != null) single<ApprovalRepository> { approvals }
         if (heldCalls != null) single<HeldCallRepository> { heldCalls }
     }
