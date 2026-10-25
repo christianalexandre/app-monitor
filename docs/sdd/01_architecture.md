@@ -318,11 +318,11 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   again whenever its list row changes. A write failure shows
   "N events not saved: <error>" under the status.
 - Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
-  issue" (or "Save N as issue") above the list takes the ticked requests,
+  issue" (or "Save N as issue") in the toolbar takes the ticked requests,
   from any session or run, or the selected one (live ones are saved to
   "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
-  tags. "Issues" beside the run picker lists them newest first ("Open" or
+  tags. "Issues" under the devices lists them newest first ("Open" or
   "Resolved", tags, request count, "in the window" or "by MCP", last
   change) with a status and a tag filter; one opens to edit its title,
   note, tags and status, lists its requests, and "Delete" removes it after
@@ -330,7 +330,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   (SDD 09 lists every writer and their order), so an MCP edit of another
   field meanwhile is kept; the tags count as changed only when their field
   is edited, so an MCP tag holding a comma survives an edit of another field.
-- Benchmarks (ADR-0097): "Benchmarks" above the request list opens, for
+- Benchmarks (ADR-0097): "Benchmarks" under the devices opens, for
   every device of the shown run (or every run) under the request filter,
   one row per endpoint: count, status classes, error rate, p50, p95, p99,
   sent and received stored body bytes, most called first; a column header
@@ -349,7 +349,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   endpoints (count, error rate, p50, p95 as `base → run`), the added and
   the gone ones (the one side's numbers). The comparison is `diff_runs`'
   (`diffEndpoints`, SDD 09), read on each pick and on "Refresh".
-- Export (ADR-0098): "Export HAR" above the request list asks a file in
+- Export (ADR-0098): "Export HAR" under the devices asks a file in
   the native save dialog and writes `export_har`'s HAR (SDD 10) of every
   device of the shown run (or every run) under the request filter: the
   first 1 000 exchanges, oldest first, bodies whole, refused past 32 MiB;
@@ -372,7 +372,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `ApprovalStore.decide`, which answers the connections at once and queues
   the answer to storage (ADR-0083). The store is built from the stored
   answers at launch, so an approved pair is admitted with no dialog and a
-  rejected one closed with 1008 after a restart. "Settings" above the device
+  rejected one closed with 1008 after a restart. "Settings" under the device
   list opens the settings; their "Devices" section lists every answered pair
   (name, app id, approved or rejected, date, OS, app version) with "Forget"
   per row and "Forget all": a forgotten pair is asked again on its next
@@ -389,7 +389,19 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `make fake-traffic` against the app must be approved within its 10 s
   handshake wait the first time; its fixture `Hello` is always the same
   pair, so later runs are admitted with no dialog (DEBT-0028).
-- UI: three panes (devices, requests of the selected device, detail). The
+- UI (ADR-0146): a toolbar over three panes (devices, requests of the
+  selected device, detail). The toolbar holds the run picker, Record /
+  "Stop recording", Save and Clear (live list only), "Save as issue", the
+  URL search and the method, status and "Failed only" filters; Save's and
+  the HAR export's notes show under it. The devices pane ends with the
+  screens it opens: Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
+  Settings. A request row shows its status as a badge colored by class
+  (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
+  pending or a socket neutral), the method, the URL cut in its middle,
+  "mocked" and "replay" badges, the start time to the millisecond and the
+  duration. An empty pane says why and what to do next: "No requests yet"
+  (live, recording or a stored run, each with its hint), "No requests
+  match" (a filter is set), "Select a request". The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
   when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON

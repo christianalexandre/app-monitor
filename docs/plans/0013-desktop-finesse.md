@@ -74,10 +74,27 @@ task too large for one PR is split at once.
   screen screenshots in both themes. Stored as `ui.theme` (ADR-0145);
   every `desktop/app` screenshot has a `-dark.png` twin; the script also
   refuses named colors; `liveScreenshots` stays light.
-- [ ] **H3.6 Layout finesse.** ADR-0140 G: three panes, toolbar, request
-  row, detail tabs with copy actions, filter sheet, empty states.
-  Accept: `./gradlew :desktop:app:test` — screenshots of every screen
-  in light and dark listed in the PR for the owner's review.
+- [x] **H3.6 Toolbar, request row and empty states.**
+  ADR-0140 G: one toolbar over the three panes (runs, Record/Stop,
+  Clear, Save, search, filters, the other screens); a request row shows
+  a status badge colored by class, method, URL truncated in the middle,
+  start time and duration; empty states say what to do next. Split from
+  the original H3.6, which was too large for one PR.
+  Accept: `./gradlew :desktop:designsystem:test :desktop:app:test` —
+  the gallery shows the badge tones and the toolbar in both themes; the
+  live, filters and empty-list screenshots in light and dark. The links
+  to other screens moved under the devices (no room at 1280 px); the URL
+  is cut by a measured `MiddleEllipsisText`, since Compose Desktop draws
+  `TextOverflow.MiddleEllipsis` at the end (ADR-0146).
+- [ ] **H3.6b Detail tabs.** Summary, Headers, Body, Timing, cURL, each
+  with its copy action.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
+  each tab shows its part of a request and copies it.
+- [ ] **H3.6c Filter sheet.** Status class and host, as
+  `app-network-monitor`'s sheet, replacing the toolbar's filter choices.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
+  a host filter keeps only that host's rows; screenshots of every
+  screen in light and dark listed in the PR for the owner's review.
 
 ## Outcome
 

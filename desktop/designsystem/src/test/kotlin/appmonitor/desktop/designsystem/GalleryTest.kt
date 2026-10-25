@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -36,6 +37,7 @@ class GalleryTest {
                     }
                 }
                 TextRole.entries.forEach { onNodeWithText("Text in ${it.name}").assertExists() }
+                BadgeTone.entries.forEach { onNodeWithText(it.name).assertExists() }
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 assertEquals("POST", chosen)
@@ -69,6 +71,20 @@ private fun Gallery(onChoose: (String?) -> Unit) {
             TextField("", {}, Modifier.fillMaxWidth(), placeholder = "Placeholder")
             Text("Selected item", Modifier.fillMaxWidth().selectableItem(selected = true) {}.padding(Spacing.md))
             Text("Item", Modifier.fillMaxWidth().selectableItem(selected = false) {}.padding(Spacing.md))
+        }
+        VerticalDivider()
+        Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+            Toolbar {
+                TextButton("Record", onClick = {})
+                TextButton("Clear", onClick = {})
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                BadgeTone.entries.forEach { Badge(it.name, it) }
+            }
+            Box(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
+                MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")
+            }
+            Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
         }
         VerticalDivider()
         Box(Modifier.weight(1f).fillMaxSize()) {

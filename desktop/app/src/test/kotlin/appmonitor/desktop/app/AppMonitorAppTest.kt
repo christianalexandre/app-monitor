@@ -510,7 +510,9 @@ class AppMonitorAppTest {
 
                 onNodeWithTag(CLEAR).performClick()
                 awaitText("No requests yet")
+                onNodeWithText("Requests of every connected device show here as they happen").assertExists()
                 onNodeWithText("https://a.example/cart").assertDoesNotExist()
+                screenshot("cleared.png")
             }
             assertEquals(emptyList(), runBlocking { storage.allExchanges() }, "the live list writes nothing to the store")
         }
@@ -652,6 +654,7 @@ class AppMonitorAppTest {
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 awaitText("No requests match")
+                onNodeWithText("Change the search or the filters").assertExists()
 
                 onNodeWithTag(SEARCH).performTextReplacement("")
                 onNodeWithText("Status: 4xx ▾").performClick()

@@ -163,3 +163,4 @@ Rules:
 | [0143](0143-save-copies-live-exchanges-into-one-saved-run.md) | Save copies live exchanges into one "Saved" run, marked by a column | Accepted |
 | [0144](0144-disconnect-refuses-a-pair-in-memory-until-reconnect.md) | Disconnect refuses a pair in memory, before approval, until Reconnect | Accepted |
 | [0145](0145-the-theme-is-a-stored-setting-applied-at-the-window-root.md) | The theme is a stored setting applied at the window root, every color a token with two values | Accepted |
+| [0146](0146-a-toolbar-over-the-panes-and-request-rows-with-a-status-badge.md) | A toolbar over the panes, request rows with a status badge, the URL cut in its middle | Accepted |
