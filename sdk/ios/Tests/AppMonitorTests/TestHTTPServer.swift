@@ -3,7 +3,7 @@ import Network
 
 /// HTTP/1.1 on 127.0.0.1 for capture tests; records each request as it arrived. Routes: `/ok` 200 with
 /// a cookie, `/error` 500, `/big/N` N bytes, `/echo` the request body, `/redirect` 302 to `/ok`,
-/// `/hang` never answers.
+/// `/auth` 401 asking for Basic credentials unless the request has some, `/hang` never answers.
 final class TestHTTPServer: @unchecked Sendable {
     struct Request: Sendable {
         let method: String
@@ -85,6 +85,9 @@ final class TestHTTPServer: @unchecked Sendable {
         case "/error": (status, headers, body) = ("500 Internal Server Error", [], Data("boom".utf8))
         case "/echo": (status, headers, body) = ("200 OK", [], request.body)
         case "/redirect": (status, headers, body) = ("302 Found", ["Location: /ok"], Data("moved".utf8))
+        case "/auth" where request.headers["authorization"] == nil:
+            (status, headers, body) = ("401 Unauthorized", ["WWW-Authenticate: Basic realm=\"test\""], Data())
+        case "/auth": (status, headers, body) = ("200 OK", [], Data("hello".utf8))
         case "/hang": return nil
         case _ where path.hasPrefix("/big/"):
             (status, headers, body) = ("200 OK", [], Data(repeating: UInt8(ascii: "a"), count: Int(path.dropFirst(5))!))

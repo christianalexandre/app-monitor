@@ -291,8 +291,7 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
-- The Swift SDK holds no background task, nor one with a streamed body;
-  a held task's challenges and redirects skip the app's delegate
-  (ADR-0125, DEBT-0085).
+- The Swift SDK holds no background task, nor one with a streamed body
+  (ADR-0125).
 - The held call's dialog covers the window while the call waits
   (ADR-0119).
