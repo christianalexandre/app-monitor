@@ -6,6 +6,8 @@ import appmonitor.desktop.app.ui.claudeMcpAdd
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.storage.Storage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -108,6 +110,32 @@ class McpWiringTest {
             runBlocking { relaunched.close() }
             runBlocking { relaunched.setEnabled(true) }
             assertEquals(McpStatus.Off, relaunched.status.value, "closed stays off")
+        }
+
+    @Test
+    fun switchTurnedOffDuringStartsReadStaysOff() =
+        withStorage { storage ->
+            val reading = CompletableDeferred<Unit>()
+            val stored = CompletableDeferred<String?>()
+            val mcp =
+                McpController(storage, runBlocking { McpAccess.open(storage) }, 0) {
+                    reading.complete(Unit)
+                    stored.await()
+                }
+
+            runBlocking {
+                val start = launch { mcp.start() }
+                reading.await()
+                mcp.setEnabled(false)
+                stored.complete(null)
+                start.join()
+                storage.flush()
+            }
+
+            assertEquals(false, mcp.enabled.value)
+            assertEquals(McpStatus.Off, mcp.status.value)
+            assertEquals("false", runBlocking { storage.setting(McpController.KEY_ENABLED) })
+            runBlocking { mcp.close() }
         }
 
     @Test

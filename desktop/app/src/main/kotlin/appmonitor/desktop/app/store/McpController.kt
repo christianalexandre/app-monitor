@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.BindException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** What the settings show about the MCP server (SDD 10). */
 internal sealed interface McpStatus {
@@ -36,15 +37,18 @@ internal sealed interface McpStatus {
 /**
  * Starts and stops the MCP server with the `mcp.enabled` switch (missing = on, ADR-0090 C.1); a server is single use,
  * so each start builds one. A taken port or any start failure is a [status], never a throw. Once [close]d it stays off.
+ * A [setEnabled] before [start]'s read returns wins over the stored switch.
  */
 internal class McpController(
     private val storage: Storage,
     private val access: McpAccess,
     val port: Int = mcpPort(),
+    private val readSwitch: suspend () -> String? = { storage.setting(KEY_ENABLED) },
 ) {
     private val lock = Mutex()
     private var server: McpServer? = null
     private var closed = false
+    private val switched = AtomicBoolean(false)
     private val mutableStatus = MutableStateFlow<McpStatus>(McpStatus.Off)
     private val mutableEnabled = MutableStateFlow(true)
 
@@ -54,12 +58,16 @@ internal class McpController(
 
     /** Reads the switch and starts the server when it is on. */
     suspend fun start() {
-        mutableEnabled.value = storage.setting(KEY_ENABLED) != false.toString()
-        lock.withLock { if (mutableEnabled.value) startLocked() }
+        val stored = readSwitch() != false.toString()
+        lock.withLock {
+            if (!switched.get()) mutableEnabled.value = stored
+            if (mutableEnabled.value) startLocked()
+        }
     }
 
     /** Persists the switch, then starts or stops the server. */
     suspend fun setEnabled(on: Boolean) {
+        switched.set(true)
         mutableEnabled.value = on
         storage.setSetting(KEY_ENABLED, on.toString())
         lock.withLock { if (on) startLocked() else stopLocked() }
