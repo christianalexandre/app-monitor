@@ -29,7 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The MCP server, read-only but `save_issue` and `create_mock`, over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
+ * The MCP server, read-only but `save_issue`, `create_mock` and `replay_request` (left to [replays]), over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(
@@ -39,13 +39,15 @@ class McpServer internal constructor(
     private val version: String,
     private val health: () -> StorageHealth,
     private val beforeTool: suspend () -> Unit,
+    private val replays: ReplayAsks? = null,
 ) {
     constructor(
         storage: Storage,
         access: McpAccess,
         port: Int = mcpPort(),
         version: String = "dev",
-    ) : this(storage, access, port, version, { storage.health.value }, {})
+        replays: ReplayAsks? = null,
+    ) : this(storage, access, port, version, { storage.health.value }, {}, replays)
 
     private val mcp =
         Server(
@@ -69,6 +71,9 @@ class McpServer internal constructor(
             }
             result(CreateMock.NAME, CreateMock.description, CreateMock.inputSchema, WRITES) {
                 jsonResult(CreateMock.call(storage, it, health), health())
+            }
+            result(AskReplay.NAME, AskReplay.description, AskReplay.inputSchema, REPLAYS) {
+                jsonResult(AskReplay.call(storage, replays, it), health())
             }
         }
 
@@ -163,5 +168,8 @@ class McpServer internal constructor(
 
         // ADR-0095 C.1, ADR-0114 C.1: creates and edits, never deletes.
         private val WRITES = ToolAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = false)
+
+        // ADR-0121 C.1: a confirmed POST runs again on a server outside the desktop.
+        private val REPLAYS = ToolAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false, openWorldHint = true)
     }
 }

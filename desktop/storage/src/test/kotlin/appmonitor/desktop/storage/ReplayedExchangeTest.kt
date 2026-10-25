@@ -33,6 +33,12 @@ class ReplayedExchangeTest {
                 val detail = storage.exchange(byRequest.getValue("again").id)!!
                 assertEquals(byRequest.getValue("first").id, detail.replayOfId)
                 assertNull(storage.exchange(byRequest.getValue("first").id)!!.replayOfId)
+                assertEquals(
+                    mapOf(byRequest.getValue("again").id to byRequest.getValue("first").id),
+                    storage.replayOriginals(byRequest.values.toList()),
+                )
+                assertEquals("s", storage.session(session)!!.serverSessionId)
+                assertNull(storage.session(session + 1))
                 storage.close(5.seconds)
             }
         }
@@ -53,6 +59,7 @@ class ReplayedExchangeTest {
                 val lost = storage.exchange(rows.getValue("lost").id)!!
                 assertEquals("gone", lost.exchange.replayOf)
                 assertNull(lost.replayOfId)
+                assertEquals(emptyMap(), storage.replayOriginals(rows.values.toList()))
                 storage.close(5.seconds)
             }
         }

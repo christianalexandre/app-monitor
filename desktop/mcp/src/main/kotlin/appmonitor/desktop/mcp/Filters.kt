@@ -65,8 +65,14 @@ internal object Filters {
         )
 }
 
-/** The row fields of an exchange, the same in `search_requests` and `get_request`. */
-internal fun JsonObjectBuilder.putExchangeRow(exchange: StoredExchange) {
+/**
+ * The row fields of an exchange, the same in `search_requests` and `get_request`; [replayOf] is its original's exchange
+ * id, null when it is not a replay or the original is gone (ADR-0121 D.1).
+ */
+internal fun JsonObjectBuilder.putExchangeRow(
+    exchange: StoredExchange,
+    replayOf: Long?,
+) {
     put("id", exchange.id)
     put("session_id", exchange.sessionId)
     put("method", exchange.method.json())
@@ -84,6 +90,8 @@ internal fun JsonObjectBuilder.putExchangeRow(exchange: StoredExchange) {
     )
     put("frame_count", exchange.frameCount)
     put("mock_rule_id", exchange.mockRuleId.json())
+    put("replay", exchange.replayOf != null)
+    put("replay_of", replayOf.json())
 }
 
-internal fun StoredExchange.toRowJson(): JsonObject = buildJsonObject { putExchangeRow(this@toRowJson) }
+internal fun StoredExchange.toRowJson(replayOf: Long?): JsonObject = buildJsonObject { putExchangeRow(this@toRowJson, replayOf) }

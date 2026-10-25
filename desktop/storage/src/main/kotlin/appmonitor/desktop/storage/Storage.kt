@@ -658,6 +658,20 @@ class Storage private constructor(
             )
         }
 
+    /** The original's exchange id of each replay in [exchanges] whose original is still stored, by the replay's id. */
+    suspend fun replayOriginals(exchanges: List<StoredExchange>): Map<Long, Long> {
+        val replays = exchanges.filter { it.replayOf != null }
+        if (replays.isEmpty()) return emptyMap()
+        return read(emptyMap()) {
+            replays
+                .mapNotNull { replay ->
+                    exchangeQueries.idOf(replay.sessionId, replay.replayOf!!).executeAsOneOrNull()?.let { replay.id to it }
+                }.toMap()
+        }
+    }
+
+    suspend fun session(id: Long): StoredSession? = read(null) { sessionQueries.byId(id).executeAsOneOrNull()?.toStored() }
+
     /** A page of an exchange's WebSocket frames, in the order the device sent them. */
     suspend fun frames(
         exchangeId: Long,

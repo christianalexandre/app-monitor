@@ -76,10 +76,11 @@ internal fun withStorage(
 internal fun withServer(
     health: () -> StorageHealth? = { null },
     beforeTool: suspend () -> Unit = {},
+    replays: ReplayAsks? = null,
     block: suspend (Running) -> Unit,
 ) = withStorage { storage ->
     val access = McpAccess.open(storage)
-    val server = McpServer(storage, access, 0, "test", { health() ?: storage.health.value }, beforeTool)
+    val server = McpServer(storage, access, 0, "test", { health() ?: storage.health.value }, beforeTool, replays)
     val port = server.start()
     try {
         block(Running(storage, access, server, port))

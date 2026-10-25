@@ -66,6 +66,7 @@ import appmonitor.desktop.app.store.ReplayKey
 import appmonitor.desktop.app.store.ReplaySent
 import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.store.durationOf
+import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.desktop.server.DeviceKey
@@ -148,6 +149,7 @@ internal fun AppMonitorApp(
     val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
     var breakpointsOpen by remember { mutableStateOf(false) }
     val held by remember(heldCalls) { heldCalls?.held ?: MutableStateFlow(emptyList()) }.collectAsState()
+    val askedReplays by remember(replays) { replays?.asked ?: MutableStateFlow(emptyList()) }.collectAsState()
     val everySession by remember(storage) { storage.observeSessions(null) }.collectAsState(emptyList())
     val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
     var benchmarksOpen by remember { mutableStateOf(false) }
@@ -316,6 +318,9 @@ internal fun AppMonitorApp(
                 // A newer hit under the same request and stage is a new form, not the old one's edits.
                 held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1, heldCalls) } }
             }
+            if (replays != null) {
+                askedReplays.firstOrNull()?.let { AskedReplayDialog(it, askedReplays.size - 1) { send -> replays.answer(it, send) } }
+            }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
@@ -462,6 +467,32 @@ private fun ApprovalDialog(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { onDecide(device, false) }) { Text("Reject") }
                     TextButton(onClick = { onDecide(device, true) }) { Text("Approve") }
+                }
+            }
+        }
+    }
+}
+
+/** ADR-0005, ADR-0121 B.1: nothing an agent asks reaches the device before "Send again". */
+@Composable
+private fun AskedReplayDialog(
+    replay: AskedReplay,
+    waiting: Int,
+    onAnswer: (send: Boolean) -> Unit,
+) {
+    Overlay {
+        Card(Modifier.width(420.dp), elevation = 8.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("An agent asks to send this request again", fontWeight = FontWeight.Medium)
+                Text("${replay.method ?: "—"} ${replay.url ?: replay.requestId}")
+                Text(
+                    "${replay.deviceName.ifEmpty { "Unnamed device" }} — ${replay.appId} · exchange ${replay.exchangeId}",
+                    style = MaterialTheme.typography.caption,
+                )
+                if (waiting > 0) Text("$waiting more waiting", style = MaterialTheme.typography.caption)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { onAnswer(false) }, Modifier.testTag(REFUSE_REPLAY)) { Text("Refuse") }
+                    TextButton(onClick = { onAnswer(true) }, Modifier.testTag(CONFIRM_REPLAY)) { Text(replayLabelOf(replay.method)) }
                 }
             }
         }
@@ -1285,6 +1316,10 @@ internal const val SEND_AGAIN = "send-again"
 internal const val REPLAY_NOTE = "replay-note"
 
 internal const val SHOW_ORIGINAL = "show-original"
+
+internal const val CONFIRM_REPLAY = "confirm-replay"
+
+internal const val REFUSE_REPLAY = "refuse-replay"
 
 // ADR-0111: a replayed POST really runs a second time on the server.
 private fun replayLabelOf(method: String?): String =

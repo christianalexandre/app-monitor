@@ -64,6 +64,8 @@ class SearchRequestsTest {
                     "capture_layer",
                     "frame_count",
                     "mock_rule_id",
+                    "replay",
+                    "replay_of",
                 ),
                 first.keys,
             )

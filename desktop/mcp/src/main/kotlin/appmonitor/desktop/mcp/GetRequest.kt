@@ -28,7 +28,8 @@ internal object GetRequest {
             "original. Page frames with frames.next_after_id. A connection (capture_layer connection) has no request or " +
             "response, only connection.sent_bytes and received_bytes, null until it closed. A mocked exchange (mock_rule_id " +
             "set) was answered on the device by that mock rule, not the network; mock_rule_name is null once the rule is " +
-            "deleted. $DATA_NOTE"
+            "deleted. A replay (replay true) is the app sending again the exchange replay_of, null once that one is " +
+            "gone. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -87,7 +88,7 @@ internal object GetRequest {
         if (detail == null) throw ToolError("no exchange with id $id")
         val connection = detail.connectionBytes
         return buildJsonObject {
-            putExchangeRow(detail.exchange)
+            putExchangeRow(detail.exchange, detail.replayOfId)
             put("mock_rule_name", detail.mockRuleName.json())
             put(
                 "connection",
