@@ -17,6 +17,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)
     testImplementation(project(":tools:fake-client"))
+    testImplementation(libs.ktor.client.cio)
     testImplementation(testFixtures(project(":desktop:mcp")))
 }
 

@@ -3,6 +3,7 @@ package appmonitor.desktop.app.store
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.storage.Storage
+import appmonitor.protocol.Protocol
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Feeds [storage] with every session and its envelopes, in the order each session produced them (SDD 09). */
+/**
+ * Feeds [storage] with every session and its envelopes, in the order each session produced them (SDD 09), and sends
+ * each session that accepted `interaction` its app's mock rules (SDD 12).
+ */
 internal class TrafficStore(
     private val storage: Storage,
 ) {
@@ -20,9 +24,11 @@ internal class TrafficStore(
             sessions.collect { session ->
                 storage.connected(session.id, session.hello, session.peerAddress)
                 launch {
+                    val mocks = if (Protocol.CHANNEL_INTERACTION in session.channels) launch { pushMocks(storage, session) } else null
                     try {
                         session.envelopes.collect { storage.received(session.id, it) }
                     } finally {
+                        mocks?.cancel()
                         // A full queue on a stalled disk must not hold the exit; the next open closes the session.
                         withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { storage.disconnected(session.id) } }
                     }

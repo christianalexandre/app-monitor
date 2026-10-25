@@ -4,6 +4,8 @@ import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
+import appmonitor.v1.MockRule
+import appmonitor.v1.MockRules
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -32,6 +34,21 @@ class RoundTripTest {
 
     @Test
     fun webSocketFrame() = assertEquals(Samples.webSocketFrame, WebSocketFrame.ADAPTER.decode(Samples.webSocketFrame.encode()))
+
+    @Test
+    fun mockRules() = assertEquals(Samples.mockRules, MockRules.ADAPTER.decode(Samples.mockRules.encode()))
+
+    @Test
+    fun mockRuleWithoutAnAnswerFromANewerPeerHasNeither() {
+        // A newer desktop's answer kind lands in an unknown field: the rule reads with no answer.
+        val newer =
+            Samples.mockRules.rules[0]
+                .copy(response = null)
+                .encode() + byteArrayOf(0x40, 0x01)
+        val decoded = MockRule.ADAPTER.decode(newer)
+        assertNull(decoded.response)
+        assertNull(decoded.failure)
+    }
 
     @Test
     fun envelopes() {

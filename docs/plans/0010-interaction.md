@@ -43,38 +43,42 @@ needs its own decision is split as soon as that shows.
   variants, duplicates with a hand-written line, WebSockets, opt-out,
   and where the plugin lives before M10.
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M9.2 Mock rules on the desktop and the wire.** The `interaction`
+- [x] **M9.2 Mock rules on the wire and in the store.** (`feat/interaction-channel`; split from the plan's M9.2, whose window and MCP half is M9.3; ADR-0113: one whole-set `MockRules`, the rule as a blob, a set past one frame cut; migration `3.sqm`; DEBT-0068's `published` item paid) The `interaction`
   channel per ADR-0110 in `protocol` (messages, fixtures, the Swift
   samples mirrored). The desktop stores rules per app (a migration) and
   sends them to an approved device that lists the channel, at `HelloAck`
-  and on every change. The window gets a mock editor, opened from an
-  exchange or empty. The MCP tool creates rules under ADR-0005's
-  confirmation. New SDD chapter for the channel; SDD 09 and 10 updated.
-  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:mcp:test :desktop:app:test`.
-  A rule made in the window reaches a stand-in device as one envelope.
-  An MCP rule stays inactive until confirmed. Offscreen screenshot
-  `mocks.png`.
-- [ ] **M9.3 Mocks in the Kotlin SDKs.** `sdk/core` keeps the rules it
+  and on every change. New SDD chapter for the channel; SDD 09 updated.
+  Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:server:test :desktop:app:test`.
+  A stored rule reaches a stand-in device as one envelope, after
+  `HelloAck`, and again on a change. A pending rule is not sent.
+- [ ] **M9.3 Mock rules in the window and MCP.** The window gets a mock
+  editor, opened from an exchange or empty, that marks rules left out of
+  the frame (ADR-0113 C.1). The MCP tool creates rules under ADR-0005's
+  confirmation. SDD 10 and 12 updated.
+  Accept: `./gradlew :desktop:mcp:test :desktop:app:test`. A rule made in
+  the window reaches a stand-in device as one envelope. An MCP rule stays
+  inactive until confirmed. Offscreen screenshot `mocks.png`.
+- [ ] **M9.4 Mocks in the Kotlin SDKs.** `sdk/core` keeps the rules it
   receives. `AppMonitorInterceptor` and `AppMonitorKtor` answer a
   matching call without the network. The exchange carries its rule, and
   the desktop shows it as mocked. A shared matching vector in
   `protocol/fixtures/`. SDD 04, 05 and 08 updated.
   Accept: `./gradlew :sdk:core:allTests :sdk:android-okhttp:allTests :sdk:ktor:allTests`
   and `make e2e-android`, with one rule asserted end to end.
-- [ ] **M9.4 Mocks in the iOS SDK.** `sdk/ios` per ADR-0110: the same
+- [ ] **M9.5 Mocks in the iOS SDK.** `sdk/ios` per ADR-0110: the same
   vector, a matching task answered without the network, background
   sessions left as they are. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one rule
   asserted end to end.
-- [ ] **M9.5 Breakpoints and replay.** Per ADR-0111, in every SDK of M9.3
-  and M9.4 and in the window. Pause, edit, resume, abort and timeout. A
+- [ ] **M9.6 Breakpoints and replay.** Per ADR-0111, in every SDK of M9.4
+  and M9.5 and in the window. Pause, edit, resume, abort and timeout. A
   replay is started from an exchange's detail, or from MCP under
   confirmation.
   Accept: each SDK's tests above, which hold a call, resume it edited and
   let one time out. `./gradlew :desktop:app:test` with an offscreen
   screenshot `breakpoint.png`. A replayed exchange is stored and linked
   to its original.
-- [ ] **M9.6 OkHttp injection by the Gradle plugin.** The plugin module
+- [ ] **M9.7 OkHttp injection by the Gradle plugin.** The plugin module
   of ADR-0093, injection only (the release swap stays M10), per ADR-0112.
   Gradle TestKit tests on a consumer project. The Android sample drops
   its hand-written interceptor line. README setup and SDD 05 updated.

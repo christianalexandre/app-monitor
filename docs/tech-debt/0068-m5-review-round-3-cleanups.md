@@ -32,10 +32,8 @@ results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
   the block for another reason would be returned as a stale status.
 - **Rollback copied.** `retryLost` repeats `write`'s snapshot and restore
   of rows and connections (see DEBT-0067's "rollback rebuilt by hand").
-- **`published` is a `Boolean?`.** In `AppMonitorServer`'s handshake, null
-  means "forgotten"; a later removal from `connections` for another reason
-  would answer the device 1008 "Forgotten". A sealed result would name
-  each outcome.
+- **`published` is a `Boolean?`.** (Paid by PLAN-0010 M9.2: the
+  handshake names each outcome with a `Publication` enum.)
 - **One closing guard per method.** Every new `Storage` call that touches
   the driver must remember `whileOpen` (or M5.R10's read guard); one
   close-aware guard on the driver would hold for all of them.
@@ -63,6 +61,11 @@ code.
 Fired by PLAN-0009 M8.4, whose `Ingest` change is one line in `network`
 (ADR-0104): `retryLost`, health, `close`, `whileOpen` and the handshake
 are untouched. Narrowed to that code.
+
+Fired by PLAN-0010 M9.2 (`feat/interaction-channel`), which adds the
+outgoing queue after `HelloAck` in `AppMonitorServer`'s handshake: it
+paid the `published` item there (a `Publication` enum). `retryLost`,
+health, `close` and `whileOpen` are untouched.
 
 ## How it was paid
 

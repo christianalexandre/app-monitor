@@ -62,6 +62,11 @@ Fired by PLAN-0009 M8.4, whose `Ingest` change is one line in `network`
 (ADR-0104): the rollback, the batch copies, the idle-pass cleanup and the
 `/tmp` test are untouched. Narrowed to that code.
 
+Fired by PLAN-0010 M9.2 (`feat/interaction-channel`), whose rollback
+change is one line (a mock write's outcome cleared, as M7.2's issues)
+and whose `StorageOpenTest` change is the expected table list. The
+rollback, allocation, idle-pass cleanup and `/tmp` test are unchanged.
+
 ## How it was paid
 
 > Filled when closing.

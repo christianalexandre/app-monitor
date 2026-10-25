@@ -1,3 +1,4 @@
 d0b58ad858237507e2406b882ea2b6b6ec5464312c84b435e21445ca677e91ff  protocol/proto/appmonitor/v1/core.proto
 ad2adba81389577565135d4bd6f2b3d8affd879daa5dd5283efbe46f0ed985ee  protocol/proto/appmonitor/v1/envelope.proto
+5297e7d5097d598fa29b93d0d7ec7c6f3b114f21c63ebbd4090cf382f3dc8edb  protocol/proto/appmonitor/v1/interaction.proto
 062f03b3c6b4c6f887a59f370b1aac328f9e8c264b7da31004564fbc76cbafed  protocol/proto/appmonitor/v1/network.proto

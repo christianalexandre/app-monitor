@@ -4,6 +4,7 @@ enum ProtocolConstants {
     static let version: UInt32 = 1
     static let channelCore = "core"
     static let channelNetwork = "network"
+    static let channelInteraction = "interaction"
     static let defaultPort: UInt16 = 47474
     static let websocketPath = "/v1/ws"
     /// `MDNS_SERVICE_TYPE` without its `.local.` domain, as `NWBrowser` takes it.

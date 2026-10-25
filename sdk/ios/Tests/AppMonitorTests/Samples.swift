@@ -76,6 +76,29 @@ enum Samples {
         $0.sentSize = 512
     }
 
+    static let mockRules = Appmonitor_V1_MockRules.with {
+        $0.rules = [
+            .with {
+                $0.id = 7
+                $0.host = "api.example.com"
+                $0.path = "/v1/items/*"
+                $0.response = .with {
+                    $0.statusCode = 503
+                    $0.headers = [header("Retry-After", "30")]
+                    $0.body = Data(#"{"error":"maintenance"}"#.utf8)
+                }
+            },
+            .with {
+                $0.id = 9
+                $0.method = "POST"
+                $0.host = "api.example.com"
+                $0.path = "/v1/orders"
+                $0.delayMs = 2_000
+                $0.failure = .with { $0.message = "connection reset" }
+            },
+        ]
+    }
+
     /// Fixture file name to the message its envelope carries.
     static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
@@ -86,6 +109,7 @@ enum Samples {
         "websocket_frame.bin": (ProtocolConstants.channelNetwork, "WebSocketFrame", webSocketFrame),
         "connection_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", connectionStarted),
         "connection_closed.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", connectionClosed),
+        "mock_rules.bin": (ProtocolConstants.channelInteraction, "MockRules", mockRules),
     ]
 
     /// Envelopes stamped later than `timestampMs`, by file name.

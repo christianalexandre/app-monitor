@@ -41,7 +41,8 @@ Opening (`Storage.open(dir)`):
 
 ### Tables
 
-Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
+Every id is an `INTEGER PRIMARY KEY` (`mock_rules` adds `AUTOINCREMENT`,
+so a rule's id is never reused, ADR-0113 B.1); children reference their parent with
 `ON DELETE CASCADE`, so deleting a session deletes all it holds.
 
 | Table | Columns | Indexes |
@@ -60,6 +61,7 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 | `issues` | `title`, `note`, `status` (`open` or `resolved`), `source` (`window` or `mcp`, who created it), `created_at_ms`, `updated_at_ms` | |
 | `issue_tags` | `issue_ref`, `tag` | primary key (`issue_ref`, `tag`); `tag` |
 | `issue_exchanges` | `issue_ref`, `exchange_ref` | primary key (`issue_ref`, `exchange_ref`); `exchange_ref` |
+| `mock_rules` | `app_id`, `position`, `name`, `enabled`, `pending`, `source` (`window` or `mcp`), `rule` (the `MockRule` without its id), `created_at_ms`, `updated_at_ms` | (`app_id`, `position`) |
 
 - `request_meta` / `response_meta` are the `RequestStarted` /
   `ResponseReceived` payload re-encoded with Wire **without** its body
@@ -85,10 +87,13 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 - Issues (ADR-0095, ADR-0096) are not under a session either; their tags and
   links cascade from the issue, and a link from its exchange. Tags are
   trimmed, blank ones dropped, line breaks turned to spaces, each once.
+- Mock rules (SDD 12) are not under a session: retention never touches
+  them; "Clear all data" does.
 
 Migrations are `.sqm` files in `src/main/sqldelight/migrations/`, one per
 schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
-(version 2 to 3) `exchanges.grpc_status`. The `.sq`
+(version 2 to 3) `exchanges.grpc_status`, `3.sqm` (version 3 to 4)
+`mock_rules`. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -247,8 +252,8 @@ there, not thrown. The device list shows a warning for either of the last
 two, the settings the size on disk.
 
 `clearAll()` (the settings' "Clear all data", after a confirmation) waits
-for the queue, then on the writer thread deletes every row — runs, issues,
-approvals and settings included — in one transaction, runs `VACUUM`, and
+for the queue, then on the writer thread deletes every row — runs, issues, mock
+rules, approvals and settings included — in one transaction, runs `VACUUM`, and
 opens a new run. The writer forgets the sessions still connected, so what
 they send next is dropped; the app first forgets every approval, which
 closes the approved devices (ADR-0083). A failure goes to
@@ -371,6 +376,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | An issue survives a reopen; edits change only their fields, in queue order; status and tag filters | `IssuesTest.anIssueSurvivesAReopen`, `IssuesTest.editsChangeOnlyTheFieldsTheyCarryInQueueOrder` (M7.2) |
 | Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |
 | "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
+| Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 
 ## Limits
 

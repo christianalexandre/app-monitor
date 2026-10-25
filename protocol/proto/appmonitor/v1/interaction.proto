@@ -1,0 +1,45 @@
+// Channel "interaction": the desktop changes what the app's calls do
+// (ADR-0110, ADR-0113). Sent only to a device that listed the channel in
+// Hello.channels and got it back in HelloAck.channels.
+syntax = "proto3";
+
+package appmonitor.v1;
+
+import "appmonitor/v1/network.proto";
+
+// Desktop to device: every active rule for the device's app, in match
+// order. Each one replaces the set before it; an empty set means no mocks.
+message MockRules {
+  repeated MockRule rules = 1;
+}
+
+message MockRule {
+  // The desktop's id for the rule, never reused.
+  int64 id = 1;
+  // Matches the request's method exactly; empty matches any method.
+  string method = 2;
+  // Matches the URL's host, ignoring case.
+  string host = 3;
+  // Matches the URL's path segment by segment; a "*" segment matches any one
+  // segment. The query string is not matched.
+  string path = 4;
+  // Before the answer is given.
+  int64 delay_ms = 5;
+  oneof answer {
+    MockResponse response = 6;
+    MockFailure failure = 7;
+  }
+}
+
+message MockResponse {
+  int32 status_code = 1;
+  repeated Header headers = 2;
+  // At most Protocol.MAX_BODY_BYTES.
+  bytes body = 3;
+}
+
+// The call fails as the app's client reports a transport error.
+message MockFailure {
+  // Shown in the error the app receives.
+  string message = 1;
+}

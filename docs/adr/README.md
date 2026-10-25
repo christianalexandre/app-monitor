@@ -130,3 +130,4 @@ Rules:
 | [0110](0110-mock-rules.md) | Mock rules from the desktop, served by the SDKs | Accepted |
 | [0111](0111-breakpoints-and-replay.md) | Breakpoints hold a call on the device; replay goes through the app | Accepted |
 | [0112](0112-okhttp-injection-by-the-gradle-plugin.md) | The Gradle plugin adds the OkHttp interceptor in debug builds | Accepted |
+| [0113](0113-interaction-channel-and-rule-storage.md) | The interaction channel's rule set and how the desktop keeps rules | Accepted |

@@ -214,6 +214,7 @@ class IssuesTest {
             Storage.open(dir) { 1_000 }.let { runBlocking { it.close(5.seconds) } }
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
+                    it.execute("DROP TABLE mock_rules")
                     it.execute("DROP TABLE issue_exchanges")
                     it.execute("DROP TABLE issue_tags")
                     it.execute("DROP TABLE issues")
@@ -227,7 +228,7 @@ class IssuesTest {
                 assertIs<IssueWrite.Saved>(storage.createIssue("A", "", emptyList(), listOf(idOf(storage, "r1")), IssueSource.WINDOW))
                 storage.close(5.seconds)
             }
-            assertEquals(3, dir.queryLong("PRAGMA user_version"))
+            assertEquals(4, dir.queryLong("PRAGMA user_version"))
         }
 
     private suspend fun exchanges(

@@ -5,6 +5,10 @@ import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
+import appmonitor.v1.MockFailure
+import appmonitor.v1.MockResponse
+import appmonitor.v1.MockRule
+import appmonitor.v1.MockRules
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
@@ -96,6 +100,33 @@ object Samples {
             sent_size = 512,
         )
 
+    // ADR-0113: a response for any method, then a slow failure for one.
+    val mockRules =
+        MockRules(
+            rules =
+                listOf(
+                    MockRule(
+                        id = 7,
+                        host = "api.example.com",
+                        path = "/v1/items/*",
+                        response =
+                            MockResponse(
+                                status_code = 503,
+                                headers = listOf(Header("Retry-After", "30")),
+                                body = """{"error":"maintenance"}""".encodeUtf8(),
+                            ),
+                    ),
+                    MockRule(
+                        id = 9,
+                        method = "POST",
+                        host = "api.example.com",
+                        path = "/v1/orders",
+                        delay_ms = 2_000,
+                        failure = MockFailure(message = "connection reset"),
+                    ),
+                ),
+        )
+
     /** Fixture file name to the envelope it holds. */
     val envelopes: Map<String, Envelope> =
         mapOf(
@@ -108,6 +139,7 @@ object Samples {
             "connection_started.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", connectionStarted),
             "connection_closed.bin" to
                 envelope(Protocol.CHANNEL_NETWORK, "ResponseReceived", connectionClosed, TIMESTAMP_MS + 1_500),
+            "mock_rules.bin" to envelope(Protocol.CHANNEL_INTERACTION, "MockRules", mockRules),
         )
 
     private fun envelope(
