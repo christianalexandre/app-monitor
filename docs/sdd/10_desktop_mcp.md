@@ -72,7 +72,8 @@ ADR-0090 C.1).
   `claude mcp add --transport http app-monitor http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`
   (`claudeMcpAdd` in `ui/App.kt`).
 - `McpController` (`desktop/app`, `store/McpController.kt`) owns the
-  switch: `start()` reads `mcp.enabled` and starts when on; `setEnabled`
+  switch: `start()` reads `mcp.enabled` and starts when on, unless a
+  `setEnabled` came first, which wins; `setEnabled`
   writes it and starts or stops; each start builds a new `McpServer`
   (single use). A failed start is its `status` (`PortTaken`, `Failed`),
   never a throw. `close()` stops for good; a later `setEnabled(true)`
@@ -228,7 +229,7 @@ writes) and a hook run before each tool (a call held in flight).
 | Token change | "Regenerate" or "Clear all data": the old token gets `401`, the new one passes, no restart: `AccessTest.regeneratedTokenTakesEffectAtOnce` | — | — | — | same | — | — |
 | Start | binds `127.0.0.1` only: `LifecycleTest.bindsLoopbackOnly`; port from `APPMONITOR_MCP_PORT`: `McpPortTest` | not started after a failed open: `desktop/app` `McpWiringTest.noServerWithoutStorage` | starts | — | `start` twice fails: `LifecycleTest.startTwiceFails` | — | `BindException`, the app shows a status and keeps the device server: `desktop/app` `McpWiringTest.portTakenIsAStatus`, `AppMonitorAppTest` "a taken MCP port shows a status…" (`mcp-port-taken.png`) |
 | Stop | `stop` returns within `STOP_TIMEOUT`, port free again: `LifecycleTest.stopFreesThePort` | the app stops MCP before closing the store: `desktop/app` `McpWiringTest.stopsBeforeTheStoreCloses` | as open | stop during start leaves nothing bound: `LifecycleTest.stopDuringStart` | as open | second `stop` returns at once: `LifecycleTest.stopTwice` | `stop` after a failed start returns: `LifecycleTest.stopAfterFailedStart` |
-| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops`; kept off by "Clear all data": `McpWiringTest.clearAllRegeneratesTheTokenAndKeepsTheSwitch` | — | — | — | — | — | — |
+| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops`; kept off by "Clear all data": `McpWiringTest.clearAllRegeneratesTheTokenAndKeepsTheSwitch`; turned off while `start` reads it, stays off: `McpWiringTest.switchTurnedOffDuringStartsReadStaysOff` | — | — | — | — | — | — |
 
 ### Tests per tool
 

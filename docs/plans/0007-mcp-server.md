@@ -98,7 +98,7 @@ Five went to DEBT-0071 (a refused settings write not reported, `dev` as
 the packaged server's version, the HAR cap counted in characters, the
 header serializer copied, durations sorted per read). None was rejected.
 
-- [ ] **M6.R1 A switch turned off during launch is overwritten.**
+- [x] **M6.R1 A switch turned off during launch is overwritten.** (`fix/mcp-switch-launch-race`; a `setEnabled` before `start`'s read returns wins, the read injectable for the test)
   `McpController.start` reads `mcp.enabled` outside its lock and then
   writes the result to `enabled`, so a `setEnabled(false)` made while that
   read is in flight is undone: the server binds and the settings show it
