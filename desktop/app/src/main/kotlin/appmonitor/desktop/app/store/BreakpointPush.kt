@@ -1,5 +1,6 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.fitting
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol

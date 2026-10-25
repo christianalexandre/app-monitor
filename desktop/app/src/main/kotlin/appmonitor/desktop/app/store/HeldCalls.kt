@@ -1,5 +1,8 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.HeldCall
+import appmonitor.desktop.domain.HeldCallRepository
+import appmonitor.desktop.domain.HeldEdit
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.protocol.Protocol
 import appmonitor.v1.BreakpointAbort
@@ -7,60 +10,23 @@ import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointResume
 import appmonitor.v1.BreakpointStage
 import appmonitor.v1.Envelope
-import appmonitor.v1.Header
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okio.ByteString
 import java.io.IOException
 
-/** A call [sessionId]'s device holds at a breakpoint (ADR-0111 A.1); it goes on unchanged after [deadlineMs] (B.1). */
-internal data class HeldCall(
-    val sessionId: String,
-    val appId: String,
-    val hit: BreakpointHit,
-    val heldAtMs: Long,
-) {
-    val requestId: String get() = hit.request?.request_id.orEmpty()
-
-    val stage: BreakpointStage get() = hit.stage
-
-    val deadlineMs: Long get() = heldAtMs + hit.timeout_ms
-
-    /** The held side as the device sent it, to edit: the request's, or at the response stage the response's. */
-    val unedited: HeldEdit
-        get() {
-            val request = checkNotNull(hit.request)
-            val response = hit.response
-            return if (stage == BreakpointStage.BREAKPOINT_STAGE_RESPONSE && response != null) {
-                HeldEdit(request.method, request.url, response.status_code, response.headers, response.body)
-            } else {
-                HeldEdit(request.method, request.url, 0, request.headers, request.body)
-            }
-        }
-}
-
-/** The held side as the developer left it; [resumeOf] sends only what differs from [HeldCall.unedited]. */
-internal data class HeldEdit(
-    val method: String,
-    val url: String,
-    val statusCode: Int,
-    val headers: List<Header>,
-    val body: ByteString,
-)
-
 /** The calls every connected device holds, until each is resumed, aborted, timed out or its session ends (ADR-0118). */
 internal class HeldCalls(
     private val clock: () -> Long = System::currentTimeMillis,
-) {
+) : HeldCallRepository {
     private val lock = Any()
 
     private var calls = emptyList<Held>()
 
     private val mutableHeld = MutableStateFlow<List<HeldCall>>(emptyList())
 
-    /** Oldest first. */
-    val held: StateFlow<List<HeldCall>> = mutableHeld.asStateFlow()
+    override val held: StateFlow<List<HeldCall>> = mutableHeld.asStateFlow()
 
     /** The call [envelope] holds, replacing one held under the same request and stage; null for anything else. */
     internal fun hold(
@@ -80,18 +46,16 @@ internal class HeldCalls(
         return call
     }
 
-    /** Lets [call] go on with [edit]'s changes only; false when it is no longer held or its device is gone. */
-    fun resume(
+    override fun resume(
         call: HeldCall,
-        edit: HeldEdit = call.unedited,
+        edit: HeldEdit,
     ): Boolean {
         require(edit.body.size <= Protocol.MAX_BODY_BYTES) { "A body is at most ${Protocol.MAX_BODY_BYTES} bytes" }
         val session = release(call) ?: return false
         return session.send(envelope("BreakpointResume", resumeOf(call, edit).encodeByteString()))
     }
 
-    /** Fails [call] on the device with [message]; false when it is no longer held or its device is gone. */
-    fun abort(
+    override fun abort(
         call: HeldCall,
         message: String,
     ): Boolean {

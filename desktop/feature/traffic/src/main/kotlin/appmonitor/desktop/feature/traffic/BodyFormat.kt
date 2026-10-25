@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.ui.utf8OrNull
 import appmonitor.v1.Header
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -21,19 +22,6 @@ internal enum class BodyFormat(
 }
 
 private val JSON_LITERAL = Regex("true|false|null|-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?")
-
-/** UTF-8 text of [body], or null when it is not valid UTF-8. */
-fun utf8OrNull(body: ByteString): String? =
-    try {
-        Charsets.UTF_8
-            .newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(body.toByteArray()))
-            .toString()
-    } catch (_: CharacterCodingException) {
-        null
-    }
 
 /** Indented JSON, or null when [text] is not a JSON document. */
 private fun prettyJsonOrNull(text: String): String? =

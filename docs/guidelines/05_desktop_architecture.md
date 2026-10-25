@@ -29,19 +29,23 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   stays in the screen.
 - **A screen reads data through a `desktop/domain` repository**
   (`RunRepository`, `TrafficRepository`, `ReplayRepository`,
-  `ExportRepository`), never `desktop/storage`'s types; a pane not moved
+  `ExportRepository`, `MockRepository`, `BreakpointRepository`,
+  `HeldCallRepository`), never `desktop/storage`'s types; a pane not moved
   yet (PLAN-0012) is the exception, not the model (ADR-0135).
 - **A screen lives in a feature module**, `desktop/feature/<name>`, which
-  depends on `desktop/domain` and `desktop/designsystem` only: never on
-  `desktop/data`, `desktop/storage`, `desktop/server`, `desktop/mcp` or
-  another feature. What the screen opens elsewhere comes in as labels and
+  depends on `desktop/domain`, `desktop/ui` and `desktop/designsystem`
+  only: never on `desktop/data`, `desktop/storage`, `desktop/server`,
+  `desktop/mcp` or another feature. What the screen opens elsewhere comes in as labels and
   lambdas (`TrafficLinks`) from `desktop/app`.
+- **What two features share goes to `desktop/ui`** (ADR-0137): how the
+  window reads or writes a domain value (`METHODS`, `formatDuration`,
+  `utf8OrNull`, `headersOf`). A helper one feature uses stays in it.
 - **Its state lives in a view model**: one `StateFlow` of an immutable
   data class, functions for events, the domain's repositories in the
   constructor. A dialog's open flag and a text being typed may stay in
   `remember`.
 - **A view model is declared in its feature's Koin module**
-  (`trafficModule`) and read with `koinViewModel()`; `desktop/app`'s
+  (`trafficModule`, `mocksModule`, `breakpointsModule`) and read with `koinViewModel()`; `desktop/app`'s
   `appModule` includes the module and binds the repositories (ADR-0136).
   A view model test sets `Dispatchers.Main` and runs over fake
   repositories.

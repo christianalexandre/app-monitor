@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.ui.formatDuration
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
 import okio.ByteString

@@ -77,11 +77,19 @@ task that lands each module.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   `approval.png` and `replay-asked.png` unchanged; `ui/App.kt` holds no
   `PendingDevice` or `AskedReplay`.
-- [ ] **H2.3 Mocks and breakpoints.** `desktop/feature/mocks` and
+- [x] **H2.3 Mocks and breakpoints.** (`refactor/desktop-mocks-breakpoints-features`)
+  `desktop/feature/mocks` and
   `desktop/feature/breakpoints` on the same layers; the labels they share
   with the traffic feature (`formatDuration`, `METHODS`, `utf8OrNull`)
   move to a module both depend on, as no feature depends on another.
   Accept: their moved UI tests, `MockPushTest` and `HeldCallsTest` pass.
+  Deviation: done before H2.2c, which H2.2b added above it while this was
+  under way. The shared module is `desktop/ui` (ADR-0137), with
+  `headersOf` too. `MocksUiTest` and `BreakpointsUiTest` stay in
+  `desktop/app`, as the traffic UI tests did: they compose the window
+  over a real store and a stand-in device; each feature gained a view
+  model test over fake repositories. `fittingRules` moved to
+  `desktop/domain`, which the push and the mock list share.
 - [ ] **H2.4 Insights and settings.** `desktop/feature/insights` (issues,
   benchmarks, run diff, export) and `desktop/feature/settings`
   (retention, MCP, proxy).

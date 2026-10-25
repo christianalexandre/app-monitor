@@ -80,6 +80,14 @@ H2.2a (`refactor/desktop-domain-data`), which only reroutes the panes'
 reads through `desktop/data`; H2.2 was split and the view model is
 H2.2b's, so the item moves to H2.2b.
 
+Fired by PLAN-0012 H2.3 (`refactor/desktop-mocks-breakpoints-features`),
+which moves `HeldCall` and `HeldEdit` from `HeldCalls.kt` to
+`desktop/domain` and changes nothing `resumeOf` sends. Paying the masked
+query item needs each SDK to put its own value back in an edited URL
+(OkHttp, Ktor and iOS), not a change in this file; for `HeldCalls.kt`
+the trigger becomes the next PR that changes `resumeOf` or the
+`BreakpointResume` message.
+
 ## How it was paid
 
 > Filled when closing.

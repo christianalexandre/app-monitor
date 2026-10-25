@@ -35,7 +35,6 @@ import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.domain.Run
-import appmonitor.desktop.feature.traffic.formatDuration
 import appmonitor.desktop.feature.traffic.titleOf
 import appmonitor.desktop.storage.EndpointChange
 import appmonitor.desktop.storage.EndpointDiff
@@ -44,6 +43,7 @@ import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.diffEndpoints
 import appmonitor.desktop.storage.groupByEndpoint
+import appmonitor.desktop.ui.formatDuration
 import java.util.Locale
 
 /** One endpoint as the diff shows it: `base → run` for a change, one side's value for an added or gone one. */

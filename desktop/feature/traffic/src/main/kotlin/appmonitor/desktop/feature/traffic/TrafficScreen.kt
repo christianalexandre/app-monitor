@@ -50,6 +50,8 @@ import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.durationOf
+import appmonitor.desktop.ui.METHODS
+import appmonitor.desktop.ui.formatDuration
 import org.koin.compose.viewmodel.koinViewModel
 
 /**

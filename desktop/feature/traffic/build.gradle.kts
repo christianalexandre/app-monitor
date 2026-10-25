@@ -6,6 +6,7 @@ plugins {
 dependencies {
     implementation(project(":desktop:domain"))
     implementation(project(":desktop:designsystem"))
+    implementation(project(":desktop:ui"))
     api(libs.lifecycle.viewmodel.compose)
     api(libs.koin.compose.viewmodel)
     implementation(libs.kotlinx.serialization.json)

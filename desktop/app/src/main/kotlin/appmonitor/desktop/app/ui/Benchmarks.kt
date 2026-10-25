@@ -33,12 +33,12 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
-import appmonitor.desktop.feature.traffic.formatDuration
 import appmonitor.desktop.storage.EndpointGroups
 import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.groupByEndpoint
+import appmonitor.desktop.ui.formatDuration
 import java.util.Locale
 
 /** A sortable column of the benchmarks; [value] is null for an endpoint without the number, sorted last. */
