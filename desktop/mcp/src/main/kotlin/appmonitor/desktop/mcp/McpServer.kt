@@ -29,7 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The MCP server, read-only but `save_issue`, over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
+ * The MCP server, read-only but `save_issue` and `create_mock`, over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(
@@ -66,6 +66,9 @@ class McpServer internal constructor(
             tool(ListIssues.NAME, ListIssues.description, ListIssues.inputSchema) { ListIssues.call(storage, it) }
             result(SaveIssue.NAME, SaveIssue.description, SaveIssue.inputSchema, WRITES) {
                 jsonResult(SaveIssue.call(storage, it, health), health())
+            }
+            result(CreateMock.NAME, CreateMock.description, CreateMock.inputSchema, WRITES) {
+                jsonResult(CreateMock.call(storage, it, health), health())
             }
         }
 
@@ -158,7 +161,7 @@ class McpServer internal constructor(
         val STOP_TIMEOUT: Duration = 5.seconds
         private val READS = ToolAnnotations(readOnlyHint = true, openWorldHint = false)
 
-        // ADR-0095 C.1: creates and edits, never deletes.
+        // ADR-0095 C.1, ADR-0114 C.1: creates and edits, never deletes.
         private val WRITES = ToolAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = false)
     }
 }

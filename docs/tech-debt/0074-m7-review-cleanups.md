@@ -3,7 +3,7 @@ id: DEBT-0074
 title: Non-correctness findings of the M7 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
+trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
 paid_date:
 ---
 
@@ -18,7 +18,8 @@ not hit (ADR-0094):
   wrapper in `McpServer.kt` replaces any result with the closing error
   when `isClosing` is true after the call, so a write that committed just
   before the store started closing is reported as failed; a retry after
-  the restart stores a second issue.
+  the restart stores a second issue. `create_mock` (M9.3) has the same
+  wrapper: a rule stored just before the close is answered as closing.
 - **The window's exports have no closing check.** `ExportHar.log` and
   `ToCurl.command` left theirs to the MCP wrapper; "Export HAR" while the
   store closes writes the exchanges read so far and reports success.
@@ -47,7 +48,7 @@ duplicate check. None changes what normal use stores or shows.
 
 ## Trigger
 
-The first PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`.
+The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`.
 
 Fired by PLAN-0009 M8.4, which touches `Export.kt` (the connections
 note), `Issues.kt` (the method column's width) and `Ingest.kt` (one line,
@@ -55,6 +56,11 @@ ADR-0104). Paid: an unexpected export exception is reported as "Not
 exported: …" instead of leaving "Exporting…" shown. Left: the items in
 `McpServer.kt`, the issue dialogs and list, and the export closing check
 and hint, code this PR does not change.
+
+Fired again by PLAN-0010 M9.3 (`feat/mock-editor`), which only registers
+`create_mock` in `McpServer.kt`. Re-triggered on the wrapper itself: the
+item needs a seam between a tool's write and its read-back to be tested,
+and it is a shutdown race normal use does not hit (ADR-0094).
 
 ## How it was paid
 

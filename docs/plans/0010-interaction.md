@@ -51,7 +51,7 @@ needs its own decision is split as soon as that shows.
   Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:server:test :desktop:app:test`.
   A stored rule reaches a stand-in device as one envelope, after
   `HelloAck`, and again on a change. A pending rule is not sent.
-- [ ] **M9.3 Mock rules in the window and MCP.** The window gets a mock
+- [x] **M9.3 Mock rules in the window and MCP.** (`feat/mock-editor`; ADR-0114: a Mocks panel counting rules to confirm, "Mock this" without framing and encoding headers, flat `create_mock` arguments; DEBT-0082 rule order) The window gets a mock
   editor, opened from an exchange or empty, that marks rules left out of
   the frame (ADR-0113 C.1). The MCP tool creates rules under ADR-0005's
   confirmation. SDD 10 and 12 updated.

@@ -136,6 +136,12 @@ internal fun AppMonitorApp(
     var settingsOpen by remember { mutableStateOf(false) }
     var runsOpen by remember { mutableStateOf(false) }
     var issuesOpen by remember { mutableStateOf(false) }
+    // Null: closed; a draft opens the editor on it.
+    var mocksOpen by remember { mutableStateOf<MockDraft?>(null) }
+    var mocksShown by remember { mutableStateOf(false) }
+    val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
+    val everySession by remember(storage) { storage.observeSessions(null) }.collectAsState(emptyList())
+    val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
     var benchmarksOpen by remember { mutableStateOf(false) }
     var diffOpen by remember { mutableStateOf(false) }
     // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
@@ -158,6 +164,11 @@ internal fun AppMonitorApp(
                     runTitle = runTitle,
                     onRuns = { runsOpen = true },
                     onIssues = { issuesOpen = true },
+                    mocksLabel = mocksLabel(mocks.count { it.pending }),
+                    onMocks = {
+                        mocksOpen = null
+                        mocksShown = true
+                    },
                 ) {
                     selectedSession = it.id
                 }
@@ -188,7 +199,12 @@ internal fun AppMonitorApp(
                         Placeholder("Select a request")
                     } else {
                         // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
-                        key(row.id) { StoredRequestDetail(storage, row) }
+                        key(row.id) {
+                            StoredRequestDetail(storage, row) { exchange ->
+                                mocksOpen = mockDraftOf(exchange, session?.hello?.app_id.orEmpty())
+                                mocksShown = true
+                            }
+                        }
                     }
                 }
             }
@@ -255,6 +271,12 @@ internal fun AppMonitorApp(
                 ) { saving = null }
             }
             if (issuesOpen) IssueList(storage) { issuesOpen = false }
+            if (mocksShown) {
+                MockList(storage, appIds, mocksOpen) {
+                    mocksShown = false
+                    mocksOpen = null
+                }
+            }
             if (benchmarksOpen) {
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
@@ -347,6 +369,7 @@ private fun rememberExchangePages(
 private fun StoredRequestDetail(
     storage: Storage,
     row: StoredExchange,
+    onMock: (HttpExchange) -> Unit,
 ) {
     var frameLimit by remember { mutableStateOf(Storage.PAGE_SIZE) }
     val exchange by produceState<HttpExchange?>(null, row, frameLimit) {
@@ -367,7 +390,8 @@ private fun StoredRequestDetail(
                 )
         }
     }
-    exchange?.let { RequestDetail(it, onCopyCurl, copyNote) { frameLimit += Storage.PAGE_SIZE } } ?: Placeholder("Loading…")
+    exchange?.let { RequestDetail(it, onCopyCurl, copyNote, { onMock(it) }) { frameLimit += Storage.PAGE_SIZE } }
+        ?: Placeholder("Loading…")
 }
 
 @Composable
@@ -715,6 +739,8 @@ private fun DeviceList(
     runTitle: String,
     onRuns: () -> Unit,
     onIssues: () -> Unit,
+    mocksLabel: String,
+    onMocks: () -> Unit,
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
@@ -724,6 +750,7 @@ private fun DeviceList(
             }
             TextButton(onClick = onIssues, Modifier.testTag(ISSUES)) { Text("Issues") }
         }
+        TextButton(onClick = onMocks, Modifier.padding(horizontal = 4.dp).testTag(MOCKS)) { Text(mocksLabel) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Devices") }
             TextButton(onClick = onSettings) { Text("Settings") }
@@ -908,7 +935,7 @@ private fun retentionWarning(
         }
     }
 
-private val METHODS = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+internal val METHODS = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
 private fun labelOf(status: StatusClass): String = "${status.from / 100}xx"
 
@@ -917,6 +944,7 @@ private fun RequestDetail(
     exchange: HttpExchange,
     onCopyCurl: () -> Unit,
     copyNote: String?,
+    onMock: () -> Unit,
     onMoreFrames: () -> Unit,
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
@@ -934,6 +962,11 @@ private fun RequestDetail(
                     )
                     copyNote?.let { Text(it, style = MaterialTheme.typography.caption) }
                     if (exchange.connection == null) {
+                        if (exchange.url?.startsWith("ws") !=
+                            true
+                        ) {
+                            TextButton(onClick = onMock, Modifier.testTag(MOCK_THIS)) { Text("Mock this") }
+                        }
                         TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
                     }
                 }

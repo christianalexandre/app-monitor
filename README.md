@@ -206,8 +206,9 @@ The desktop app serves its history over MCP (Streamable HTTP) on
 reached from your own machine and needs a bearer token. Eight read-only
 tools: `list_runs`, `search_requests`, `get_request`, `endpoint_stats`,
 `diff_runs`, `export_har`, `to_curl`, `list_issues`; and `save_issue`,
-which creates and edits issues, the same ones the window shows
-([SDD 10](docs/sdd/10_desktop_mcp.md)). Bodies and headers are what the app
+which creates and edits issues, the same ones the window shows; and
+`create_mock`, which makes a mock rule that reaches no device until you
+confirm it in the window's *Mocks* panel ([SDD 10](docs/sdd/10_desktop_mcp.md)). Bodies and headers are what the app
 sent: masked on the device unless the app turned masking off.
 
 **Claude Code.** Open the desktop's settings, *MCP server*, click *Copy

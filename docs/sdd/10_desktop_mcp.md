@@ -1,12 +1,12 @@
 # 10 — Desktop MCP server
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP from inside
-the desktop process (ADR-0005), read-only but for issues. Decisions:
+the desktop process (ADR-0005), read-only but for issues and mock rules. Decisions:
 ADR-0089 (what the tools return), ADR-0090 (who can call, port, on by
 default), ADR-0091 (clients), ADR-0092 (SDK, transport, modules), ADR-0095
-and ADR-0096 (issues, the one write). Code: `desktop/mcp/`, used by
+and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1). Code: `desktop/mcp/`, used by
 `desktop/app`; it reads `desktop/storage` (SDD 09) and writes to it only
-through `save_issue` and the two settings below. Client setup: the README's *Ask your AI
+through `save_issue`, `create_mock` and the two settings below. Client setup: the README's *Ask your AI
 agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
 ## How it works
@@ -40,8 +40,9 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
 - Stateless (ADR-0092): no `Mcp-Session-Id`, `GET` and `DELETE` answer
   `405`, each `POST` is one JSON response. Server capabilities: `tools`
   only, `listChanged = false`. Every tool is annotated `readOnlyHint: true`
-  but `save_issue`: `readOnlyHint`, `destructiveHint` and `idempotentHint`
-  false (it creates and edits, never deletes, ADR-0095 C.1).
+  but `save_issue` and `create_mock`: `readOnlyHint`, `destructiveHint` and
+  `idempotentHint` false (they create and edit, never delete, ADR-0095
+  C.1, ADR-0114 C.1).
 - Steps 1 and 2 are one Ktor application plugin (`accessCheck`), before the
   SDK's routing; `<port>` is the local port the connection reached. Step 1:
   exactly one `Host`, `127.0.0.1:<port>` or
@@ -170,6 +171,7 @@ as a number, null when there is none (ADR-0107).
 | `to_curl` | `id` (required) | a POSIX shell command as the text | `exchange(id)` |
 | `list_issues` | `status` (`open`, `resolved`), `tag` (exact), `limit` (1–100, 20), `before_id` | `issues[]`: `id`, `title`, `note`, `tags[]` (sorted), `status`, `source` (`window`, `mcp`), `created_at`, `updated_at`, `exchange_ids[]` (ascending); `next_before_id`. Newest first. | `issuePage(filter, beforeId, limit)`: issues and their links in one read |
 | `save_issue` | `id` (omit to create), `title`, `note`, `tags[]` (0–50), `status`, `exchange_ids[]` (1–1 000) | `created`, `issue` as in `list_issues` | `createIssue(…, IssueSource.MCP)` or `updateIssue(id, IssueChange)`, then `issuePage` |
+| `create_mock` | `app_id`, `name`, `host`, `path` (required), `method`, `delay_ms` (≥ 0, 0); `status_code` (100–599) with `headers[]` (`name`, `value`; 0–100) and `body` (text) or `body_base64`, or `failure_message` | `mock`: `id`, `app_id`, `name`, `enabled`, `pending` (true), `source` (`mcp`), `method` (null: any), `host`, `path`, `delay_ms`, `response` (`status_code`, `headers[]`, `body_bytes`) or null, `failure_message` or null, `created_at`, `updated_at` | `createMock(…, MockSource.MCP)`, then `mocks()` |
 
 Details the table leaves out:
 
@@ -256,6 +258,16 @@ Details the table leaves out:
   closing store, "App Monitor is closing"; a lost batch, "the issue was not
   saved: <error>", and later calls carry the lost write in `warnings`.
   No tool deletes an issue or changes traffic. Code: `Issues.kt`.
+- **Mock rules** (`create_mock`, ADR-0110, ADR-0114): the rule goes last
+  in its app's match order and is **pending**: `observeActiveMocks` leaves
+  it out, so no device gets it until the developer clicks "Confirm" in
+  the window's Mocks panel (SDD 12, ADR-0005). `name`, `app_id` and
+  `host` not blank, `path` starting with `/`; exactly one of
+  `status_code` and `failure_message`; `headers` and a body only with
+  `status_code`; a body over `Protocol.MAX_BODY_BYTES` refused. Each
+  error is one sentence and writes nothing; a lost batch is "the rule was
+  not saved: <error>". No tool lists, edits, confirms or deletes a rule.
+  Code: `Mocks.kt`.
 
 ### Lifecycle
 
@@ -287,7 +299,8 @@ writes) and a hook run before each tool (a call held in flight).
 | `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
 | Connections in every tool | `ConnectionToolsTest`, the `CONNECTION` fixtures: `search_requests` row without status, `get_request`'s `connection`, `to_curl` refused, `endpoint_stats` bytes per port, `diff_runs` added, `export_har` leaving them out | M8.4 |
 | gRPC status in the tools | `GrpcStatusToolsTest`, a failed call from the adapter's and the proxy's headers: `search_requests`' `grpc_status`, `endpoint_stats` and `diff_runs` error rate | M8.7 |
-| `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue` annotated as writing | M7.3 |
+| `create_mock` | `MocksTest`: a rule over HTTP stored pending, sent to no device until confirmed; a failure with any method, a base64 body; every argument error, nothing written; closing store | M9.3 |
+| `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue` and `create_mock` annotated as writing | M7.3 |
 | `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body, once, however written; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
 
 ## Limits
