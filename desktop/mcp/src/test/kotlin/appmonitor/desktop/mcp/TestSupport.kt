@@ -1,5 +1,8 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.data.benchmarkRepository
+import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StorageHealth
 import appmonitor.protocol.Protocol
@@ -72,6 +75,9 @@ internal fun withStorage(
     }
 }
 
+/** The repositories `desktop/app` hands the server, over this store. */
+internal fun Storage.repositories() = McpRepositories(runRepository(), trafficQueryRepository(), benchmarkRepository())
+
 /** A started server on a free port over a fresh store, stopped after [block]. */
 internal fun withServer(
     health: () -> StorageHealth? = { null },
@@ -80,7 +86,7 @@ internal fun withServer(
     block: suspend (Running) -> Unit,
 ) = withStorage { storage ->
     val access = McpAccess.open(storage)
-    val server = McpServer(storage, access, 0, "test", { health() ?: storage.health.value }, beforeTool, replays)
+    val server = McpServer(storage, storage.repositories(), access, 0, "test", { health() ?: storage.health.value }, beforeTool, replays)
     val port = server.start()
     try {
         block(Running(storage, access, server, port))

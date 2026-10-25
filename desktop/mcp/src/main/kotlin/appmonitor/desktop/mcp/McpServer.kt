@@ -34,6 +34,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 class McpServer internal constructor(
     private val storage: Storage,
+    private val repositories: McpRepositories,
     private val access: McpAccess,
     private val port: Int,
     private val version: String,
@@ -43,22 +44,23 @@ class McpServer internal constructor(
 ) {
     constructor(
         storage: Storage,
+        repositories: McpRepositories,
         access: McpAccess,
         port: Int = mcpPort(),
         version: String = "dev",
         replays: ReplayAsks? = null,
-    ) : this(storage, access, port, version, { storage.health.value }, {}, replays)
+    ) : this(storage, repositories, access, port, version, { storage.health.value }, {}, replays)
 
     private val mcp =
         Server(
             Implementation(name = "app-monitor", version = version, title = "App Monitor"),
             ServerOptions(ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = false))),
         ).apply {
-            tool(ListRuns.NAME, ListRuns.description, ListRuns.inputSchema) { ListRuns.call(storage, it) }
-            tool(SearchRequests.NAME, SearchRequests.description, SearchRequests.inputSchema) { SearchRequests.call(storage, it) }
-            tool(GetRequest.NAME, GetRequest.description, GetRequest.inputSchema) { GetRequest.call(storage, it) }
-            tool(EndpointStats.NAME, EndpointStats.description, EndpointStats.inputSchema) { EndpointStats.call(storage, it) }
-            tool(DiffRuns.NAME, DiffRuns.description, DiffRuns.inputSchema) { DiffRuns.call(storage, it) }
+            tool(ListRuns.NAME, ListRuns.description, ListRuns.inputSchema) { ListRuns.call(repositories, it) }
+            tool(SearchRequests.NAME, SearchRequests.description, SearchRequests.inputSchema) { SearchRequests.call(repositories, it) }
+            tool(GetRequest.NAME, GetRequest.description, GetRequest.inputSchema) { GetRequest.call(repositories, it) }
+            tool(EndpointStats.NAME, EndpointStats.description, EndpointStats.inputSchema) { EndpointStats.call(repositories, it) }
+            tool(DiffRuns.NAME, DiffRuns.description, DiffRuns.inputSchema) { DiffRuns.call(repositories, it) }
             result(
                 ExportHar.NAME,
                 ExportHar.description,
@@ -152,9 +154,9 @@ class McpServer internal constructor(
             beforeTool()
             // A closing store reads as empty and refuses writes: checked after the call, whatever it answered.
             try {
-                call(request.arguments).takeUnless { storage.isClosing } ?: errorResult(CLOSING)
+                call(request.arguments).takeUnless { repositories.queries.isClosing } ?: errorResult(CLOSING)
             } catch (e: ToolError) {
-                errorResult(if (storage.isClosing) CLOSING else e.message!!)
+                errorResult(if (repositories.queries.isClosing) CLOSING else e.message!!)
             }
         }
     }

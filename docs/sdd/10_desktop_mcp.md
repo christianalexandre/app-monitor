@@ -5,7 +5,10 @@ the desktop process (ADR-0005), read-only but for issues, mock rules and replays
 ADR-0089 (what the tools return), ADR-0090 (who can call, port, on by
 default), ADR-0091 (clients), ADR-0092 (SDK, transport, modules), ADR-0095
 and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1), ADR-0121 (`replay_request`). Code: `desktop/mcp/`, used by
-`desktop/app`; it reads `desktop/storage` (SDD 09) and writes to it only
+`desktop/app`; `list_runs`, `search_requests`, `get_request`,
+`endpoint_stats` and `diff_runs` read through `desktop/domain`'s
+repositories `desktop/app` hands it (`McpRepositories`, ADR-0138), the
+other tools read `desktop/storage` (SDD 09) directly; it writes only
 through `save_issue`, `create_mock` and the two settings below; `replay_request` leaves its replay to `desktop/app`. Client setup: the README's *Ask your AI
 agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
@@ -22,11 +25,11 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
                                     mcpStatelessStreamableHttp: one session per request
                                                      │ tools/list, tools/call
                                                      ▼
-                                    Storage reads (Dispatchers.IO, one transaction each);
+                                    repository or Storage reads (Dispatchers.IO, one transaction each);
                                     save_issue: createIssue / updateIssue on the writer queue
 ```
 
-- `McpServer(storage, access, port)` builds one SDK `Server` with every
+- `McpServer(storage, repositories, access, port)` builds one SDK `Server` with every
   tool, and an `embeddedServer(CIO, host = "127.0.0.1", port)`;
   `start()` binds and returns the port, `stop()` stops it. The port is
   `47475`, or `APPMONITOR_MCP_PORT` when set to a number (ADR-0090 D.1);
@@ -113,7 +116,7 @@ ADR-0090 C.1).
 - **Store closing.** `Storage`'s reads return an empty list or null once it
   closes (SDD 09), which would read as "nothing stored", and refuse
   writes. The shared wrapper every tool goes through checks
-  `storage.isClosing` **after** the tool returns or fails, and answers the
+  `TrafficQueryRepository.isClosing` (the store's) **after** the tool returns or fails, and answers the
   error "App Monitor is closing" instead of either, so an unknown-id error
   made of an empty read is never what a closing store says.
 - **Lost writes.** When `storage.health` counts unsaved events, the result
@@ -224,8 +227,9 @@ Details the table leaves out:
   `_webSocketMessages` (`type` `send`/`receive`, `time` in epoch seconds,
   `opcode` per RFC 6455: 1 text, 2 binary, 8 close, 9 ping, 10 pong,
   `data`: text, else base64), payloads under the same `bodies` rule. More
-  matches than `max_entries` → `log.comment` says so. Connections
-  (ADR-0104) are left out, and `log.comment` counts them. Output past 32 MiB of
+  HTTP matches than `max_entries` → `log.comment` says so. Connections
+  (ADR-0104) are left out, do not count against `max_entries`, and
+  `log.comment` counts them. Output past 32 MiB of
   text (counted entry by entry) is refused with "narrow the filter or use
   bodies: none". `full` is for a developer who saves the file: Claude Code
   writes a result over 50 000 characters to a file (ADR-0089). Code:

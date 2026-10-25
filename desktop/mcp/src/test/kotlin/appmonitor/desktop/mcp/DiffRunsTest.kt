@@ -125,7 +125,7 @@ class DiffRunsTest {
             storage.connected("s2", hello(), null)
             storage.received("s2", envelope(request("b", url = "https://api.example.com/items/a"), 2_000))
             storage.flush()
-            val result = DiffRuns.call(storage, args(base, run))
+            val result = DiffRuns.call(storage.repositories(), args(base, run))
             val change = result.list("changed").single()
             assertEquals(Triple(50L, null, null), change.longsOrNull("p50_ms"), "in flight in run")
         }
@@ -136,7 +136,7 @@ class DiffRunsTest {
             storage.connected("s1", hello(), null)
             repeat(3) { storage.received("s1", envelope(request("r$it"))) }
             storage.flush()
-            val result = DiffRuns.call(storage, args(storage.runId, storage.runId), maxExchanges = 2)
+            val result = DiffRuns.call(storage.repositories(), args(storage.runId, storage.runId), maxExchanges = 2)
             assertEquals(true, result["truncated"]!!.jsonPrimitive.boolean)
         }
 

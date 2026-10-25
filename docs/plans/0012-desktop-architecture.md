@@ -136,10 +136,28 @@ task that lands each module.
   Paid DEBT-0081's `ProxyController` item: a failed proxy start leaves
   no empty session. DEBT-0072 and DEBT-0073 re-triggered to the code
   they name, not the files a rename touches.
-- [ ] **H2.5 MCP through the repositories.** `desktop/mcp` depends on
-  `desktop/domain`, not `desktop/storage`.
+- [x] **H2.5a MCP's read tools through the repositories.**
+  (`refactor/mcp-read-tools-through-domain`) `list_runs`,
+  `search_requests`, `get_request`, `endpoint_stats` and `diff_runs` read
+  through `desktop/domain` repositories `desktop/app` hands to
+  `McpServer`, and the closing check with them. Split from H2.5 (too
+  large for one PR).
+  Accept: `./gradlew :desktop:mcp:test :desktop:data:test` green, the
+  tools' tests unchanged but for what they hand the server and the tools;
+  those five files import nothing from `desktop/storage`.
+  Deviation: a `TrafficQueryRepository` beside the window's
+  repositories holds the paged reads (ADR-0138); `CapturedFrame` gained
+  its id and `BenchmarkRepository` a `maxExchanges` cap. Paid DEBT-0081's
+  HAR cap item (`ExportHar.kt` touched: connections no longer count
+  against `max_entries`) and DEBT-0074's duplicate closing check, whose
+  test now goes through the server.
+- [ ] **H2.5b The rest of MCP through the repositories.** `export_har`,
+  `to_curl`, the issue and mock tools, `replay_request`, the token and
+  the store's health; `desktop/mcp` depends on `desktop/domain`, not
+  `desktop/storage`.
   Accept: `./gradlew :desktop:mcp:test` unchanged and green; `desktop/mcp`'s
-  build file has no `desktop:storage` dependency.
+  main source set has no `desktop:storage` dependency (its tests may keep
+  one to fill a real store).
 
 ## Outcome
 

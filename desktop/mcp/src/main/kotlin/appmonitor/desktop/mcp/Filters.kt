@@ -1,8 +1,8 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.StatusClass
-import appmonitor.desktop.storage.StoredExchange
+import appmonitor.desktop.domain.Exchange
+import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.StatusClass
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -70,7 +70,7 @@ internal object Filters {
  * id, null when it is not a replay or the original is gone (ADR-0121 D.1).
  */
 internal fun JsonObjectBuilder.putExchangeRow(
-    exchange: StoredExchange,
+    exchange: Exchange,
     replayOf: Long?,
 ) {
     put("id", exchange.id)
@@ -94,4 +94,4 @@ internal fun JsonObjectBuilder.putExchangeRow(
     put("replay_of", replayOf.json())
 }
 
-internal fun StoredExchange.toRowJson(replayOf: Long?): JsonObject = buildJsonObject { putExchangeRow(this@toRowJson, replayOf) }
+internal fun Exchange.toRowJson(replayOf: Long?): JsonObject = buildJsonObject { putExchangeRow(this@toRowJson, replayOf) }

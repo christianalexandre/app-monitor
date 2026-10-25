@@ -82,6 +82,19 @@ class ConnectionToolsTest {
         }
 
     @Test
+    fun aConnectionDoesNotCountAgainstMaxEntries() =
+        withServer { running ->
+            val stored = running.store()
+            val log =
+                running
+                    .client { it.callTool(ExportHar.NAME, mapOf("run_id" to stored.run, "max_entries" to 1)) }
+                    .json["log"]!!
+                    .jsonObject
+            assertEquals(1, (log["entries"] as JsonArray).size)
+            assertEquals("1 connections left out: HAR holds HTTP exchanges only", log["comment"]!!.jsonPrimitive.content)
+        }
+
+    @Test
     fun theHarLeavesConnectionsOutAndSaysSo() =
         withServer { running ->
             val stored = running.store()

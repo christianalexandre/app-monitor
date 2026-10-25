@@ -27,7 +27,9 @@ import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.Run
+import appmonitor.desktop.domain.RunSummary
 import appmonitor.desktop.domain.Session
+import appmonitor.desktop.domain.SessionSummary
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.storage.EndpointTally
@@ -42,6 +44,7 @@ import appmonitor.desktop.storage.StoredIssue
 import appmonitor.desktop.storage.StoredMock
 import appmonitor.desktop.storage.StoredRun
 import appmonitor.desktop.storage.StoredSession
+import appmonitor.desktop.domain.ExchangeDetail as DomainExchangeDetail
 import appmonitor.desktop.storage.BreakpointChange as StoredBreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite as StoredBreakpointWrite
 import appmonitor.desktop.storage.Durations as StoredDurations
@@ -57,6 +60,8 @@ import appmonitor.desktop.storage.IssueWrite as StoredIssueWrite
 import appmonitor.desktop.storage.MockChange as StoredMockChange
 import appmonitor.desktop.storage.MockSource as StoredMockSource
 import appmonitor.desktop.storage.MockWrite as StoredMockWrite
+import appmonitor.desktop.storage.RunSummary as StoredRunSummary
+import appmonitor.desktop.storage.SessionSummary as StoredSessionSummary
 import appmonitor.desktop.storage.StatusClass as StoredStatusClass
 
 internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs)
@@ -116,15 +121,7 @@ internal fun ExchangeDetail.toDomain(frames: List<StoredFrame>): HttpExchange {
         responseBody = response?.let { CapturedBody(it.body, it.body_truncated, it.body_size) } ?: CapturedBody(),
         error = row.error,
         endedAtMs = row.endedAtMs,
-        frames =
-            frames.map {
-                CapturedFrame(
-                    it.direction,
-                    it.opcode,
-                    CapturedBody(it.payload, it.payloadTruncated, it.payloadSize),
-                    it.atMs,
-                )
-            },
+        frames = frames.map { it.toDomain() },
         frameCount = row.frameCount,
         captureLayer = row.captureLayer,
         connection = connectionBytes?.let { ConnectionBytes(it.sent, it.received) },
@@ -134,6 +131,37 @@ internal fun ExchangeDetail.toDomain(frames: List<StoredFrame>): HttpExchange {
         replayOfId = replayOfId,
     )
 }
+
+internal fun ExchangeDetail.toDomain(): DomainExchangeDetail =
+    DomainExchangeDetail(exchange.toDomain(), request, response, mockRuleName, replayOfId)
+
+internal fun StoredFrame.toDomain(): CapturedFrame =
+    CapturedFrame(id, direction, opcode, CapturedBody(payload, payloadTruncated, payloadSize), atMs)
+
+internal fun Exchange.toStored(): StoredExchange =
+    StoredExchange(
+        id = id,
+        sessionId = sessionId,
+        requestId = requestId,
+        method = method,
+        url = url,
+        host = host,
+        statusCode = statusCode,
+        failed = failed,
+        startedAtMs = startedAtMs,
+        endedAtMs = endedAtMs,
+        captureLayer = captureLayer,
+        error = error,
+        frameCount = frameCount,
+        grpcStatus = grpcStatus,
+        mockRuleId = mockRuleId,
+        replayOf = replayOf,
+    )
+
+internal fun StoredRunSummary.toDomain(): RunSummary = RunSummary(run.toDomain(), exchangeCount, sessions.map { it.toDomain() })
+
+internal fun StoredSessionSummary.toDomain(): SessionSummary =
+    SessionSummary(session.toDomain(), deviceId, deviceName, platform, osVersion, appId, appVersion, sdkName)
 
 internal fun StoredMock.toDomain(): Mock =
     Mock(id, appId, position, name, enabled, pending, source.toDomain(), rule, createdAtMs, updatedAtMs)

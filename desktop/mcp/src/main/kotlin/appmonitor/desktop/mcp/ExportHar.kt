@@ -3,7 +3,9 @@ package appmonitor.desktop.mcp
 import appmonitor.desktop.mcp.Filters.putFilterProperties
 import appmonitor.desktop.storage.ExchangeDetail
 import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.StatusClass
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.StoredExchange
 import appmonitor.desktop.storage.StoredFrame
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
@@ -20,6 +22,7 @@ import kotlinx.serialization.json.putJsonObject
 import okio.ByteString
 import java.net.URI
 import java.net.URLDecoder
+import appmonitor.desktop.domain.ExchangeFilter as DomainExchangeFilter
 
 /** `export_har` (SDD 10): the exchanges a filter matches, oldest first, as one HAR 1.2 log. */
 internal object ExportHar {
@@ -47,7 +50,7 @@ internal object ExportHar {
                         put("minimum", 1)
                         put("maximum", MAX_ENTRIES)
                         put("default", DEFAULT_ENTRIES)
-                        put("description", "Exchanges exported; log.comment says when more matched.")
+                        put("description", "HTTP exchanges exported, connections not counted; log.comment says when more matched.")
                     }
                     putJsonObject("bodies") {
                         put("type", "string")
@@ -64,7 +67,7 @@ internal object ExportHar {
         version: String,
         maxText: Long = MAX_TEXT,
     ): JsonObject {
-        val filter = Filters.filter(arguments)
+        val filter = Filters.filter(arguments).toStored()
         val maxEntries = arguments.long("max_entries", 1..MAX_ENTRIES, DEFAULT_ENTRIES)!!
         val cap =
             when (arguments.choice("bodies", bodyModes, "capped")) {
@@ -84,20 +87,17 @@ internal object ExportHar {
         version: String,
         maxText: Long = MAX_TEXT,
     ): HarLog {
-        val rows = storage.searchExchanges(filter, 0, maxEntries + 1)
+        val (http, connections) = httpRows(storage, filter, maxEntries + 1)
         var text = 0L
         val entries = mutableListOf<JsonObject>()
-        val exported = rows.take(maxEntries.toInt())
-        // ADR-0104: HAR holds HTTP; a connection has no request or response to put in it.
-        val connections = exported.count { it.isConnection }
-        for (row in exported.filterNot { it.isConnection }) {
+        for (row in http.take(maxEntries.toInt())) {
             val detail = storage.exchange(row.id) ?: continue
             val entry = entry(detail, allFrames(storage, row.id, row.frameCount), cap)
             text += entry.toString().encodeToByteArray().size
             if (text > maxText) throw ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none")
             entries += entry
         }
-        val more = rows.size > maxEntries
+        val more = http.size > maxEntries
         val json =
             buildJsonObject {
                 putJsonObject("log") {
@@ -114,6 +114,27 @@ internal object ExportHar {
                 }
             }
         return HarLog(json, entries.size, more, connections)
+    }
+
+    /** The first [limit] HTTP exchanges [filter] matches, and how many connections the pages read held (ADR-0104). */
+    private suspend fun httpRows(
+        storage: Storage,
+        filter: ExchangeFilter,
+        limit: Long,
+    ): Pair<List<StoredExchange>, Int> {
+        val http = mutableListOf<StoredExchange>()
+        var connections = 0
+        var afterId = 0L
+        while (http.size < limit) {
+            val page = storage.searchExchanges(filter, afterId, Storage.PAGE_SIZE)
+            for (row in page) {
+                if (http.size == limit.toInt()) break
+                if (row.isConnection) connections++ else http += row
+            }
+            if (page.size < Storage.PAGE_SIZE) break
+            afterId = page.last().id
+        }
+        return http to connections
     }
 
     private suspend fun allFrames(
@@ -283,3 +304,16 @@ internal class HarLog(
     val more: Boolean,
     val connections: Int,
 )
+
+/** The store's filter of the tools' domain one, while `export_har` reads the store. */
+internal fun DomainExchangeFilter.toStored() =
+    ExchangeFilter(
+        text = text,
+        method = method,
+        statusClass = statusClass?.let { StatusClass.valueOf(it.name) },
+        failedOnly = failedOnly,
+        deviceId = deviceId,
+        appId = appId,
+        runId = runId,
+        sessionId = sessionId,
+    )

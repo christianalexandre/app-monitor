@@ -1,8 +1,12 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.data.benchmarkRepository
+import appmonitor.desktop.data.runRepository
+import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.domain.McpRepository
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.mcp.McpAccess
+import appmonitor.desktop.mcp.McpRepositories
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.mcp.ReplayAsks
 import appmonitor.desktop.mcp.mcpPort
@@ -27,6 +31,8 @@ internal class McpController(
     private val access: McpAccess,
     override val port: Int = mcpPort(),
     private val replays: ReplayAsks? = null,
+    private val repositories: McpRepositories =
+        McpRepositories(storage.runRepository(), storage.trafficQueryRepository(), storage.benchmarkRepository()),
     private val readSwitch: suspend () -> String? = { storage.setting(KEY_ENABLED) },
 ) : McpRepository {
     private val lock = Mutex()
@@ -89,7 +95,7 @@ internal class McpController(
     private suspend fun startLocked() {
         if (closed || server != null) return
         mutableStatus.value = ServiceStatus.Starting
-        val next = McpServer(storage, access, port, replays = replays)
+        val next = McpServer(storage, repositories, access, port, replays = replays)
         mutableStatus.value =
             try {
                 ServiceStatus.Running(next.start()).also { server = next }

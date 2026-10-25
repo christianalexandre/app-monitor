@@ -1,6 +1,5 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.v1.RequestFailed
 import kotlinx.serialization.json.JsonNull
@@ -111,13 +110,13 @@ class EndpointStatsTest {
             storage.connected("s1", hello(), null)
             repeat(7) { storage.received("s1", envelope(request("r$it"))) }
             storage.flush()
-            val cut = EndpointStats.call(storage, null, maxExchanges = 3)
+            val cut = EndpointStats.call(storage.repositories(), null, maxExchanges = 3)
             assertEquals(3, cut.long("exchanges_read"))
             assertEquals(true, cut["truncated"]!!.jsonPrimitive.boolean)
-            val exact = EndpointStats.call(storage, null, maxExchanges = 7)
+            val exact = EndpointStats.call(storage.repositories(), null, maxExchanges = 7)
             assertEquals(7, exact.long("exchanges_read"))
             assertEquals(false, exact["truncated"]!!.jsonPrimitive.boolean, "nothing left past the cap")
-            assertEquals(7, EndpointStats.group(storage, ExchangeFilter(), maxExchanges = 300).exchangesRead)
+            assertEquals(7, EndpointStats.call(storage.repositories(), null, maxExchanges = 300).long("exchanges_read"))
         }
 
     @Test
@@ -129,8 +128,9 @@ class EndpointStatsTest {
                 assertEquals("limit must be an integer from 1 to 500", result.text)
             }
             running.storage.close(5.seconds)
-            val closed = assertFailsWith<ToolError> { EndpointStats.call(running.storage, null) }
-            assertEquals(CLOSING, closed.message)
+            val closed = running.client { it.callTool(EndpointStats.NAME, mapOf()) }
+            assertEquals(true, closed.isError)
+            assertEquals(CLOSING, closed.text)
         }
 
     @Test

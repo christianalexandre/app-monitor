@@ -3,7 +3,7 @@ id: DEBT-0081
 title: Non-correctness findings of the M8 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`, `sdk/ios/Sources/AppMonitorConnections/connections.c` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`"
+trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt` or `sdk/ios/Sources/AppMonitorConnections/connections.c`"
 paid_date:
 ---
 
@@ -32,7 +32,7 @@ not hit (ADR-0094):
   builds the `ProxyRecording`, which creates the "Proxy" session row,
   before `server.start()`. A port already taken therefore leaves one
   empty session per attempt.
-- **Connections count against the HAR cap.** `ExportHar.log` takes
+- **Paid by H2.5a: connections counted against the HAR cap.** `ExportHar.log` takes
   `max_entries` rows and only then leaves connections out. `log.comment`
   counts the connections, but the file can hold fewer HTTP entries than
   the cap while more matched.
@@ -63,8 +63,7 @@ The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy
 `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`,
 `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`,
 `sdk/ios/Sources/AppMonitorConnections/connections.c`,
-`sdk/ios/Sources/AppMonitor/ConnectionCapture.swift`,
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt` or
+`sdk/ios/Sources/AppMonitor/ConnectionCapture.swift` or
 `scripts/e2e_ios.sh`: that PR pays the item of the file it touches.
 
 ## How it was paid
@@ -83,3 +82,9 @@ as `protocol/fixtures/connection_closed.bin` already showed.
 (PLAN-0012 H2.4c): the recording is built closed and opened once the
 server listens, so a taken port leaves no session
 (`ProxyWiringTest`'s `a taken port is a status`). The other items are open.
+
+`ExportHar.kt` paid in `refactor/mcp-read-tools-through-domain`
+(PLAN-0012 H2.5a): `max_entries` counts HTTP entries only, the rows read
+a page at a time past the connections, which `log.comment` still counts
+(`ConnectionToolsTest.aConnectionDoesNotCountAgainstMaxEntries`, which
+fails on the earlier code). The other items are open.

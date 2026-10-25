@@ -114,7 +114,10 @@ private class FakeBenchmarks : BenchmarkRepository {
     val filters = mutableListOf<ExchangeFilter>()
     val diffs = mutableListOf<Triple<ExchangeFilter, Long, Long>>()
 
-    override suspend fun endpoints(filter: ExchangeFilter): EndpointGroups {
+    override suspend fun endpoints(
+        filter: ExchangeFilter,
+        maxExchanges: Long,
+    ): EndpointGroups {
         filters += filter
         return next.await()
     }
@@ -123,6 +126,7 @@ private class FakeBenchmarks : BenchmarkRepository {
         filter: ExchangeFilter,
         baseRunId: Long,
         runId: Long,
+        maxExchanges: Long,
     ): EndpointDiff {
         diffs += Triple(filter, baseRunId, runId)
         return EndpointDiff(emptyList(), emptyList(), emptyList(), unchanged = 3, truncated = false)

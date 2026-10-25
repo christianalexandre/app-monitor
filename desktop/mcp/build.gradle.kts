@@ -19,6 +19,7 @@ dependencies {
     testImplementation(libs.mcp.kotlin.sdk.client)
     testImplementation(libs.ktor.client.cio)
     testImplementation(project(":tools:fake-client"))
+    testImplementation(project(":desktop:data"))
 }
 
 tasks.test {

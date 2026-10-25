@@ -1,7 +1,6 @@
 package appmonitor.desktop.mcp
 
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.StoredFrame
+import appmonitor.desktop.domain.CapturedFrame
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -74,7 +73,7 @@ internal object GetRequest {
         )
 
     suspend fun call(
-        storage: Storage,
+        repositories: McpRepositories,
         arguments: JsonObject?,
     ): JsonObject {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null) ?: throw ToolError("id is required")
@@ -83,8 +82,8 @@ internal object GetRequest {
         val max = arguments.long("body_max_bytes", 1..MAX_BODY, DEFAULT_BODY)!!
         val framesAfter = arguments.long("frames_after_id", 0..Long.MAX_VALUE, 0)!!
         val framesLimit = arguments.long("frames_limit", 0..MAX_FRAMES, DEFAULT_FRAMES)!!
-        val detail = storage.exchange(id)
-        val frames = if (detail != null && framesLimit > 0) storage.frames(id, framesAfter, framesLimit) else emptyList()
+        val detail = repositories.queries.detail(id)
+        val frames = if (detail != null && framesLimit > 0) repositories.queries.frames(id, framesAfter, framesLimit) else emptyList()
         if (detail == null) throw ToolError("no exchange with id $id")
         val connection = detail.connectionBytes
         return buildJsonObject {
@@ -128,7 +127,7 @@ internal object GetRequest {
 
     // The page stops at framesLimit, or once its payloads reach max bytes after at least one frame.
     private fun framesJson(
-        frames: List<StoredFrame>,
+        frames: List<CapturedFrame>,
         limit: Long,
         max: Long,
     ): JsonObject {
@@ -136,8 +135,13 @@ internal object GetRequest {
         val page = mutableListOf<JsonObject>()
         for (frame in frames) {
             if (page.isNotEmpty() && bytes >= max) break
-            val payload = bodyJson(frame.payload, frame.payloadSize, frame.payloadTruncated, null, 0, max)
-            bytes += minOf(frame.payload.size.toLong(), max)
+            val payload = bodyJson(frame.payload.bytes, frame.payload.originalSize, frame.payload.truncated, null, 0, max)
+            bytes +=
+                minOf(
+                    frame.payload.bytes.size
+                        .toLong(),
+                    max,
+                )
             page +=
                 buildJsonObject {
                     put("id", frame.id)
