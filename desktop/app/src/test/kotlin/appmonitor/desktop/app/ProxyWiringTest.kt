@@ -14,7 +14,6 @@ import appmonitor.desktop.app.ui.PROXY_RESET_CA
 import appmonitor.desktop.app.ui.PROXY_STATUS
 import appmonitor.desktop.app.ui.PROXY_SWITCH
 import appmonitor.desktop.app.ui.ProxySettings
-import appmonitor.desktop.app.ui.simulatorLaunch
 import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.delay
@@ -134,7 +133,10 @@ class ProxyWiringTest {
                     PROXY_STATUS,
                     useUnmergedTree = true,
                 ).performScrollTo().assertTextEquals("Listening on http://127.0.0.1:47476")
-                onNodeWithText(simulatorLaunch(47476)).assertExists()
+                onNodeWithText(
+                    "SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476 " +
+                        "SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=\"/data/proxy-ca.pem\" xcrun simctl launch booted <bundle id>",
+                ).assertExists()
                 onNodeWithTag(PROXY_RESET_CA).performScrollTo()
                 screenshot("proxy.png")
                 onNodeWithTag(PROXY_RESET_CA).performClick()

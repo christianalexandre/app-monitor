@@ -15,12 +15,20 @@ Castle, ADR-0105); the switch, status and commands in
 - Binds `127.0.0.1:47476` only (ADR-0101 A.1); `APPMONITOR_PROXY_PORT`
   moves it (`proxyPort()`). Nothing else on the LAN reaches it, so it
   has no approval step.
-- A simulator shares the Mac's network, so an app launched with
-  `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<port> xcrun simctl launch
-  booted <bundle id>` sends its gRPC-Core traffic through it (ADR-0101
-  B.1); from Xcode, the same variable without the prefix in the scheme.
-  `URLSession` ignores it and stays on layer 1. The settings show this
-  command and a `curl --proxy … --cacert <ca file>` one.
+- A simulator shares the Mac's network and reads its files, so an app
+  launched with `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<port>
+  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="<ca file>" xcrun simctl
+  launch booted <bundle id>` sends its gRPC-Core traffic through it and
+  trusts the CA for it (ADR-0101 B.1, ADR-0108); from Xcode, the same two
+  variables without the prefix in the scheme. Nothing is installed on the
+  simulator. `URLSession` ignores both and stays on layer 1. The settings
+  show this command and a `curl --proxy … --cacert <ca file>` one.
+- `make server ARGS="--proxy <dir>"` runs it headless on a free port with
+  its CA in `<dir>`, printing `Proxy on port N, CA in …` and each
+  exchange as a `[proxy]` line; origins are verified against the JVM's
+  trust store, which `SERVER_OPTS=-Djavax.net.ssl.trustStore=…` replaces
+  (ADR-0109). `make e2e-ios` drives the iOS sample's gRPC-Core call
+  through it.
 
 ### The CA
 
@@ -37,8 +45,8 @@ Castle, ADR-0105); the switch, status and commands in
   and never past the CA. Its TLS context offers ALPN `h2`, then
   `http/1.1`.
 - "Reset proxy CA" and "Clear all data" delete both files; a running
-  proxy restarts with a new CA, and the settings remind to reset the
-  simulators' keychains. Installing it on simulators is M8.8.
+  proxy restarts with a new CA, and the settings remind to relaunch the
+  apps started with the old one, which keep it in memory.
 
 ### One client connection
 
@@ -148,6 +156,8 @@ the proxy's 2 s.
 ## Limits
 
 - Loopback only: physical devices cannot use it (ADR-0101 A.1).
+- On a simulator only gRPC-Core follows the launch command; a client
+  that reads only the keychain is not served (ADR-0108).
 - An HTTP/2 client reaching an HTTP/1.1-only origin gets `502`
   (DEBT-0079).
 - No backpressure: a stream's frames and an HTTP/1.1 response are
