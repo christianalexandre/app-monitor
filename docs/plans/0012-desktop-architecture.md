@@ -1,10 +1,10 @@
 ---
 id: PLAN-0012
 title: Desktop clean architecture and design system
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H2
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0012 — Desktop clean architecture and design system (H2)
@@ -152,7 +152,7 @@ task that lands each module.
   against `max_entries`) and DEBT-0074's duplicate closing check, whose
   test now goes through the server.
 - [x] **H2.5b The rest of MCP through the repositories.**
-  (`refactor/mcp-tools-through-domain`) `export_har`,
+  (#272, `refactor/mcp-tools-through-domain`) `export_har`,
   `to_curl`, the issue and mock tools, `replay_request`, the token and
   the store's health; `desktop/mcp` depends on `desktop/domain`, not
   `desktop/storage`.
@@ -167,12 +167,69 @@ task that lands each module.
   `curl` take a `TrafficQueryRepository`, so the last `toStored()` copy in
   `desktop/mcp` is gone. No DEBT `make debt-check` listed fired.
 
+### H2 milestone review
+
+`code-review` at `medium` of `ad15632..5f0812f` (#261 to #272). Ten
+findings, none that normal use hits:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | The search field reads its text from `TrafficViewModel.state`, which updates asynchronously, so keys typed fast might be lost. | No: a test typing one key per frame through `InsertTextAtCursor` kept all of `items` on `origin/dev`. The test was run on this branch and not kept. | Rejected |
+| 2 | `export_har` pages until it has `max_entries + 1` HTTP rows, with no bound on how many pages it reads. | No: it reads only the filter's matches | DEBT-0092 |
+| 3 | The HAR connection count includes connections past the last exported entry. | No: only when `max_entries` cuts the export | DEBT-0092 |
+| 4 | After "Show original", an original that was then deleted leaves the pane on "Loading…". | No: needs a delete between two picks | DEBT-0092 |
+| 5 | Two HAR exports in flight write `exportNote` in the order they finish. | No: needs two exports at once | DEBT-0092 |
+| 6 | The issue list's filter outlives the dialog. | No: the filter is shown in the dialog | DEBT-0092 |
+| 7 | Held calls wait for the breakpoints query's first value. | No: SQLDelight emits at once | DEBT-0092 |
+| 8 | Any change to one of the nine keys of `AppMonitorApp`'s Koin graph rebuilds every view model. | — | Rejected: every caller passes values it remembers |
+| 9 | The benchmark thresholds are defined in `desktop/domain` and again in `desktop/storage`. | No: kept in step by a test | DEBT-0092 |
+| 10 | `BodyFormat.kt` keeps three unused imports. | No | DEBT-0092 |
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**:
+  - Plan (#260), and the standing owner decision on desktop references
+    (#261).
+  - H2.1: the design system and the app drawn with it (#262).
+  - H2.2a: the traffic panes read through domain repositories (#263).
+  - H2.F1: the iOS suites that swap a process-wide sink run serialized
+    (#264).
+  - H2.2b: the traffic feature module (#265).
+  - H2.3: the mocks and breakpoints features (#266).
+  - H2.2c: the approval and asked-replay dialogs in traffic (#267).
+  - H2.4a: benchmarks, run diff and HAR export in insights (#268).
+  - H2.4b: issues in insights (#269).
+  - H2.4c: the settings feature (#270).
+  - H2.5a: MCP's read tools through the repositories (#271).
+  - H2.5b: the rest of MCP through the repositories (#272).
+  - The milestone review and this close (this PR).
+- **Decisions**: ADR-0133 (the target architecture), ADR-0134 (the
+  design system wraps Material 2, checked by a script), ADR-0135 (domain
+  models mirror the store and keep protocol messages), ADR-0136 (view
+  models wired by one Koin module per window), ADR-0137 (`desktop/ui`
+  holds what features share), ADR-0138 (MCP reads through a paged query
+  repository).
+- **Debt**:
+  - Paid: DEBT-0088's "Show original" item (#265); DEBT-0074's in-flight
+    guard and single query (#269); DEBT-0081's `ProxyController` item
+    (#270); DEBT-0081's HAR cap item and DEBT-0074's duplicate closing
+    check (#271).
+  - Re-triggered: DEBT-0072 and DEBT-0073, to the code they name (#270).
+  - Created: DEBT-0091 (the storage tests hung once on CI) and DEBT-0092
+    (this review's findings).
+  - No correctness finding that normal use hits is left open.
+- **Deviations**:
+  - Split for size: H2.2 into H2.2a–c, H2.4 into H2.4a–c, H2.5 into
+    H2.5a–b.
+  - H2.F1 added by H2.1, after `make swift` failed twice on `dev`.
+  - Done out of order: H2.2a before H2.F1, H2.3 before H2.2c.
+  - The app is on Material 2, not Material3 as ADR-0133 said (ADR-0134).
+  - `AskedReplay` moved to `desktop/domain` instead of being mirrored, so
+    `desktop/mcp` depended on the domain before H2.5.
+- **Lessons**:
+  - Each first estimate of a feature move was too large for one PR. A
+    plan for a refactor this size should start with one task per screen
+    or tool group.
+  - Comparing screenshots against `origin/dev`'s in each move gave the
+    "nothing changes" goal a concrete check, and should stay the rule
+    for UI refactors.
