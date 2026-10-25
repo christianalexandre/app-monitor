@@ -26,12 +26,21 @@ one PR is split at once (M8's rule). Guideline
 `docs/guidelines/05_desktop_architecture.md` and SDD 03 change in the
 task that lands each module.
 
-- [ ] **H2.1 Design system.** `desktop/designsystem` with
+- [x] **H2.1 Design system.** (#261) `desktop/designsystem` with
   `AppMonitorTheme`, the tokens and the components the current screens
   repeat; `desktop/app` switched to the theme and the components; the
   design system rule script in `make check`; a gallery screenshot test.
   Accept: `./gradlew :desktop:designsystem:test :desktop:app:test` and
   `make check` — the rule script finds nothing outside the design system.
+  Deviation: the app is on Material 2, not Material3 as ADR-0133 says;
+  the design system wraps it (ADR-0134). The run diff dialog took the
+  benchmarks' width (1100 → 1180 dp).
+- [ ] **H2.F1 iOS host tests isolated from each other's mock rules.**
+  Added by H2.1: on `dev` at `ad15632`, `make swift` fails on macOS in
+  `ConnectionCaptureTests.urlSessionTrafficIsLeftToItsOwnCapture` (status
+  201, `MockTests`' mocked answer, instead of 200), twice in a row; the
+  suite alone passes. The two suites run in parallel and the mock rules
+  are process-wide. Accept: `make swift` green twice in a row.
 - [ ] **H2.2 Domain, data and the traffic feature.** `desktop/domain`,
   `desktop/data`, Koin and view models; `desktop/feature/traffic`
   (devices, approvals, requests, detail, runs, replay) moved out of

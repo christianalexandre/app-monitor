@@ -12,11 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.Card
-import androidx.compose.material.Divider
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -30,6 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Divider
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.storage.EndpointChange
 import appmonitor.desktop.storage.EndpointDiff
 import appmonitor.desktop.storage.EndpointTally
@@ -99,40 +103,36 @@ internal fun RunDiff(
         val run = runId ?: return@produceState
         value = diffEndpoints(storage.groupByEndpoint(filter.copy(runId = base)), storage.groupByEndpoint(filter.copy(runId = run)))
     }
-    Overlay {
-        Card(Modifier.width(1100.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Compare runs", style = MaterialTheme.typography.h6)
-                Text(scope, style = MaterialTheme.typography.caption)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    RunPicker("Base", runs, baseId, DIFF_BASE, Modifier.weight(1f)) { baseId = it }
-                    RunPicker("Run", runs, runId, DIFF_RUN, Modifier.weight(1f)) { runId = it }
-                }
-                Divider()
-                val loaded = diff
-                if (loaded == null) {
-                    Placeholder(if (baseId == null) "No runs to compare" else "Reading requests…")
-                } else {
-                    Text(
-                        "${loaded.added.size} added · ${loaded.gone.size} gone · ${loaded.changed.size} changed · " +
-                            "${loaded.unchanged} unchanged" +
-                            (if (loaded.truncated) " — the first requests only: narrow the filter for the rest" else ""),
-                        Modifier.testTag(DIFF_SUMMARY),
-                        style = MaterialTheme.typography.caption,
-                        color = if (loaded.truncated) MaterialTheme.colors.error else MaterialTheme.colors.onSurface,
-                    )
-                    DiffHeader()
-                    LazyColumn(Modifier.heightIn(max = 440.dp).testTag(DIFF_LIST)) {
-                        section("Changed", loaded.changed.map(DiffRow::of))
-                        section("Added", loaded.added.map(DiffRow::of))
-                        section("Gone", loaded.gone.map(DiffRow::of))
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { reads++ }) { Text("Refresh") }
-                    TextButton(onClick = onClose) { Text("Close") }
-                }
+    DialogCard(DialogWidth.Table) {
+        Text("Compare runs", role = TextRole.Title)
+        Text(scope, role = TextRole.Caption)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+            RunPicker("Base", runs, baseId, DIFF_BASE, Modifier.weight(1f)) { baseId = it }
+            RunPicker("Run", runs, runId, DIFF_RUN, Modifier.weight(1f)) { runId = it }
+        }
+        Divider()
+        val loaded = diff
+        if (loaded == null) {
+            Placeholder(if (baseId == null) "No runs to compare" else "Reading requests…")
+        } else {
+            Text(
+                "${loaded.added.size} added · ${loaded.gone.size} gone · ${loaded.changed.size} changed · " +
+                    "${loaded.unchanged} unchanged" +
+                    (if (loaded.truncated) " — the first requests only: narrow the filter for the rest" else ""),
+                Modifier.testTag(DIFF_SUMMARY),
+                role = TextRole.Caption,
+                error = loaded.truncated,
+            )
+            DiffHeader()
+            LazyColumn(Modifier.heightIn(max = 440.dp).testTag(DIFF_LIST)) {
+                section("Changed", loaded.changed.map(DiffRow::of))
+                section("Added", loaded.added.map(DiffRow::of))
+                section("Gone", loaded.gone.map(DiffRow::of))
             }
+        }
+        DialogActions {
+            TextButton("Refresh", onClick = { reads++ })
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -147,7 +147,7 @@ private fun RunPicker(
     onPick: (Long) -> Unit,
 ) {
     Column(modifier) {
-        Text(label, fontWeight = FontWeight.Medium)
+        Text(label, role = TextRole.BodyStrong)
         LazyColumn(Modifier.heightIn(max = 140.dp)) {
             items(runs, key = { it.id }) { run ->
                 val picked = run.id == selected
@@ -156,7 +156,7 @@ private fun RunPicker(
                     Modifier
                         .fillMaxWidth()
                         .selectable(picked) { onPick(run.id) }
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = Spacing.xs)
                         .testTag(tag + run.id),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -179,9 +179,9 @@ private fun LazyListScope.section(
     rows: List<DiffRow>,
 ) {
     if (rows.isEmpty()) return
-    item(key = title) { Text(title, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.subtitle2) }
+    item(key = title) { Text(title, Modifier.padding(top = Spacing.md), role = TextRole.Heading) }
     items(rows, key = { title + it.endpoint }) { row ->
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
             DiffCell(row.endpoint, wide = true)
             DiffCell(row.count)
             DiffCell(row.errorRate)
@@ -199,12 +199,11 @@ private fun RowScope.DiffCell(
 ) {
     Text(
         text,
-        (if (wide) Modifier.weight(1f) else Modifier.width(150.dp)).padding(horizontal = 4.dp),
-        fontWeight = if (bold) FontWeight.Medium else null,
+        (if (wide) Modifier.weight(1f) else Modifier.width(150.dp)).padding(horizontal = Spacing.xs),
         textAlign = if (wide) TextAlign.Start else TextAlign.End,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        style = MaterialTheme.typography.body2,
+        role = if (bold) TextRole.SmallStrong else TextRole.Small,
     )
 }
 

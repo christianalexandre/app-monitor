@@ -9,11 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +24,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.Choice
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
+import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.storage.IssueChange
 import appmonitor.desktop.storage.IssueFilter
 import appmonitor.desktop.storage.IssueSource
@@ -54,27 +60,24 @@ internal fun SaveIssueDialog(
     var note by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    Overlay {
-        Card(Modifier.width(520.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Save as issue", style = MaterialTheme.typography.h6)
-                Text(requestsOf(exchangeIds.size.toLong()), style = MaterialTheme.typography.caption)
-                IssueFields(title, { title = it }, note, { note = it }, tags, { tags = it })
-                error?.let { Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onClose) { Text("Cancel") }
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                val write = storage.createIssue(title, note, tagsOf(tags), exchangeIds, IssueSource.WINDOW)
-                                if (write is IssueWrite.Saved) onSaved() else error = failureOf(write)
-                            }
-                        },
-                        Modifier.testTag(SAVE_ISSUE),
-                        enabled = title.isNotBlank(),
-                    ) { Text("Save") }
-                }
-            }
+    DialogCard(DialogWidth.Medium) {
+        Text("Save as issue", role = TextRole.Title)
+        Text(requestsOf(exchangeIds.size.toLong()), role = TextRole.Caption)
+        IssueFields(title, { title = it }, note, { note = it }, tags, { tags = it })
+        error?.let { Text(it, error = true, role = TextRole.Caption) }
+        DialogActions {
+            TextButton("Cancel", onClick = onClose)
+            TextButton(
+                "Save",
+                onClick = {
+                    scope.launch {
+                        val write = storage.createIssue(title, note, tagsOf(tags), exchangeIds, IssueSource.WINDOW)
+                        if (write is IssueWrite.Saved) onSaved() else error = failureOf(write)
+                    }
+                },
+                Modifier.testTag(SAVE_ISSUE),
+                enabled = title.isNotBlank(),
+            )
         }
     }
 }
@@ -92,34 +95,30 @@ internal fun IssueList(
     val all by remember(storage) { storage.observeIssues() }.collectAsState(emptyList())
     var open by remember { mutableStateOf<Long?>(null) }
     val issue = all.firstOrNull { it.id == open }
-    Overlay {
-        Card(Modifier.width(640.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (issue != null) {
-                    // Drafts belong to one issue.
-                    key(issue.id) { IssueEditor(storage, issue) { open = null } }
-                    return@Column
-                }
-                Text("Issues", style = MaterialTheme.typography.h6)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Choice("Status", filter.status, IssueStatus.entries, ::labelOf) { filter = filter.copy(status = it) }
-                    Choice("Tag", filter.tag, tags, { it }) { filter = filter.copy(tag = it) }
-                }
-                if (issues.isEmpty()) {
-                    Placeholder(if (filter == IssueFilter()) "No issues yet: select requests and \"Save as issue\"" else "No issues match")
-                }
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(issues, key = { it.id }) { issue ->
-                        Column(Modifier.fillMaxWidth().selectable(false) { open = issue.id }.padding(vertical = 6.dp)) {
-                            Text(issue.title, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(summaryOf(issue), style = MaterialTheme.typography.caption)
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onClose) { Text("Close") }
+    DialogCard(DialogWidth.Large) {
+        if (issue != null) {
+            // Drafts belong to one issue.
+            key(issue.id) { IssueEditor(storage, issue) { open = null } }
+            return@DialogCard
+        }
+        Text("Issues", role = TextRole.Title)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Choice("Status", filter.status, IssueStatus.entries, ::labelOf) { filter = filter.copy(status = it) }
+            Choice("Tag", filter.tag, tags, { it }) { filter = filter.copy(tag = it) }
+        }
+        if (issues.isEmpty()) {
+            Placeholder(if (filter == IssueFilter()) "No issues yet: select requests and \"Save as issue\"" else "No issues match")
+        }
+        LazyColumn(Modifier.heightIn(max = 360.dp)) {
+            items(issues, key = { it.id }) { issue ->
+                Column(Modifier.fillMaxWidth().selectableItem(false) { open = issue.id }.padding(vertical = Spacing.sm)) {
+                    Text(issue.title, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(summaryOf(issue), role = TextRole.Caption)
                 }
             }
+        }
+        DialogActions {
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -148,35 +147,36 @@ private fun IssueEditor(
             tags = tagsOf(tags).takeIf { tags != openedTags && it != opened.tags },
             status = status.takeIf { it != opened.status },
         )
-    Text("Issue", style = MaterialTheme.typography.h6)
-    Text(summaryOf(issue), style = MaterialTheme.typography.caption)
+    Text("Issue", role = TextRole.Title)
+    Text(summaryOf(issue), role = TextRole.Caption)
     IssueFields(title, { title = it }, note, { note = it }, tags, { tags = it })
     Choice("Status", status, IssueStatus.entries, ::labelOf, any = null) { if (it != null) status = it }
-    Text("Requests", style = MaterialTheme.typography.subtitle2)
+    Text("Requests", role = TextRole.Heading)
     LazyColumn(Modifier.heightIn(max = 160.dp)) {
         items(exchanges, key = { it.id }) { exchange ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(exchange.method ?: "—", Modifier.width(96.dp), fontWeight = FontWeight.Medium, maxLines = 1)
+            Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xxs), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+                Text(exchange.method ?: "—", Modifier.width(96.dp), role = TextRole.BodyStrong, maxLines = 1)
                 Text(exchange.url ?: exchange.requestId, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(statusOf(exchange), Modifier.width(56.dp))
             }
         }
     }
-    error?.let { Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption) }
+    error?.let { Text(it, error = true, role = TextRole.Caption) }
     if (confirmingDelete) {
-        Text("Delete this issue? Its requests then follow retention again.", color = MaterialTheme.colors.error)
+        Text("Delete this issue? Its requests then follow retention again.", error = true)
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+    DialogActions {
         if (confirmingDelete) {
-            TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
-            TextButton(onClick = {
+            TextButton("Cancel", onClick = { confirmingDelete = false })
+            TextButton("Delete issue", onClick = {
                 scope.launch { storage.deleteIssue(issue.id) }
                 onBack()
-            }, Modifier.testTag(CONFIRM_DELETE_ISSUE)) { Text("Delete issue") }
+            }, Modifier.testTag(CONFIRM_DELETE_ISSUE))
         } else {
-            TextButton(onClick = { confirmingDelete = true }) { Text("Delete") }
-            TextButton(onClick = onBack) { Text("Back") }
+            TextButton("Delete", onClick = { confirmingDelete = true })
+            TextButton("Back", onClick = onBack)
             TextButton(
+                "Save",
                 onClick = {
                     scope.launch {
                         val write = storage.updateIssue(issue.id, change)
@@ -185,7 +185,7 @@ private fun IssueEditor(
                 },
                 Modifier.testTag(SAVE_ISSUE),
                 enabled = change != IssueChange() && title.isNotBlank(),
-            ) { Text("Save") }
+            )
         }
     }
 }
@@ -199,13 +199,13 @@ private fun IssueFields(
     tags: String,
     onTags: (String) -> Unit,
 ) {
-    OutlinedTextField(title, onTitle, Modifier.fillMaxWidth().testTag(ISSUE_TITLE), label = { Text("Title") }, singleLine = true)
-    OutlinedTextField(note, onNote, Modifier.fillMaxWidth().heightIn(min = 96.dp).testTag(ISSUE_NOTE), label = { Text("Note") })
-    OutlinedTextField(
+    TextField(title, onTitle, Modifier.fillMaxWidth().testTag(ISSUE_TITLE), label = "Title", singleLine = true)
+    TextField(note, onNote, Modifier.fillMaxWidth().heightIn(min = 96.dp).testTag(ISSUE_NOTE), label = "Note")
+    TextField(
         tags,
         onTags,
         Modifier.fillMaxWidth().testTag(ISSUE_TAGS),
-        label = { Text("Tags, comma separated") },
+        label = "Tags, comma separated",
         singleLine = true,
     )
 }

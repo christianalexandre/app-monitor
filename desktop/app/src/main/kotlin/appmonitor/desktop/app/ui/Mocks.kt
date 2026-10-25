@@ -11,11 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +27,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.fittingRules
+import appmonitor.desktop.designsystem.Choice
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
+import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.storage.MockChange
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
@@ -120,67 +126,65 @@ internal fun MockList(
     val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
     var editing by remember { mutableStateOf<Editing?>(draft?.let(Editing::New)) }
     val cut = remember(mocks) { cutOf(mocks) }
-    Overlay {
-        Card(Modifier.width(720.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (val shown = editing) {
-                    is Editing.New -> {
-                        key(shown) { MockEditor(storage, appIds, shown.draft, null) { editing = null } }
-                        return@Column
-                    }
+    DialogCard(DialogWidth.Wide) {
+        when (val shown = editing) {
+            is Editing.New -> {
+                key(shown) { MockEditor(storage, appIds, shown.draft, null) { editing = null } }
+                return@DialogCard
+            }
 
-                    is Editing.Stored -> {
-                        val mock = mocks.firstOrNull { it.id == shown.id }
-                        if (mock != null) {
-                            key(
-                                mock.id,
-                            ) { MockEditor(storage, appIds, MockDraft(mock.appId, mock.name, mock.rule), mock) { editing = null } }
-                            return@Column
-                        }
-                    }
-
-                    null -> {}
-                }
-                Text("Mocks", style = MaterialTheme.typography.h6)
-                Text(
-                    "The first active rule that matches a call answers it on the device, without the network.",
-                    style = MaterialTheme.typography.caption,
-                )
-                if (mocks.isEmpty()) Placeholder("No rules yet: \"New rule\", or \"Mock this\" on a request")
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(mocks, key = { it.id }) { mock ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).selectable(false) { editing = Editing.Stored(mock.id) }.padding(vertical = 6.dp)) {
-                                Text(mock.name, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${mock.appId} · ${summaryOf(mock.rule)}", style = MaterialTheme.typography.caption, maxLines = 1)
-                                stateOf(mock, mock.id in cut)?.let { (text, warn) ->
-                                    Text(
-                                        text,
-                                        style = MaterialTheme.typography.caption,
-                                        color = if (warn) MaterialTheme.colors.error else MaterialTheme.colors.onSurface,
-                                    )
-                                }
-                            }
-                            if (mock.pending) {
-                                TextButton(
-                                    onClick = { scope.launch { storage.confirmMock(mock.id) } },
-                                    Modifier.testTag(CONFIRM_MOCK + mock.id),
-                                ) { Text("Confirm") }
-                            }
-                            TextButton(onClick = { scope.launch { storage.updateMock(mock.id, MockChange(enabled = !mock.enabled)) } }) {
-                                Text(if (mock.enabled) "Turn off" else "Turn on")
-                            }
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(
-                        onClick = { editing = Editing.New(MockDraft(appIds.firstOrNull().orEmpty())) },
-                        Modifier.testTag(NEW_MOCK),
-                    ) { Text("New rule") }
-                    TextButton(onClick = onClose) { Text("Close") }
+            is Editing.Stored -> {
+                val mock = mocks.firstOrNull { it.id == shown.id }
+                if (mock != null) {
+                    key(
+                        mock.id,
+                    ) { MockEditor(storage, appIds, MockDraft(mock.appId, mock.name, mock.rule), mock) { editing = null } }
+                    return@DialogCard
                 }
             }
+
+            null -> {}
+        }
+        Text("Mocks", role = TextRole.Title)
+        Text(
+            "The first active rule that matches a call answers it on the device, without the network.",
+            role = TextRole.Caption,
+        )
+        if (mocks.isEmpty()) Placeholder("No rules yet: \"New rule\", or \"Mock this\" on a request")
+        LazyColumn(Modifier.heightIn(max = 420.dp)) {
+            items(mocks, key = { it.id }) { mock ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).selectableItem(false) { editing = Editing.Stored(mock.id) }.padding(vertical = Spacing.sm)) {
+                        Text(mock.name, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${mock.appId} · ${summaryOf(mock.rule)}", role = TextRole.Caption, maxLines = 1)
+                        stateOf(mock, mock.id in cut)?.let { (text, warn) ->
+                            Text(
+                                text,
+                                role = TextRole.Caption,
+                                error = warn,
+                            )
+                        }
+                    }
+                    if (mock.pending) {
+                        TextButton(
+                            "Confirm",
+                            onClick = { scope.launch { storage.confirmMock(mock.id) } },
+                            Modifier.testTag(CONFIRM_MOCK + mock.id),
+                        )
+                    }
+                    TextButton(if (mock.enabled) "Turn off" else "Turn on", onClick = {
+                        scope.launch { storage.updateMock(mock.id, MockChange(enabled = !mock.enabled)) }
+                    })
+                }
+            }
+        }
+        DialogActions {
+            TextButton(
+                "New rule",
+                onClick = { editing = Editing.New(MockDraft(appIds.firstOrNull().orEmpty())) },
+                Modifier.testTag(NEW_MOCK),
+            )
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -244,86 +248,87 @@ private fun MockEditor(
             failure,
         )
 
-    Text(if (stored == null) "New mock rule" else "Mock rule", style = MaterialTheme.typography.h6)
-    stored?.let { mock -> stateOf(mock, cut = false)?.let { Text(it.first, style = MaterialTheme.typography.caption) } }
-    Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().testTag(MOCK_NAME), label = { Text("Name") }, singleLine = true)
+    Text(if (stored == null) "New mock rule" else "Mock rule", role = TextRole.Title)
+    stored?.let { mock -> stateOf(mock, cut = false)?.let { Text(it.first, role = TextRole.Caption) } }
+    Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        TextField(name, { name = it }, Modifier.fillMaxWidth().testTag(MOCK_NAME), label = "Name", singleLine = true)
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (stored == null) {
                 Choice("App", appId.ifEmpty { null }, (appIds + draft.appId).filter { it.isNotEmpty() }.distinct(), { it }, any = "none") {
                     if (it != null) appId = it
                 }
             } else {
-                Text("App: $appId", Modifier.padding(horizontal = 8.dp))
+                Text("App: $appId", Modifier.padding(horizontal = Spacing.md))
             }
             Choice("Method", method, METHODS, { it }) { method = it }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(host, { host = it }, Modifier.weight(1f).testTag(MOCK_HOST), label = { Text("Host") }, singleLine = true)
-            OutlinedTextField(
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            TextField(host, { host = it }, Modifier.weight(1f).testTag(MOCK_HOST), label = "Host", singleLine = true)
+            TextField(
                 path,
                 { path = it },
                 Modifier.weight(1f).testTag(MOCK_PATH),
-                label = { Text("Path, * for one segment") },
+                label = "Path, * for one segment",
                 singleLine = true,
             )
-            OutlinedTextField(delay, { delay = it }, Modifier.width(120.dp), label = { Text("Delay, ms") }, singleLine = true)
+            TextField(delay, { delay = it }, Modifier.width(120.dp), label = "Delay, ms", singleLine = true)
         }
         Choice("Answer", fails, listOf(false, true), { if (it) "Failure" else "Response" }, any = null) { if (it != null) fails = it }
         if (fails) {
-            OutlinedTextField(
+            TextField(
                 failure,
                 { failure = it },
                 Modifier.fillMaxWidth().testTag(MOCK_FAILURE),
-                label = { Text("Error message") },
+                label = "Error message",
                 singleLine = true,
             )
         } else {
-            OutlinedTextField(
+            TextField(
                 status,
                 { status = it },
                 Modifier.width(120.dp).testTag(MOCK_STATUS),
-                label = { Text("Status") },
+                label = "Status",
                 singleLine = true,
             )
-            OutlinedTextField(
+            TextField(
                 headers,
                 { headers = it },
                 Modifier.fillMaxWidth().heightIn(min = 72.dp),
-                label = { Text("Headers, one \"Name: value\" per line") },
+                label = "Headers, one \"Name: value\" per line",
             )
             val kept = binary
             if (kept != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Binary body, ${kept.size} bytes, kept as captured", Modifier.weight(1f))
-                    TextButton(onClick = { binary = null }) { Text("Clear") }
+                    TextButton("Clear", onClick = { binary = null })
                 }
             } else {
-                OutlinedTextField(
+                TextField(
                     text,
                     { text = it },
                     Modifier.fillMaxWidth().heightIn(min = 96.dp, max = 240.dp).testTag(MOCK_BODY),
-                    label = { Text("Body") },
+                    label = "Body",
                 )
             }
         }
     }
     (error ?: built.exceptionOrNull()?.message)?.let {
-        Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption)
+        Text(it, error = true, role = TextRole.Caption)
     }
-    if (confirmingDelete) Text("Delete this rule? A device stops getting it at once.", color = MaterialTheme.colors.error)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+    if (confirmingDelete) Text("Delete this rule? A device stops getting it at once.", error = true)
+    DialogActions {
         if (confirmingDelete && stored != null) {
-            TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
-            TextButton(onClick = {
+            TextButton("Cancel", onClick = { confirmingDelete = false })
+            TextButton("Delete rule", onClick = {
                 scope.launch { storage.deleteMock(stored.id) }
                 onBack()
-            }, Modifier.testTag(CONFIRM_DELETE_MOCK)) { Text("Delete rule") }
-            return@Row
+            }, Modifier.testTag(CONFIRM_DELETE_MOCK))
+            return@DialogActions
         }
-        if (stored != null) TextButton(onClick = { confirmingDelete = true }) { Text("Delete") }
-        TextButton(onClick = onBack) { Text(if (stored == null) "Cancel" else "Back") }
+        if (stored != null) TextButton("Delete", onClick = { confirmingDelete = true })
+        TextButton(if (stored == null) "Cancel" else "Back", onClick = onBack)
         TextButton(
+            "Save",
             onClick = {
                 val made = built.getOrNull() ?: return@TextButton
                 scope.launch {
@@ -338,7 +343,7 @@ private fun MockEditor(
             },
             Modifier.testTag(SAVE_MOCK),
             enabled = built.isSuccess,
-        ) { Text("Save") }
+        )
     }
 }
 

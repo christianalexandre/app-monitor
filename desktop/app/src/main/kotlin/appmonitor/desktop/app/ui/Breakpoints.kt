@@ -12,12 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Card
-import androidx.compose.material.Checkbox
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +29,18 @@ import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.HeldCall
 import appmonitor.desktop.app.store.HeldCalls
 import appmonitor.desktop.app.store.HeldEdit
+import appmonitor.desktop.designsystem.CheckboxRow
+import appmonitor.desktop.designsystem.Choice
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
+import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.storage.BreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
@@ -61,53 +67,50 @@ internal fun BreakpointList(
     val breakpoints by remember(storage) { storage.observeBreakpoints() }.collectAsState(emptyList())
     // Null: the list; a stored id, or 0 for a new one, opens the form.
     var editing by remember { mutableStateOf<Long?>(null) }
-    Overlay {
-        Card(Modifier.width(720.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                editing?.let { id ->
-                    val stored = breakpoints.firstOrNull { it.id == id }
-                    if (id == NEW || stored != null) {
-                        key(id) { BreakpointEditor(storage, appIds, stored) { editing = null } }
-                        return@Column
+    DialogCard(DialogWidth.Wide) {
+        editing?.let { id ->
+            val stored = breakpoints.firstOrNull { it.id == id }
+            if (id == NEW || stored != null) {
+                key(id) { BreakpointEditor(storage, appIds, stored) { editing = null } }
+                return@DialogCard
+            }
+        }
+        Text("Breakpoints", role = TextRole.Title)
+        Text(
+            "The first breakpoint on that matches a call holds it on the device until you resume it, or its timeout passes.",
+            role = TextRole.Caption,
+        )
+        if (breakpoints.isEmpty()) Placeholder("No breakpoints yet: \"New breakpoint\"")
+        LazyColumn(Modifier.heightIn(max = 420.dp)) {
+            items(breakpoints, key = { it.id }) { breakpoint ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).selectableItem(false) { editing = breakpoint.id }.padding(vertical = Spacing.sm)) {
+                        Text(breakpoint.name, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "${breakpoint.appId} · ${summaryOf(breakpoint.rule)}",
+                            role = TextRole.Caption,
+                            maxLines = 1,
+                        )
+                        if (!breakpoint.enabled) Text("Off", role = TextRole.Caption)
                     }
-                }
-                Text("Breakpoints", style = MaterialTheme.typography.h6)
-                Text(
-                    "The first breakpoint on that matches a call holds it on the device until you resume it, or its timeout passes.",
-                    style = MaterialTheme.typography.caption,
-                )
-                if (breakpoints.isEmpty()) Placeholder("No breakpoints yet: \"New breakpoint\"")
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(breakpoints, key = { it.id }) { breakpoint ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).selectable(false) { editing = breakpoint.id }.padding(vertical = 6.dp)) {
-                                Text(breakpoint.name, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    "${breakpoint.appId} · ${summaryOf(breakpoint.rule)}",
-                                    style = MaterialTheme.typography.caption,
-                                    maxLines = 1,
+                    TextButton(
+                        if (breakpoint.enabled) "Turn off" else "Turn on",
+                        onClick = {
+                            scope.launch {
+                                storage.updateBreakpoint(
+                                    breakpoint.id,
+                                    BreakpointChange(enabled = !breakpoint.enabled),
                                 )
-                                if (!breakpoint.enabled) Text("Off", style = MaterialTheme.typography.caption)
                             }
-                            TextButton(
-                                onClick = {
-                                    scope.launch {
-                                        storage.updateBreakpoint(
-                                            breakpoint.id,
-                                            BreakpointChange(enabled = !breakpoint.enabled),
-                                        )
-                                    }
-                                },
-                                Modifier.testTag(TOGGLE_BREAKPOINT + breakpoint.id),
-                            ) { Text(if (breakpoint.enabled) "Turn off" else "Turn on") }
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { editing = NEW }, Modifier.testTag(NEW_BREAKPOINT)) { Text("New breakpoint") }
-                    TextButton(onClick = onClose) { Text("Close") }
+                        },
+                        Modifier.testTag(TOGGLE_BREAKPOINT + breakpoint.id),
+                    )
                 }
             }
+        }
+        DialogActions {
+            TextButton("New breakpoint", onClick = { editing = NEW }, Modifier.testTag(NEW_BREAKPOINT))
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -136,53 +139,48 @@ private fun BreakpointEditor(
     var confirmingDelete by remember { mutableStateOf(false) }
     val built = buildBreakpoint(name, appId, method, host, path, request, response, timeout)
 
-    Text(if (stored == null) "New breakpoint" else "Breakpoint", style = MaterialTheme.typography.h6)
-    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().testTag(BREAKPOINT_NAME), label = { Text("Name") }, singleLine = true)
+    Text(if (stored == null) "New breakpoint" else "Breakpoint", role = TextRole.Title)
+    TextField(name, { name = it }, Modifier.fillMaxWidth().testTag(BREAKPOINT_NAME), label = "Name", singleLine = true)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (stored == null) {
             Choice("App", appId.ifEmpty { null }, appIds, { it }, any = "none") { if (it != null) appId = it }
         } else {
-            Text("App: $appId", Modifier.padding(horizontal = 8.dp))
+            Text("App: $appId", Modifier.padding(horizontal = Spacing.md))
         }
         Choice("Method", method, METHODS, { it }) { method = it }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(host, { host = it }, Modifier.weight(1f).testTag(BREAKPOINT_HOST), label = { Text("Host") }, singleLine = true)
-        OutlinedTextField(
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        TextField(host, { host = it }, Modifier.weight(1f).testTag(BREAKPOINT_HOST), label = "Host", singleLine = true)
+        TextField(
             path,
             { path = it },
             Modifier.weight(1f).testTag(BREAKPOINT_PATH),
-            label = { Text("Path, * for one segment") },
+            label = "Path, * for one segment",
             singleLine = true,
         )
-        OutlinedTextField(timeout, { timeout = it }, Modifier.width(120.dp), label = { Text("Timeout, s") }, singleLine = true)
+        TextField(timeout, { timeout = it }, Modifier.width(120.dp), label = "Timeout, s", singleLine = true)
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.toggleable(request, onValueChange = { request = it }), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(request, onCheckedChange = null)
-            Text("Hold the request", Modifier.padding(end = 16.dp))
-        }
-        Row(Modifier.toggleable(response, onValueChange = { response = it }), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(response, onCheckedChange = null)
-            Text("Hold the response")
-        }
+        CheckboxRow("Hold the request", request, { request = it }, Modifier.padding(end = Spacing.xl))
+        CheckboxRow("Hold the response", response, { response = it })
     }
     (error ?: built.exceptionOrNull()?.message)?.let {
-        Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption)
+        Text(it, error = true, role = TextRole.Caption)
     }
-    if (confirmingDelete) Text("Delete this breakpoint? A device stops getting it at once.", color = MaterialTheme.colors.error)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+    if (confirmingDelete) Text("Delete this breakpoint? A device stops getting it at once.", error = true)
+    DialogActions {
         if (confirmingDelete && stored != null) {
-            TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
-            TextButton(onClick = {
+            TextButton("Cancel", onClick = { confirmingDelete = false })
+            TextButton("Delete breakpoint", onClick = {
                 scope.launch { storage.deleteBreakpoint(stored.id) }
                 onBack()
-            }) { Text("Delete breakpoint") }
-            return@Row
+            })
+            return@DialogActions
         }
-        if (stored != null) TextButton(onClick = { confirmingDelete = true }) { Text("Delete") }
-        TextButton(onClick = onBack) { Text(if (stored == null) "Cancel" else "Back") }
+        if (stored != null) TextButton("Delete", onClick = { confirmingDelete = true })
+        TextButton(if (stored == null) "Cancel" else "Back", onClick = onBack)
         TextButton(
+            "Save",
             onClick = {
                 val made = built.getOrNull() ?: return@TextButton
                 scope.launch {
@@ -197,7 +195,7 @@ private fun BreakpointEditor(
             },
             Modifier.testTag(SAVE_BREAKPOINT),
             enabled = built.isSuccess,
-        ) { Text("Save") }
+        )
     }
 }
 
@@ -273,95 +271,92 @@ internal fun HeldCallDialog(
     var abortMessage by remember { mutableStateOf("Aborted from App Monitor") }
     val edit = buildEdit(before, atRequest, method, url, status, headers, binary ?: text.encodeUtf8())
 
-    Overlay {
-        Card(Modifier.width(720.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (atRequest) "Request held" else "Response held", style = MaterialTheme.typography.h6)
-                Text(
-                    "${call.appId} · ${before.method} ${before.url} · goes on unchanged at ${TIME_FORMAT.format(
-                        Instant.ofEpochMilli(call.deadlineMs),
-                    )}",
-                    style = MaterialTheme.typography.caption,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (waiting > 0) Text("$waiting more held", style = MaterialTheme.typography.caption)
-                Column(
-                    Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (atRequest) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Choice("Method", method, (METHODS + before.method).distinct(), { it }, any = null) {
-                                if (it !=
-                                    null
-                                ) {
-                                    method = it
-                                }
-                            }
-                            OutlinedTextField(
-                                url,
-                                { url = it },
-                                Modifier.weight(1f).testTag(HELD_URL),
-                                label = { Text("URL") },
-                                singleLine = true,
-                            )
+    DialogCard(DialogWidth.Wide) {
+        Text(if (atRequest) "Request held" else "Response held", role = TextRole.Title)
+        Text(
+            "${call.appId} · ${before.method} ${before.url} · goes on unchanged at ${TIME_FORMAT.format(
+                Instant.ofEpochMilli(call.deadlineMs),
+            )}",
+            role = TextRole.Caption,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (waiting > 0) Text("$waiting more held", role = TextRole.Caption)
+        Column(
+            Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            if (atRequest) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Choice("Method", method, (METHODS + before.method).distinct(), { it }, any = null) {
+                        if (it !=
+                            null
+                        ) {
+                            method = it
                         }
-                    } else {
-                        OutlinedTextField(
-                            status,
-                            { status = it },
-                            Modifier.width(120.dp).testTag(HELD_STATUS),
-                            label = { Text("Status") },
-                            singleLine = true,
-                        )
                     }
-                    OutlinedTextField(
-                        headers,
-                        { headers = it },
-                        Modifier.fillMaxWidth().heightIn(min = 72.dp).testTag(HELD_HEADERS),
-                        label = { Text("Headers, one \"Name: value\" per line; ██ left as is keeps the device's value") },
-                    )
-                    val kept = binary
-                    if (kept != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Binary body, ${kept.size} bytes, kept as captured", Modifier.weight(1f))
-                            TextButton(onClick = { binary = null }) { Text("Clear") }
-                        }
-                    } else {
-                        OutlinedTextField(
-                            text,
-                            { text = it },
-                            Modifier.fillMaxWidth().heightIn(min = 96.dp, max = 240.dp).testTag(HELD_BODY),
-                            label = { Text("Body") },
-                        )
-                    }
-                    if (truncated) {
-                        Text(
-                            "The device cut this body: left alone it goes on whole, edited it is replaced by what is shown",
-                            style = MaterialTheme.typography.caption,
-                        )
-                    }
-                    OutlinedTextField(
-                        abortMessage,
-                        { abortMessage = it },
-                        Modifier.fillMaxWidth(),
-                        label = { Text("Error the app gets on abort") },
+                    TextField(
+                        url,
+                        { url = it },
+                        Modifier.weight(1f).testTag(HELD_URL),
+                        label = "URL",
                         singleLine = true,
                     )
                 }
-                edit.exceptionOrNull()?.message?.let {
-                    Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { heldCalls.abort(call, abortMessage) }, Modifier.testTag(ABORT_HELD)) { Text("Abort") }
-                    TextButton(
-                        onClick = { edit.getOrNull()?.let { heldCalls.resume(call, it) } },
-                        Modifier.testTag(RESUME_HELD),
-                        enabled = edit.isSuccess,
-                    ) { Text("Resume") }
-                }
+            } else {
+                TextField(
+                    status,
+                    { status = it },
+                    Modifier.width(120.dp).testTag(HELD_STATUS),
+                    label = "Status",
+                    singleLine = true,
+                )
             }
+            TextField(
+                headers,
+                { headers = it },
+                Modifier.fillMaxWidth().heightIn(min = 72.dp).testTag(HELD_HEADERS),
+                label = "Headers, one \"Name: value\" per line; ██ left as is keeps the device's value",
+            )
+            val kept = binary
+            if (kept != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Binary body, ${kept.size} bytes, kept as captured", Modifier.weight(1f))
+                    TextButton("Clear", onClick = { binary = null })
+                }
+            } else {
+                TextField(
+                    text,
+                    { text = it },
+                    Modifier.fillMaxWidth().heightIn(min = 96.dp, max = 240.dp).testTag(HELD_BODY),
+                    label = "Body",
+                )
+            }
+            if (truncated) {
+                Text(
+                    "The device cut this body: left alone it goes on whole, edited it is replaced by what is shown",
+                    role = TextRole.Caption,
+                )
+            }
+            TextField(
+                abortMessage,
+                { abortMessage = it },
+                Modifier.fillMaxWidth(),
+                label = "Error the app gets on abort",
+                singleLine = true,
+            )
+        }
+        edit.exceptionOrNull()?.message?.let {
+            Text(it, error = true, role = TextRole.Caption)
+        }
+        DialogActions {
+            TextButton("Abort", onClick = { heldCalls.abort(call, abortMessage) }, Modifier.testTag(ABORT_HELD))
+            TextButton(
+                "Resume",
+                onClick = { edit.getOrNull()?.let { heldCalls.resume(call, it) } },
+                Modifier.testTag(RESUME_HELD),
+                enabled = edit.isSuccess,
+            )
         }
     }
 }

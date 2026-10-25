@@ -5,12 +5,12 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":desktop:designsystem"))
     implementation(project(":desktop:mcp"))
     implementation(project(":desktop:proxy"))
     implementation(project(":desktop:server"))
     implementation(project(":desktop:storage"))
     implementation(compose.desktop.currentOs)
-    implementation(libs.compose.material)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.kotlinx.serialization.json)
 

@@ -11,11 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Card
-import androidx.compose.material.Divider
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,6 +24,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.DialogActions
+import appmonitor.desktop.designsystem.DialogCard
+import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Divider
+import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Text
+import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.storage.EndpointGroups
 import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeFilter
@@ -109,66 +113,62 @@ internal fun Benchmarks(
     val groups by produceState<EndpointGroups?>(null, storage, filter, reads) { value = storage.groupByEndpoint(filter) }
     var column by remember { mutableStateOf(BenchmarkColumn.COUNT) }
     var descending by remember { mutableStateOf(true) }
-    Overlay {
-        Card(Modifier.width(1180.dp), elevation = 8.dp) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Benchmarks", style = MaterialTheme.typography.h6)
-                Text(scope, style = MaterialTheme.typography.caption)
-                val loaded = groups
-                if (loaded == null) {
-                    Placeholder("Reading requests…")
-                } else {
-                    Text(
-                        "${loaded.exchangesRead} requests read" +
-                            (if (loaded.truncated) ", the first ones only: narrow the filter for the rest" else ""),
-                        style = MaterialTheme.typography.caption,
-                        color = if (loaded.truncated) MaterialTheme.colors.error else MaterialTheme.colors.onSurface,
+    DialogCard(DialogWidth.Table) {
+        Text("Benchmarks", role = TextRole.Title)
+        Text(scope, role = TextRole.Caption)
+        val loaded = groups
+        if (loaded == null) {
+            Placeholder("Reading requests…")
+        } else {
+            Text(
+                "${loaded.exchangesRead} requests read" +
+                    (if (loaded.truncated) ", the first ones only: narrow the filter for the rest" else ""),
+                role = TextRole.Caption,
+                error = loaded.truncated,
+            )
+            Row(Modifier.fillMaxWidth()) {
+                BenchmarkColumn.entries.forEach { header ->
+                    val arrow = if (header == column) (if (descending) " ▼" else " ▲") else ""
+                    Cell(
+                        header.label + arrow,
+                        header,
+                        Modifier
+                            .clickable {
+                                if (header == column) {
+                                    descending = !descending
+                                } else {
+                                    column = header
+                                    descending = header != BenchmarkColumn.ENDPOINT
+                                }
+                            }.testTag(BENCHMARK_COLUMN + header.name),
+                        bold = true,
                     )
-                    Row(Modifier.fillMaxWidth()) {
-                        BenchmarkColumn.entries.forEach { header ->
-                            val arrow = if (header == column) (if (descending) " ▼" else " ▲") else ""
-                            Cell(
-                                header.label + arrow,
-                                header,
-                                Modifier
-                                    .clickable {
-                                        if (header == column) {
-                                            descending = !descending
-                                        } else {
-                                            column = header
-                                            descending = header != BenchmarkColumn.ENDPOINT
-                                        }
-                                    }.testTag(BENCHMARK_COLUMN + header.name),
-                                bold = true,
-                            )
-                            if (header == BenchmarkColumn.COUNT) Cell("Status", null, bold = true)
-                        }
-                    }
-                    Divider()
-                    if (loaded.endpoints.isEmpty()) Placeholder("No requests match")
-                    val rows = remember(loaded, column, descending) { sortBenchmarks(loaded.endpoints, column, descending) }
-                    LazyColumn(Modifier.heightIn(max = 480.dp).testTag(BENCHMARK_LIST)) {
-                        items(rows, key = { it.endpoint.toString() }) { tally ->
-                            val row = BenchmarkRow.of(tally)
-                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                Cell(row.endpoint, BenchmarkColumn.ENDPOINT)
-                                Cell(row.count, BenchmarkColumn.COUNT)
-                                Cell(row.status, null)
-                                Cell(row.errorRate, BenchmarkColumn.ERROR_RATE)
-                                Cell(row.p50, BenchmarkColumn.P50)
-                                Cell(row.p95, BenchmarkColumn.P95)
-                                Cell(row.p99, BenchmarkColumn.P99)
-                                Cell(row.requestBytes, BenchmarkColumn.REQUEST_BYTES)
-                                Cell(row.responseBytes, BenchmarkColumn.RESPONSE_BYTES)
-                            }
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { reads++ }) { Text("Refresh") }
-                    TextButton(onClick = onClose) { Text("Close") }
+                    if (header == BenchmarkColumn.COUNT) Cell("Status", null, bold = true)
                 }
             }
+            Divider()
+            if (loaded.endpoints.isEmpty()) Placeholder("No requests match")
+            val rows = remember(loaded, column, descending) { sortBenchmarks(loaded.endpoints, column, descending) }
+            LazyColumn(Modifier.heightIn(max = 480.dp).testTag(BENCHMARK_LIST)) {
+                items(rows, key = { it.endpoint.toString() }) { tally ->
+                    val row = BenchmarkRow.of(tally)
+                    Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
+                        Cell(row.endpoint, BenchmarkColumn.ENDPOINT)
+                        Cell(row.count, BenchmarkColumn.COUNT)
+                        Cell(row.status, null)
+                        Cell(row.errorRate, BenchmarkColumn.ERROR_RATE)
+                        Cell(row.p50, BenchmarkColumn.P50)
+                        Cell(row.p95, BenchmarkColumn.P95)
+                        Cell(row.p99, BenchmarkColumn.P99)
+                        Cell(row.requestBytes, BenchmarkColumn.REQUEST_BYTES)
+                        Cell(row.responseBytes, BenchmarkColumn.RESPONSE_BYTES)
+                    }
+                }
+            }
+        }
+        DialogActions {
+            TextButton("Refresh", onClick = { reads++ })
+            TextButton("Close", onClick = onClose)
         }
     }
 }
@@ -191,12 +191,11 @@ private fun RowScope.Cell(
                     null -> Modifier.width(200.dp)
                     else -> Modifier.width(80.dp)
                 },
-            ).padding(horizontal = 4.dp),
-        fontWeight = if (bold) FontWeight.Medium else null,
+            ).padding(horizontal = Spacing.xs),
         textAlign = if (endpoint || column == null) TextAlign.Start else TextAlign.End,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        style = MaterialTheme.typography.body2,
+        role = if (bold) TextRole.SmallStrong else TextRole.Small,
     )
 }
 
