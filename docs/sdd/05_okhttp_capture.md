@@ -83,8 +83,12 @@ interceptor answers without `chain.proceed` (ADR-0115):
   failure, a call cancelled during the delay or an interrupted delay
   throws an `IOException` (the rule's message) after `RequestFailed`.
 - WebSocket upgrades are never mocked: the interceptor skips them first.
+- Added with `addNetworkInterceptor` (`chain.connection()` non-null), no
+  rule is looked up: OkHttp requires a network interceptor to call
+  `proceed` once (ADR-0128).
 - Tests: `MockAnswerTest` against `mockwebserver3` (no request reaches
-  it, delay kept, failure, unmatched call untouched).
+  it, delay kept, failure, unmatched call untouched, a matching call
+  through a network interceptor sent).
 
 ### A held call
 
@@ -95,11 +99,12 @@ ADR-0123), the interceptor holds the call on its own thread
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
 | Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value. `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
-| Response | After `chain.proceed` or a mock's answer, before the app reads the body (not for `101` or `Content-Length: 0`) | The request as sent and the response, its body peeked up to `maxBodyBytes` (`BufferedSource.peek`, not consumed) | The resume's status and headers applied; a replaced body is the app's whole body and `ResponseReceived` is sent at once with it; otherwise the body is captured as the app reads it |
+| Response | After `chain.proceed` or a mock's answer, before the app reads the body (not for `101`) | The request as sent and the response, its body peeked up to `maxBodyBytes` (`BufferedSource.peek`, not consumed) | The resume's status and headers applied; a replaced body is the app's whole body and `ResponseReceived` is sent at once with it; otherwise the body is captured as the app reads it |
 
 - An abort, a cancel or an interrupt during the wait, or an edit OkHttp
   refuses ("Breakpoint edit refused: …": a URL that does not parse, a
-  method that refuses the body) sends `RequestStarted` when not yet
+  method that refuses the body, another host or port under
+  `addNetworkInterceptor`, ADR-0128) sends `RequestStarted` when not yet
   sent, then `RequestFailed`, and throws an `IOException`
   (`InterruptedIOException` for an interrupt).
 - No answer within the hit's timeout, or the session's end: the call
@@ -108,7 +113,8 @@ ADR-0123), the interceptor holds the call on its own thread
 - Tests: `BreakpointTest` against `mockwebserver3` (a request edited
   with the masked header kept, aborted, a refused edit, a response
   edited, an unchanged one read whole past its held part, a mocked
-  response held, a cancel while held).
+  response held, an empty response held, a cancel while held, a network interceptor's resume to
+  another host refused and one on the same host sent).
 
 ### A call sent again
 

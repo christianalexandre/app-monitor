@@ -186,6 +186,35 @@ class BreakpointTest {
     }
 
     @Test
+    fun anEmptyResponseIsHeldToo() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", response = true))) {
+                BreakpointOutcome.Resume(BreakpointResume(request_id = it.request!!.request_id, stage = response, status_code = 500))
+            }
+        server.enqueue(
+            mockwebserver3.MockResponse
+                .Builder()
+                .code(204)
+                .build(),
+        )
+
+        val code = client(sink).newCall(Request.Builder().url(server.url("/items")).build()).execute().use { it.code }
+
+        assertEquals(500, code)
+        assertEquals(
+            204,
+            sink.hits
+                .poll(5, TimeUnit.SECONDS)!!
+                .response!!
+                .status_code,
+        )
+        sink.started()
+        val received = sink.received()
+        assertEquals(500, received.status_code)
+        assertEquals(0L, received.body_size)
+    }
+
+    @Test
     fun aMockedResponseCanBeHeldToo() {
         val mock = MockRule(id = 9, path = "/items", response = MockResponse(status_code = 200, body = "mocked".encodeUtf8()))
         val sink =
@@ -209,6 +238,45 @@ class BreakpointTest {
         val received = sink.received()
         assertEquals(404, received.status_code)
         assertEquals("mocked", received.body.utf8())
+    }
+
+    @Test
+    fun asANetworkInterceptorAResumeToAnotherHostFailsTheCall() {
+        MockWebServer().use { other ->
+            other.start()
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(request_id = it.request!!.request_id, stage = request, url = other.url("/items").toString()),
+                    )
+                }
+            val client = OkHttpClient.Builder().addNetworkInterceptor(AppMonitorInterceptor(sink)).build()
+
+            val error = assertFailsWith<IOException> { client.newCall(Request.Builder().url(server.url("/items")).build()).execute() }
+
+            assertContains(error.message!!, "keeps the host and port")
+            assertEquals(0, other.requestCount)
+            assertEquals(1, sink.hits.size)
+            sink.started()
+            assertContains(sink.failed().error, "keeps the host and port")
+        }
+    }
+
+    @Test
+    fun asANetworkInterceptorAResumeOnTheSameHostGoesOut() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = it.request!!.request_id, stage = request, url = server.url("/items/2").toString()),
+                )
+            }
+        server.enqueue(reply("ok"))
+        val client = OkHttpClient.Builder().addNetworkInterceptor(AppMonitorInterceptor(sink)).build()
+
+        val body = client.newCall(Request.Builder().url(server.url("/items")).build()).execute().use { it.body.string() }
+
+        assertEquals("ok", body)
+        assertEquals("/items/2", server.takeRequest().url.encodedPath)
     }
 
     @Test

@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/AppMonitorInterceptor.kt`, `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
 paid_date:
 ---
 
@@ -14,10 +14,6 @@ paid_date:
 Findings of the `code-review` of `ee3b172..c93a2fc` that normal use does
 not hit (ADR-0094):
 
-- **An empty OkHttp response is never held.** In
-  `AppMonitorInterceptor.kt`, a response with `Content-Length: 0` (a 204,
-  a `HEAD`) returns before `holdResponse`. A response breakpoint on it
-  lets it through. Ktor and iOS hold it.
 - **A replaced Ktor body leaves the original open.** In `Breakpoints.kt`,
   `holdResponse` builds a new call over the edited body and does not
   cancel the original's `rawContent` when the body was streamed, not
@@ -44,12 +40,16 @@ not hit (ADR-0094):
   in `Main.kt`, `TrafficStore` in `TrafficStore.kt` and `readMockRules`
   in `MockFile.kt`.
 
+Paid in M9.R2's PR: an empty OkHttp response (`Content-Length: 0`) is
+now held at a response breakpoint, as in Ktor and iOS
+(`BreakpointTest.anEmptyResponseIsHeldToo`).
+
 ## Why it was accepted
 
-Each one needs an empty response under a response breakpoint, an edited
-streamed body, a session of hundreds of large uploads, an edited URL
-that carries a masked token, a Ktor body that is not a `ByteArrayContent`,
-a page made mostly of replays, or an original past the loaded pages. None
+Each one needs an edited streamed body, a session of hundreds of large
+uploads, an edited URL that carries a masked token, a Ktor body that is
+not a `ByteArrayContent`, a page made mostly of replays, or an original
+past the loaded pages. None
 of them is wrong stored data, a crash or a hang in a normal debug
 session. The plan's two review tasks, M9.R1 and M9.R2, cover the
 findings that normal use does hit.

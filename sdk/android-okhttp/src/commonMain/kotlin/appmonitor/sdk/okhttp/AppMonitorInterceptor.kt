@@ -36,7 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * call the desktop's mock rule matches (ADR-0110), holds one at its breakpoint, and sends a call again when the
  * desktop asks (ADR-0111). Add
  * it with `addInterceptor`, one event set per call; `addNetworkInterceptor` gives one per network hop, with
- * bodies still compressed as on the wire. It captures nothing until `AppMonitor.start` runs.
+ * bodies still compressed as on the wire, no mock answer and no resume to another host or port (ADR-0128). It
+ * captures nothing until `AppMonitor.start` runs.
  */
 public class AppMonitorInterceptor : Interceptor {
     private val sink: CaptureSink
@@ -61,8 +62,10 @@ public class AppMonitorInterceptor : Interceptor {
         val masking = Masking(options)
         val call = chain.call()
         val replayOf = replays[call]
-        val request = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf)
-        val mock = sink.mockFor(request.method, request.url.toString())
+        // ADR-0128: OkHttp throws when a network interceptor skips proceed() or changes the host or port.
+        val network = chain.connection() != null
+        val request = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf, network)
+        val mock = if (network) null else sink.mockFor(request.method, request.url.toString())
         sink.emit("RequestStarted") {
             requestStarted(id, request, masking, request.body.capture(options.maxBodyBytes), mock?.id, replayOf)
         }
@@ -81,12 +84,12 @@ public class AppMonitorInterceptor : Interceptor {
                 sink.emit("RequestFailed") { requestFailed(id, e) }
                 throw e
             }
-        if (received.code == SWITCHING_PROTOCOLS || received.body.contentLength() == 0L) {
-            val empty = if (received.code == SWITCHING_PROTOCOLS) CapturedBody.NONE else CapturedBody.EMPTY
-            sink.emit("ResponseReceived") { responseReceived(id, received, masking, empty) }
+        if (received.code == SWITCHING_PROTOCOLS) {
+            sink.emit("ResponseReceived") { responseReceived(id, received, masking, CapturedBody.NONE) }
             return received
         }
-        val (response, replaced) = holdResponse(call, request, received, null, id, masking, options.maxBodyBytes)
+        val known = if (received.body.contentLength() == 0L) CapturedBody.EMPTY else null
+        val (response, replaced) = holdResponse(call, request, received, known, id, masking, options.maxBodyBytes)
         if (replaced != null) {
             sink.emit("ResponseReceived") { responseReceived(id, response, masking, replaced) }
             return response
@@ -106,6 +109,7 @@ public class AppMonitorInterceptor : Interceptor {
         masking: Masking,
         limit: Int,
         replayOf: String?,
+        network: Boolean,
     ): Request {
         val stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST
         val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return request
@@ -120,7 +124,7 @@ public class AppMonitorInterceptor : Interceptor {
 
                 is BreakpointOutcome.Resume -> {
                     try {
-                        return edited(request, outcome) ?: request
+                        return edited(request, outcome, network) ?: request
                     } catch (e: IOException) {
                         e
                     }
@@ -135,6 +139,7 @@ public class AppMonitorInterceptor : Interceptor {
     private fun edited(
         request: Request,
         outcome: BreakpointOutcome.Resume,
+        network: Boolean,
     ): Request? {
         val changes = outcome.changes ?: return null
         if (changes.method == null && changes.url == null && changes.body == null && !outcome.changesHeaders) return null
@@ -147,6 +152,9 @@ public class AppMonitorInterceptor : Interceptor {
                     }
                 }.build()
         val url = changes.url?.let { it.toHttpUrlOrNull() ?: throw IOException("Breakpoint edit refused: not a URL: $it") } ?: request.url
+        if (network && (url.host != request.url.host || url.port != request.url.port)) {
+            throw IOException("Breakpoint edit refused: a network interceptor keeps the host and port")
+        }
         val type = (headers["Content-Type"] ?: request.body?.contentType()?.toString())?.toMediaTypeOrNull()
         val body = changes.body?.toRequestBody(type) ?: request.body
         return try {
