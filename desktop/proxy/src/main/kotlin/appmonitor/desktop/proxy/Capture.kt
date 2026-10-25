@@ -7,9 +7,9 @@ import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
+import appmonitor.v1.WebSocketFrame
 import com.squareup.wire.Message
 import io.netty.buffer.ByteBuf
-import io.netty.handler.codec.http.HttpHeaders
 import okio.Buffer
 import java.util.UUID
 
@@ -37,12 +37,13 @@ internal class BodyCapture {
 
 /**
  * One exchange the proxy relays, written as the events an SDK sends (ADR-0101): [RequestStarted] once the request is
- * complete or fails, then [ResponseReceived] or [RequestFailed]. Event loop only; each event goes to [record] once.
+ * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame].
+ * Event loop only; each event goes to [record] once.
  */
 internal class Capture(
     private val method: String,
     private val url: String,
-    private val headers: HttpHeaders,
+    private val headers: List<Header>,
     private val record: (Envelope) -> Unit,
     private val clock: () -> Long,
 ) {
@@ -64,7 +65,7 @@ internal class Capture(
                 request_id = requestId,
                 method = method,
                 url = url,
-                headers = headersOf(headers),
+                headers = headers,
                 body = requestBody.bytes(),
                 body_truncated = requestBody.truncated,
                 body_size = requestBody.size,
@@ -76,7 +77,7 @@ internal class Capture(
 
     fun responded(
         status: Int,
-        responseHeaders: HttpHeaders,
+        responseHeaders: List<Header>,
         body: BodyCapture,
     ) {
         if (ended) return
@@ -86,10 +87,30 @@ internal class Capture(
             ResponseReceived(
                 request_id = requestId,
                 status_code = status,
-                headers = headersOf(responseHeaders),
+                headers = responseHeaders,
                 body = body.bytes(),
                 body_truncated = body.truncated,
                 body_size = body.size,
+            ),
+            clock(),
+        )
+    }
+
+    /** One gRPC message, after [requestDone] and before the end; [message] keeps what [BodyCapture] keeps. */
+    fun frame(
+        sent: Boolean,
+        message: BodyCapture,
+    ) {
+        if (ended) return
+        requestDone()
+        emit(
+            WebSocketFrame(
+                request_id = requestId,
+                direction = if (sent) WebSocketFrame.Direction.DIRECTION_SENT else WebSocketFrame.Direction.DIRECTION_RECEIVED,
+                opcode = WebSocketFrame.Opcode.OPCODE_BINARY,
+                payload = message.bytes(),
+                payload_truncated = message.truncated,
+                payload_size = message.size,
             ),
             clock(),
         )
@@ -113,6 +134,8 @@ internal class Capture(
             timestamp_ms = atMs,
         ),
     )
-
-    private fun headersOf(headers: HttpHeaders) = headers.map { Header(it.key, it.value) }
 }
+
+/** Headers as stored, in order. */
+internal fun headersOf(headers: Iterable<Map.Entry<CharSequence, CharSequence>>): List<Header> =
+    headers.map { Header(it.key.toString(), it.value.toString()) }

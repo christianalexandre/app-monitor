@@ -22,10 +22,10 @@ class ProxyServerTest {
 
     @Test
     fun `curl trusting the proxy ca gets its https response and the exchange is stored`() {
-        Origin(originCa.serverContext("127.0.0.1")).use { origin ->
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 val target = "https://127.0.0.1:${origin.port}/hello?x=1"
-                val result = curl("--proxy", url, "--cacert", caFile.toString(), "--data", "ping", target)
+                val result = curl("--proxy", url, "--http1.1", "--cacert", caFile.toString(), "--data", "ping", target)
 
                 assertEquals(0, result.exit, result.output)
                 assertEquals("POST /hello?x=1 ping", result.output)
@@ -65,10 +65,10 @@ class ProxyServerTest {
 
     @Test
     fun `keep alive requests on one connection are each stored`() {
-        Origin(originCa.serverContext("127.0.0.1")).use { origin ->
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 val base = "https://127.0.0.1:${origin.port}"
-                val result = curl("--proxy", url, "--cacert", caFile.toString(), "$base/one", "$base/two")
+                val result = curl("--proxy", url, "--http1.1", "--cacert", caFile.toString(), "$base/one", "$base/two")
 
                 assertEquals(0, result.exit, result.output)
                 assertEquals(listOf("$base/one", "$base/two"), ended(2).map { it.exchange.url })
@@ -78,7 +78,7 @@ class ProxyServerTest {
 
     @Test
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
-        Origin(originCa.serverContext("127.0.0.1")).use { origin ->
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 val result = curl("--proxy", url, "https://127.0.0.1:${origin.port}/pinned")
 
@@ -93,10 +93,19 @@ class ProxyServerTest {
 
     @Test
     fun `an origin certificate the proxy refuses is a failed exchange and a 502`() {
-        Origin(originCa.serverContext("127.0.0.1")).use { origin ->
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy {
                 val result =
-                    curl("--proxy", url, "--cacert", caFile.toString(), "-w", "%{http_code}", "https://127.0.0.1:${origin.port}/refused")
+                    curl(
+                        "--proxy",
+                        url,
+                        "--http1.1",
+                        "--cacert",
+                        caFile.toString(),
+                        "-w",
+                        "%{http_code}",
+                        "https://127.0.0.1:${origin.port}/refused",
+                    )
 
                 assertTrue(result.output.endsWith("502"), result.output)
                 val exchange = ended(1).single().exchange

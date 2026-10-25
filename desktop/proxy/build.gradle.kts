@@ -8,9 +8,12 @@ dependencies {
     api(project(":desktop:storage"))
     implementation(libs.netty.codec.http)
     implementation(libs.netty.handler)
+    implementation(libs.netty.codec.http2)
     implementation(libs.bouncycastle.bcpkix)
 
     testImplementation(kotlin("test"))
+    testImplementation(libs.grpc.netty.shaded)
+    testImplementation(libs.grpc.stub)
 }
 
 tasks.test {

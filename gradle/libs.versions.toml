@@ -22,6 +22,7 @@ sqldelight = "2.4.1" # ADR-0085
 mcp-kotlin-sdk = "0.15.0" # ADR-0092
 netty = "4.2.19.Final" # ADR-0105
 bouncycastle = "1.86" # ADR-0105
+grpc-java = "1.85.1" # ADR-0106, desktop/proxy tests only
 
 [libraries]
 # Gradle plugins, consumed by build-logic convention plugins
@@ -62,4 +63,7 @@ mcp-kotlin-sdk-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", 
 mcp-kotlin-sdk-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp-kotlin-sdk" }
 netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
 netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
+netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "netty" }
 bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc-java" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc-java" }

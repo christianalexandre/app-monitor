@@ -3,7 +3,7 @@ id: DEBT-0078
 title: No pass-through list for hosts the proxy should not intercept
 status: Open
 date: 2026-10-25
-trigger: The next PR that changes `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, or a developer's pinned host that keeps failing through the proxy, whichever comes first
+trigger: PLAN-0009's milestone review, or a developer's pinned host that keeps failing through the proxy, whichever comes first
 paid_date:
 ---
 
@@ -26,10 +26,12 @@ pipeline (raw tunnel) and a test of its own.
 
 ## Trigger
 
-The next PR that changes
-`desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`
-(M8.6), or a developer's pinned host that keeps failing through the
-proxy, whichever comes first.
+PLAN-0009's milestone review, or a developer's pinned host that keeps failing through the proxy, whichever comes first.
+
+Fired by PLAN-0009 M8.6, which touches `ClientHandler.kt` only to hand
+HTTP/2 tunnels to `Http2Relay.kt`; a pinned client still fails at the
+TLS step, before HTTP/1.1 or HTTP/2 matters, so the list is the same
+work as before. Re-triggered on the milestone review.
 
 ## How it was paid
 
