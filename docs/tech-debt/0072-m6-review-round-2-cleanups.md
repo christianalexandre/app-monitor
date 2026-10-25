@@ -3,7 +3,7 @@ id: DEBT-0072
 title: Non-correctness findings of the second M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR after PLAN-0008 closes that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`, `desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`"
+trigger: "The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`"
 paid_date:
 ---
 
@@ -39,10 +39,7 @@ the filter itself lowercases. M6.R5 and M6.R6 fix the findings that do.
 
 ## Trigger
 
-The first PR after PLAN-0008 closes that touches
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`,
-`desktop/mcp/src/test/kotlin/appmonitor/desktop/mcp/ToCurlTest.kt` or
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`.
+The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`.
 
 Fired by PLAN-0008 M7.3 (`feat/save-and-list-issues-mcp`), which adds
 `list_issues` and `save_issue` and touches `ToolResults.kt`. It paid three
@@ -54,6 +51,13 @@ server); `DiffRuns.call`'s `runIds` seam is gone with it; `harResult` and
 the `HEAD` note and `ToCurlTest`'s framing assertions, in files this PR
 does not change; re-triggered to those files, past PLAN-0008, whose
 milestone review reads this code.
+
+Fired by PLAN-0009 M8.4, which touches `ToCurl.kt` and `ToCurlTest.kt`.
+Paid: a `HEAD` whose body the device cut says the original size
+(`ToCurlTest.aHeadWithABodyCutByTheDeviceGivesItsOriginalSize`), and every
+`ToCurlTest` case asserts no stored `Transfer-Encoding` and no non-zero
+`Content-Length` in the command. Left: `McpController`'s `readSwitch`
+seam.
 
 ## How it was paid
 

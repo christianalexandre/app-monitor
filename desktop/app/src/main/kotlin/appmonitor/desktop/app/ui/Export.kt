@@ -4,6 +4,7 @@ import appmonitor.desktop.mcp.ExportRefused
 import appmonitor.desktop.mcp.Exports
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
@@ -31,10 +32,15 @@ internal suspend fun exportHar(
             val har = Exports.har(storage, filter)
             file.writeText(har.text)
             val more = if (har.more) " (the first ${Exports.MAX_ENTRIES}; more matched)" else ""
-            "Exported ${har.entries} exchanges$more to ${file.name}"
+            val connections = if (har.connections > 0) "; ${har.connections} connections left out" else ""
+            "Exported ${har.entries} exchanges$more to ${file.name}$connections"
         } catch (e: ExportRefused) {
             "Not exported: ${e.message}"
         } catch (e: IOException) {
+            "Not exported: ${e.message ?: e::class.simpleName}"
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             "Not exported: ${e.message ?: e::class.simpleName}"
         }
     }

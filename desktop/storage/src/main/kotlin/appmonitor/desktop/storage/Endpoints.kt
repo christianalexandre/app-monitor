@@ -9,7 +9,10 @@ class EndpointGroups(
     val truncated: Boolean,
 )
 
-/** Method, lower-cased host and the URL's path without scheme, query or fragment; `/` when it has none (SDD 09). */
+/**
+ * Method, lower-cased host and the URL's path without scheme, query or fragment; `/` when it has none, `:port` for a
+ * connection (SDD 09).
+ */
 data class Endpoint(
     val method: String?,
     val host: String?,
@@ -20,7 +23,12 @@ data class Endpoint(
             val url = exchange.url.orEmpty()
             val hostAndPath = url.substringAfter("://", url).substringBefore('?').substringBefore('#')
             val slash = hostAndPath.indexOf('/')
-            val path = if (slash < 0) "/" else hostAndPath.substring(slash)
+            val path =
+                when {
+                    exchange.isConnection -> ":" + hostAndPath.substringAfterLast(':', "")
+                    slash < 0 -> "/"
+                    else -> hostAndPath.substring(slash)
+                }
             return Endpoint(exchange.method, exchange.host?.lowercase(), path)
         }
     }

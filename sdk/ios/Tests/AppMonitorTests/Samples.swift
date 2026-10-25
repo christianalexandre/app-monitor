@@ -63,6 +63,19 @@ enum Samples {
         $0.payloadSize = 4
     }
 
+    static let connectionStarted = Appmonitor_V1_RequestStarted.with {
+        $0.requestID = "conn-0001"
+        $0.method = "CONNECT"
+        $0.url = "tcp://push.example.com:5223"
+        $0.captureLayer = .connection
+    }
+
+    static let connectionClosed = Appmonitor_V1_ResponseReceived.with {
+        $0.requestID = "conn-0001"
+        $0.bodySize = 2_048
+        $0.sentSize = 512
+    }
+
     /// Fixture file name to the message its envelope carries.
     static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
@@ -71,18 +84,27 @@ enum Samples {
         "response_received.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", responseReceived),
         "request_failed.bin": (ProtocolConstants.channelNetwork, "RequestFailed", requestFailed),
         "websocket_frame.bin": (ProtocolConstants.channelNetwork, "WebSocketFrame", webSocketFrame),
+        "connection_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", connectionStarted),
+        "connection_closed.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", connectionClosed),
     ]
+
+    /// Envelopes stamped later than `timestampMs`, by file name.
+    static let laterBy: [String: Int64] = ["connection_closed.bin": 1_500]
 
     /// Fixture file name to the envelope it holds.
     static func envelopes() throws -> [String: Appmonitor_V1_Envelope] {
-        try messages.mapValues { entry in
-            try .with {
-                $0.channel = entry.channel
-                $0.type = entry.type
-                $0.payload = try entry.message.serializedBytes()
-                $0.timestampMs = timestampMs
-            }
-        }
+        try Dictionary(
+            uniqueKeysWithValues: messages.map { name, entry in
+                (
+                    name,
+                    try Appmonitor_V1_Envelope.with {
+                        $0.channel = entry.channel
+                        $0.type = entry.type
+                        $0.payload = try entry.message.serializedBytes()
+                        $0.timestampMs = timestampMs + (laterBy[name] ?? 0)
+                    }
+                )
+            })
     }
 
     private static func header(_ name: String, _ value: String) -> Appmonitor_V1_Header {

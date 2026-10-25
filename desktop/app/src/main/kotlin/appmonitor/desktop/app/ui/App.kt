@@ -720,7 +720,7 @@ private fun RequestList(
                         onCheckedChange = { onMark(exchange, it) },
                         Modifier.size(20.dp).testTag(MARK + exchange.requestId),
                     )
-                    Text(exchange.method ?: "—", Modifier.width(64.dp), fontWeight = FontWeight.Medium)
+                    Text(exchange.method ?: "—", Modifier.width(96.dp), fontWeight = FontWeight.Medium, maxLines = 1)
                     Text(
                         exchange.url ?: exchange.requestId,
                         Modifier.weight(1f),
@@ -844,7 +844,9 @@ private fun RequestDetail(
                         fontWeight = FontWeight.Medium,
                     )
                     copyNote?.let { Text(it, style = MaterialTheme.typography.caption) }
-                    TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
+                    if (exchange.connection == null) {
+                        TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
+                    }
                 }
                 Text(
                     listOfNotNull(
@@ -855,6 +857,15 @@ private fun RequestDetail(
                     style = MaterialTheme.typography.caption,
                 )
                 exchange.error?.let { Text(it, color = MaterialTheme.colors.error) }
+            }
+            exchange.connection?.let { bytes ->
+                item {
+                    Section("Connection") {
+                        Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
+                        Text("Metadata only: no headers or body are captured at this layer", style = MaterialTheme.typography.caption)
+                    }
+                }
+                return@LazyColumn
             }
             item { Section("Request headers") { Headers(exchange.requestHeaders) } }
             item { Section("Request body") {} }
@@ -1042,6 +1053,7 @@ private fun layerOf(layer: CaptureLayer): String =
 private fun statusOf(exchange: HttpExchange): String =
     when {
         exchange.error != null -> "failed"
+        exchange.connection != null -> if (exchange.endedAtMs != null) "closed" else "open"
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
@@ -1049,9 +1061,14 @@ private fun statusOf(exchange: HttpExchange): String =
 internal fun statusOf(exchange: StoredExchange): String =
     when {
         exchange.failed -> "failed"
+        exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
+
+private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
+
+internal const val CONNECTION_BYTES = "connection-bytes"
 
 internal fun Modifier.selectable(
     selected: Boolean,

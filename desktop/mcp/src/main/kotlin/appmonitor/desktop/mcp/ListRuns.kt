@@ -69,7 +69,7 @@ internal object ListRuns {
             put("session_id", session.id)
             put("device_id", deviceId)
             put("device_name", deviceName)
-            put("platform", JsonPrimitive(platform.name.removePrefix("PLATFORM_").lowercase()))
+            put("platform", platform.wireName("PLATFORM_"))
             put("os_version", osVersion)
             put("app_id", appId)
             put("app_version", appVersion)

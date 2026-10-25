@@ -13,6 +13,7 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(project(":tools:fake-client"))
 }
 
 // ADR-0085: the committed `.db` schemas are what migrations are verified against.

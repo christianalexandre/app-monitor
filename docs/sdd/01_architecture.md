@@ -327,10 +327,15 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   the native save dialog and writes `export_har`'s HAR (SDD 10) of every
   device of the shown run (or every run) under the request filter: the
   first 1 000 exchanges, oldest first, bodies whole, refused past 32 MiB;
-  a line under the buttons says how many were written, or why not. "Copy
-  as cURL" in the request detail puts `to_curl`'s command for that
-  exchange on the clipboard and says "Copied". Both go through
-  `desktop/mcp`'s `Exports`.
+  a line under the buttons says how many were written, or why not, and
+  how many connections were left out. "Copy as cURL" in the request detail
+  puts `to_curl`'s command for that exchange on the clipboard and says
+  "Copied". Both go through `desktop/mcp`'s `Exports`.
+- Connections (ADR-0104): a `CONNECTION` exchange's row shows `CONNECT`,
+  `tcp://host:port` and `open`, `closed` or `failed` as its status; its
+  detail shows the layer caption, then bytes sent and received instead of
+  headers and bodies, with no "Copy as cURL". Benchmarks and the run diff
+  list it as `CONNECT host:port` (`connections.png`).
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call

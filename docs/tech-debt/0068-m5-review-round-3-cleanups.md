@@ -3,7 +3,7 @@ id: DEBT-0068
 title: Non-correctness findings of the third M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`, or changes `Storage.close` or `Storage.whileOpen`"
+trigger: "The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`"
 paid_date:
 ---
 
@@ -48,7 +48,7 @@ M5.R9 and M5.R10 fix the two races that do change them.
 
 ## Trigger
 
-The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`, or changes `Storage.close` or `Storage.whileOpen`.
+The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`.
 
 Fired by PLAN-0007 M6.3, whose `Storage` change is read-only (its new
 reads go through the existing read guard) and whose `Ingest` change is one
@@ -59,6 +59,10 @@ Fired by PLAN-0008 M7.2, whose `Ingest` change adds two queued issue
 items: `retryLost`, health, `close`, `whileOpen` and the handshake are
 untouched. Re-triggered past PLAN-0008, whose milestone review reads this
 code.
+
+Fired by PLAN-0009 M8.4, whose `Ingest` change is one line in `network`
+(ADR-0104): `retryLost`, health, `close`, `whileOpen` and the handshake
+are untouched. Narrowed to that code.
 
 ## How it was paid
 

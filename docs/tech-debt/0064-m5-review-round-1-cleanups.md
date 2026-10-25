@@ -3,7 +3,7 @@ id: DEBT-0064
 title: Non-correctness findings of the first M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`"
+trigger: "The first PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, changes `Storage.applyRetention`, or changes how `Ingest` applies a `Received` item or adds a `lastId` query"
 paid_date:
 ---
 
@@ -42,7 +42,7 @@ lines.
 
 ## Trigger
 
-The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`.
+The first PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, changes `Storage.applyRetention`, or changes how `Ingest` applies a `Received` item or adds a `lastId` query.
 
 Re-triggered three times during PLAN-0006 because its review tasks
 rewrote the code these findings name. Fired again by PLAN-0007 M6.3,
@@ -70,6 +70,12 @@ measures after each; chunking it changes how far past 90 % a pass deletes,
 which M7.2's retention tests pin, so it is not mixed into the issue
 schema. M7.2 adds one more `lastId` (`Issue.sq`) to the mappings item.
 Re-triggered past PLAN-0008, whose milestone review reads this code.
+
+Fired by PLAN-0009 M8.4 (`feat/desktop-connection-exchanges`), whose
+`Ingest` change is one line in `network` (status 0 stored as null,
+ADR-0104): the session touch, the size loop and the `lastId` copies are
+untouched, and reworking them in a reader PR mixes a write-path risk into
+it. Narrowed to the code the items name.
 
 ## How it was paid
 

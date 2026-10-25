@@ -3,7 +3,7 @@ id: DEBT-0067
 title: Non-correctness findings of the second M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`"
+trigger: "The first PR that changes `Ingest.write`'s rollback or `Storage.applyRetention`, or touches `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`"
 paid_date:
 ---
 
@@ -41,7 +41,7 @@ test skips rather than passes falsely on a single run.
 
 ## Trigger
 
-The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`.
+The first PR that changes `Ingest.write`'s rollback or `Storage.applyRetention`, or touches `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`.
 
 Re-triggered once during PLAN-0006 because its review tasks rewrote the
 rollback and close code. Fired again by PLAN-0007 M6.3, whose `Storage`
@@ -57,6 +57,10 @@ change is the expected table list and schema version. The rollback,
 allocation, idle-pass cleanup and `/tmp` test these findings name are
 unchanged. Re-triggered past PLAN-0008, whose milestone review reads
 this code.
+
+Fired by PLAN-0009 M8.4, whose `Ingest` change is one line in `network`
+(ADR-0104): the rollback, the batch copies, the idle-pass cleanup and the
+`/tmp` test are untouched. Narrowed to that code.
 
 ## How it was paid
 

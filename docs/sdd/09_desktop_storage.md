@@ -115,6 +115,8 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   UI's queries, however many envelopes arrived.
 - A `network` event for an exchange not yet stored creates it (as the
   in-memory store does today); a `WebSocketFrame` increments `frame_count`.
+- A `ResponseReceived` with status 0, what a closed `CONNECTION` sends
+  (ADR-0103), stores `status_code` null: no status (ADR-0104).
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
 - Runs take the same queue (ADR-0084): `newRun()` ends the current run and
@@ -287,7 +289,13 @@ closes the approved devices (ADR-0083). A failure goes to
   exchange ids, in one transaction (`list_issues`, SDD 10).
 - `searchExchangeSizes(filter, afterId, limit)` is the same search with
   each row's stored body sizes (`bodies.size` of both parts, 0 when the
-  part has no row), read by two subqueries on the `bodies` key.
+  part has no row), read by two subqueries on the `bodies` key. A
+  `CONNECTION` row has `sent_size` and `body_size` from its decoded
+  `response_meta` instead, 0 until it closed (ADR-0104).
+- Connections (ADR-0103, ADR-0104): `StoredExchange.isConnection` is
+  `capture_layer = CONNECTION`; `ExchangeDetail.connectionBytes` holds its
+  bytes sent and received, null for any other layer. Its endpoint is
+  `CONNECT`, the host and `:port` as the path.
 - `groupByEndpoint(filter, maxExchanges)` (`Endpoints.kt`, ADR-0097)
   pages through `searchExchangeSizes`, oldest first, at most 100 000 rows,
   and groups them per endpoint (`EndpointTally`: count, status classes,
@@ -341,6 +349,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Sessions grouped by run, runs named | `RunsTest` (M5.6): a session spanning "New run" stays in its run, names kept across a restart, a lost "New run" keeps the earlier run |
 | One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |
 | Stored body sizes per row under a filter, 0 without a body | `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` (M6.5) |
+| The `CONNECTION` fixtures: no status, byte counts in the detail and the sizes, text search, no status class; endpoints per host and port, a refused one as failed, the run diff | `ConnectionTest` (M8.4) |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
 | The filter bar narrows the list and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7) |

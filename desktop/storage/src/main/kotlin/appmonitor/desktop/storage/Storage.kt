@@ -830,6 +830,9 @@ data class StoredExchange(
     val error: String?,
     val frameCount: Long,
 ) {
+    /** A socket the connection layer saw (ADR-0103): no status, no headers, no body. */
+    val isConnection: Boolean get() = captureLayer == CaptureLayer.CAPTURE_LAYER_CONNECTION
+
     internal constructor(
         id: Long,
         sessionRef: Long,
@@ -866,6 +869,16 @@ data class ExchangeDetail(
     val exchange: StoredExchange,
     val request: RequestStarted?,
     val response: ResponseReceived?,
+) {
+    /** The bytes a connection moved, null for any other layer; each count null until it closed (ADR-0103). */
+    val connectionBytes: ConnectionBytes?
+        get() = if (exchange.isConnection) ConnectionBytes(sent = response?.sent_size, received = response?.body_size) else null
+}
+
+/** What the app wrote to and read from one socket. */
+data class ConnectionBytes(
+    val sent: Long?,
+    val received: Long?,
 )
 
 data class StoredFrame(
