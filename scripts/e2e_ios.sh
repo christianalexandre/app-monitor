@@ -25,13 +25,27 @@ trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true
   xcrun simctl spawn "$udid" log show --style compact --start "$started" \
     --predicate "process == \"Sample\"" >"$out/simulator.log" 2>/dev/null || true' EXIT
 rm -rf "$out/proxy"
+# $1 a sed pattern whose group 1 is the value, $2 the log; waits up to 10 s for the line, as `listen` does.
+logged() {
+  local value
+  for _ in $(seq 1 10); do
+    value="$(sed -n "s/$1/\1/p" "$2")"
+    [[ -n "$value" ]] && { echo "$value"; return 0; }
+    sleep 1
+  done
+}
 start_target --grpc-trust "$out/grpc-trust.p12"
-grpc_port="$(sed -n 's/^gRPC on port \([0-9]*\)$/\1/p' "$target_log")"
+grpc_port="$(logged '^gRPC on port \([0-9]*\)$' "$target_log")"
 [[ -n "$grpc_port" ]] || fail "the target printed no gRPC port, log in $target_log"
 # The proxy verifies origins against the JVM's trust store; this one holds the target's certificate only.
+# One rule for the sample's 418 call, by then connected (ADR-0110); the target would answer 418.
+cat >"$out/mocks.json" <<JSON
+{"rules": [{"id": 1, "method": "GET", "host": "127.0.0.1", "path": "/status/418",
+  "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}}]}
+JSON
 SERVER_OPTS="-Djavax.net.ssl.trustStore=$out/grpc-trust.p12 -Djavax.net.ssl.trustStorePassword=e2e-target" \
-  start_server --proxy "$out/proxy"
-proxy_port="$(sed -n 's/^Proxy on port \([0-9]*\),.*/\1/p' "$server_log")"
+  start_server --proxy "$out/proxy" --mocks "$out/mocks.json"
+proxy_port="$(logged '^Proxy on port \([0-9]*\),.*' "$server_log")"
 [[ -n "$proxy_port" ]] || fail "the server printed no proxy port, log in $server_log"
 target="http://127.0.0.1:$target_port"
 
@@ -51,6 +65,7 @@ GET $target/delay/10 RequestFailed
 PUT $target/put ResponseReceived
 GET $target/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE
 GET $target/bytes/4096 ResponseReceived
+GET $target/status/418 ResponseReceived mock:1
 POST https://127.0.0.1:$grpc_port/grpcbin.GRPCBin/DummyUnary ResponseReceived DIRECTION_SENT:OPCODE_BINARY DIRECTION_RECEIVED:OPCODE_BINARY"
 
 assert_envelopes "$app" "$expected" "$timeout" "simulator log in $out/simulator.log" "127.0.0.1:$target_port"

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0045
 title: The background upload test missed its progress callback once
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-23
 trigger: The second failure of `aFileUploadIsCapturedBothWays` in `make swift-sim`, or the next PR that touches `BackgroundSessionTests.swift`
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0045 — The background upload test missed its progress callback once
@@ -34,4 +34,9 @@ size, and either drop that expectation or make the body large enough.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid in `feat/ios-sdk-mocks`, which touches the file: the
+`didSendBodyData` expectation is dropped. Apple documents it as sent
+"periodically" with the upload's progress
+([`urlSession(_:task:didSendBodyData:totalBytesSent:totalBytesExpectedToSend:)`](https://developer.apple.com/documentation/foundation/urlsessiontaskdelegate/urlsession(_:task:didsendbodydata:totalbytessent:totalbytesexpectedtosend:))),
+with no promise for a 7-byte body, and the capture does not depend on it.
+The test still checks the app gets the response and its completion.

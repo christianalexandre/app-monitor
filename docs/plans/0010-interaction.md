@@ -71,7 +71,7 @@ needs its own decision is split as soon as that shows.
   to push, so an end to end asserts one. SDD 09, 10 and 12 updated.
   Accept: `./gradlew :desktop:storage:test :desktop:app:test :desktop:mcp:test`
   and `make e2e-android`, with one rule asserted end to end.
-- [ ] **M9.6 Mocks in the iOS SDK.** `sdk/ios` per ADR-0110: the same
+- [x] **M9.6 Mocks in the iOS SDK.** (`feat/ios-sdk-mocks`; ADR-0117: `MockProtocol` put first by a replaced `protocolClasses` getter, the rule chosen at resume, events from the existing CFNetwork hooks, which ADR-0110 expected silent; the iOS sample's `418, or a mock` button) `sdk/ios` per ADR-0110: the same
   vector, a matching task answered without the network, background
   sessions left as they are. SDD 06 and 07 updated.
   Accept: `make swift`, `make swift-sim` and `make e2e-ios`, with one rule

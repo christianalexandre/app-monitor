@@ -9,11 +9,18 @@ protocol CaptureSink: AnyObject, Sendable {
     var options: AppMonitorOptions? { get }
 
     func send(_ envelope: Appmonitor_V1_Envelope)
+
+    /// The desktop's first rule for this call, nil outside a session (ADR-0110).
+    func mock(method: String, url: String) -> Appmonitor_V1_MockRule?
 }
 
 extension MonitorHolder: CaptureSink {
     func send(_ envelope: Appmonitor_V1_Envelope) {
         client?.send(envelope)
+    }
+
+    func mock(method: String, url: String) -> Appmonitor_V1_MockRule? {
+        client?.mocks.match(method: method, url: url)
     }
 }
 
@@ -55,17 +62,20 @@ final class TaskCapture: @unchecked Sendable {
     let masking: Masking
     let limit: Int
     let requestURL: URL?
+    /// Set at the first resume; `MockProtocol` answers the task with it.
+    let mock: Appmonitor_V1_MockRule?
     private let lock = NSLock()
     private var response: URLResponse?
     private var body = Data()
     private var received: Int64 = 0
     private var finished = false
 
-    init(sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?) {
+    init(sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?, mock: Appmonitor_V1_MockRule? = nil) {
         self.sink = sink
         masking = Masking(options)
         limit = options.maxBodyBytes
         self.requestURL = requestURL
+        self.mock = mock
     }
 
     func didReceive(_ response: URLResponse) {
@@ -165,7 +175,8 @@ func requestStarted(
     masking: Masking,
     limit: Int,
     upload: UploadBody? = nil,
-    streamed: Bool = false
+    streamed: Bool = false,
+    mock: Appmonitor_V1_MockRule? = nil
 ) throws -> Data {
     var event = Appmonitor_V1_RequestStarted()
     event.requestID = id
@@ -173,6 +184,7 @@ func requestStarted(
     event.url = masking.url(request?.url?.absoluteString ?? "")
     event.headers = masking.headers(sortedHeaders(request?.allHTTPHeaderFields ?? [:]))
     event.captureLayer = .platform
+    if let mock { event.mockRuleID = mock.id }
     switch (upload, request?.httpBody, request?.httpBodyStream) {
     case (.data(let data), _, _), (nil, .some(let data), _):
         event.body = data.prefix(limit)
@@ -240,6 +252,10 @@ enum Hooks {
             Logger(subsystem: "AppMonitor", category: "capture").error(
                 "Background session capture is off: this OS lacks the hooks of ADR-0046")
         }
+        if !MockHooks.install() {
+            Logger(subsystem: "AppMonitor", category: "capture").error(
+                "Mocks are off: this OS lacks the hook of ADR-0117")
+        }
         if !WebSocketHooks.install() {
             Logger(subsystem: "AppMonitor", category: "capture").error(
                 "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
@@ -269,7 +285,7 @@ enum Hooks {
     }
 
     /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks and tasks `sdk/ktor`
-    /// marks as captured (ADR-0064) are not.
+    /// marks as captured (ADR-0064) are not. Only a local data or upload task is mocked (ADR-0110 D.1).
     private static func started(_ task: URLSessionTask) {
         let sink = URLSessionCapture.sink
         guard capture(of: task) == nil, WebSocketHooks.capture(of: task) == nil,
@@ -284,14 +300,17 @@ enum Hooks {
             return WebSocketHooks.started(task, sink: sink, options: options)
         }
         guard scheme == "http" || scheme == "https" else { return }
-        let capture = TaskCapture(sink: sink, options: options, requestURL: request?.url)
+        let mock =
+            MockHooks.installed && task is URLSessionDataTask && !BackgroundHooks.isBackground(task)
+            ? sink.mock(method: request?.httpMethod ?? "GET", url: request?.url?.absoluteString ?? "") : nil
+        let capture = TaskCapture(sink: sink, options: options, requestURL: request?.url, mock: mock)
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         BackgroundHooks.started(task, capture)
         let upload = objc_getAssociatedObject(task, &uploadKey) as? UploadBox
         emit(sink, "RequestStarted") {
             try requestStarted(
                 request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload?.body,
-                streamed: task is URLSessionUploadTask)
+                streamed: task is URLSessionUploadTask, mock: mock)
         }
     }
 

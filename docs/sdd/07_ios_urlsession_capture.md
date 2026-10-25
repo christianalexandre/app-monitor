@@ -3,8 +3,8 @@
 How `sdk/ios` turns every `URLSession` task of the app into `network`
 envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
-`BackgroundCapture.swift` and `Masking.swift`; the mechanism is ADR-0043
-(WebSocket tasks ADR-0045, background sessions ADR-0046), what is masked and
+`BackgroundCapture.swift`, `Mocks.swift` and `Masking.swift`; the mechanism is ADR-0043
+(WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117), what is masked and
 bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
 the last section (ADR-0099).
 
@@ -58,6 +58,31 @@ captured through Ktor's Darwin engine (SDD 08, ADR-0064, ADR-0071).
 
 A request id is a random UUID kept on the task with its body and masking
 (an associated object), so it lives as long as the task.
+
+### One mocked task
+
+The desktop's rules (SDD 12) answer a task without the network
+(ADR-0110, ADR-0117):
+
+- **Chosen at the first resume**, by the hook that sends `RequestStarted`:
+  the session's first rule for the method and URL (`MockRuleSet.match`,
+  `protocol/fixtures/mock_matching.json`), kept on the task's
+  `TaskCapture` and sent as `RequestStarted.mock_rule_id`. Only a data or
+  upload task of a local session; not a download, WebSocket, stream or
+  background task, nor one `sdk/ktor` marked.
+- **Answered by `MockProtocol`**, a `URLProtocol` the replaced
+  `-[NSURLSessionConfiguration protocolClasses]` getter puts first, once,
+  in every configuration without an `identifier`, so `URLSession.shared`
+  and sessions made before `start` too. `canInit(with: task)` is true only
+  for a task holding a rule. A response: status, headers (one name twice
+  joined with `, `) and body. A failure: `NSURLErrorDomain`
+  `NSURLErrorNetworkConnectionLost` with the rule's message as its
+  description. Either after `delay_ms`, on a `Timer` of the loading
+  thread; a task cancelled meanwhile fails as `NSURLErrorCancelled`.
+- **Captured as any task**: the connection hooks see the protocol's
+  response, body and error, so `ResponseReceived` and `RequestFailed`
+  are the same as from the network, masking included.
+- A missing getter logs one line and mocks nothing.
 
 ### One WebSocket task
 
@@ -186,6 +211,8 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
   the simulator, in `make swift-sim`.
 
 ## Limits
+
+- A mocked `3xx` reaches the app as is; the protocol never redirects.
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).

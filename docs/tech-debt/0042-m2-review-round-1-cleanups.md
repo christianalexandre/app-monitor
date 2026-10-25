@@ -1,10 +1,10 @@
 ---
 id: DEBT-0042
 title: Non-correctness findings of the first M2 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR that touches one of the files listed below
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0042 — Non-correctness findings of the first M2 milestone review
@@ -60,3 +60,8 @@ open.
 `SampleCalls.swift` paid in `test/hermetic-end-to-end`: `BackgroundDownload.run`
 resets `bytes` with the continuation it installs. The `MonitorClient.swift`
 item is open.
+
+`MonitorClient.swift` paid in `feat/ios-sdk-mocks`: `Endpoint.url` sends a
+zone id as `%25` (RFC 6874), and `anIPv6HostKeepsItsZoneInTheURL` checks the
+URL decodes back to `fe80::1%en0`. On macOS 26.4 Foundation already took the
+raw `%`; the explicit form is what older ones require. Nothing is left.
