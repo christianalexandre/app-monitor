@@ -43,6 +43,23 @@ class LiveTrafficTest {
         }
 
     @Test
+    fun aHostFilterKeepsThatHostAndTheHostsAreListed() =
+        runBlocking {
+            val live = LiveTraffic { 5_000 }
+            live.connected("s1", hello("d1"), null)
+            live.connected("s2", hello("d2"), null)
+            live.received("s1", envelope(started("a", url = "https://shop.example.com/cart")))
+            live.received("s2", envelope(started("b", url = "https://api.example.com/login")))
+            live.received("s1", envelope(started("c", url = "https://api.example.com/me")))
+
+            assertEquals(listOf("a"), live.searchExchanges(ExchangeFilter(hosts = setOf("shop.example.com"))).map { it.requestId })
+            assertEquals(listOf("api.example.com", "shop.example.com"), live.observeHosts().first())
+            val first = live.sessions().first().id
+            assertEquals(listOf("api.example.com", "shop.example.com"), live.observeHosts(first).first())
+            assertEquals(listOf("api.example.com"), live.observeHosts(live.sessions().last().id).first())
+        }
+
+    @Test
     fun eventsRoundTripAsTheStoreGivesThem() =
         runBlocking {
             val live = LiveTraffic { 5_000 }
@@ -75,7 +92,7 @@ class LiveTrafficTest {
             assertEquals(listOf("hi".encodeUtf8()), live.frames(ws.id).map { it.payload })
             assertEquals(
                 listOf(2L to 4L),
-                live.searchExchangeSizes(ExchangeFilter(statusClass = StatusClass.SERVER_ERROR)).map {
+                live.searchExchangeSizes(ExchangeFilter(statusClasses = setOf(StatusClass.SERVER_ERROR))).map {
                     it.requestBytes to
                         it.responseBytes
                 },

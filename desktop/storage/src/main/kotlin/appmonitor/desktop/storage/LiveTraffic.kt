@@ -146,6 +146,20 @@ class LiveTraffic(
         limit: Long = Storage.PAGE_SIZE,
     ): Flow<List<StoredExchange>> = observe { searchExchanges(filter, 0, limit) }
 
+    /** The hosts of session [sessionId]'s exchanges, or of every one when null, sorted, again after each change. */
+    fun observeHosts(sessionId: Long? = null): Flow<List<String>> =
+        observe {
+            synchronized(lock) {
+                exchanges.values
+                    .mapNotNullTo(sortedSetOf()) { exchange ->
+                        exchange.row.host.takeIf {
+                            sessionId == null ||
+                                exchange.row.sessionId == sessionId
+                        }
+                    }.toList()
+            }
+        }
+
     /** One exchange with its events as the device sent them; its rule's name is the store's to give. */
     fun exchange(id: Long): ExchangeDetail? =
         synchronized(lock) {
@@ -212,7 +226,8 @@ class LiveTraffic(
                         (filter.deviceId == null || hello?.device_id == filter.deviceId) &&
                         (filter.appId == null || hello?.app_id == filter.appId) &&
                         (filter.method == null || row.method == filter.method) &&
-                        (filter.statusClass == null || row.statusCode?.let { it - filter.statusClass.from in 0..99 } == true) &&
+                        (filter.statusClasses.isEmpty() || filter.statusClasses.any { row.statusCode?.minus(it.from) in 0..99 }) &&
+                        (filter.hosts.isEmpty() || row.host in filter.hosts) &&
                         (!filter.failedOnly || row.failed) &&
                         (text == null || row.url?.asciiLowercase()?.contains(text) == true)
                 }.take(limit.toInt())

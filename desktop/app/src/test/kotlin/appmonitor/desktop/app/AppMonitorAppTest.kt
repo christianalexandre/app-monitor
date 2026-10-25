@@ -4,6 +4,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -32,6 +33,11 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
+import appmonitor.desktop.feature.traffic.FAILED_ONLY
+import appmonitor.desktop.feature.traffic.FILTERS
+import appmonitor.desktop.feature.traffic.FILTERS_DONE
+import appmonitor.desktop.feature.traffic.FILTER_RESET
+import appmonitor.desktop.feature.traffic.HOST_FILTER
 import appmonitor.desktop.feature.traffic.MARK
 import appmonitor.desktop.feature.traffic.RECORD
 import appmonitor.desktop.feature.traffic.RUNS
@@ -41,6 +47,7 @@ import appmonitor.desktop.feature.traffic.SAVED_RUN
 import appmonitor.desktop.feature.traffic.SAVE_NOTE
 import appmonitor.desktop.feature.traffic.SAVE_RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
+import appmonitor.desktop.feature.traffic.STATUS_FILTER
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
@@ -619,60 +626,70 @@ class AppMonitorAppTest {
         }
 
     @Test
-    fun `the filters narrow the request list and combine`() =
+    fun `the filter sheet narrows the request list by status class, host and method, and combines`() =
         withStorage { storage ->
             val live = LiveTraffic()
 
             fun request(
                 id: String,
                 method: String,
-                path: String,
-            ) = envelope(RequestStarted(request_id = id, method = method, url = "https://api.example.com/$path"))
+                url: String,
+            ) = envelope(RequestStarted(request_id = id, method = method, url = url))
             live.record(
-                request("r1", "GET", "login"),
+                request("r1", "GET", "https://api.example.com/login"),
                 envelope(ResponseReceived(request_id = "r1", status_code = 200)),
-                request("r2", "POST", "items"),
+                request("r2", "POST", "https://shop.example.com/items"),
                 envelope(ResponseReceived(request_id = "r2", status_code = 201)),
-                request("r3", "GET", "items/missing"),
+                request("r3", "GET", "https://api.example.com/items/missing"),
                 envelope(ResponseReceived(request_id = "r3", status_code = 404)),
-                request("r4", "GET", "feed"),
+                request("r4", "GET", "https://api.example.com/feed"),
                 envelope(RequestFailed(request_id = "r4", error = "timeout")),
             )
-            val url = { path: String -> "https://api.example.com/$path" }
+            val api = { path: String -> "https://api.example.com/$path" }
+            val shop = "https://shop.example.com/items"
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
-                awaitText(url("feed"))
+                awaitText(api("feed"))
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
-                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("login")).fetchSemanticsNodes().isEmpty() }
-                awaitText(url("items"))
-                awaitText(url("items/missing"))
-                onNodeWithText(url("feed")).assertDoesNotExist()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(api("login")).fetchSemanticsNodes().isEmpty() }
+                awaitText(shop)
+                awaitText(api("items/missing"))
+                onNodeWithText(api("feed")).assertDoesNotExist()
 
-                onNodeWithText("Status: Any ▾").performClick()
-                onNodeWithText("4xx").performClick()
-                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
-                awaitText(url("items/missing"))
-                onNodeWithText("Status: 4xx ▾").assertExists()
+                onNodeWithTag(FILTERS).performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").assertExists()
+                onNodeWithTag(HOST_FILTER + "shop.example.com").assertExists()
+                onNodeWithTag(STATUS_FILTER + 400).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
+                awaitText(api("items/missing"))
+                onNodeWithTag(STATUS_FILTER + 400).assertIsOn()
                 screenshot("filters.png")
 
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
+                onNodeWithTag(FILTERS_DONE).performClick()
                 awaitText("No requests match")
                 onNodeWithText("Change the search or the filters").assertExists()
+                onNodeWithText("Filters (2)").assertExists()
 
+                onNodeWithTag(FILTERS).performClick()
+                onNodeWithTag(FILTER_RESET).performClick()
+                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
+                onNodeWithTag(FILTERS_DONE).performClick()
                 onNodeWithTag(SEARCH).performTextReplacement("")
-                onNodeWithText("Status: 4xx ▾").performClick()
-                onNodeWithText("Any").performClick()
-                awaitText(url("items"))
-                onNodeWithText(url("login")).assertDoesNotExist()
+                awaitText(shop)
+                onNodeWithText(api("items/missing")).assertDoesNotExist()
+                onNodeWithText(api("login")).assertDoesNotExist()
 
-                onNodeWithText("Method: POST ▾").performClick()
-                onNodeWithText("Any").performClick()
-                onNodeWithText("Failed only").performClick()
-                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(url("items")).fetchSemanticsNodes().isEmpty() }
-                awaitText(url("feed"))
+                onNodeWithTag(FILTERS).performClick()
+                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
+                onNodeWithTag(FAILED_ONLY).performClick()
+                onNodeWithTag(FILTERS_DONE).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
+                awaitText(api("feed"))
+                onNodeWithText("Filters (1)").assertExists()
             }
         }
 

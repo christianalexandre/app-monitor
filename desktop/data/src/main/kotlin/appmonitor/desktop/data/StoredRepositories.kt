@@ -118,6 +118,11 @@ internal class StoredTrafficRepository(
         limit: Long,
     ): Flow<List<Exchange>> = storage.observeExchanges(filter.toStored(), limit).map { rows -> rows.map { it.toDomain() } }
 
+    override fun observeHosts(
+        runId: Long?,
+        sessionId: Long?,
+    ): Flow<List<String>> = storage.observeHosts(runId, sessionId)
+
     override suspend fun exchange(
         id: Long,
         frameLimit: Long,

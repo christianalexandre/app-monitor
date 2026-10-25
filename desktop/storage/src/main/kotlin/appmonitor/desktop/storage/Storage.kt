@@ -654,6 +654,17 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit))
 
+    /** The hosts of session [sessionId], else of run [runId], else of every stored exchange, sorted, again after each commit. */
+    fun observeHosts(
+        runId: Long?,
+        sessionId: Long? = null,
+    ): Flow<List<String>> =
+        when {
+            sessionId != null -> observe(database.exchangeQueries.hostsOfSession(sessionId))
+            runId != null -> observe(database.exchangeQueries.hostsOfRun(runId))
+            else -> observe(database.exchangeQueries.hosts())
+        }
+
     internal fun searchPlan(filter: ExchangeFilter): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =

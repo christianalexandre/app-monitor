@@ -38,6 +38,12 @@ interface TrafficRepository {
         limit: Long = PAGE_SIZE,
     ): Flow<List<Exchange>>
 
+    /** The hosts of session [sessionId], else of run [runId] (the live list when null), sorted, again after each change. */
+    fun observeHosts(
+        runId: Long?,
+        sessionId: Long? = null,
+    ): Flow<List<String>>
+
     /** One exchange with its bodies and its first [frameLimit] frames; null when it is no longer stored. */
     suspend fun exchange(
         id: Long,

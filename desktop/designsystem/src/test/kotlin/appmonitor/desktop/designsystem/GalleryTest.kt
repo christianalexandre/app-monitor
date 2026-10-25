@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -39,6 +41,8 @@ class GalleryTest {
                 }
                 TextRole.entries.forEach { onNodeWithText("Text in ${it.name}").assertExists() }
                 BadgeTone.entries.forEach { onNodeWithText(it.name).assertExists() }
+                onNodeWithText("2xx on").assertIsOn()
+                onNodeWithText("4xx off").assertIsOff()
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 assertEquals("POST", chosen)
@@ -87,6 +91,10 @@ private fun Gallery(
             Tabs(listOf("Summary", "Headers", "Body"), selected = 0, onSelect = onTab, Modifier.padding(horizontal = Spacing.lg))
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 BadgeTone.entries.forEach { Badge(it.name, it) }
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                ToggleChip("2xx on", BadgeTone.Success, selected = true, onToggle = {})
+                ToggleChip("4xx off", BadgeTone.Warning, selected = false, onToggle = {})
             }
             Box(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
                 MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")

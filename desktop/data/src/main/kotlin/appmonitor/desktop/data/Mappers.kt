@@ -103,7 +103,8 @@ internal fun ExchangeFilter.toStored(): StoredExchangeFilter =
     StoredExchangeFilter(
         text = text,
         method = method,
-        statusClass = statusClass?.toStored(),
+        statusClasses = statusClasses.mapTo(mutableSetOf()) { it.toStored() },
+        hosts = hosts,
         failedOnly = failedOnly,
         deviceId = deviceId,
         appId = appId,

@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import java.time.Duration
 
 plugins {
     id("appmonitor.kotlin-jvm")
@@ -28,6 +29,9 @@ sqldelight {
     }
 }
 
+// DEBT-0091: a hung test fails with its stack, well inside CI's 30 minutes.
 tasks.test {
     testLogging.exceptionFormat = TestExceptionFormat.FULL
+    systemProperty("junit.jupiter.execution.timeout.default", "2m")
+    timeout.set(Duration.ofMinutes(10))
 }

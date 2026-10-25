@@ -392,7 +392,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
 - UI (ADR-0146): a toolbar over three panes (devices, requests of the
   selected device, detail). The toolbar holds the run picker, Record /
   "Stop recording", Save and Clear (live list only), "Save as issue", the
-  URL search and the method, status and "Failed only" filters; Save's and
+  URL search and "Filters", which opens the filter sheet (method, status
+  classes, "Failed only", hosts, ADR-0148); Save's and
   the HAR export's notes show under it. The devices pane ends with the
   screens it opens: Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
   Settings. A request row shows its status as a badge colored by class

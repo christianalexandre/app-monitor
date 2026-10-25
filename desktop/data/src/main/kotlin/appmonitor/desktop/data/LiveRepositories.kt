@@ -52,6 +52,20 @@ internal class LiveTrafficRepository(
             stored.observeExchanges(filter, limit)
         }
 
+    override fun observeHosts(
+        runId: Long?,
+        sessionId: Long?,
+    ): Flow<List<String>> =
+        if (ExchangeFilter(
+                runId = runId,
+                sessionId = sessionId,
+            ).isLive
+        ) {
+            live.observeHosts(sessionId)
+        } else {
+            stored.observeHosts(runId, sessionId)
+        }
+
     override suspend fun exchange(
         id: Long,
         frameLimit: Long,

@@ -119,7 +119,8 @@ class SaveTest {
                     it.execute("PRAGMA user_version = 7")
                 }
             }
-            val storage = Storage.open(dir, startRun = false)
+            // The clock of the first open: retention at open would prune the empty run.
+            val storage = Storage.open(dir, startRun = false) { 1_000 }
             runBlocking {
                 assertEquals(listOf(false), storage.runs().map { it.saved })
                 storage.close(5.seconds)

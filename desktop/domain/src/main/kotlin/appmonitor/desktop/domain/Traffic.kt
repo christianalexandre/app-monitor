@@ -56,11 +56,15 @@ data class Exchange(
     val isError: Boolean get() = failed || (statusCode ?: 0) >= 400 || (grpcStatus ?: 0) != 0
 }
 
-/** What the exchange list is narrowed to (SDD 09); every null or false field matches all. */
+/**
+ * What the exchange list is narrowed to (SDD 09); every null, false or empty field matches all. [statusClasses] and [hosts]
+ * keep the rows of any one of them.
+ */
 data class ExchangeFilter(
     val text: String? = null,
     val method: String? = null,
-    val statusClass: StatusClass? = null,
+    val statusClasses: Set<StatusClass> = emptySet(),
+    val hosts: Set<String> = emptySet(),
     val failedOnly: Boolean = false,
     val deviceId: String? = null,
     val appId: String? = null,

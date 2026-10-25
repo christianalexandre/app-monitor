@@ -11,8 +11,9 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   `AppMonitorTheme`; use its components (`Text`, `TextButton`,
   `TextField`, `Checkbox`, `CheckboxRow`, `Choice`, `DialogCard`,
   `DialogActions`, `Divider`, `VerticalDivider`, `PaneTitle`,
-  `Placeholder`, `Section`, `Modifier.selectableItem`, `Badge`, `Toolbar`, `Tabs`,
-  `EmptyState`, `MiddleEllipsisText`) and its tokens
+  `Placeholder`, `Section`, `Modifier.selectableItem`, `Badge`,
+  `ToggleChip`, `Toolbar`, `Tabs`, `EmptyState`, `MiddleEllipsisText`)
+  and its tokens
   (`Spacing`, `Radius`, `Elevation`, `DialogWidth`, `TextRole`, `BadgeTone`,
   `AppMonitorTheme.colors`). `make designsystem-check` fails otherwise.
 - **No Material outside the design system**: no

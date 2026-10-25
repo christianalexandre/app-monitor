@@ -382,11 +382,12 @@ goes to `LiveTraffic` first; then:
 - Search and filters (ADR-0087): `searchExchanges(filter, afterId)` and
   `observeExchanges(filter, limit)` take an `ExchangeFilter` — text in
   `url` (the host is in it; `LIKE`, ASCII case-insensitive, `%` and `_`
-  literal), method, `StatusClass` (1xx to 5xx), failed only, device id, app
-  id, run, session; unset fields match all, set ones combine with AND.
+  literal), method, `StatusClass`es (1xx to 5xx, any one of them), hosts
+  (any one of them, ADR-0148), failed only, device id, app id, run,
+  session; unset or empty fields match all, set ones combine with AND.
   `SearchQuery` writes only the clauses of the fields set, so SQLite plans
   each combination with its index: `exchanges_method`,
-  `exchanges_status_code`, and `exchanges_session_ref_id` under a subquery
+  `exchanges_status_code`, `exchanges_host`, and `exchanges_session_ref_id` under a subquery
   on `sessions` for session, run, device and app. Text and failed only walk
   the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
   listens to `exchanges`, and to `sessions` when a filter joins it, so the
@@ -425,8 +426,12 @@ goes to `LiveTraffic` first; then:
   the rule in SDD 10's *Changed*), unchanged as a count, truncated when
   either grouping was. `diff_runs` and the window's run diff use it; it
   reads nothing itself.
-- The window's request list is the selected session's exchanges under a
-  filter bar: search field, method, status class, failed only. The device
+- The window's request list is the selected session's exchanges under the
+  toolbar's search field and the filter sheet: method, status classes,
+  failed only, hosts (ADR-0148). The sheet lists the hosts of the shown
+  list (`observeHosts`: the distinct `exchanges.host` of a session, a run
+  or every stored exchange, or of the live list), and a picked host gone
+  from it, so it can be unpicked. The device
   and app are the session picked in the device list, the run the run
   picker; changing a filter starts again from the first page.
 
@@ -474,7 +479,9 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
-| The filter bar narrows the list and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7) |
+| The filter sheet narrows the list by status class, host and method, and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
+| The hosts of a run, a session or every stored exchange | `SearchTest.hostsOfARunASessionOrEveryExchange` (H3.6c) |
+| The sheet offers the shown hosts, a host filter keeps only that host's rows | `TrafficViewModelTest` in `desktop/feature/traffic` (H3.6c) |
 | Age bound, oldest session first, connected and named kept, empty runs and unused devices deleted, secure delete | `RetentionTest.ageBoundDeletesOldSessionsAndKeepsNamedRunsAndConnectedOnes` (M5.8) |
 | Size bound, oldest first until under 90 %, the file shrinks, what is kept past the bound reported | `RetentionTest.sizeBoundDeletesOldestFirstUntilUnderNinetyPercent` (M5.8) |
 | Settings kept across restarts, a pass at open | `RetentionTest.settingsKeptAcrossRestartsAndAppliedAtOpen` (M5.8) |

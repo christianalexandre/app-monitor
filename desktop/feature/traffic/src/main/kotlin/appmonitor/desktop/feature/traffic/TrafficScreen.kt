@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,8 +35,6 @@ import androidx.compose.ui.unit.dp
 import appmonitor.desktop.designsystem.Badge
 import appmonitor.desktop.designsystem.BadgeTone
 import appmonitor.desktop.designsystem.Checkbox
-import appmonitor.desktop.designsystem.CheckboxRow
-import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.DialogActions
 import appmonitor.desktop.designsystem.DialogCard
 import appmonitor.desktop.designsystem.DialogWidth
@@ -58,9 +55,7 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
-import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.durationOf
-import appmonitor.desktop.ui.METHODS
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.statusOf
 import appmonitor.desktop.ui.titleOf
@@ -99,10 +94,11 @@ fun TrafficScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var runsOpen by remember { mutableStateOf(false) }
+    var filtersOpen by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            TrafficToolbar(state, links, viewModel, onRuns = { runsOpen = true })
+            TrafficToolbar(state, links, viewModel, onRuns = { runsOpen = true }, onFilters = { filtersOpen = true })
             val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
             notes.forEach { (note, tag) ->
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
@@ -136,6 +132,9 @@ fun TrafficScreen(
                 }
             }
         }
+        if (filtersOpen) {
+            FilterSheet(state.filter, state.hosts, viewModel::setFilter) { filtersOpen = false }
+        }
         if (runsOpen) {
             RunList(
                 state.runs,
@@ -153,13 +152,14 @@ fun TrafficScreen(
     }
 }
 
-/** What is shown and what it does to it: the run picker, Record, Save, Clear, search and filters (ADR-0140 G). */
+/** What is shown and what it does to it: the run picker, Record, Save, Clear, search and the filter sheet (ADR-0140 G). */
 @Composable
 private fun TrafficToolbar(
     state: TrafficState,
     links: TrafficLinks,
     viewModel: TrafficViewModel,
     onRuns: () -> Unit,
+    onFilters: () -> Unit,
 ) {
     val marked = state.marked.keys
     val canSave = marked.isNotEmpty() || state.row != null
@@ -185,7 +185,15 @@ private fun TrafficToolbar(
             Modifier.testTag(SAVE_AS_ISSUE),
             enabled = canSave,
         )
-        FilterBar(state.filter, viewModel::setFilter)
+        TextField(
+            state.filter.text.orEmpty(),
+            { viewModel.setFilter(state.filter.copy(text = it.ifEmpty { null })) },
+            Modifier.weight(1f).testTag(SEARCH),
+            placeholder = "Search URL",
+            singleLine = true,
+        )
+        val count = state.filter.count
+        TextButton(if (count == 0) "Filters" else "Filters ($count)", onClick = onFilters, Modifier.testTag(FILTERS))
     }
 }
 
@@ -455,26 +463,6 @@ internal fun toneOf(exchange: Exchange): BadgeTone {
 internal fun formatClock(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(ms))
 
 private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).withZone(ZoneId.systemDefault())
-
-/** Text in the URL, method, status class and failed only; the device and app are the session picked on the left. */
-@Composable
-private fun RowScope.FilterBar(
-    filter: ExchangeFilter,
-    onFilter: (ExchangeFilter) -> Unit,
-) {
-    TextField(
-        filter.text.orEmpty(),
-        { onFilter(filter.copy(text = it.ifEmpty { null })) },
-        Modifier.weight(1f).testTag(SEARCH),
-        placeholder = "Search URL",
-        singleLine = true,
-    )
-    Choice("Method", filter.method, METHODS, { it }) { onFilter(filter.copy(method = it)) }
-    Choice("Status", filter.statusClass, StatusClass.entries, ::labelOf) { onFilter(filter.copy(statusClass = it)) }
-    CheckboxRow("Failed only", filter.failedOnly, { onFilter(filter.copy(failedOnly = it)) }, Modifier.padding(end = Spacing.md))
-}
-
-private fun labelOf(status: StatusClass): String = "${status.from / 100}xx"
 
 // The request list's share of the width beside the detail's 1.
 private const val REQUESTS_WEIGHT = 1.5f
