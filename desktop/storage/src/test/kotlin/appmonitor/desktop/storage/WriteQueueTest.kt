@@ -2,11 +2,13 @@ package appmonitor.desktop.storage
 
 import app.cash.sqldelight.Query
 import appmonitor.v1.ResponseReceived
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -389,9 +391,15 @@ class WriteQueueTest {
             runBlocking {
                 storage.connected("s1", hello(), null)
                 storage.flush()
-                val sessions = async { storage.observeSessions().toList() }
-                val runs = async { storage.observeRuns().toList() }
-                storage.observeSessions().first { it.isNotEmpty() }
+                val sessionsRead = CompletableDeferred<Unit>()
+                val runsRead = CompletableDeferred<Unit>()
+                val sessions = async { storage.observeSessions().onEach { sessionsRead.complete(Unit) }.toList() }
+                val runs = async { storage.observeRuns().onEach { runsRead.complete(Unit) }.toList() }
+                // A close before both first reads would leave them empty.
+                withTimeout(5.seconds) {
+                    sessionsRead.await()
+                    runsRead.await()
+                }
                 storage.disconnected("s1")
                 storage.close(5.seconds)
                 withTimeout(5.seconds) {

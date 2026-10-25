@@ -3,7 +3,7 @@ id: DEBT-0067
 title: Non-correctness findings of the second M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: The first PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt` after M5.R10 is `[x]` in PLAN-0006
+trigger: "The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`"
 paid_date:
 ---
 
@@ -41,14 +41,14 @@ test skips rather than passes falsely on a single run.
 
 ## Trigger
 
-The first PR that touches
-`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`,
-`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`
-or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`
-after M5.R10 is `[x]` in PLAN-0006. M5.R6 and M5.R7 rewrite the same
-rollback and close code, so paying these first would be undone.
-Re-triggered by the third milestone review: M5.R9 and M5.R10 rewrite
-`retryLost` and the store's closing guard.
+The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`.
+
+Re-triggered once during PLAN-0006 because its review tasks rewrote the
+rollback and close code. Fired again by PLAN-0007 M6.3, whose `Storage`
+change is read-only and whose `Ingest` change is one queued settings
+write: none of the rollback, allocation, retention or test code these
+findings name changed, and rewriting `Ingest`'s rollback inside an MCP
+feature PR mixes two risks. Narrowed to that code.
 
 ## How it was paid
 

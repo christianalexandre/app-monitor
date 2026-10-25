@@ -37,6 +37,9 @@ SELECT * FROM runs ORDER BY id;
 newestFirst:
 SELECT * FROM runs ORDER BY id DESC;
 
+pageNewestFirst:
+SELECT * FROM runs WHERE id < :beforeId ORDER BY id DESC LIMIT :limit;
+
 -- Unnamed runs left without sessions; the current run has no end, so it never matches.
 deleteEmptyBefore:
 DELETE FROM runs

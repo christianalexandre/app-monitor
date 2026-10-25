@@ -51,6 +51,9 @@ WHERE session_ref = :sessionRef AND id > :afterId
 ORDER BY id
 LIMIT :limit;
 
+countOfRun:
+SELECT count(*) FROM exchanges JOIN sessions ON sessions.id = exchanges.session_ref WHERE sessions.run_id = ?;
+
 pageOfRun:
 SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
   exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,

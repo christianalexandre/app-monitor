@@ -71,7 +71,8 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 - `approvals` and `settings` are in the version-1 schema, so M5.5 and M5.8
   needed no migration. `settings` holds `retention.max_age_days` (days, or
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
-  default.
+  default. `mcp.token` is the MCP server's bearer token (SDD 10), read with
+  `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).
 
@@ -227,6 +228,12 @@ closes the approved devices (ADR-0083). A failure goes to
   refresh.
 - The detail of one exchange reads its meta, its bodies (inflated on read)
   and its frames by page.
+- `runSummaries(beforeId, limit)` reads a page of runs newest first, each
+  with its sessions (device and app from `devices` and `apps`) and its
+  exchange count, in one transaction; `list_runs` answers from it (SDD 10).
+- `isClosing` is true once `close` started: reads then answer empty or
+  null, so a caller that must not mistake that for "nothing stored" checks
+  it after its reads.
 - Search and filters (ADR-0087): `searchExchanges(filter, afterId)` and
   `observeExchanges(filter, limit)` take an `ExchangeFilter` — text in
   `url` (the host is in it; `LIKE`, ASCII case-insensitive, `%` and `_`
@@ -271,6 +278,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
 | Retention and clear calls queued on the writer during a timed out close do nothing and return | `WriteQueueTest.callsQueuedOnTheWriterDuringATimedOutCloseDoNothing` |
 | A read in flight keeps the database open until it returns, reads after close return nothing, observed queries end without an exception | `WriteQueueTest.aReadInFlightKeepsTheDriverOpenUntilItReturns`, `WriteQueueTest.observedQueriesEndWhenTheStoreCloses` (M5.R10) |
+| Run summaries page newest first with sessions and counts; settings kept across launches, deleted by clear all, null once closing | `RunsTest.runSummariesPageNewestFirstWithSessionsAndCounts`, `RunsTest.settingsAreKeptUntilClearAll` |
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
