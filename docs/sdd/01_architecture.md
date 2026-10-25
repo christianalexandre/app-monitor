@@ -124,7 +124,9 @@ device                         AppMonitorServer
   `AppMonitorServer.disconnect(key)` closes the pair's connections with
   1008, handshakes still pending or answered but not yet published
   included; under the lock that publishes sessions, so a connection racing
-  a forget either is closed after `HelloAck` or never gets one.
+  a forget either is closed after `HelloAck` or never gets one. An answered
+  handshake found forgotten sends the 1008 itself before its handler
+  returns, so Ktor's normal 1000 close never wins.
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty

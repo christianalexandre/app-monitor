@@ -177,7 +177,7 @@ class AppMonitorServer internal constructor(
         synchronized(lock) {
             connections.forEach { (connection, hello) ->
                 if (hello.device_id == key.deviceId && hello.app_id == key.appId && connections.remove(connection, hello)) {
-                    connection.launch { connection.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")) }
+                    connection.launch { connection.close(FORGOTTEN) }
                 }
             }
         }
@@ -233,9 +233,13 @@ class AppMonitorServer internal constructor(
         // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
         val published =
             synchronized(lock) {
-                if (!connections.containsKey(this)) return
-                !stopped && newSessions.trySend(session).isSuccess
+                if (!connections.containsKey(this)) null else !stopped && newSessions.trySend(session).isSuccess
             }
+        // Returning before disconnect's close is sent lets Ktor close with 1000.
+        if (published == null) {
+            close(FORGOTTEN)
+            return
+        }
         if (!published) {
             close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
             return
@@ -284,6 +288,7 @@ class AppMonitorServer internal constructor(
 
     private companion object {
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK)
+        val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }
 

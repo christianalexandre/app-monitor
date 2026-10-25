@@ -159,6 +159,29 @@ class DeviceApprovalTest {
         }
 
     @Test
+    fun `a pair forgotten between its answer and HelloAck is always closed with 1008`() =
+        runBlocking {
+            val key = DeviceKey("device-1", "app.a")
+            val forgetting =
+                DeviceApproval {
+                    approvals.decide(key, approved = true)
+                    approvals.forget(key)
+                    server!!.disconnect(key)
+                    true
+                }
+            val port = start(forgetting)
+            withTimeout(TIMEOUT * 5) {
+                repeat(20) {
+                    connect(port) {
+                        send(Frame.Binary(true, hello.encode()))
+                        assertNull(incoming.receiveCatching().getOrNull())
+                        assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason, "attempt $it")
+                    }
+                }
+            }
+        }
+
+    @Test
     fun `forgetAll drops every answer`() {
         approvals.decide(DeviceKey("device-1", "app.a"), approved = true)
         approvals.decide(DeviceKey("device-2", "app.a"), approved = false)

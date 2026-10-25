@@ -193,7 +193,7 @@ new privacy decision.
   `applyRetention` and `setRetention` after `close` returning, and one
   queued behind a stalled writer during a `close` that times out returning
   without touching the driver.
-- [ ] **M5.R8 A forgotten handshake may close with 1000, not 1008.**
+- [x] **M5.R8 A forgotten handshake may close with 1000, not 1008.** (`fix/forgotten-handshake-close-1008`; reproduced at attempt 7 of 500 before the fix, 500 of 500 after; the handler sends the 1008 itself, disconnect's launched close stays for streaming sessions; the test repeats 20 times)
   `AppMonitorServer`'s handshake returns when `disconnect` already removed
   it and relies on the `close(1008)` that `disconnect` launched; Ktor's
   close when the handler returns can win the race, so the device sees a
