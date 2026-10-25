@@ -106,4 +106,23 @@ class MockAnswerTest {
         assertNull(sink.started().mock_rule_id)
         assertEquals("real", sink.received().body.utf8())
     }
+
+    @Test
+    fun asANetworkInterceptorAMatchingCallGoesToTheNetwork() {
+        val sink = RecordingSink(mocks = rules)
+        server.enqueue(
+            mockwebserver3.MockResponse
+                .Builder()
+                .body("real")
+                .build(),
+        )
+        val client = OkHttpClient.Builder().addNetworkInterceptor(AppMonitorInterceptor(sink)).build()
+
+        val body = client.newCall(Request.Builder().url(server.url("/items")).build()).execute().use { it.body.string() }
+
+        assertEquals("real", body)
+        assertEquals(1, server.requestCount)
+        assertNull(sink.started().mock_rule_id)
+        assertEquals("real", sink.received().body.utf8())
+    }
 }

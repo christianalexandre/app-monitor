@@ -1,10 +1,10 @@
 ---
 id: PLAN-0010
 title: Interaction
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M9
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0010 — Interaction (M9)
@@ -143,8 +143,9 @@ needs its own decision is split as soon as that shows.
   Accept: `./gradlew -p gradle-plugin test functionalTest` — a client
   from `OkHttpClient()`, one from `Builder.build()` and one from
   `newBuilder()` each call the entry point; `make android-samples`.
-- [ ] **M9.R2 A network interceptor does not crash on a mock or a
-  breakpoint.** From the milestone review: added with
+- [x] **M9.R2 A network interceptor does not crash on a mock or a
+  breakpoint.** (`fix/okhttp-network-interceptor`; ADR-0128: no mock looked up and a resume to another host or
+  port refused when `chain.connection()` is set; DEBT-0088's empty OkHttp response paid) From the milestone review: added with
   `addNetworkInterceptor`, as its KDoc allows, `AppMonitorInterceptor`
   answers a mock without `proceed()` and can resume a held request on
   another host. OkHttp 5.3.2's `RealInterceptorChain` (lines 112, 115,
@@ -169,10 +170,45 @@ was rejected.
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan and ADR-0110 to ADR-0112 (#235); M9.2 the
+  `interaction` channel and rules in the store (#236); M9.3 the mock
+  editor and `create_mock` (#237); M9.4 mocks in OkHttp and Ktor (#238);
+  M9.5 mocked exchanges in the desktop, end to end (#239); M9.6 mocks in
+  the iOS SDK (#240); M9.7 breakpoints on the wire and held in the
+  desktop (#241); M9.8 breakpoints in the window (#242); M9.9 "Send
+  again" (#243); M9.13 replay from MCP (#244); M9.10 replay in the Kotlin
+  SDKs (#245); M9.14 breakpoints in the Kotlin SDKs (#246); M9.11 replay
+  in the iOS SDK (#247); M9.15 breakpoints in the iOS SDK (#248); M9.12
+  the Gradle plugin's OkHttp injection (#249); M9.R1 clients made with
+  `OkHttpClient()` captured (#250); M9.R2 a network interceptor that
+  does not crash on a mock or a breakpoint (this PR, which closes the
+  plan).
+- **Decisions**: ADR-0110 (mock rules), ADR-0111 (breakpoints and
+  replay), ADR-0112 (Gradle plugin injection), ADR-0113 (rule set and
+  storage), ADR-0114 (mock editor, `create_mock`), ADR-0115 and ADR-0117
+  (mocks in the Kotlin and iOS SDKs), ADR-0116 (mocked exchanges, `make
+  server --mocks`), ADR-0118 (breakpoint messages, held calls), ADR-0119
+  (breakpoints in the window), ADR-0120 and ADR-0121 (replay messages,
+  replay from MCP), ADR-0122 and ADR-0124 (replay in the Kotlin and iOS
+  SDKs), ADR-0123 and ADR-0125 (breakpoints in the Kotlin and iOS SDKs),
+  ADR-0126 and ADR-0127 (how the plugin finds the SDK and what it
+  rewrites), ADR-0128 (the capture as a network interceptor).
+- **Debt**: DEBT-0082 to DEBT-0087 created and open (rule order, Ktor's
+  internal API, iOS replay and held-task corners, iOS breakpoints on the
+  host only, Ktor's OkHttp engine captured twice). DEBT-0088 created with
+  the review's eight non-correctness findings; its OkHttp item paid in
+  this PR. DEBT-0068's `published` item paid by M9.2. No correctness
+  finding that normal use hits is left open.
+- **Deviations**: the plan grew from twelve tasks to seventeen. M9.2,
+  M9.7, M9.9, M9.10 and M9.11 were each split as soon as their second
+  half needed its own decision; the halves got new ids (M9.13 to M9.15)
+  so the ids the ADRs cite stay. M9.4's desktop mark and end to end
+  became M9.5. The review added M9.R1 and M9.R2.
+- **Lessons**: M8's lesson held. Every SDK ran the same rules and
+  commands from `protocol/fixtures/`, and the review found no SDK
+  reading a rule differently from another. What slipped was what the
+  host library allows around the capture: `OkHttpClient()` skipping
+  `build()`, and OkHttp's checks on a network interceptor. The next plan
+  that hooks into a library should read the library's own checks and
+  every construction path first, and test each documented way of adding
+  the hook, not only the recommended one.
