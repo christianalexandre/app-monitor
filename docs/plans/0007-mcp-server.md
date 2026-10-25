@@ -85,7 +85,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   every tool against it.
   Accept: the setup docs merged; the client's calls and answers shown in
   the PR.
-- [ ] **M6.10 Docs sync.** README status, SDD 01 and 03 (the planned
+- [x] **M6.10 Docs sync.** (`docs/mcp-docs-sync`; no command added since M6.9, `:desktop:mcp:test` already listed; SDD 03's `desktop/mcp` row completed with every tool.) README status, SDD 01 and 03 (the planned
   `desktop/mcp` moves to "Today"), `AGENTS.md` commands.
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
