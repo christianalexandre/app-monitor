@@ -4,7 +4,8 @@
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
 files, connection settings), ADR-0086 (opening, booleans, lost writes),
-ADR-0087 (search queries), ADR-0088 (retention pass, clearing).
+ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
+(issues), ADR-0096 (issue rows, their writers, retention of their exchanges).
 Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
@@ -54,6 +55,9 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 | `raw_envelopes` | `session_ref`, `channel`, `type`, `timestamp_ms`, `payload` | (`session_ref`, `id`) |
 | `approvals` | `device_id`, `app_id`, `approved`, `decided_at_ms`, `device_name`, `os_version`, `app_version` | primary key (`device_id`, `app_id`) |
 | `settings` | `key`, `value` | primary key `key` |
+| `issues` | `title`, `note`, `status` (`open` or `resolved`), `source` (`window` or `mcp`, who created it), `created_at_ms`, `updated_at_ms` | |
+| `issue_tags` | `issue_ref`, `tag` | primary key (`issue_ref`, `tag`); `tag` |
+| `issue_exchanges` | `issue_ref`, `exchange_ref` | primary key (`issue_ref`, `exchange_ref`); `exchange_ref` |
 
 - `request_meta` / `response_meta` are the `RequestStarted` /
   `ResponseReceived` payload re-encoded with Wire **without** its body
@@ -76,9 +80,13 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).
+- Issues (ADR-0095, ADR-0096) are not under a session either; their tags and
+  links cascade from the issue, and a link from its exchange. Tags are
+  trimmed, blank ones dropped, line breaks turned to spaces, each once.
 
-Migrations are `.sqm` files, one per schema version; the version-1 schema is
-the `.sq` files. Every change to a table is a new migration; a shipped
+Migrations are `.sqm` files in `src/main/sqldelight/migrations/`, one per
+schema version: `1.sqm` (version 1 to 2) adds the issue tables. The `.sq`
+files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
 
@@ -121,6 +129,24 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `forget(deviceId, appId)` and `forgetAll()` delete; queued in click order,
   drained by `close` like envelopes. `approvals()` reads them once at
   launch, `observeApprovals()` follows them for the settings.
+- Issues take the same queue (ADR-0096). Their writers, in the order the
+  writer thread applies them:
+
+  | Writer | Writes | How |
+  | --- | --- | --- |
+  | Window ("Save as issue", the issue editor) | create, edit, delete | `createIssue`, `updateIssue`, `deleteIssue` |
+  | MCP `save_issue` (M7.3) | create, edit | `createIssue`, `updateIssue` |
+  | Retention pass | deletes an issue's session's other exchanges, never a linked one | between batches |
+  | "Clear all data" | deletes every issue, tag and link | between batches, after a flush |
+
+  An edit is an `IssueChange`: each null field keeps what is stored, so
+  two writers editing different fields both land, and on the same field
+  the one queued last wins. `tags` and `exchangeIds` replace the stored
+  set. The exchange ids are checked on the writer, in the batch's
+  transaction: one that is not stored by then writes nothing and returns
+  `UnknownExchanges` with those ids, an edit of a deleted issue
+  `UnknownIssue`. Both calls return an `IssueWrite` once their batch is
+  committed; a lost batch or a closing store is `NotSaved`.
 
 ### When a write is slow or fails
 
@@ -184,8 +210,12 @@ every `RETENTION_INTERVAL` (10 minutes) from a coroutine `close` cancels:
 1. **Age.** Ended sessions (`disconnected_at_ms` set) of unnamed runs whose
    last envelope (or connection) is older than the limit, oldest first, 50
    per transaction; the cascades delete their exchanges, bodies, frames and
-   raw envelopes. Then unnamed, ended runs left without sessions and older
-   than the limit.
+   raw envelopes. A session holding an exchange an issue links is kept
+   (ADR-0095 B.1, ADR-0096 C.1): its other exchanges and its raw envelopes
+   are deleted, the linked ones with their bodies and frames stay, and the
+   session, its device and app rows with them; once nothing else is left
+   it is no longer a candidate. Then unnamed, ended runs left without
+   sessions and older than the limit.
 2. **Size.** While live pages (`page_count − freelist_count`, times
    `page_size`) pass the limit, the oldest such session goes, one per
    statement, until they are under 90 % of it; then every unnamed, ended run
@@ -201,13 +231,14 @@ A pass whose settings changed (`setRetention`, which runs its own pass with
 the new ones) or that a `clearAll()` ran under stops at the next chunk and
 leaves `retentionStatus` to the newer one.
 `retentionStatus` holds the file's size, how many sessions the last pass
-deleted, `keptOverBound` when what is kept (named runs, connected sessions)
+deleted (a trimmed one is not counted), `keptOverBound` when what is kept
+(named runs, connected sessions, issues' exchanges)
 still passes the limit, and the last error; a failed pass is reported
 there, not thrown. The device list shows a warning for either of the last
 two, the settings the size on disk.
 
 `clearAll()` (the settings' "Clear all data", after a confirmation) waits
-for the queue, then on the writer thread deletes every row — runs,
+for the queue, then on the writer thread deletes every row — runs, issues,
 approvals and settings included — in one transaction, runs `VACUUM`, and
 opens a new run. The writer forgets the sessions still connected, so what
 they send next is dropped; the app first forgets every approval, which
@@ -247,6 +278,11 @@ closes the approved devices (ADR-0083). A failure goes to
   the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
   listens to `exchanges`, and to `sessions` when a filter joins it, so the
   window follows commits as with the generated ones.
+- `observeIssues(filter)` follows the issues an `IssueFilter` (status, tag;
+  unset matches all) matches, newest first, each with its sorted tags and
+  linked exchange count, through one query that listens to the three issue
+  tables; `observeIssueTags()` every tag in use, `issueExchanges(id)` the
+  linked exchanges in arrival order.
 - `searchExchangeSizes(filter, afterId, limit)` is the same search with
   each row's stored body sizes (`bodies.size` of both parts, 0 when the
   part has no row), read by two subqueries on the `bodies` key;
@@ -301,6 +337,10 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | "Clear all data" leaves one new run, no row and no deleted byte in the files | `RetentionTest.clearAllDeletesEverythingAndRewritesTheFile` (M5.8) |
 | A pass stops when the bound is raised under it, and leaves a failed `clearAll()`'s error | `RetentionTest.aRaisedBoundStopsAPassAlreadyRunning`, `RetentionTest.aClearAllFailingDuringAPassKeepsItsError` (M5.R5) |
 | The settings change retention and clear after a confirmation | `AppMonitorAppTest` in `desktop/app`, `settings.png` (M5.8) |
+| A linked exchange kept past the age and the size bound with its body, the rest of its session deleted, released by deleting the issue | `IssuesTest.aLinkedExchangeIsKeptPastBothRetentionBounds` (M7.2) |
+| An issue survives a reopen; edits change only their fields, in queue order; status and tag filters | `IssuesTest.anIssueSurvivesAReopen`, `IssuesTest.editsChangeOnlyTheFieldsTheyCarryInQueueOrder` (M7.2) |
+| Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |
+| "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
 
 ## Limits
 

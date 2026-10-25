@@ -87,6 +87,26 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Creates an issue when [id] is null, else changes it (ADR-0095 C.1); [done] gets [outcome], or not saved. */
+    class SaveIssue(
+        val id: Long?,
+        val change: IssueChange,
+        val source: IssueSource,
+        val atMs: Long,
+    ) : StorageItem {
+        val done = CompletableDeferred<IssueWrite>()
+
+        // Set by the writer as it applies the item, cleared when its batch rolls back.
+        var outcome: IssueWrite? = null
+        override val sessionId: String? get() = null
+    }
+
+    data class DeleteIssue(
+        val id: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
@@ -151,6 +171,7 @@ internal class Ingest(
                 beforeCommit(batch)
             }
         } catch (e: Exception) {
+            batch.forEach { if (it is StorageItem.SaveIssue) it.outcome = null }
             val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
             disconnects.forEach { item ->
                 val connected = batch.filterIsInstance<StorageItem.Connected>().lastOrNull { it.sessionId == item.sessionId }
@@ -229,19 +250,63 @@ internal class Ingest(
                 database.settingQueries.put(item.key, item.value)
             }
 
+            is StorageItem.SaveIssue -> {
+                item.outcome = saveIssue(item)
+            }
+
+            is StorageItem.DeleteIssue -> {
+                database.issueQueries.delete(item.id)
+            }
+
             is StorageItem.Barrier -> {
                 Unit
             }
         }
     }
 
+    // Checked on the writer, in the batch's transaction: retention cannot delete an exchange between check and link.
+    private fun saveIssue(item: StorageItem.SaveIssue): IssueWrite {
+        val queries = database.issueQueries
+        val change = item.change
+        change.exchangeIds?.let { ids ->
+            val unknown = ids.distinct().filter { database.exchangeQueries.exists(it).executeAsOne() == 0L }
+            if (unknown.isNotEmpty()) return IssueWrite.UnknownExchanges(unknown)
+        }
+        val id =
+            if (item.id == null) {
+                queries.insert(
+                    title = change.title.orEmpty(),
+                    note = change.note.orEmpty(),
+                    status = (change.status ?: IssueStatus.OPEN).stored,
+                    source = item.source.stored,
+                    created_at_ms = item.atMs,
+                    updated_at_ms = item.atMs,
+                )
+                queries.lastId().executeAsOne()
+            } else {
+                if (queries.exists(item.id).executeAsOne() == 0L) return IssueWrite.UnknownIssue
+                queries.update(change.title, change.note, change.status?.stored, item.atMs, item.id)
+                item.id
+            }
+        change.tags?.let { tags ->
+            queries.deleteTags(id)
+            normalizedTags(tags).forEach { queries.addTag(id, it) }
+        }
+        change.exchangeIds?.let { ids ->
+            queries.deleteExchanges(id)
+            ids.forEach { queries.addExchange(id, it) }
+        }
+        return IssueWrite.Saved(id)
+    }
+
     /**
-     * Deletes every row, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
+     * Deletes every row, issues, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
      * connected are forgotten: what they send next is dropped.
      */
     fun clear(atMs: Long) {
         currentRun =
             database.transactionWithResult {
+                database.issueQueries.deleteAll()
                 database.exchangeQueries.deleteAll()
                 database.sessionQueries.deleteAll()
                 database.runQueries.deleteAll()

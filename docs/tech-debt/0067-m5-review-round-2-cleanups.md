@@ -3,7 +3,7 @@ id: DEBT-0067
 title: Non-correctness findings of the second M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`"
+trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`"
 paid_date:
 ---
 
@@ -41,7 +41,7 @@ test skips rather than passes falsely on a single run.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.3 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`.
+The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`, or changes `Storage.applyRetention`.
 
 Re-triggered once during PLAN-0006 because its review tasks rewrote the
 rollback and close code. Fired again by PLAN-0007 M6.3, whose `Storage`
@@ -49,6 +49,14 @@ change is read-only and whose `Ingest` change is one queued settings
 write: none of the rollback, allocation, retention or test code these
 findings name changed, and rewriting `Ingest`'s rollback inside an MCP
 feature PR mixes two risks. Narrowed to that code.
+
+Fired by PLAN-0008 M7.2, whose `Ingest` change adds two queued issue
+items (their rollback is one line: the outcome cleared), whose
+`applyRetention` change is the `prune` call, and whose `StorageOpenTest`
+change is the expected table list and schema version. The rollback,
+allocation, idle-pass cleanup and `/tmp` test these findings name are
+unchanged. Re-triggered past PLAN-0008, whose milestone review reads
+this code.
 
 ## How it was paid
 

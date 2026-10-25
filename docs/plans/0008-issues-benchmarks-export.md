@@ -32,7 +32,7 @@ the lifecycle table lists every call class against each store state.
   may write without a confirmation in the window, and what deleting and
   "Clear all data" do to issues.
   Accept: ADR-0095 merged by the owner with `status: Accepted`.
-- [ ] **M7.2 Issues in the store and the window.** `desktop/storage`
+- [x] **M7.2 Issues in the store and the window.** `desktop/storage`
   migration and queries for issues per ADR-0095, the retention pass and
   "Clear all data" honouring them; in `desktop/app`, "Save as issue" on
   the selected exchanges, an issue list with status and tag filters, and

@@ -52,14 +52,31 @@ SELECT * FROM sessions ORDER BY id;
 inRun:
 SELECT * FROM sessions WHERE run_id = ? ORDER BY id;
 
--- ADR-0082 B.1, C.1: ended sessions outside named runs, oldest last envelope first.
+-- ADR-0082 B.1, C.1: ended sessions outside named runs, oldest last envelope first. ADR-0095 B.1: `kept` when an issue
+-- links one of its exchanges, then listed only while it holds something else to delete.
 prunable:
-SELECT sessions.id
+SELECT sessions.id,
+  EXISTS (
+    SELECT 1 FROM exchanges JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
+    WHERE exchanges.session_ref = sessions.id
+  ) AS kept
 FROM sessions
 JOIN runs ON runs.id = sessions.run_id
 WHERE sessions.disconnected_at_ms IS NOT NULL
   AND runs.name IS NULL
   AND coalesce(sessions.last_envelope_at_ms, sessions.connected_at_ms) < :before
+  AND (
+    NOT EXISTS (
+      SELECT 1 FROM exchanges JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
+      WHERE exchanges.session_ref = sessions.id
+    )
+    OR EXISTS (
+      SELECT 1 FROM exchanges
+      WHERE exchanges.session_ref = sessions.id
+        AND NOT EXISTS (SELECT 1 FROM issue_exchanges WHERE issue_exchanges.exchange_ref = exchanges.id)
+    )
+    OR EXISTS (SELECT 1 FROM raw_envelopes WHERE raw_envelopes.session_ref = sessions.id)
+  )
 ORDER BY coalesce(sessions.last_envelope_at_ms, sessions.connected_at_ms), sessions.id
 LIMIT :limit;
 

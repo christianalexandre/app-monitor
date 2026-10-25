@@ -67,5 +67,23 @@ LIMIT :limit;
 byId:
 SELECT * FROM exchanges WHERE id = ?;
 
+exists:
+SELECT count(*) FROM exchanges WHERE id = ?;
+
+ofIssue:
+SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
+  exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
+  exchanges.error, exchanges.frame_count
+FROM exchanges
+JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
+WHERE issue_exchanges.issue_ref = ?
+ORDER BY exchanges.id;
+
+-- ADR-0095 B.1: what retention deletes of a session an issue keeps.
+deleteUnlinkedOfSession:
+DELETE FROM exchanges
+WHERE session_ref = ?
+  AND NOT EXISTS (SELECT 1 FROM issue_exchanges WHERE issue_exchanges.exchange_ref = exchanges.id);
+
 deleteAll:
 DELETE FROM exchanges;

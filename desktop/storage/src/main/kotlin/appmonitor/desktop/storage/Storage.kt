@@ -7,6 +7,7 @@ import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import appmonitor.desktop.storage.db.AppMonitorDatabase
 import appmonitor.desktop.storage.db.OfRun
+import appmonitor.desktop.storage.db.Prunable
 import appmonitor.desktop.storage.db.Sessions
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
@@ -127,6 +128,7 @@ class Storage private constructor(
         batch.forEach {
             if (it is StorageItem.Barrier) it.done.complete(Unit)
             if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
+            if (it is StorageItem.SaveIssue) it.done.complete(it.outcome ?: IssueWrite.NotSaved)
         }
     }
 
@@ -209,6 +211,43 @@ class Storage private constructor(
         queue.enqueue(StorageItem.Forgot(null, null))
     }
 
+    /**
+     * Queues a new issue linking [exchangeIds] (ADR-0095 A.1) and returns what the writer did with it: nothing when one
+     * of them is not stored by then.
+     */
+    suspend fun createIssue(
+        title: String,
+        note: String,
+        tags: Collection<String>,
+        exchangeIds: Collection<Long>,
+        source: IssueSource,
+        status: IssueStatus = IssueStatus.OPEN,
+    ): IssueWrite {
+        require(title.isNotBlank()) { "An issue needs a title" }
+        require(exchangeIds.isNotEmpty()) { "An issue needs an exchange" }
+        return saveIssue(StorageItem.SaveIssue(null, IssueChange(title.trim(), note, tags, status, exchangeIds), source, clock()))
+    }
+
+    /** Queues [change] to issue [id]; writes queued earlier, from the window or MCP, land first. */
+    suspend fun updateIssue(
+        id: Long,
+        change: IssueChange,
+    ): IssueWrite {
+        require(change.title == null || change.title.isNotBlank()) { "An issue needs a title" }
+        require(change.exchangeIds == null || change.exchangeIds.isNotEmpty()) { "An issue needs an exchange" }
+        return saveIssue(StorageItem.SaveIssue(id, change.copy(title = change.title?.trim()), IssueSource.WINDOW, clock()))
+    }
+
+    private suspend fun saveIssue(item: StorageItem.SaveIssue): IssueWrite {
+        if (!queue.enqueue(item)) return IssueWrite.NotSaved
+        return item.done.await()
+    }
+
+    /** Queues deleting issue [id]; its exchanges go back to retention (ADR-0095 D.1). */
+    suspend fun deleteIssue(id: Long) {
+        queue.enqueue(StorageItem.DeleteIssue(id))
+    }
+
     /** Queues [settings], then applies them at once. */
     suspend fun setRetention(settings: RetentionSettings) {
         queue.enqueue(StorageItem.SetRetention(settings))
@@ -230,6 +269,7 @@ class Storage private constructor(
     /**
      * Deletes ended sessions outside named runs, oldest first, past the age bound, then down to 90 % of the size bound
      * (ADR-0082), on the writer thread between batches; failures go to [retentionStatus]. Closing: the last status.
+     * A session holding an issue's exchange keeps it and its row, and loses the rest (ADR-0095 B.1).
      */
     suspend fun applyRetention(): RetentionStatus =
         whileOpen {
@@ -245,10 +285,10 @@ class Storage private constructor(
                     settings.maxAgeDays?.let { days ->
                         val before = now - days.days.inWholeMilliseconds
                         while (true) {
-                            val ids = database.sessionQueries.prunable(before, AGE_CHUNK).executeAsList()
-                            if (ids.isEmpty()) break
-                            database.transaction { ids.forEach(database.sessionQueries::delete) }
-                            deleted += ids.size
+                            val sessions = database.sessionQueries.prunable(before, AGE_CHUNK).executeAsList()
+                            if (sessions.isEmpty()) break
+                            database.transaction { sessions.forEach(::prune) }
+                            deleted += sessions.count { !it.kept }
                             afterRetentionChunk()
                             yield()
                             if (superseded()) return@whileOpen mutableRetentionStatus.value
@@ -258,9 +298,9 @@ class Storage private constructor(
                     if (liveBytes() > settings.maxBytes) {
                         val target = settings.maxBytes / 10 * 9
                         while (liveBytes() > target) {
-                            val id = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
-                            database.sessionQueries.delete(id)
-                            deleted++
+                            val session = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
+                            database.transaction { prune(session) }
+                            if (!session.kept) deleted++
                             afterRetentionChunk()
                             yield()
                             if (superseded()) return@whileOpen mutableRetentionStatus.value
@@ -284,8 +324,17 @@ class Storage private constructor(
             status
         } ?: mutableRetentionStatus.value
 
+    private fun prune(session: Prunable) {
+        if (session.kept) {
+            database.exchangeQueries.deleteUnlinkedOfSession(session.id)
+            database.rawEnvelopeQueries.deleteOfSession(session.id)
+        } else {
+            database.sessionQueries.delete(session.id)
+        }
+    }
+
     /**
-     * Deletes everything, settings included, rewrites the file and opens a new run (ADR-0088). Connected sessions are
+     * Deletes everything, issues and settings included, rewrites the file and opens a new run (ADR-0088). Connected sessions are
      * forgotten: close them first. Failures go to [retentionStatus]; nothing is done once the store is closing.
      */
     suspend fun clearAll() {
@@ -394,6 +443,17 @@ class Storage private constructor(
 
     /** Every run, newest first, again after each commit that changes one. */
     fun observeRuns(): Flow<List<StoredRun>> = observe(database.runQueries.newestFirst(::StoredRun))
+
+    /** The issues [filter] matches, newest first, again after each commit that changes an issue, its tags or exchanges. */
+    fun observeIssues(filter: IssueFilter = IssueFilter()): Flow<List<StoredIssue>> =
+        observe(database.issueQueries.filtered(filter.status?.stored, filter.tag)).map { rows -> rows.map { it.toStored() } }
+
+    /** Every tag on an issue, sorted, again after each commit that changes one. */
+    fun observeIssueTags(): Flow<List<String>> = observe(database.issueQueries.allTags())
+
+    /** The exchanges issue [id] links, in arrival order. */
+    suspend fun issueExchanges(id: Long): List<StoredExchange> =
+        read(emptyList()) { exchangeQueries.ofIssue(id, ::StoredExchange).executeAsList() }
 
     /** Every stored answer, oldest first. */
     suspend fun approvals(): List<StoredApproval> = read(emptyList()) { approvalQueries.all(::StoredApproval).executeAsList() }

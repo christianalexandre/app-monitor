@@ -15,7 +15,7 @@ data class RetentionSettings(
 
 /**
  * What the last retention pass left. [usedBytes] is the file's size; [keptOverBound] is true when what retention keeps
- * (named runs, connected sessions) still passes [RetentionSettings.maxBytes] (ADR-0082 C.1).
+ * (named runs, connected sessions, issues' exchanges) still passes [RetentionSettings.maxBytes] (ADR-0082 C.1).
  */
 data class RetentionStatus(
     val usedBytes: Long = 0,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -126,6 +127,10 @@ internal fun AppMonitorApp(
     val row = pages.rows.firstOrNull { it.id == selectedRequest && it.sessionId == session?.id }
     var settingsOpen by remember { mutableStateOf(false) }
     var runsOpen by remember { mutableStateOf(false) }
+    var issuesOpen by remember { mutableStateOf(false) }
+    // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
+    var marked by remember { mutableStateOf(emptyMap<Long, StoredExchange>()) }
+    var saving by remember { mutableStateOf<Map<Long, StoredExchange>?>(null) }
     val runTitle = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
 
     MaterialTheme {
@@ -141,11 +146,21 @@ internal fun AppMonitorApp(
                     onSettings = { settingsOpen = true },
                     runTitle = runTitle,
                     onRuns = { runsOpen = true },
+                    onIssues = { issuesOpen = true },
                 ) {
                     selectedSession = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
-                RequestList(pages, row, filter, { filter = it }, Modifier.weight(1f).fillMaxHeight()) {
+                RequestList(
+                    pages,
+                    row,
+                    filter,
+                    { filter = it },
+                    Modifier.weight(1f).fillMaxHeight(),
+                    marked = marked.keys,
+                    onMark = { exchange, on -> marked = if (on) marked + (exchange.id to exchange) else marked - exchange.id },
+                    onSaveAsIssue = { saving = marked.ifEmpty { row?.let { mapOf(it.id to it) }.orEmpty() } },
+                ) {
                     selectedRequest = it.id
                 }
                 Divider(Modifier.fillMaxHeight().width(1.dp))
@@ -167,6 +182,7 @@ internal fun AppMonitorApp(
                         shown = ShownRun.Current
                         selectedSession = null
                         selectedRequest = null
+                        marked = emptyMap()
                         onClearAll()
                     },
                     answered,
@@ -200,6 +216,19 @@ internal fun AppMonitorApp(
                     onRename = { id, name -> scope.launch { storage.rename(id, name) } },
                 ) { runsOpen = false }
             }
+            saving?.let { exchanges ->
+                SaveIssueDialog(
+                    storage,
+                    exchanges.keys,
+                    defaultTitle = exchanges.values.minBy { it.id }.let { "${it.method ?: "—"} ${it.url ?: it.requestId}" },
+                    onSaved = {
+                        marked = emptyMap()
+                        saving = null
+                        issuesOpen = true
+                    },
+                ) { saving = null }
+            }
+            if (issuesOpen) IssueList(storage) { issuesOpen = false }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
     }
@@ -426,7 +455,7 @@ private fun Settings(
                     }
                 }
                 Text(
-                    "${bytesOf(status.usedBytes)} on disk. Named runs are kept past both limits.",
+                    "${bytesOf(status.usedBytes)} on disk. Named runs and the requests of issues are kept past both limits.",
                     style = MaterialTheme.typography.caption,
                 )
                 retentionWarning(
@@ -434,7 +463,7 @@ private fun Settings(
                     retention,
                 )?.let { Text(it, color = MaterialTheme.colors.error, style = MaterialTheme.typography.caption) }
                 if (confirming) {
-                    Text("Delete every run, request and device answer? This cannot be undone.", color = MaterialTheme.colors.error)
+                    Text("Delete every run, request, issue and device answer? This cannot be undone.", color = MaterialTheme.colors.error)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { confirming = false }) { Text("Cancel") }
                         TextButton(onClick = {
@@ -526,7 +555,7 @@ private fun mcpStateOf(status: McpStatus): Pair<String, Boolean> =
 
 /** Dims the window and takes its clicks; [content] is centred. */
 @Composable
-private fun Overlay(content: @Composable () -> Unit) {
+internal fun Overlay(content: @Composable () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(SCRIM).clickable(remember { MutableInteractionSource() }, indication = null) {},
         contentAlignment = Alignment.Center,
@@ -546,11 +575,15 @@ private fun DeviceList(
     onSettings: () -> Unit,
     runTitle: String,
     onRuns: () -> Unit,
+    onIssues: () -> Unit,
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
-        TextButton(onClick = onRuns, Modifier.padding(horizontal = 4.dp).testTag(RUNS)) {
-            Text("$runTitle ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onRuns, Modifier.weight(1f).padding(horizontal = 4.dp).testTag(RUNS)) {
+                Text("$runTitle ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            TextButton(onClick = onIssues, Modifier.testTag(ISSUES)) { Text("Issues") }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Devices") }
@@ -591,6 +624,9 @@ private fun RequestList(
     filter: ExchangeFilter,
     onFilter: (ExchangeFilter) -> Unit,
     modifier: Modifier,
+    marked: Set<Long>,
+    onMark: (StoredExchange, Boolean) -> Unit,
+    onSaveAsIssue: () -> Unit,
     onSelect: (StoredExchange) -> Unit,
 ) {
     val exchanges = pages.rows
@@ -606,7 +642,14 @@ private fun RequestList(
     }
     LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) pages.loadMore() }
     Column(modifier) {
-        PaneTitle("Requests")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { PaneTitle("Requests") }
+            TextButton(
+                onClick = onSaveAsIssue,
+                Modifier.testTag(SAVE_AS_ISSUE),
+                enabled = marked.isNotEmpty() || selected != null,
+            ) { Text(if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue") }
+        }
         FilterBar(filter, onFilter)
         if (exchanges.isEmpty()) Placeholder(if (filter == ExchangeFilter()) "No requests yet" else "No requests match")
         LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
@@ -614,7 +657,13 @@ private fun RequestList(
                 Row(
                     Modifier.fillMaxWidth().selectable(exchange.id == selected?.id) { onSelect(exchange) }.padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Checkbox(
+                        exchange.id in marked,
+                        onCheckedChange = { onMark(exchange, it) },
+                        Modifier.size(20.dp).testTag(MARK + exchange.requestId),
+                    )
                     Text(exchange.method ?: "—", Modifier.width(64.dp), fontWeight = FontWeight.Medium)
                     Text(
                         exchange.url ?: exchange.requestId,
@@ -660,7 +709,7 @@ private fun FilterBar(
 
 /** A button showing [label] and the [chosen] option, opening a menu of [any] (null when unset) and [options]. */
 @Composable
-private fun <T : Any> Choice(
+internal fun <T : Any> Choice(
     label: String,
     chosen: T?,
     options: List<T>,
@@ -706,7 +755,7 @@ private fun retentionWarning(
         }
 
         status.keptOverBound -> {
-            "Named runs and connected devices pass the size limit" + (retention?.let { " of ${bytesOf(it.maxBytes)}" } ?: "")
+            "Named runs, issues and connected devices pass the size limit" + (retention?.let { " of ${bytesOf(it.maxBytes)}" } ?: "")
         }
 
         else -> {
@@ -849,7 +898,7 @@ private fun PaneTitle(title: String) {
 }
 
 @Composable
-private fun Placeholder(text: String) {
+internal fun Placeholder(text: String) {
     Text(text, Modifier.padding(12.dp), style = MaterialTheme.typography.caption)
 }
 
@@ -931,14 +980,14 @@ private fun statusOf(exchange: HttpExchange): String =
         else -> "…"
     }
 
-private fun statusOf(exchange: StoredExchange): String =
+internal fun statusOf(exchange: StoredExchange): String =
     when {
         exchange.failed -> "failed"
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
 
-private fun Modifier.selectable(
+internal fun Modifier.selectable(
     selected: Boolean,
     onClick: () -> Unit,
 ): Modifier = clickable(onClick = onClick).then(if (selected) Modifier.background(SELECTED) else Modifier)
@@ -964,4 +1013,4 @@ private val RUN_FORMAT = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGL
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
-private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())
+internal val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())
