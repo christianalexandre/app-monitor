@@ -101,6 +101,28 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Creates a rule for [appId] when [id] is null, else changes or [confirm]s it; [done] gets [outcome], or not saved. */
+    class SaveMock(
+        val id: Long?,
+        val appId: String?,
+        val change: MockChange,
+        val confirm: Boolean,
+        val source: MockSource,
+        val atMs: Long,
+    ) : StorageItem {
+        val done = CompletableDeferred<MockWrite>()
+
+        // Set by the writer as it applies the item, cleared when its batch rolls back.
+        var outcome: MockWrite? = null
+        override val sessionId: String? get() = null
+    }
+
+    data class DeleteMock(
+        val id: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     data class DeleteIssue(
         val id: Long,
     ) : StorageItem {
@@ -171,7 +193,10 @@ internal class Ingest(
                 beforeCommit(batch)
             }
         } catch (e: Exception) {
-            batch.forEach { if (it is StorageItem.SaveIssue) it.outcome = null }
+            batch.forEach {
+                if (it is StorageItem.SaveIssue) it.outcome = null
+                if (it is StorageItem.SaveMock) it.outcome = null
+            }
             val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
             disconnects.forEach { item ->
                 val connected = batch.filterIsInstance<StorageItem.Connected>().lastOrNull { it.sessionId == item.sessionId }
@@ -258,6 +283,14 @@ internal class Ingest(
                 database.issueQueries.delete(item.id)
             }
 
+            is StorageItem.SaveMock -> {
+                item.outcome = saveMock(item)
+            }
+
+            is StorageItem.DeleteMock -> {
+                database.mockQueries.delete(item.id)
+            }
+
             is StorageItem.Barrier -> {
                 Unit
             }
@@ -299,14 +332,35 @@ internal class Ingest(
         return IssueWrite.Saved(id)
     }
 
+    private fun saveMock(item: StorageItem.SaveMock): MockWrite {
+        val queries = database.mockQueries
+        val change = item.change
+        if (item.id == null) {
+            queries.insert(
+                appId = checkNotNull(item.appId),
+                name = change.name.orEmpty(),
+                pending = if (item.source == MockSource.MCP) 1 else 0,
+                source = item.source.stored,
+                rule = checkNotNull(change.rule).stored(),
+                atMs = item.atMs,
+            )
+            return MockWrite.Saved(queries.lastId().executeAsOne())
+        }
+        if (queries.exists(item.id).executeAsOne() == 0L) return MockWrite.UnknownMock
+        queries.update(change.name, change.enabled?.let { if (it) 1L else 0L }, change.rule?.stored(), item.atMs, item.id)
+        if (item.confirm) queries.confirm(item.atMs, item.id)
+        return MockWrite.Saved(item.id)
+    }
+
     /**
-     * Deletes every row, issues, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
+     * Deletes every row, issues, mock rules, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
      * connected are forgotten: what they send next is dropped.
      */
     fun clear(atMs: Long) {
         currentRun =
             database.transactionWithResult {
                 database.issueQueries.deleteAll()
+                database.mockQueries.deleteAll()
                 database.exchangeQueries.deleteAll()
                 database.sessionQueries.deleteAll()
                 database.runQueries.deleteAll()

@@ -83,6 +83,12 @@ which adds that column to `Storage.exchange()`'s mapping: the touch, the
 size loop and the `lastId` copies stay, for the reason M8.4 gives; the
 mapping item is unchanged in kind. Kept as is.
 
+Fired by PLAN-0010 M9.2 (`feat/interaction-channel`), which adds the
+`mock_rules` table with its own `lastId` (`Mock.sq`) and two queued mock
+items to `Ingest`: the session touch, the size loop and `WriteQueue` are
+untouched, and one shared `lastId` would move every insert's id read in
+a PR about a new table. One more copy for the mappings item.
+
 ## How it was paid
 
 > Filled when closing.

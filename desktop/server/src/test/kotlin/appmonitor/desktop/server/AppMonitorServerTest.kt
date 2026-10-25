@@ -73,6 +73,49 @@ class AppMonitorServerTest {
         }
 
     @Test
+    fun `a session's envelopes reach the device after HelloAck, on accepted channels only`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+            val rules = envelope(Protocol.CHANNEL_INTERACTION, "MockRules", byteArrayOf(0x0A, 0x00))
+            val interactive =
+                hello.copy(
+                    payload =
+                        Hello.ADAPTER
+                            .decode(hello.payload)
+                            .copy(channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_INTERACTION))
+                            .encodeByteString(),
+                )
+
+            withTimeout(TIMEOUT_MS) {
+                val sent = CompletableDeferred<Boolean>()
+                val session =
+                    async {
+                        server!!.sessions.first().also { device ->
+                            // Queued before HelloAck is written: it must still come second.
+                            sent.complete(device.send(rules))
+                            assertEquals(false, device.send(requestStarted("req-1")), "network was not accepted")
+                        }
+                    }
+                val received =
+                    connect(port) {
+                        send(Frame.Binary(true, interactive.encode()))
+                        listOf(receiveEnvelope(), receiveEnvelope())
+                    }
+
+                assertTrue(sent.await())
+                assertEquals(listOf("HelloAck", "MockRules"), received.map { it.type })
+                assertEquals(
+                    listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_INTERACTION),
+                    HelloAck.ADAPTER.decode(received[0].payload).channels,
+                )
+                assertEquals(rules, received[1])
+                val device = session.await()
+                device.envelopes.toList()
+                assertEquals(false, device.send(rules), "the session is closed")
+            }
+        }
+
+    @Test
     fun `connection without hello is closed with protocol error`() =
         runBlocking {
             val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))

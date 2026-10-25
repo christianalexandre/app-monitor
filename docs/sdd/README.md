@@ -27,3 +27,4 @@ Rules:
 | 09 | [Desktop storage](09_desktop_storage.md) |
 | 10 | [Desktop MCP server](10_desktop_mcp.md) |
 | 11 | [Desktop proxy](11_desktop_proxy.md) |
+| 12 | [Interaction channel](12_interaction.md) |

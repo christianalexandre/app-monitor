@@ -103,6 +103,7 @@ class GrpcStatusTest {
             Storage.open(dir) { 1_000 }.let { runBlocking { it.close(5.seconds) } }
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
+                    it.execute("DROP TABLE mock_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN grpc_status")
                     it.execute("PRAGMA user_version = 2")
                 }
@@ -116,7 +117,7 @@ class GrpcStatusTest {
                 assertEquals(13, storage.searchExchanges(ExchangeFilter()).single().grpcStatus)
                 storage.close(5.seconds)
             }
-            assertEquals(3, dir.queryLong("PRAGMA user_version"))
+            assertEquals(4, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

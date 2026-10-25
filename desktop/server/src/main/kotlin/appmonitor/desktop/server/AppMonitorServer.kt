@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -231,21 +232,34 @@ class AppMonitorServer internal constructor(
                 peerAddress = call.request.local.remoteAddress,
             )
         // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
-        val published =
+        val publication =
             synchronized(lock) {
-                if (!connections.containsKey(this)) null else !stopped && newSessions.trySend(session).isSuccess
+                when {
+                    !connections.containsKey(this) -> Publication.FORGOTTEN
+                    !stopped && newSessions.trySend(session).isSuccess -> Publication.PUBLISHED
+                    else -> Publication.STOPPED
+                }
             }
         // Returning before disconnect's close is sent lets Ktor close with 1000.
-        if (published == null) {
-            close(FORGOTTEN)
-            return
+        when (publication) {
+            Publication.FORGOTTEN -> {
+                close(FORGOTTEN)
+                return
+            }
+
+            Publication.STOPPED -> {
+                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+                return
+            }
+
+            Publication.PUBLISHED -> {
+                Unit
+            }
         }
-        if (!published) {
-            close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
-            return
-        }
+        var writer: Job? = null
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
+            writer = launch { for (envelope in session.outgoing) send(Frame.Binary(true, envelope.encode())) }
             for (frame in incoming) {
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
@@ -261,6 +275,7 @@ class AppMonitorServer internal constructor(
             }
         } finally {
             session.close()
+            writer?.cancel()
         }
     }
 
@@ -286,8 +301,10 @@ class AppMonitorServer internal constructor(
             timestamp_ms = System.currentTimeMillis(),
         )
 
+    private enum class Publication { PUBLISHED, FORGOTTEN, STOPPED }
+
     private companion object {
-        val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK)
+        val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }

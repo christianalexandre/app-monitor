@@ -37,6 +37,7 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 | --- | --- |
 | `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077), `HelloAck` |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
+| `interaction` | `MockRules` (desktop → device, SDD 12, ADR-0113) |
 
 `Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`
 is when the event happened on the sender. Constants shared by both ends
@@ -71,8 +72,9 @@ device                         AppMonitorServer
   │                            │   → close 1002 (protocol error)
   │                            │ pending: DeviceApproval.approve(hello), no timeout
   │                            │   rejected → close 1008; any frame → close 1002
-  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
+  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network, interaction)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
+  │◄─ Envelope(…) ×N ──────────│ ← DeviceSession.send, after HelloAck only
   │                            │ channel not accepted, or a known network event
   │                            │   undecodable / without request_id → close 1002
   │                            │ frame > Protocol.MAX_FRAME_BYTES → close 1009
@@ -83,6 +85,8 @@ device                         AppMonitorServer
 - `DeviceSession.envelopes: Flow<Envelope>`: every envelope after `Hello`,
   in order; completes when the socket closes. A non-binary or undecodable
   frame closes the connection with 1002.
+- `DeviceSession.send(envelope)`: queues an envelope for the device on an
+  accepted channel, written in order after `HelloAck` (SDD 12).
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
 - `AppMonitorServer` is single use: `stop()` completes `sessions` for good,

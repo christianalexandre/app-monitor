@@ -12,6 +12,7 @@ import appmonitor.desktop.storage.db.Sessions
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
+import appmonitor.v1.MockRule
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -129,6 +131,7 @@ class Storage private constructor(
             if (it is StorageItem.Barrier) it.done.complete(Unit)
             if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
             if (it is StorageItem.SaveIssue) it.done.complete(it.outcome ?: IssueWrite.NotSaved)
+            if (it is StorageItem.SaveMock) it.done.complete(it.outcome ?: MockWrite.NotSaved)
         }
     }
 
@@ -246,6 +249,41 @@ class Storage private constructor(
     /** Queues deleting issue [id]; its exchanges go back to retention (ADR-0095 D.1). */
     suspend fun deleteIssue(id: Long) {
         queue.enqueue(StorageItem.DeleteIssue(id))
+    }
+
+    /** Queues a rule for [appId], last in its match order; one from [MockSource.MCP] starts pending (ADR-0110 F.1). */
+    suspend fun createMock(
+        appId: String,
+        name: String,
+        rule: MockRule,
+        source: MockSource,
+    ): MockWrite {
+        require(name.isNotBlank()) { "A mock rule needs a name" }
+        requireValid(rule)
+        return saveMock(StorageItem.SaveMock(null, appId, MockChange(name.trim(), rule = rule), false, source, clock()))
+    }
+
+    /** Queues [change] to rule [id]. */
+    suspend fun updateMock(
+        id: Long,
+        change: MockChange,
+    ): MockWrite {
+        require(change.name == null || change.name.isNotBlank()) { "A mock rule needs a name" }
+        change.rule?.let(::requireValid)
+        return saveMock(StorageItem.SaveMock(id, null, change.copy(name = change.name?.trim()), false, MockSource.WINDOW, clock()))
+    }
+
+    /** Queues the owner's confirmation of a pending rule (ADR-0005); a rule not pending stays as it is. */
+    suspend fun confirmMock(id: Long): MockWrite = saveMock(StorageItem.SaveMock(id, null, MockChange(), true, MockSource.WINDOW, clock()))
+
+    private suspend fun saveMock(item: StorageItem.SaveMock): MockWrite {
+        if (!queue.enqueue(item)) return MockWrite.NotSaved
+        return item.done.await()
+    }
+
+    /** Queues deleting rule [id]. */
+    suspend fun deleteMock(id: Long) {
+        queue.enqueue(StorageItem.DeleteMock(id))
     }
 
     /** Queues [settings], then applies them at once. */
@@ -471,6 +509,16 @@ class Storage private constructor(
     /** The exchanges issue [id] links, in arrival order. */
     suspend fun issueExchanges(id: Long): List<StoredExchange> =
         read(emptyList()) { exchangeQueries.ofIssue(id, ::StoredExchange).executeAsList() }
+
+    /** Every rule, by app id, then in match order. */
+    suspend fun mocks(): List<StoredMock> = read(emptyList()) { mockQueries.all().executeAsList().map { it.toStored() } }
+
+    /** [mocks], again after each commit that changes one. */
+    fun observeMocks(): Flow<List<StoredMock>> = observe(database.mockQueries.all()).map { rows -> rows.map { it.toStored() } }
+
+    /** The rules a device of [appId] is sent, in match order (ADR-0113); a new list only when it changes. */
+    fun observeActiveMocks(appId: String): Flow<List<MockRule>> =
+        observe(database.mockQueries.activeOf(appId) { id, rule -> MockRule.ADAPTER.decode(rule).copy(id = id) }).distinctUntilChanged()
 
     /** Every stored answer, oldest first. */
     suspend fun approvals(): List<StoredApproval> = read(emptyList()) { approvalQueries.all(::StoredApproval).executeAsList() }
