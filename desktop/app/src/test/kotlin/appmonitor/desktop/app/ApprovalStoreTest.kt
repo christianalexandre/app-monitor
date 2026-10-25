@@ -79,7 +79,8 @@ class ApprovalStoreTest {
                 val refused = runCatching { replay(Target(HOST, port)) }.exceptionOrNull()
                 assertTrue(refused?.message.orEmpty().contains("VIOLATED_POLICY"), "closed at once: $refused")
                 assertEquals(emptyList(), approvals.approvals.pending.value)
-                assertEquals(listOf(true), approvals.answered.first().map { it.approved })
+                // The decision is queued: the first emission may come before its commit.
+                assertEquals(listOf(true), approvals.answered.first { it.isNotEmpty() }.map { it.approved })
 
                 approvals.reconnect(key.deviceId, key.appId)
                 replay(Target(HOST, port))
