@@ -108,6 +108,9 @@ task that lands each module.
   written through a new `HarRepository`, beside `ExportRepository`'s
   cURL. Fixed a race in `ExportUiTest` that failed #267's CI once: it
   clicked "Copy as cURL" before the detail pane had read the exchange.
+  CI failed once in `sdk/core`'s `MonitorClientTest`: a stand-in desktop
+  restarted on the port of the one just stopped found it still bound;
+  the stand-in now retries that bind for two seconds.
 - [ ] **H2.4b Issues.** The issue list, editor and "Save as issue"
   move to `desktop/feature/insights`, behind an `IssueRepository`.
   Accept: `IssuesUiTest` passes; `desktop/app` holds no `IssueList`.
