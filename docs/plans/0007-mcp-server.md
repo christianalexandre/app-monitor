@@ -144,7 +144,7 @@ was stored.
   Accept: `./gradlew :desktop:app:test` with a test that turns the switch
   off between `start`'s check and its write, and both the server and
   `enabled` end off.
-- [ ] **M6.R6 `to_curl` drops a stored `Content-Length: 0`.** An empty
+- [x] **M6.R6 `to_curl` drops a stored `Content-Length: 0`.** (`fix/mcp-to-curl-empty-length`; kept only when the value is `0` and no body is sent, so a body cut to nothing by the device still gets none) An empty
   `POST` or `PUT` replayed with `-X` and no data sends no
   `Content-Length` (curl 8.7.1, checked against `nc`), so a server that
   requires one answers `411 Length Required` where the original passed.

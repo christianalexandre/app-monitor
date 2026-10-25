@@ -151,6 +151,16 @@ class ToCurlTest {
         }
 
     @Test
+    fun anEmptyBodyKeepsAStoredZeroLength() =
+        withServer { running ->
+            val id = running.store(request("r1", "POST", "http://127.0.0.1:1/", listOf(Header("Content-Length", "0")), ByteString.EMPTY))
+            val received = run(running.curl(id))
+            assertEquals("POST", received.method)
+            assertEquals("0", received.headers.single { it.first == "content-length" }.second)
+            assertEquals(0, received.body.size)
+        }
+
+    @Test
     fun aHeadWithAStoredBodyLeavesItOut() =
         withServer { running ->
             val headers = listOf(Header("Content-Length", "3"))

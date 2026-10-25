@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.storage.Storage
+import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -14,7 +15,8 @@ internal object ToCurl {
 
     val description =
         "Returns one stored request, by the id search_requests gives, as a POSIX shell cURL command: method, URL, " +
-            "every header as stored but Content-Length and Transfer-Encoding, which curl sets from the body, and the body " +
+            "every header as stored but Content-Length and Transfer-Encoding, which curl sets from the body (a Content-Length: 0 " +
+            "is kept when there is none), and the body " +
             "(a binary one piped through base64 -d; none for HEAD). $DATA_NOTE"
 
     val inputSchema =
@@ -55,7 +57,7 @@ internal object ToCurl {
                 val method = if (head) "--head" else "-X ${quote(request.method)}"
                 add("curl --globoff $method ${quote(request.url)}")
                 // curl drops a header given as `Name:`; `Name;` sends it empty.
-                request.headers.filter { it.name.lowercase() !in FRAMING }.forEach {
+                request.headers.filter { it.name.lowercase() !in FRAMING || keepsEmptyLength(it, head, stored) }.forEach {
                     add("-H ${quote(if (it.value_.isEmpty()) "${it.name};" else "${it.name}: ${it.value_}")}")
                 }
                 when {
@@ -70,6 +72,13 @@ internal object ToCurl {
 
     /** A stored one would not match a body cut by the device; curl computes its own. */
     private val FRAMING = setOf("content-length", "transfer-encoding")
+
+    /** curl sends no Content-Length without a body, so a stored `0` is the only way a server requiring it gets one. */
+    private fun keepsEmptyLength(
+        header: Header,
+        head: Boolean,
+        stored: ByteString,
+    ) = !head && stored.size == 0 && header.name.equals("content-length", ignoreCase = true) && header.value_.trim() == "0"
 
     /** [value] in single quotes, each `'` written as `'\''`. */
     fun quote(value: String) = "'" + value.replace("'", "'\\''") + "'"
