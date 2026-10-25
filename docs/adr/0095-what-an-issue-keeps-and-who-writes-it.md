@@ -1,7 +1,7 @@
 ---
 id: ADR-0095
 title: What an issue keeps, how long, and who may write it
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -97,7 +97,11 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (title, note, free-text
+tags, `open` or `resolved`, exchanges from any runs), B.1 (linked
+exchanges kept past retention like a named run), C.1 (`save_issue`
+creates and edits without a confirmation, `list_issues` reads, no tool
+deletes) and D.1 (deleted in the window; "Clear all data" deletes issues).
 
 ## Consequences
 

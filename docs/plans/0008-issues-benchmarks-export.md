@@ -27,7 +27,7 @@ the test that pins each; export formats run against their real consumer
 (curl, the HAR 1.2 check) from the first task that ships them. M5's kept:
 the lifecycle table lists every call class against each store state.
 
-- [!] **M7.1 Issue decisions.** (waiting for the owner.) ADR-0095 `Proposed`, one stop: what an
+- [x] **M7.1 Issue decisions.** ADR-0095 `Accepted`. One stop: what an
   issue holds, whether its exchanges outlive retention, what `save_issue`
   may write without a confirmation in the window, and what deleting and
   "Clear all data" do to issues.
