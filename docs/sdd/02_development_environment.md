@@ -237,6 +237,21 @@ The setup a developer follows is the README's *Ask your AI agent (MCP)*
 5. A SIGTERM to the app's `java` process stops it and closes the run; the
    Gradle `run` task then reports `BUILD FAILED`, which is expected.
 
+## Traffic through the proxy
+
+The proxy (SDD 11) is off until its switch in the settings is on. Then,
+with `make desktop` running:
+
+- **curl**: `curl --proxy http://127.0.0.1:47476 --cacert "<data
+  dir>/proxy-ca.pem" https://example.com` — the exchange shows in the
+  `Proxy` session.
+- **A simulator app** (ADR-0101 B.1): the CA in the simulator's root store
+  (`xcrun simctl keychain booted add-root-cert "<data dir>/proxy-ca.pem"`
+  until M8.6's button), then `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476
+  xcrun simctl launch booted <bundle id>`; from Xcode, `grpc_proxy` in the
+  scheme's environment. Only gRPC-Core reads it; `URLSession` stays on the
+  SDK's capture.
+
 ## SDK publication dry-run
 
 `make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058) publishes
@@ -275,8 +290,8 @@ input (default `dev`) instead of a PR head, so the gate can be run on any
 ref: `gh workflow run release-gate.yml --ref <branch> [-f head=<name>]`.
 The workflow must exist on `dev` for a dispatch to find it. Dispatching is
 for the owner; the loop never does it (ADR-0076). The `desktop`
-job runs `:desktop:app:test`, `:desktop:server:test` and
-`:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
+job runs `:desktop:app:test`, `:desktop:proxy:test`, `:desktop:server:test`
+and `:protocol:jvmTest`, one step each, on ubuntu, macOS and windows
 (`fail-fast: false`, reports uploaded on failure). On macOS it sets
 `APPMONITOR_NO_LOCAL_NETWORK=1`, which drops the mDNS round trip test: the
 hosted runner has no local network access (DEBT-0046). The `contract`

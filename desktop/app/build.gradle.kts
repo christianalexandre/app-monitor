@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":desktop:mcp"))
+    implementation(project(":desktop:proxy"))
     implementation(project(":desktop:server"))
     implementation(project(":desktop:storage"))
     implementation(compose.desktop.currentOs)
@@ -26,7 +27,8 @@ compose.desktop {
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            modules("java.instrument", "java.management", "java.sql", "jdk.unsupported")
+            // ADR-0105: jdk.crypto.ec holds JDK 21's EC provider, which the proxy's keys and TLS need; jdeps cannot see it.
+            modules("java.instrument", "java.management", "java.sql", "jdk.crypto.ec", "jdk.unsupported")
             packageName = "App Monitor"
             packageVersion = "1.0.0"
             description = "Network monitor and debug toolkit for mobile apps"

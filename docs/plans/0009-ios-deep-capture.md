@@ -65,7 +65,7 @@ evidence before the code.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test :desktop:app:test`
   — a `CONNECTION` envelope from the fixtures through every reader above,
   an offscreen screenshot `connections.png`.
-- [ ] **M8.5 Proxy mode, HTTP/1.1.** A `desktop/proxy` module per
+- [x] **M8.5 Proxy mode, HTTP/1.1.** (`feat/desktop-proxy-http1`; ADR-0105; screenshot `proxy.png`; the pass-through list of ADR-0101 E.1 and frames after a `101` left to DEBT-0078 and DEBT-0077; `jdk.crypto.ec` added to the packaged runtime) A `desktop/proxy` module per
   ADR-0101, off by default and switched on in the settings: CA generated
   and kept per ADR-0101, `CONNECT` with TLS interception, plain HTTP,
   exchanges stored as `PROXY` with their device unknown; ADR `Accepted`

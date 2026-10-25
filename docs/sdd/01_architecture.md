@@ -237,7 +237,7 @@ a stack trace (DEBT-0010). See ADR-0010.
 
 Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
 (`desktop/storage`, SDD 09), MCP server bound to `127.0.0.1` (`desktop/mcp`,
-SDD 10). Each debug tool
+SDD 10), proxy on `127.0.0.1`, off by default (`desktop/proxy`, SDD 11). Each debug tool
 is a feature module owning a `channel` **(planned)**. See ADR-0005.
 
 `desktop/app` today (ADR-0011):

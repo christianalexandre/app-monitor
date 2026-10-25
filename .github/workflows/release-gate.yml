@@ -49,6 +49,8 @@ jobs:
           cache-provider: basic # ADR-0012
       - name: Desktop app tests
         run: ./gradlew :desktop:app:test
+      - name: Desktop proxy tests
+        run: ./gradlew :desktop:proxy:test
       - name: Desktop server tests
         env:
           APPMONITOR_NO_LOCAL_NETWORK: ${{ runner.os == 'macOS' && '1' || '' }} # DEBT-0046

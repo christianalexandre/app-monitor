@@ -26,3 +26,4 @@ Rules:
 | 08 | [Ktor capture](08_ktor_capture.md) |
 | 09 | [Desktop storage](09_desktop_storage.md) |
 | 10 | [Desktop MCP server](10_desktop_mcp.md) |
+| 11 | [Desktop proxy](11_desktop_proxy.md) |
