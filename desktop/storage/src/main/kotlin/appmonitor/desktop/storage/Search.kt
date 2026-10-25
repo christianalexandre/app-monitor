@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
+import appmonitor.v1.ResponseReceived
 
 /**
  * What the exchange list is narrowed to (SDD 09); every null or false field matches all. [text] is a substring of the
@@ -119,17 +120,23 @@ internal fun exchangeSearch(
     limit: Long,
 ) = SearchQuery(driver, filter, afterId, limit, COLUMNS, ::toStoredExchange)
 
-/** The exchanges [filter] matches with their stored body sizes, a missing body counted as 0. */
+/** The exchanges [filter] matches with their stored body sizes, a missing body counted as 0; a connection's byte counts. */
 internal fun exchangeSizeSearch(
     driver: SqlDriver,
     filter: ExchangeFilter,
     afterId: Long,
     limit: Long,
 ) = SearchQuery(driver, filter, afterId, limit, SIZE_COLUMNS) { cursor ->
-    ExchangeSizes(toStoredExchange(cursor), requestBytes = cursor.getLong(13)!!, responseBytes = cursor.getLong(14)!!)
+    val exchange = toStoredExchange(cursor)
+    val closed = cursor.getBytes(15)?.let { ResponseReceived.ADAPTER.decode(it) }
+    if (exchange.isConnection) {
+        ExchangeSizes(exchange, requestBytes = closed?.sent_size ?: 0, responseBytes = closed?.body_size ?: 0)
+    } else {
+        ExchangeSizes(exchange, requestBytes = cursor.getLong(13)!!, responseBytes = cursor.getLong(14)!!)
+    }
 }
 
-/** An exchange and the bytes the store holds for its bodies (`bodies.size`, after the device's cut). */
+/** An exchange and the bytes the store holds for its bodies (`bodies.size`, after the device's cut), or a connection moved. */
 data class ExchangeSizes(
     val exchange: StoredExchange,
     val requestBytes: Long,
@@ -141,10 +148,14 @@ private const val COLUMNS =
         "exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer, " +
         "exchanges.error, exchanges.frame_count"
 
+// CaptureLayer.CAPTURE_LAYER_CONNECTION, which is not a constant to Kotlin.
+private const val CONNECTION_LAYER = 3
+
 private const val SIZE_COLUMNS =
     "$COLUMNS, " +
         "coalesce((SELECT size FROM bodies WHERE exchange_ref = exchanges.id AND part = ${Ingest.PART_REQUEST}), 0), " +
-        "coalesce((SELECT size FROM bodies WHERE exchange_ref = exchanges.id AND part = ${Ingest.PART_RESPONSE}), 0)"
+        "coalesce((SELECT size FROM bodies WHERE exchange_ref = exchanges.id AND part = ${Ingest.PART_RESPONSE}), 0), " +
+        "CASE WHEN exchanges.capture_layer = $CONNECTION_LAYER THEN exchanges.response_meta END"
 
 private fun String.escapeLike(): String = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 

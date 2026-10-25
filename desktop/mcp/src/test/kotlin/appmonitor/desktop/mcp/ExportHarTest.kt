@@ -187,6 +187,19 @@ class ExportHarTest {
         }
 
     @Test
+    fun theCapCountsUtf8Bytes() =
+        withServer { running ->
+            running.store(request("r1") to 1_000L, response("r1", body = "é".repeat(400).encodeUtf8()) to 1_001L)
+            val chars =
+                ExportHar
+                    .call(running.storage, null, "test")
+                    .toString()
+                    .length
+                    .toLong()
+            assertFailsWith<ToolError> { ExportHar.call(running.storage, null, "test", maxText = chars) }
+        }
+
+    @Test
     fun lostWritesAreAWarningInsideTheLog() =
         withServer(health = { StorageHealth(notSaved = 3, lastError = "disk I/O error") }) { running ->
             running.store(request("r1") to 1_000L)

@@ -4,8 +4,6 @@ import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 
 /** The window's "Export HAR" and "Copy as cURL" (SDD 01): `export_har`'s and `to_curl`'s code (ADR-0098). */
 object Exports {
@@ -21,8 +19,7 @@ object Exports {
         version: String = "dev",
     ): Har {
         val har = refusals { ExportHar.log(storage, filter, MAX_ENTRIES, ExportHar.FULL, version) }
-        val log = har.getValue("log").jsonObject
-        return Har(pretty.encodeToString(JsonObject.serializer(), har), log.getValue("entries").jsonArray.size, "comment" in log)
+        return Har(pretty.encodeToString(JsonObject.serializer(), har.json), har.entries, har.more, har.connections)
     }
 
     /** Exchange [id]'s request as `to_curl` writes it; refused when the exchange or its request is not stored. */
@@ -39,11 +36,12 @@ object Exports {
         }
 }
 
-/** A HAR 1.2 file's [text], its [entries] and whether more exchanges matched than it holds. */
+/** A HAR 1.2 file's [text], its [entries], whether more exchanges matched than it holds, and the [connections] left out. */
 data class Har(
     val text: String,
     val entries: Int,
     val more: Boolean,
+    val connections: Int,
 )
 
 /** An export the stored data cannot give, in one sentence (the MCP tool's error text). */

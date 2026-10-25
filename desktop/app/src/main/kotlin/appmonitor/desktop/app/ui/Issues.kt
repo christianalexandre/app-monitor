@@ -156,7 +156,7 @@ private fun IssueEditor(
     LazyColumn(Modifier.heightIn(max = 160.dp)) {
         items(exchanges, key = { it.id }) { exchange ->
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(exchange.method ?: "—", Modifier.width(64.dp), fontWeight = FontWeight.Medium)
+                Text(exchange.method ?: "—", Modifier.width(96.dp), fontWeight = FontWeight.Medium, maxLines = 1)
                 Text(exchange.url ?: exchange.requestId, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(statusOf(exchange), Modifier.width(56.dp))
             }

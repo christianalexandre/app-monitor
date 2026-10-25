@@ -2,7 +2,6 @@ package appmonitor.desktop.mcp
 
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.StoredFrame
-import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -26,7 +25,8 @@ internal object GetRequest {
         "Returns one stored exchange by the id search_requests gives: its row, request and response headers and " +
             "bodies, and a page of its WebSocket frames. A body is UTF-8 text or base64, at most body_max_bytes from " +
             "body_offset; truncated_by_tool says more is stored, truncated_by_device that the app sent less than the " +
-            "original. Page frames with frames.next_after_id. $DATA_NOTE"
+            "original. Page frames with frames.next_after_id. A connection (capture_layer connection) has no request or " +
+            "response, only connection.sent_bytes and received_bytes, null until it closed. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -83,9 +83,19 @@ internal object GetRequest {
         val detail = storage.exchange(id)
         val frames = if (detail != null && framesLimit > 0) storage.frames(id, framesAfter, framesLimit) else emptyList()
         if (detail == null) throw ToolError("no exchange with id $id")
+        val connection = detail.connectionBytes
         return buildJsonObject {
             putExchangeRow(detail.exchange)
-            val request = detail.request?.takeIf { part != "response" }
+            put(
+                "connection",
+                connection?.let {
+                    buildJsonObject {
+                        put("sent_bytes", it.sent.json())
+                        put("received_bytes", it.received.json())
+                    }
+                } ?: JsonNull,
+            )
+            val request = detail.request?.takeIf { part != "response" && connection == null }
             put(
                 "request",
                 request?.let {
@@ -97,7 +107,7 @@ internal object GetRequest {
                     }
                 } ?: JsonNull,
             )
-            val response = detail.response?.takeIf { part != "request" }
+            val response = detail.response?.takeIf { part != "request" && connection == null }
             put(
                 "response",
                 response?.let {
@@ -130,15 +140,11 @@ internal object GetRequest {
                     put("at", time(frame.atMs))
                     put(
                         "direction",
-                        frame.direction.name
-                            .removePrefix("DIRECTION_")
-                            .lowercase(),
+                        frame.direction.wireName("DIRECTION_"),
                     )
                     put(
                         "opcode",
-                        frame.opcode.name
-                            .removePrefix("OPCODE_")
-                            .lowercase(),
+                        frame.opcode.wireName("OPCODE_"),
                     )
                     put("payload", payload)
                 }
@@ -149,14 +155,4 @@ internal object GetRequest {
             put("next_after_id", (if (full) page.last()["id"] else null) ?: JsonNull)
         }
     }
-
-    private fun List<Header>.toJson() =
-        JsonArray(
-            map {
-                buildJsonObject {
-                    put("name", it.name)
-                    put("value", it.value_)
-                }
-            },
-        )
 }

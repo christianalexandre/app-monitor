@@ -3,7 +3,7 @@ id: DEBT-0075
 title: The desktop does not read grpc-status
 status: Open
 date: 2026-10-25
-trigger: The PR of PLAN-0009 M8.6 (gRPC stored through the proxy), or the first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HttpExchange.kt` after PLAN-0009 M8.2
+trigger: "The PR of PLAN-0009 M8.6 (gRPC stored through the proxy)"
 paid_date:
 ---
 
@@ -24,9 +24,12 @@ once, when both writers exist, tests it with what both really send.
 
 ## Trigger
 
-The PR of PLAN-0009 M8.6, which stores gRPC through the proxy, or the
-first PR after M8.2 that touches
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HttpExchange.kt`.
+The PR of PLAN-0009 M8.6 (gRPC stored through the proxy).
+
+Fired by PLAN-0009 M8.4, which touches `HttpExchange.kt` to carry a
+connection's bytes. Reading `grpc-status` spans the list, issues,
+benchmarks and MCP, and M8.6 stores gRPC from the proxy with the same
+header: paid once there. Narrowed to M8.6.
 
 ## How it was paid
 

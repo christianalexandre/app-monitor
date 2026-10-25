@@ -3,7 +3,7 @@ id: DEBT-0074
 title: Non-correctness findings of the M7 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/Export.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/Issues.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` after PLAN-0008 closes"
+trigger: "The first PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
 paid_date:
 ---
 
@@ -47,12 +47,14 @@ duplicate check. None changes what normal use stores or shows.
 
 ## Trigger
 
-The first PR that touches
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`,
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/Export.kt`,
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/Issues.kt` or
-`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`
-after PLAN-0008 closes.
+The first PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt`, or changes `SaveIssueDialog`, the issue editor or `IssueList`, or the closing checks of `ExportHar.log` or `ToCurl.command`.
+
+Fired by PLAN-0009 M8.4, which touches `Export.kt` (the connections
+note), `Issues.kt` (the method column's width) and `Ingest.kt` (one line,
+ADR-0104). Paid: an unexpected export exception is reported as "Not
+exported: …" instead of leaving "Exporting…" shown. Left: the items in
+`McpServer.kt`, the issue dialogs and list, and the export closing check
+and hint, code this PR does not change.
 
 ## How it was paid
 

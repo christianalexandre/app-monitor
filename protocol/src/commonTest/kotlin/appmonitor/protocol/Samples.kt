@@ -80,6 +80,22 @@ object Samples {
             payload_size = 4,
         )
 
+    // ADR-0103: one socket, opened at TIMESTAMP_MS and closed 1.5 s later.
+    val connectionStarted =
+        RequestStarted(
+            request_id = "conn-0001",
+            method = "CONNECT",
+            url = "tcp://push.example.com:5223",
+            capture_layer = CaptureLayer.CAPTURE_LAYER_CONNECTION,
+        )
+
+    val connectionClosed =
+        ResponseReceived(
+            request_id = "conn-0001",
+            body_size = 2_048,
+            sent_size = 512,
+        )
+
     /** Fixture file name to the envelope it holds. */
     val envelopes: Map<String, Envelope> =
         mapOf(
@@ -89,11 +105,15 @@ object Samples {
             "response_received.bin" to envelope(Protocol.CHANNEL_NETWORK, "ResponseReceived", responseReceived),
             "request_failed.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestFailed", requestFailed),
             "websocket_frame.bin" to envelope(Protocol.CHANNEL_NETWORK, "WebSocketFrame", webSocketFrame),
+            "connection_started.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", connectionStarted),
+            "connection_closed.bin" to
+                envelope(Protocol.CHANNEL_NETWORK, "ResponseReceived", connectionClosed, TIMESTAMP_MS + 1_500),
         )
 
     private fun envelope(
         channel: String,
         type: String,
         message: Message<*, *>,
-    ): Envelope = Envelope(channel = channel, type = type, payload = message.encodeByteString(), timestamp_ms = TIMESTAMP_MS)
+        timestampMs: Long = TIMESTAMP_MS,
+    ): Envelope = Envelope(channel = channel, type = type, payload = message.encodeByteString(), timestamp_ms = timestampMs)
 }

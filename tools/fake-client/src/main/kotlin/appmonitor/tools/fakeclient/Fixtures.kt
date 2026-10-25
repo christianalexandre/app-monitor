@@ -10,6 +10,9 @@ object Fixtures {
     val traffic: List<Envelope> =
         listOf("request_started.bin", "response_received.bin", "request_failed.bin", "websocket_frame.bin").map(::load)
 
+    /** A `CONNECTION` exchange (ADR-0103): opened, then closed with its byte counts. */
+    val connection: List<Envelope> = listOf("connection_started.bin", "connection_closed.bin").map(::load)
+
     private fun load(name: String): Envelope {
         val bytes =
             checkNotNull(Fixtures::class.java.getResourceAsStream("/fixtures/$name")) { "Missing fixture $name" }

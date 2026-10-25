@@ -34,7 +34,8 @@ internal object ExportHar {
     val description =
         "Exports the stored exchanges a filter matches, oldest first, as a HAR 1.2 log (the result text is the HAR " +
             "file): headers, bodies (bodies: none, capped at $CAP bytes each, or full) and WebSocket frames in " +
-            "_webSocketMessages. Meant to be saved as a file; search_requests and get_request suit reading. $DATA_NOTE"
+            "_webSocketMessages. Connections are left out, counted in log.comment. Meant to be saved as a file; " +
+            "search_requests and get_request suit reading. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -71,7 +72,7 @@ internal object ExportHar {
                 "capped" -> CAP
                 else -> FULL
             }
-        return log(storage, filter, maxEntries, cap, version, maxText)
+        return log(storage, filter, maxEntries, cap, version, maxText).json
     }
 
     /** The first [maxEntries] exchanges [filter] matches as a HAR 1.2 log, each body and payload cut at [cap] bytes. */
@@ -82,28 +83,37 @@ internal object ExportHar {
         cap: Long,
         version: String,
         maxText: Long = MAX_TEXT,
-    ): JsonObject {
+    ): HarLog {
         val rows = storage.searchExchanges(filter, 0, maxEntries + 1)
         var text = 0L
         val entries = mutableListOf<JsonObject>()
-        for (row in rows.take(maxEntries.toInt())) {
+        val exported = rows.take(maxEntries.toInt())
+        // ADR-0104: HAR holds HTTP; a connection has no request or response to put in it.
+        val connections = exported.count { it.isConnection }
+        for (row in exported.filterNot { it.isConnection }) {
             val detail = storage.exchange(row.id) ?: continue
             val entry = entry(detail, allFrames(storage, row.id, row.frameCount), cap)
-            text += entry.toString().length
+            text += entry.toString().encodeToByteArray().size
             if (text > maxText) throw ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none")
             entries += entry
         }
-        return buildJsonObject {
-            putJsonObject("log") {
-                put("version", "1.2")
-                putJsonObject("creator") {
-                    put("name", "App Monitor")
-                    put("version", version)
+        val more = rows.size > maxEntries
+        val json =
+            buildJsonObject {
+                putJsonObject("log") {
+                    put("version", "1.2")
+                    putJsonObject("creator") {
+                        put("name", "App Monitor")
+                        put("version", version)
+                    }
+                    put("entries", JsonArray(entries))
+                    listOfNotNull(
+                        if (more) "first $maxEntries matching exchanges; more matched" else null,
+                        if (connections > 0) "$connections connections left out: HAR holds HTTP exchanges only" else null,
+                    ).joinToString("; ").ifEmpty { null }?.let { put("comment", it) }
                 }
-                put("entries", JsonArray(entries))
-                if (rows.size > maxEntries) put("comment", "first $maxEntries matching exchanges; more matched")
             }
-        }
+        return HarLog(json, entries.size, more, connections)
     }
 
     private suspend fun allFrames(
@@ -138,7 +148,7 @@ internal object ExportHar {
                 put("url", url)
                 put("httpVersion", "unknown")
                 putJsonArray("cookies") {}
-                put("headers", request?.headers.orEmpty().toHar())
+                put("headers", request?.headers.orEmpty().toJson())
                 put("queryString", queryString(url))
                 if (request != null && (request.body.size > 0 || request.body_truncated)) {
                     putJsonObject("postData") {
@@ -154,7 +164,7 @@ internal object ExportHar {
                 put("statusText", "")
                 put("httpVersion", "unknown")
                 putJsonArray("cookies") {}
-                put("headers", response?.headers.orEmpty().toHar())
+                put("headers", response?.headers.orEmpty().toJson())
                 putJsonObject("content") {
                     put("size", response?.let { it.body_size ?: it.body.size.toLong() } ?: 0)
                     put("mimeType", response?.headers?.contentType() ?: "")
@@ -264,14 +274,12 @@ internal object ExportHar {
     }
 
     private fun decode(part: String) = runCatching { URLDecoder.decode(part, Charsets.UTF_8) }.getOrDefault(part)
-
-    private fun List<Header>.toHar() =
-        JsonArray(
-            map {
-                buildJsonObject {
-                    put("name", it.name)
-                    put("value", it.value_)
-                }
-            },
-        )
 }
+
+/** A HAR log's [json], the [entries] it holds, whether [more] matched, and the [connections] left out of it. */
+internal class HarLog(
+    val json: JsonObject,
+    val entries: Int,
+    val more: Boolean,
+    val connections: Int,
+)

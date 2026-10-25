@@ -22,7 +22,14 @@ class ToCurlTest {
         return storage.searchExchanges(ExchangeFilter()).last().id
     }
 
-    private suspend fun Running.curl(id: Long) = client { it.callTool(ToCurl.NAME, mapOf("id" to id)) }.text
+    // Every case: no stored framing header reaches the command but a zero Content-Length.
+    private suspend fun Running.curl(id: Long) =
+        client { it.callTool(ToCurl.NAME, mapOf("id" to id)) }.text.also { command ->
+            assertTrue(!Regex("(?i)-H 'transfer-encoding").containsMatchIn(command), command)
+            Regex("(?i)-H 'content-length: *([^']*)'").findAll(command).forEach {
+                assertEquals(0L, it.groupValues[1].trim().toLongOrNull(), command)
+            }
+        }
 
     @Test
     fun theCommandReproducesTheStoredRequest() =
@@ -143,6 +150,19 @@ class ToCurlTest {
             val received = runCurl(command)
             assertEquals("HEAD", received.method)
             assertEquals(0, received.body.size)
+        }
+
+    @Test
+    fun aHeadWithABodyCutByTheDeviceGivesItsOriginalSize() =
+        withServer { running ->
+            val id =
+                running.store(
+                    request("r1", "HEAD", "http://127.0.0.1:1/h", body = "abc".encodeUtf8(), bodyTruncated = true, bodySize = 10),
+                )
+            assertEquals(
+                "# body of 3 bytes (truncated by the device from 10) left out: curl sends none with --head",
+                running.curl(id).lines().first(),
+            )
         }
 
     @Test

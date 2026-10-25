@@ -1,5 +1,6 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.storage.ConnectionBytes
 import appmonitor.desktop.storage.ExchangeDetail
 import appmonitor.desktop.storage.StoredFrame
 import appmonitor.v1.CaptureLayer
@@ -22,7 +23,10 @@ internal data class CapturedFrame(
     val atMs: Long,
 )
 
-/** One stored HTTP request and its outcome, as the detail pane shows it; [frames] holds the frames read so far. */
+/**
+ * One stored HTTP request and its outcome, as the detail pane shows it; [frames] holds the frames read so far.
+ * [connection] is set for a `CONNECTION` exchange only, which has no status, headers or body.
+ */
 internal data class HttpExchange(
     val id: Long,
     val requestId: String,
@@ -39,6 +43,7 @@ internal data class HttpExchange(
     val frames: List<CapturedFrame> = emptyList(),
     val frameCount: Long = 0,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
+    val connection: ConnectionBytes? = null,
 ) {
     val durationMs: Long? get() = durationOf(startedAtMs, endedAtMs)
 }
@@ -80,5 +85,6 @@ internal fun HttpExchange(
             },
         frameCount = row.frameCount,
         captureLayer = row.captureLayer,
+        connection = detail.connectionBytes,
     )
 }

@@ -79,9 +79,7 @@ internal fun JsonObjectBuilder.putExchangeRow(exchange: StoredExchange) {
     put("duration_ms", duration.json())
     put(
         "capture_layer",
-        exchange.captureLayer.name
-            .removePrefix("CAPTURE_LAYER_")
-            .lowercase(),
+        exchange.captureLayer.wireName("CAPTURE_LAYER_"),
     )
     put("frame_count", exchange.frameCount)
 }

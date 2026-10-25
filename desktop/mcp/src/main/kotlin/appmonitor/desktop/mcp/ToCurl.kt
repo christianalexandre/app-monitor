@@ -17,7 +17,7 @@ internal object ToCurl {
         "Returns one stored request, by the id search_requests gives, as a POSIX shell cURL command: method, URL, " +
             "every header as stored but Content-Length and Transfer-Encoding, which curl sets from the body (one zero Content-Length " +
             "is kept when no body is sent), and the body " +
-            "(a binary one piped through base64 -d; none for HEAD). $DATA_NOTE"
+            "(a binary one piped through base64 -d; none for HEAD). A connection has no request to copy. $DATA_NOTE"
 
     val inputSchema =
         ToolSchema(
@@ -46,6 +46,7 @@ internal object ToCurl {
     ): String {
         val detail = storage.exchange(id)
         if (detail == null) throw ToolError("no exchange with id $id")
+        if (detail.exchange.isConnection) throw ToolError("exchange $id is a connection: it has no HTTP request to copy")
         val request = detail.request ?: throw ToolError("exchange $id has no request stored")
         val head = request.method == "HEAD"
         // curl refuses --head beside a body, and -X HEAD waits for a response body.
@@ -55,7 +56,8 @@ internal object ToCurl {
         val text = body.text?.takeUnless { '\u0000' in it }
         val lines = mutableListOf<String>()
         if (head && request.body.size > 0) {
-            lines += "# body of ${request.body.size} bytes left out: curl sends none with --head"
+            val cut = if (request.body_truncated) " (truncated by the device from ${request.body_size ?: "unknown"})" else ""
+            lines += "# body of ${request.body.size} bytes$cut left out: curl sends none with --head"
         } else if (request.body_truncated) {
             lines += "# body truncated by the device: ${request.body.size} of ${request.body_size ?: "unknown"} bytes"
         }

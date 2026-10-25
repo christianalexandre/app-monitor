@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.storage.StorageHealth
+import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.serialization.json.JsonArray
@@ -9,6 +10,8 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -60,6 +63,20 @@ private val isoUtc = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'")
 
 /** ISO 8601 UTC with milliseconds, null kept as JSON null. */
 internal fun time(epochMs: Long?): JsonElement = epochMs?.let { JsonPrimitive(isoUtc.format(Instant.ofEpochMilli(it))) } ?: JsonNull
+
+/** Headers in order, as `get_request` and HAR 1.2 both write them: `name` and `value`. */
+internal fun List<Header>.toJson() =
+    JsonArray(
+        map {
+            buildJsonObject {
+                put("name", it.name)
+                put("value", it.value_)
+            }
+        },
+    )
+
+/** A protocol enum's value as the tools write it: [prefix] dropped, lower case (`CAPTURE_LAYER_PROXY` → `proxy`). */
+internal fun Enum<*>.wireName(prefix: String) = name.removePrefix(prefix).lowercase()
 
 internal fun Long?.json(): JsonElement = this?.let { JsonPrimitive(it) } ?: JsonNull
 

@@ -58,7 +58,7 @@ evidence before the code.
   the test target shows up as one connection with host, port, bytes and
   duration, a refused port with its error, nothing for the SDK's own
   connection.
-- [ ] **M8.4 Connection exchanges in the desktop.** `desktop/storage`,
+- [x] **M8.4 Connection exchanges in the desktop.** (`feat/desktop-connection-exchanges`; ADR-0104; HAR leaves connections out, two `connection_*.bin` fixtures added, run diff checked in storage and MCP, the window reusing `diffEndpoints`) `desktop/storage`,
   `desktop/app` and `desktop/mcp` show a `CONNECTION` exchange as an
   opaque connection (no status, no body): list row, detail, the layer
   caption, benchmarks, run diff, HAR and cURL (refused or marked), search.
