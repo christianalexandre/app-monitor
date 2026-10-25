@@ -21,8 +21,9 @@ INSERT INTO runs(name, started_at_ms, ended_at_ms, saved) VALUES ('Saved', :atMs
 savedId:
 SELECT id FROM runs WHERE saved = 1 LIMIT 1;
 
+-- A run already ended keeps its end: Record after Stop, and close, end the current run again.
 end:
-UPDATE runs SET ended_at_ms = :endedAtMs WHERE id = :id;
+UPDATE runs SET ended_at_ms = :endedAtMs WHERE id = :id AND ended_at_ms IS NULL;
 
 closeOpen:
 UPDATE runs

@@ -85,6 +85,33 @@ class RecorderTest {
         }
 
     @Test
+    fun aStoppedRecordingKeepsItsEndThroughTheNextRecordingAndClose() =
+        withDataDir { dir ->
+            var now = 1_000L
+            val storage = Storage.open(dir, startRun = false) { now }
+            val (first, second) =
+                runBlocking {
+                    val first = assertNotNull(storage.record())
+                    now = 2_000
+                    storage.stop()
+                    now = 3_000
+                    val second = assertNotNull(storage.record())
+                    now = 4_000
+                    storage.stop()
+                    now = 5_000
+                    storage.close(5.seconds)
+                    first to second
+                }
+            Storage.open(dir, startRun = false) { now }.let { reopened ->
+                runBlocking {
+                    val ends = reopened.runs().associate { it.id to it.endedAtMs }
+                    assertEquals(mapOf(first to 2_000L, second to 4_000L), ends)
+                    reopened.close(5.seconds)
+                }
+            }
+        }
+
+    @Test
     fun aSessionSpanningTwoRecordingsHasARowInEach() =
         withDataDir { dir ->
             val storage = Storage.open(dir, startRun = false)

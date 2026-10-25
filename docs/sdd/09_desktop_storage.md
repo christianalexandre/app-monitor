@@ -162,8 +162,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
 - **Recording** (ADR-0140 B, ADR-0142): `record()` is a `newRun()` that
   also sets `recording` (a `StateFlow`, null when none) to the new run,
   returning its id once written, null when lost; `stop()` ends it and
-  waits for the write. `clearAll()` and `close` end it too; an open that
-  finds a run without an end (a crash while recording) closes it. The
+  waits for the write. `clearAll()` and `close` end it too; a run already
+  ended keeps its end, so Record after Stop and `close` do not move it.
+  An open that finds a run without an end (a crash while recording)
+  closes it. The
   window opens the store with `Storage.open(dir, startRun = false)`: no
   run at launch nor after `clearAll`, `runId` is 0, and a session is only
   written once `Recorder` gives it a run. Tests keep the default, a run

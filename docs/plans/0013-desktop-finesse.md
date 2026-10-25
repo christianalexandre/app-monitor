@@ -1,10 +1,10 @@
 ---
 id: PLAN-0013
 title: Desktop finesse — live traffic, recordings, themes and layout
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H3
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0013 — Desktop finesse (H3)
@@ -102,12 +102,73 @@ task too large for one PR is split at once.
   from the store or the live list; method and "Failed only" moved into
   the sheet too, the toolbar keeps the search (ADR-0148).
 
+- [x] **H3.R1 A run's end stays put.** Review findings 1 and 2: Record
+  after Stop, and `close`, ended the current run again, so a stopped
+  recording's end moved to the next Record or to quitting. `end` only
+  sets a run's end while it has none.
+  Accept: `./gradlew :desktop:storage:test` — record, stop, record,
+  stop, close: each recording keeps the end its Stop gave it.
+
+### H3 milestone review
+
+`code-review` at `medium` of `d4ccd48..d02b21e` (#275 to #285). Ten
+findings, two that normal use hits:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | `NewRun` ends the current run without a condition, so Record after Stop moves the stopped recording's end to the new Record. | Yes: Record, Stop, Record | H3.R1 |
+| 2 | `close` queues an `EndRun` while nothing records, moving the last recording's end to the moment the app quits. | Yes: Stop, then quit | H3.R1 |
+| 3 | `LiveTraffic.trim` drops an exchange still open, and its later frames make a blank row. | No: needs the live bound reached while a socket is open | DEBT-0093 |
+| 4 | An exchange saved before its response stays without it, and a second Save is skipped. | No: the response must still be pending when Save is pressed | DEBT-0093 |
+| 5 | Every envelope wakes the live observers, which rescan up to 10k rows. | No: cost, not wrong data | DEBT-0093 |
+| 6 | The detail's app id is a snapshot of the sessions when picked. | No: needs a pick before the sessions load | DEBT-0093 |
+| 7 | Clear keeps marks on ids of sessions no longer shown. | No: needs a trimmed session's marks | DEBT-0093 |
+| 8 | `Recorder` keeps one entry per recorded request until the session ends. | No: needs a session recorded for hours | DEBT-0093 |
+| 9 | Save counts stored marks carried into Live as failures. | No: needs marks made in "Saved" kept into Live | DEBT-0093 |
+| 10 | Three KDoc blocks are over four lines. | No | DEBT-0093 |
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**:
+  - Plan (#274), and ADR-0140, what the desktop stores (#275).
+  - H3.1: the live list in memory behind the repositories (#276).
+  - H3.1b: the window opens on the live list, with Clear (#277).
+  - H3.2: Record and Stop (#278).
+  - H3.2b: Save into "Saved", apart from recordings (#279).
+  - H3.3: a run's devices compared per endpoint in benchmarks (#280).
+  - H3.4: disconnect a device until Reconnect (#281).
+  - H3.5: light and dark themes, chosen in the settings (#282).
+  - H3.6: the toolbar over the panes, request rows with a status badge
+    (#283).
+  - H3.6b: request detail in tabs, each with its copy action (#284).
+  - H3.6c: the filter sheet by status class and host (#285), with the
+    storage tests bounded in time and CI's test reports kept on cancel.
+  - H3.R1: a run's end stays put, and this close (this PR).
+- **Decisions**: ADR-0140 (only recordings and saved exchanges are
+  stored), ADR-0141 (the live list as the store's rows in memory),
+  ADR-0142 (a recorder sink), ADR-0143 (Save into one saved run),
+  ADR-0144 (disconnect in memory until Reconnect), ADR-0145 (the theme as
+  a stored setting), ADR-0146 (toolbar and status badge), ADR-0147
+  (detail tabs), ADR-0148 (filter sheet).
+- **Debt**:
+  - Paid: DEBT-0088's one query per replay row (#276).
+  - Fired and kept: DEBT-0067 (#278, #279), its code unchanged.
+  - Re-triggered: DEBT-0091 (#285), after a
+    second CI hang of `:desktop:storage:test`, now to a CI
+    `TimeoutException` with its stack kept.
+  - Created: DEBT-0093 (this review's findings 3 to 10).
+  - No correctness finding that normal use hits is left open.
+- **Deviations**:
+  - Split for size: H3.1 into H3.1 and H3.1b, H3.2 into H3.2 and H3.2b,
+    H3.6 into H3.6, H3.6b and H3.6c.
+  - "No run opens at launch" moved from H3.1b to H3.2; the links to
+    other screens moved under the devices (no room at 1280 px).
+  - H3.6c fixed two CI test races on the way (`SaveTest`'s clock and
+    `ApprovalStoreTest`'s queued decision).
+  - H3.R1 added by the milestone review.
+- **Lessons**:
+  - `TestExceptionFormat.SHORT` hid which assertion failed. Uploading
+    `build/test-results/` on failure and cancel gave the line and values
+    of a one-off CI failure; it covers every suite and should stay.
+  - A test that reads a `Flow`'s first value right after a queued write
+    races the writer; wait for the value instead (`first { … }`).
