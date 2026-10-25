@@ -126,6 +126,32 @@ header serializer copied, durations sorted per read). None was rejected.
   Accept: `./gradlew :desktop:mcp:test` — the HAR with lost writes passes
   the HAR 1.2 field check, the warning still in it; SDD 10 updated.
 
+### Second milestone review
+
+Findings of the `code-review` of `6172cd4..0a36f7a`. Two are correctness
+findings and became two tasks. Five went to DEBT-0072 (the closing check
+per tool, test seams in production signatures, the HAR warning helper
+copied, a `HEAD`'s truncation note replaced, framing headers asserted in
+one case). One was rejected: a lower-case `head` is not `HEAD` (methods
+are case-sensitive, RFC 9110 9.1), so curl sending it as is replays what
+was stored.
+
+- [ ] **M6.R5 The launch race of M6.R1 is narrowed, not closed.**
+  `setEnabled` writes `switched` and `enabled` outside the lock, so a
+  `setEnabled(false)` that lands after `start` read `switched` and before
+  it writes `enabled` is overwritten: the server is stopped and the store
+  says off, but the settings switch shows on.
+  Accept: `./gradlew :desktop:app:test` with a test that turns the switch
+  off between `start`'s check and its write, and both the server and
+  `enabled` end off.
+- [ ] **M6.R6 `to_curl` drops a stored `Content-Length: 0`.** An empty
+  `POST` or `PUT` replayed with `-X` and no data sends no
+  `Content-Length` (curl 8.7.1, checked against `nc`), so a server that
+  requires one answers `411 Length Required` where the original passed.
+  Accept: `./gradlew :desktop:mcp:test` — `ToCurlTest` replays an empty
+  `POST` that stored `Content-Length: 0` and its server receives the
+  header.
+
 ## Outcome
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
