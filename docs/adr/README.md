@@ -147,3 +147,4 @@ Rules:
 | [0127](0127-the-gradle-plugin-rewrites-the-okhttp-client-constructor.md) | The Gradle plugin rewrites OkHttp's client constructor | Accepted |
 | [0128](0128-a-network-interceptor-serves-no-mock-and-keeps-the-host.md) | As a network interceptor, the OkHttp capture serves no mock and keeps the host | Accepted |
 | [0129](0129-ktor-marks-its-captures-beside-the-okhttp-sdk.md) | The Ktor plugin marks its captures beside the OkHttp SDK, and the interceptor skips and strips the mark | Accepted |
+| [0130](0130-a-held-ios-task-asks-the-apps-delegate.md) | A held iOS task asks the app's delegate | Accepted |

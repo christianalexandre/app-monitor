@@ -38,7 +38,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   Accept: `./gradlew :sdk:ktor:allTests :sdk:android-okhttp:allTests` — a
   Ktor client on the OkHttp engine with both SDKs installed sends one
   exchange per call; the mark never reaches the server.
-- [ ] **H1.3 A held iOS task asks the app's delegate.** DEBT-0085:
+- [x] **H1.3 A held iOS task asks the app's delegate.** (`fix/held-ios-task-asks-delegate`) DEBT-0085:
   `HoldProtocol` hands authentication challenges and redirects to the
   app's session delegate.
   Accept: `swift test --package-path sdk/ios` — a held task whose

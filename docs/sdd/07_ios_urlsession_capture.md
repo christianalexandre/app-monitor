@@ -131,7 +131,11 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
 - **Sent on** through a new session from a copy of the task's session
   configuration (cookies, cache, headers, timeouts), its task marked so
   it is never captured, held or mocked; or answered by the mock rule.
-  Without a response rule matching the request as sent, the response is
+  Its challenges and redirects go to the app's delegates on the app's
+  delegate queue, in URLSession's order: the task's delegate, then the
+  session's (session-level method first for a session-wide challenge);
+  none, default handling and the redirect followed. A refused redirect
+  is the task's response (ADR-0130). Without a response rule matching the request as sent, the response is
   handed to the task as it comes.
 - **A response rule**: the response is read whole, sent in
   `BreakpointHit` with the request as sent, then handed over unchanged or
@@ -274,9 +278,8 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 - A mocked `3xx` reaches the app as is; the protocol never redirects.
 - A replay of a redirected task sends its first request again; a
   WebSocket is refused as not kept.
-- A held task's challenges get default handling and its redirects are
-  followed, without the app's delegate (DEBT-0085); the hold is tested on
-  the macOS host only (DEBT-0086).
+- The hold is tested on the macOS host only (DEBT-0086), a session-wide
+  challenge to a held task not at all (ADR-0130).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).

@@ -370,6 +370,77 @@ extension URLSessionCaptureTests {
         #expect(types == ["RequestStarted", "RequestFailed"])
         #expect(server.received.isEmpty)
     }
+
+    @Test func aHeldTaskWhoseDelegateRejectsAChallengeFailsAsWithoutTheBreakpoint() async throws {
+        capture()
+        let unheld = AskingDelegate(challenge: .cancelAuthenticationChallenge)
+        let plain = URLSession(configuration: .ephemeral, delegate: unheld, delegateQueue: nil)
+        defer { plain.invalidateAndCancel() }
+        plain.dataTask(with: server.url("/auth")).resume()
+        #expect(await eventually { unheld.completed })
+
+        holding(breakpointRule(13, path: "/auth", request: true, timeoutMs: 100))
+        let delegate = AskingDelegate(challenge: .cancelAuthenticationChallenge)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+        let task = session.dataTask(with: server.url("/auth"))
+        task.resume()
+
+        #expect(await eventually { delegate.completed })
+        #expect(delegate.challenges == ["NSURLAuthenticationMethodHTTPBasic"])
+        #expect(delegate.askedTask === task)
+        let error = try #require(delegate.error as? URLError)
+        #expect(error.code == (unheld.error as? URLError)?.code)
+        _ = try await sink.hit(.request)
+    }
+
+    @Test func aHeldTaskSendsTheCredentialItsDelegateGives() async throws {
+        holding(breakpointRule(14, path: "/auth", request: true, timeoutMs: 100))
+        let delegate = AskingDelegate(challenge: .useCredential)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+
+        session.dataTask(with: server.url("/auth")).resume()
+
+        #expect(await eventually { delegate.completed })
+        #expect(delegate.error == nil)
+        #expect(String(decoding: delegate.data, as: UTF8.self) == "hello")
+        #expect(server.received.last?.headers["authorization"] == "Basic dXNlcjpzZWNyZXQ=")
+    }
+
+    @Test func aRedirectTheHeldTasksDelegateRefusesIsNotFollowed() async throws {
+        holding(breakpointRule(15, path: "/redirect", request: true, timeoutMs: 100))
+        let delegate = AskingDelegate(follows: false)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+        let task = session.dataTask(with: server.url("/redirect"))
+
+        task.resume()
+
+        #expect(await eventually { delegate.completed })
+        #expect(delegate.error == nil)
+        #expect(delegate.redirects == [server.url("/ok")])
+        #expect(delegate.askedTask === task)
+        #expect((delegate.response as? HTTPURLResponse)?.statusCode == 302)
+        #expect(String(decoding: delegate.data, as: UTF8.self) == "moved")
+        #expect(server.received.map(\.path) == ["/redirect"])
+        let (_, end) = try await sink.exchange(server.url("/redirect"))
+        #expect(try received(end).statusCode == 302)
+    }
+
+    @Test func aRedirectTheHeldTasksDelegateFollowsEndsWithTheFinalResponse() async throws {
+        holding(breakpointRule(16, path: "/redirect", request: true, timeoutMs: 100))
+        let delegate = AskingDelegate(follows: true)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+
+        session.dataTask(with: server.url("/redirect")).resume()
+
+        #expect(await eventually { delegate.completed })
+        #expect(delegate.redirects == [server.url("/ok")])
+        #expect(String(decoding: delegate.data, as: UTF8.self) == "hello")
+        #expect(server.received.map(\.path) == ["/redirect", "/ok"])
+    }
 }
 
 extension Result {
@@ -388,6 +459,82 @@ final class DataDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable 
     var data: Data { lock.withLock { received } }
     var completed: Bool { lock.withLock { finished } }
     var error: Error? { lock.withLock { failure } }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        lock.withLock { received.append(data) }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        lock.withLock {
+            finished = true
+            failure = error
+        }
+    }
+}
+
+/// A session delegate that answers challenges with `challenge` and follows redirects only if `follows`.
+final class AskingDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private let answer: URLSession.AuthChallengeDisposition
+    private let follows: Bool
+    private var methods: [String] = []
+    private var locations: [URL] = []
+    private var asked: URLSessionTask?
+    private var received = Data()
+    private var answered: URLResponse?
+    private var finished = false
+    private var failure: Error?
+
+    init(challenge: URLSession.AuthChallengeDisposition = .performDefaultHandling, follows: Bool = true) {
+        answer = challenge
+        self.follows = follows
+    }
+
+    var challenges: [String] { lock.withLock { methods } }
+    var redirects: [URL] { lock.withLock { locations } }
+    var askedTask: URLSessionTask? { lock.withLock { asked } }
+    var data: Data { lock.withLock { received } }
+    var response: URLResponse? { lock.withLock { answered } }
+    var completed: Bool { lock.withLock { finished } }
+    var error: Error? { lock.withLock { failure } }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        lock.withLock {
+            methods.append(challenge.protectionSpace.authenticationMethod)
+            asked = task
+        }
+        let credential = URLCredential(user: "user", password: "secret", persistence: .none)
+        completionHandler(answer, answer == .useCredential ? credential : nil)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        lock.withLock {
+            locations.append(request.url!)
+            asked = task
+        }
+        completionHandler(follows ? request : nil)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
+    ) {
+        lock.withLock { answered = response }
+        completionHandler(.allow)
+    }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         lock.withLock { received.append(data) }

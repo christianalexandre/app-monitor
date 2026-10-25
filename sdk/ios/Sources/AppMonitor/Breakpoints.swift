@@ -309,6 +309,78 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         }
     }
 
+    // MARK: - The app's delegate
+
+    /// Answered by the app's delegate as its own task's would be, or by default handling (ADR-0130 A.1).
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        let sessionWide = Self.sessionWideMethods.contains(challenge.protectionSpace.authenticationMethod)
+        askApp(
+            otherwise: { completionHandler(.performDefaultHandling, nil) },
+            ask: { app, outer, delegate in
+                if let delegate = outer.delegate,
+                    delegate.urlSession?(app, task: outer, didReceive: challenge, completionHandler: completionHandler)
+                        != nil
+                {
+                    return true
+                }
+                if sessionWide,
+                    app.delegate?.urlSession?(app, didReceive: challenge, completionHandler: completionHandler) != nil
+                {
+                    return true
+                }
+                return delegate?.urlSession?(
+                    app, task: outer, didReceive: challenge, completionHandler: completionHandler)
+                    != nil
+            })
+    }
+
+    /// Followed only if the app's delegate follows it; refused, the redirect is the task's response (ADR-0130 B.1).
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        askApp(
+            otherwise: { completionHandler(request) },
+            ask: { app, outer, delegate in
+                if let delegate = outer.delegate,
+                    delegate.urlSession?(
+                        app, task: outer, willPerformHTTPRedirection: response, newRequest: request,
+                        completionHandler: completionHandler) != nil
+                {
+                    return true
+                }
+                return delegate?.urlSession?(
+                    app, task: outer, willPerformHTTPRedirection: response, newRequest: request,
+                    completionHandler: completionHandler) != nil
+            })
+    }
+
+    /// URLSession's session-level challenges, which go to `urlSession(_:didReceive:completionHandler:)`.
+    private static let sessionWideMethods: Set<String> = [
+        NSURLAuthenticationMethodServerTrust, NSURLAuthenticationMethodClientCertificate,
+        NSURLAuthenticationMethodNTLM, NSURLAuthenticationMethodNegotiate,
+    ]
+
+    /// Runs `ask` on the app's delegate queue with the app's session, the held task and the session's
+    /// delegate; `otherwise` when no delegate implements the method `ask` calls.
+    private func askApp(
+        otherwise: @escaping @Sendable () -> Void,
+        ask: @escaping (URLSession, URLSessionTask, URLSessionTaskDelegate?) -> Bool
+    ) {
+        guard let outer = task, let app = Hooks.session(of: outer), app.delegate != nil || outer.delegate != nil
+        else { return otherwise() }
+        let call = Asked { if !ask(app, outer, app.delegate as? URLSessionTaskDelegate) { otherwise() } }
+        app.delegateQueue.addOperation { call.run() }
+    }
+
     // MARK: - The response
 
     /// The whole response, held first when a breakpoint matches the request as sent.
@@ -391,6 +463,12 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 private final class Resumed: @unchecked Sendable {
     let go: (BreakpointOutcome) -> Void
     init(_ go: @escaping (BreakpointOutcome) -> Void) { self.go = go }
+}
+
+/// A call to the app's delegate carried to its delegate queue; the challenge and request it holds are only read.
+private final class Asked: @unchecked Sendable {
+    let run: () -> Void
+    init(_ run: @escaping () -> Void) { self.run = run }
 }
 
 /// The whole of `data` as `ResponseReceived` reports it, masked and cut at `limit`.

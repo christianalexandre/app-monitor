@@ -1,10 +1,10 @@
 ---
 id: DEBT-0085
 title: An iOS task held at a breakpoint skips the app's challenge and redirect delegate
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The first app whose held task fails on a pinned certificate, a client certificate or a redirect it refuses, or the next PR that changes `HoldProtocol` in `sdk/ios/Sources/AppMonitor/Breakpoints.swift`
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0085 — An iOS task held at a breakpoint skips the app's challenge and redirect delegate
@@ -33,4 +33,10 @@ certificate or a redirect it refuses, or the next PR that changes
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0011 H1.3, ADR-0130. `HoldProtocol`'s session delegate asks the
+app's delegates itself, on the app's delegate queue, in URLSession's
+order, and hands their answer to the inner task; a refused redirect ends
+the inner task on the `3xx`. Forwarding through the protocol's client was
+not used: a redirect restarts the load, which would hold it again. Left:
+a session-wide challenge (server trust, client certificate) is not
+tested, the Swift tests have no TLS origin.
