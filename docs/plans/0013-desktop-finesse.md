@@ -62,10 +62,12 @@ task too large for one PR is split at once.
   (count, status classes, median, p95, size) in `insights`.
   Accept: `./gradlew :desktop:feature:insights:test` — a run with two
   devices shows both columns with their numbers.
-- [ ] **H3.4 Disconnect and reconnect a device.** ADR-0140 E.
+- [x] **H3.4 Disconnect and reconnect a device.** ADR-0140 E.
   Accept: `./gradlew :desktop:server:test :desktop:feature:traffic:test`
   — a disconnected device's reconnects are refused without a prompt
-  until Reconnect.
+  until Reconnect. Held in memory (ADR-0144); disconnected devices get
+  their own "Disconnected" section, since a session without exchanges
+  leaves the live list; screenshot in light only until H3.5.
 - [ ] **H3.5 Light and dark.** Full token set with both values, System /
   Light / Dark in the settings.
   Accept: `make check` (the design system script) and the gallery and

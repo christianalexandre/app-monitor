@@ -19,6 +19,8 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.DeviceConnectionRepository
+import appmonitor.desktop.domain.DisconnectedDevice
 import appmonitor.desktop.domain.PendingApproval
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.feature.settings.CLEAR_ALL
@@ -229,6 +231,45 @@ class AppMonitorAppTest {
                     server.stop()
                 }
             }
+        }
+
+    @Test
+    fun `Disconnect refuses a device until Reconnect`() =
+        withStorage { storage ->
+            val live = LiveTraffic()
+            runBlocking { live.connected("s1", HELLO, "127.0.0.1") }
+            val connections =
+                object : DeviceConnectionRepository {
+                    override val disconnected = MutableStateFlow(emptyList<DisconnectedDevice>())
+
+                    override suspend fun disconnect(hello: Hello) {
+                        disconnected.value += DisconnectedDevice(hello.device_id, hello.app_id, hello)
+                        live.disconnected("s1")
+                    }
+
+                    override suspend fun reconnect(
+                        deviceId: String,
+                        appId: String,
+                    ) {
+                        disconnected.value = emptyList()
+                    }
+                }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", connections = connections, live = live) }
+
+                awaitText("Android 16 · connected")
+                onNodeWithText("Disconnect").performClick()
+                awaitText("Disconnected")
+                onNodeWithText("Disconnect").assertDoesNotExist()
+                onNodeWithText("Pixel").assertExists()
+                screenshot("disconnected.png")
+
+                onNodeWithText("Reconnect").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("Reconnect").fetchSemanticsNodes().isEmpty() }
+                onNodeWithText("Pixel").assertDoesNotExist()
+            }
+            assertEquals(emptyList(), connections.disconnected.value)
         }
 
     @Test

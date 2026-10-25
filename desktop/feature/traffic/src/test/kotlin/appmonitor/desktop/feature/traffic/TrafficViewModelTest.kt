@@ -1,5 +1,7 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.domain.DeviceConnectionRepository
+import appmonitor.desktop.domain.DisconnectedDevice
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -28,7 +31,9 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrafficViewModelTest {
@@ -47,6 +52,22 @@ class TrafficViewModelTest {
     fun reset() = Dispatchers.resetMain()
 
     private fun viewModel(replays: ReplayRepository? = this.replays) = TrafficViewModel(runs, traffic, exports, replays)
+
+    @Test
+    fun `disconnects a device until reconnected`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10, device = "pixel"), session(11, device = "iphone"))
+            val connections = FakeConnections()
+            val viewModel = TrafficViewModel(runs, traffic, exports, replays, connections)
+            assertTrue(viewModel.state.value.canDisconnect)
+            viewModel.disconnect(traffic.sessions.value[0])
+            val state = viewModel.state.value
+            assertEquals(listOf("pixel"), state.disconnected.map { it.deviceId })
+            assertEquals(listOf(true, false), state.sessions.map(state::refuses))
+            viewModel.reconnect(state.disconnected.single())
+            assertEquals(emptyList(), viewModel.state.value.disconnected)
+            assertFalse(viewModel().state.value.canDisconnect)
+        }
 
     @Test
     fun `opens on every live device's requests in one list`() =
@@ -368,7 +389,19 @@ class TrafficViewModelTest {
 private fun session(
     id: Long,
     run: Long = 0,
-) = Session(id, run, "server-$id", Hello(device_name = "Device $id", app_id = "app"), null, 0, null, null)
+    device: String = "",
+) = Session(id, run, "server-$id", Hello(device_id = device, device_name = "Device $id", app_id = "app"), null, 0, null, null)
+
+private class FakeConnections : DeviceConnectionRepository {
+    override val disconnected = MutableStateFlow(emptyList<DisconnectedDevice>())
+
+    override suspend fun disconnect(hello: Hello) = disconnected.update { it + DisconnectedDevice(hello.device_id, hello.app_id, hello) }
+
+    override suspend fun reconnect(
+        deviceId: String,
+        appId: String,
+    ) = disconnected.update { list -> list.filterNot { it.deviceId == deviceId && it.appId == appId } }
+}
 
 private fun exchange(
     id: Long,

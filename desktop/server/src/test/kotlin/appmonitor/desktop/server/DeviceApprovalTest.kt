@@ -136,6 +136,70 @@ class DeviceApprovalTest {
         }
 
     @Test
+    fun `a disconnected device is refused without a prompt until reconnected`() =
+        runBlocking {
+            val port = start()
+            val key = DeviceKey("device-1", "app.a")
+            approvals.decide(key, approved = true)
+            withTimeout(TIMEOUT) {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertEquals("HelloAck", Envelope.ADAPTER.decode((incoming.receive() as Frame.Binary).readBytes()).type)
+                    approvals.disconnect(hello.toHello())
+                    server!!.disconnect(key)
+                    assertNull(incoming.receiveCatching().getOrNull())
+                    assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason)
+                }
+                repeat(2) {
+                    connect(port) {
+                        send(Frame.Binary(true, hello.encode()))
+                        assertNull(incoming.receiveCatching().getOrNull())
+                        assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason)
+                    }
+                }
+                assertEquals(emptyList(), approvals.pending.value)
+                assertEquals(setOf(key), approvals.disconnected.value.keys)
+
+                approvals.reconnect(key)
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertEquals("HelloAck", Envelope.ADAPTER.decode((incoming.receive() as Frame.Binary).readBytes()).type)
+                }
+            }
+            assertEquals(emptyList(), approvals.pending.value)
+            assertEquals(emptyMap(), approvals.disconnected.value)
+        }
+
+    @Test
+    fun `a pending device disconnected is refused and asked again once reconnected`() =
+        runBlocking {
+            val port = start()
+            val key = DeviceKey("device-1", "app.a")
+            withTimeout(TIMEOUT) {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    approvals.pending.first { it.isNotEmpty() }
+                    approvals.disconnect(hello.toHello())
+                    assertNull(incoming.receiveCatching().getOrNull())
+                    assertEquals(CloseReason.Codes.VIOLATED_POLICY, closeReason.await()?.knownReason)
+                }
+                assertEquals(emptyList(), approvals.pending.value)
+                approvals.reconnect(key)
+                assertNull(approvals.forget(key))
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    assertEquals(
+                        key,
+                        approvals.pending
+                            .first { it.isNotEmpty() }
+                            .single()
+                            .key,
+                    )
+                }
+            }
+        }
+
+    @Test
     fun `a pair forgotten between its answer and HelloAck is closed with 1008 and never published`() =
         runBlocking {
             val key = DeviceKey("device-1", "app.a")

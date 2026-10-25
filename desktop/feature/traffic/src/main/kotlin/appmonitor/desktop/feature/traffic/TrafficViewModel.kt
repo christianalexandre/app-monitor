@@ -2,6 +2,8 @@ package appmonitor.desktop.feature.traffic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import appmonitor.desktop.domain.DeviceConnectionRepository
+import appmonitor.desktop.domain.DisconnectedDevice
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -61,7 +64,8 @@ data class RunsState(
 
 /**
  * The shown list's sessions, the first [rows] that [filter] matches of the picked [session] or, when null, of every
- * device, the picked [row] and its [detail], and the exchanges [marked] for "Save as issue" (ADR-0095 A.1).
+ * device, the picked [row] and its [detail], the exchanges [marked] for "Save as issue" (ADR-0095 A.1) and the devices
+ * [disconnected] (ADR-0144); [canDisconnect] is false with nobody to ask.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -73,7 +77,12 @@ data class TrafficState(
     val row: Exchange? = null,
     val marked: Map<Long, Exchange> = emptyMap(),
     val detail: DetailState = DetailState(),
-)
+    val disconnected: List<DisconnectedDevice> = emptyList(),
+    val canDisconnect: Boolean = false,
+) {
+    /** Whether [session]'s app on its device is refused until Reconnect. */
+    fun refuses(session: Session): Boolean = disconnected.any { it.deviceId == session.hello.device_id && it.appId == session.hello.app_id }
+}
 
 /** The picked request [id] of [appId], read again whenever its row changes; null [exchange] while it loads, null [id] once gone. */
 data class DetailState(
@@ -92,6 +101,7 @@ class TrafficViewModel(
     private val traffic: TrafficRepository,
     private val exports: ExportRepository,
     private val replays: ReplayRepository? = null,
+    private val connections: DeviceConnectionRepository? = null,
 ) : ViewModel() {
     private val shown = MutableStateFlow<ShownRun>(ShownRun.Live)
     private val selectedSession = MutableStateFlow<Long?>(null)
@@ -182,12 +192,14 @@ class TrafficViewModel(
             filter,
         ) { runs, sessions, session, health, filter ->
             TrafficState(runs, sessions, session, health, filter)
+        }.combine(connections?.disconnected ?: flowOf(emptyList())) { lists, disconnected ->
+            lists.copy(disconnected = disconnected, canDisconnect = connections != null)
         }
 
     val state: StateFlow<TrafficState> =
         combine(lists, rows, row, marked, detail) { lists, rows, row, marked, detail ->
             lists.copy(rows = rows, row = row, marked = marked, detail = detail)
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, TrafficState(runs = runs.value))
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, TrafficState(runs = runs.value, canDisconnect = connections != null))
 
     init {
         viewModelScope.launch {
@@ -279,6 +291,17 @@ class TrafficViewModel(
         name: String,
     ) {
         viewModelScope.launch { runRepository.rename(id, name) }
+    }
+
+    /** Closes [session]'s device and refuses it until [reconnect] (ADR-0140 E). */
+    fun disconnect(session: Session) {
+        val connections = connections ?: return
+        viewModelScope.launch { connections.disconnect(session.hello) }
+    }
+
+    fun reconnect(device: DisconnectedDevice) {
+        val connections = connections ?: return
+        viewModelScope.launch { connections.reconnect(device.deviceId, device.appId) }
     }
 
     /** Picks request [id] of the shown session under no filter, loaded or not. */

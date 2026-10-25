@@ -132,6 +132,11 @@ device                         AppMonitorServer
   a forget either is closed after `HelloAck` or never gets one. An answered
   handshake found forgotten sends the 1008 itself before its handler
   returns, so Ktor's normal 1000 close never wins.
+  `DeviceApprovals.disconnect(hello)` refuses the pair at once, whatever its
+  answer and without a pending entry (connections still pending are
+  answered with a refusal it does not remember), until `reconnect(key)`;
+  `disconnected` lists the pairs with the `Hello` given, in memory only
+  (ADR-0144).
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty
@@ -373,6 +378,14 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   per row and "Forget all": a forgotten pair is asked again on its next
   `Hello`, and its open sessions are closed with 1008 when it was approved.
   A pending device is not in the device list until approved.
+  A connected session in the live list has "Disconnect" (ADR-0140 E,
+  ADR-0144): `ApprovalStore`, as `DeviceConnectionRepository`, refuses the
+  pair first and then closes its sessions with 1008; its next connections
+  are closed with 1008 with no dialog. Disconnected pairs are listed under
+  "Disconnected" below the devices, with "Reconnect", which lets the pair
+  in again as its answer says. Nothing of it is stored: a restart
+  reconnects every pair. The SDK keeps retrying with its backoff, as for a
+  rejected device.
   `make fake-traffic` against the app must be approved within its 10 s
   handshake wait the first time; its fixture `Hello` is always the same
   pair, so later runs are admitted with no dialog (DEBT-0028).

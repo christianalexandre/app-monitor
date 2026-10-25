@@ -65,6 +65,32 @@ class ApprovalStoreTest {
             }
         }
 
+    @Test
+    fun `a disconnected device is refused without a prompt until reconnected, and in memory only`() =
+        withDataDir { dir ->
+            launch(dir) { approvals, port, disconnected ->
+                val replaying = async(Dispatchers.IO) { runCatching { replay(Target(HOST, port)) } }
+                approvals.decide(approvals.pending.first { it.isNotEmpty() }.single(), approved = true)
+                assertTrue(replaying.await().isSuccess)
+
+                approvals.disconnect(hello)
+                assertEquals(listOf(key), disconnected)
+                assertEquals(listOf(hello.device_name), approvals.disconnected.first().map { it.hello.device_name })
+                val refused = runCatching { replay(Target(HOST, port)) }.exceptionOrNull()
+                assertTrue(refused?.message.orEmpty().contains("VIOLATED_POLICY"), "closed at once: $refused")
+                assertEquals(emptyList(), approvals.approvals.pending.value)
+                assertEquals(listOf(true), approvals.answered.first().map { it.approved })
+
+                approvals.reconnect(key.deviceId, key.appId)
+                replay(Target(HOST, port))
+                approvals.disconnect(hello)
+            }
+            launch(dir) { approvals, port, _ ->
+                assertEquals(emptyList(), approvals.disconnected.first())
+                replay(Target(HOST, port))
+            }
+        }
+
     /** One desktop launch on [dir]: store, answers and a real server, all closed after [block]. */
     private fun launch(
         dir: Path,
