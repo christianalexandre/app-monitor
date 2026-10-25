@@ -86,10 +86,13 @@ task too large for one PR is split at once.
   to other screens moved under the devices (no room at 1280 px); the URL
   is cut by a measured `MiddleEllipsisText`, since Compose Desktop draws
   `TextOverflow.MiddleEllipsis` at the end (ADR-0146).
-- [ ] **H3.6b Detail tabs.** Summary, Headers, Body, Timing, cURL, each
+- [x] **H3.6b Detail tabs.** Summary, Headers, Body, Timing, cURL, each
   with its copy action.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
-  each tab shows its part of a request and copies it.
+  each tab shows its part of a request and copies it. `Tabs` in the
+  design system after `MiboTabs`; the tab stays across picks; a body is
+  copied as the device sent it; Timing has start, end, duration and
+  frames only, the protocol carries no phase (ADR-0147).
 - [ ] **H3.6c Filter sheet.** Status class and host, as
   `app-network-monitor`'s sheet, replacing the toolbar's filter choices.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —

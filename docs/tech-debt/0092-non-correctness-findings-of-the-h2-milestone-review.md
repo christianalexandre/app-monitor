@@ -3,7 +3,7 @@ id: DEBT-0092
 title: Findings of the H2 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt`, `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt` or `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`"
+trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt` or `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`"
 paid_date:
 ---
 
@@ -73,6 +73,9 @@ newest one's note"). `Insights.kt` fired in the same PR and stays: the
 copy is how ADR-0135 keeps `desktop/domain` and `desktop/storage`
 independent (neither depends on the other), so `desktop/data`'s equality
 test is the guard; it leaves the trigger.
+
+`BodyFormat.kt` paid in PLAN-0013 H3.6b's PR (`feat/detail-tabs`): the
+three imports are gone (`make lint`, `./gradlew :desktop:feature:traffic:test`).
 
 ## How it was paid
 

@@ -1,0 +1,50 @@
+package appmonitor.desktop.feature.traffic
+
+import appmonitor.desktop.domain.CapturedBody
+import appmonitor.desktop.domain.ConnectionBytes
+import appmonitor.desktop.domain.HttpExchange
+import appmonitor.v1.Header
+import okio.ByteString.Companion.encodeUtf8
+import okio.ByteString.Companion.toByteString
+import java.time.ZoneOffset
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class DetailTabsTest {
+    private val exchange =
+        HttpExchange(
+            id = 1,
+            requestId = "req-1",
+            method = "POST",
+            url = "https://example.com/items",
+            requestHeaders = listOf(Header("Content-Type", "application/json"), Header("Accept", "*/*")),
+            requestBody = CapturedBody("{\"a\":1}".encodeUtf8()),
+            startedAtMs = 1_700_000_000_000,
+            statusCode = 201,
+            responseBody = CapturedBody(byteArrayOf(-1, -2).toByteString()),
+            endedAtMs = 1_700_000_000_042,
+        )
+
+    @Test
+    fun `each part is copied as its tab shows it`() {
+        assertEquals("https://example.com/items", textOf(exchange, DetailPart.Url))
+        assertEquals("Content-Type: application/json\nAccept: */*", textOf(exchange, DetailPart.RequestHeaders))
+        assertNull(textOf(exchange, DetailPart.ResponseHeaders))
+        assertEquals("{\"a\":1}", textOf(exchange, DetailPart.RequestBody))
+        assertTrue(textOf(exchange, DetailPart.ResponseBody)!!.startsWith("00000000  ff fe"))
+        assertEquals(
+            "Started: 2023-11-14 22:13:20.000\nEnded: 2023-11-14 22:13:20.042\nDuration: 42 ms",
+            textOf(exchange, DetailPart.Timing, ZoneOffset.UTC),
+        )
+    }
+
+    @Test
+    fun `a pending exchange's timing has only its start, a connection only summary and timing`() {
+        val pending = exchange.copy(endedAtMs = null)
+        assertEquals(listOf("Started" to "2023-11-14 22:13:20.000"), timingOf(pending, ZoneOffset.UTC))
+        assertEquals(DetailTab.entries, tabsOf(exchange))
+        assertEquals(listOf(DetailTab.Summary, DetailTab.Timing), tabsOf(exchange.copy(connection = ConnectionBytes(1, 2))))
+    }
+}

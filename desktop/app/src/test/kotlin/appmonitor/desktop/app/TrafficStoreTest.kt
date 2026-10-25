@@ -70,6 +70,7 @@ class TrafficStoreTest {
                     onNodeWithText("Android 16 · disconnected").assertExists()
                     awaitText(URL)
                     onNodeWithText(URL).performClick()
+                    showTab("Headers")
                     awaitText("Content-Type: application/json")
                     screenshot("reopen.png")
                 }

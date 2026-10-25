@@ -257,7 +257,7 @@ Details the table leaves out:
   request event stored: "exchange N has no request stored"; a connection
   (ADR-0104): "exchange N is a connection: it has no HTTP request to
   copy". Code:
-  `ToCurl.kt`; `ToCurl.command` is also the window's "Copy as cURL"
+  `ToCurl.kt`; `ToCurl.command` is also the window's cURL tab
   (`Exports`, ADR-0098).
 
 - **Issues** (`save_issue`, ADR-0095, ADR-0096): without `id` it creates

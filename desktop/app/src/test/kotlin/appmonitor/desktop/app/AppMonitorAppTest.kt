@@ -109,9 +109,11 @@ class AppMonitorAppTest {
                 onNodeWithText("failed").assertExists()
 
                 onNodeWithText(URL).performClick()
+                awaitText("Adapter layer", substring = true)
+                onAllNodesWithText(URL, substring = true).assertCountEquals(3)
+                showTab("Headers")
                 awaitText("Content-Type: application/json")
-                onAllNodesWithText(URL, substring = true).assertCountEquals(2)
-                onNodeWithText("Adapter layer", substring = true).assertExists()
+                showTab("Body")
                 awaitText("{\n    \"name\": \"café\"\n}")
                 awaitText("00000000  00 7f 80 ff", substring = true)
                 onNodeWithText("Truncated: 4 of 2097152 bytes shown").assertExists()
@@ -119,7 +121,9 @@ class AppMonitorAppTest {
 
                 onNodeWithText("req-0003").performClick()
                 awaitText("WebSocket frames (1)")
-                onNodeWithText("Unknown layer", substring = true).assertExists()
+                showTab("Summary")
+                awaitText("Unknown layer", substring = true)
+                showTab("Body")
                 onNodeWithText("↓ received · TEXT · 4 B").assertExists()
                 onNodeWithText("ping").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("ping").fetchSemanticsNodes().size == 2 }
@@ -155,6 +159,7 @@ class AppMonitorAppTest {
 
                 awaitText("wss://a.example/ws")
                 onNodeWithText("wss://a.example/ws").performClick()
+                showTab("Body")
                 awaitText("WebSocket frames (3)")
                 onNodeWithText("↑ sent · TEXT · 5 B · +10 ms").assertExists()
                 onNodeWithText("↓ received · TEXT · 4 of 11 B · +250 ms").assertExists()
@@ -197,6 +202,7 @@ class AppMonitorAppTest {
                     }
                 assertTrue(json.size in Protocol.MAX_BODY_BYTES - element.length..Protocol.MAX_BODY_BYTES, "body is ${json.size} bytes")
                 assertTrue(opened < 2.seconds, "opening the exchange blocked the UI thread for $opened")
+                showTab("Body")
                 awaitText("[\n    {\n        \"id\": 12345,", substring = true)
             }
         }
@@ -696,6 +702,7 @@ class AppMonitorAppTest {
 
                 awaitText("https://a.example/json")
                 onNodeWithText("https://a.example/json").performClick()
+                showTab("Body")
                 awaitText("{\n    \"a\": 1\n}")
 
                 onNodeWithText("https://a.example/text").performClick()
@@ -718,9 +725,13 @@ class AppMonitorAppTest {
 
                 awaitText("https://a.example/upload")
                 onNodeWithText("https://a.example/upload").performClick()
+                showTab("Headers")
+                awaitText("None")
+                onAllNodesWithText("None").assertCountEquals(2)
+                showTab("Body")
                 awaitText("Truncated: 0 bytes shown, original size unknown")
                 onAllNodesWithText("Truncated", substring = true).assertCountEquals(1)
-                onAllNodesWithText("None").assertCountEquals(3)
+                onAllNodesWithText("None").assertCountEquals(1)
             }
         }
 

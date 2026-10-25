@@ -122,11 +122,11 @@ fun TrafficScreen(
                             state.detail.exchange?.let {
                                 RequestDetail(
                                     it,
-                                    onCopyCurl = { viewModel.copyCurl { command -> clipboard.setText(AnnotatedString(command)) } },
-                                    state.detail.copyNote,
+                                    state.detail,
+                                    onTab = viewModel::selectTab,
+                                    onCopy = { part -> viewModel.copy(part) { text -> clipboard.setText(AnnotatedString(text)) } },
                                     onMock = { links.onMock(it) },
                                     onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
-                                    state.detail.replayNote,
                                     viewModel::showOriginal,
                                     viewModel::moreFrames,
                                 )

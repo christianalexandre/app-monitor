@@ -3,9 +3,12 @@ package appmonitor.desktop.feature.traffic
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -22,9 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Section
 import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.Tabs
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
@@ -42,11 +47,11 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun RequestDetail(
     exchange: HttpExchange,
-    onCopyCurl: () -> Unit,
-    copyNote: String?,
+    detail: DetailState,
+    onTab: (DetailTab) -> Unit,
+    onCopy: (DetailPart) -> Unit,
     onMock: () -> Unit,
     onReplay: (() -> Unit)?,
-    replayNote: String?,
     onShowOriginal: (Long) -> Unit,
     onMoreFrames: () -> Unit,
 ) {
@@ -54,80 +59,145 @@ internal fun RequestDetail(
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
     var openFrame by remember { mutableStateOf<Int?>(null) }
     val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
-    SelectionContainer {
-        LazyColumn(Modifier.fillMaxSize().padding(Spacing.lg)) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}",
-                        Modifier.weight(1f),
-                        role = TextRole.BodyStrong,
-                    )
-                    copyNote?.let { Text(it, role = TextRole.Caption) }
-                    if (exchange.connection == null) {
-                        if (exchange.url?.startsWith("ws") !=
-                            true
-                        ) {
-                            TextButton("Mock this", onClick = onMock, Modifier.testTag(MOCK_THIS))
-                            if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
-                                TextButton(replayLabelOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
-                            }
-                        }
-                        TextButton("Copy as cURL", onClick = onCopyCurl, Modifier.testTag(COPY_CURL))
-                    }
-                }
-                Text(
-                    listOfNotNull(
-                        "Status ${statusOf(exchange)}",
-                        exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
-                        layerOf(exchange.captureLayer),
-                        exchange.mockRuleId?.let { mockedBy(exchange) },
-                    ).joinToString(" · "),
-                    role = TextRole.Caption,
-                )
-                exchange.error?.let { Text(it, error = true) }
-                replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
-                exchange.replayOf?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val original = exchange.replayOfId
-                        Text(
-                            if (original != null) "Replay of an earlier request" else "Replay of a request no longer stored",
-                            role = TextRole.Caption,
-                        )
-                        if (original != null) {
-                            TextButton("Show original", onClick = { onShowOriginal(original) }, Modifier.testTag(SHOW_ORIGINAL))
-                        }
-                    }
-                }
+    val tabs = tabsOf(exchange)
+    val tab = detail.tab.takeIf { it in tabs } ?: DetailTab.Summary
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+            SelectionContainer(Modifier.weight(1f)) {
+                Text("${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}", role = TextRole.BodyStrong)
             }
-            exchange.connection?.let { bytes ->
-                item {
-                    Section("Connection") {
-                        Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
-                        Text("Metadata only: no headers or body are captured at this layer", role = TextRole.Caption)
-                    }
+            detail.copyNote?.let { Text(it, Modifier.testTag(COPY_NOTE), role = TextRole.Caption) }
+            if (exchange.connection == null && exchange.url?.startsWith("ws") != true) {
+                TextButton("Mock this", onClick = onMock, Modifier.testTag(MOCK_THIS))
+                if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
+                    TextButton(replayLabelOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
                 }
-                return@LazyColumn
-            }
-            item { Section("Request headers") { Headers(exchange.requestHeaders) } }
-            item { Section("Request body") {} }
-            body(requestBody)
-            item { Section("Response headers") { Headers(exchange.responseHeaders) } }
-            item { Section("Response body") {} }
-            body(responseBody)
-            if (exchange.frameCount > 0) {
-                item { Section("WebSocket frames (${exchange.frameCount})") {} }
-                exchange.frames.forEachIndexed { index, frame ->
-                    item {
-                        FrameRow(frame, exchange.startedAtMs, open = index == openFrame) {
-                            openFrame = if (index == openFrame) null else index
-                        }
-                    }
-                    if (index == openFrame && frameBody != null) body(frameBody)
-                }
-                if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
             }
         }
+        Tabs(tabs.map { it.label }, tabs.indexOf(tab), { onTab(tabs[it]) }, Modifier.padding(horizontal = Spacing.lg))
+        SelectionContainer(Modifier.weight(1f)) {
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.lg).padding(bottom = Spacing.lg)) {
+                when (tab) {
+                    DetailTab.Summary -> {
+                        summary(exchange, detail.replayNote, onCopy, onShowOriginal)
+                    }
+
+                    DetailTab.Headers -> {
+                        item {
+                            CopyHeading("Request headers", DetailPart.RequestHeaders, onCopy)
+                            Headers(exchange.requestHeaders)
+                            CopyHeading("Response headers", DetailPart.ResponseHeaders, onCopy)
+                            Headers(exchange.responseHeaders)
+                        }
+                    }
+
+                    DetailTab.Body -> {
+                        item { CopyHeading("Request body", DetailPart.RequestBody, onCopy) }
+                        body(requestBody)
+                        item { CopyHeading("Response body", DetailPart.ResponseBody, onCopy) }
+                        body(responseBody)
+                        frames(exchange, openFrame, frameBody, { openFrame = if (it == openFrame) null else it }, onMoreFrames)
+                    }
+
+                    DetailTab.Timing -> {
+                        item {
+                            CopyHeading("Timing", DetailPart.Timing, onCopy)
+                            timingOf(exchange).forEach { (name, value) ->
+                                Row {
+                                    Text(name, Modifier.width(96.dp), role = TextRole.Caption)
+                                    Text(value, role = TextRole.Code)
+                                }
+                            }
+                        }
+                    }
+
+                    DetailTab.Curl -> {
+                        item {
+                            CopyHeading("cURL", DetailPart.Curl, onCopy)
+                            val curl = detail.curl
+                            when {
+                                curl == null -> Placeholder("Loading…")
+                                curl.isSuccess -> Text(curl.getOrThrow(), Modifier.testTag(CURL), role = TextRole.Code)
+                                else -> Text(curl.exceptionOrNull()?.message.orEmpty(), role = TextRole.Caption)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.summary(
+    exchange: HttpExchange,
+    replayNote: String?,
+    onCopy: (DetailPart) -> Unit,
+    onShowOriginal: (Long) -> Unit,
+) {
+    item {
+        Spacer(Modifier.height(Spacing.md))
+        Text(
+            listOfNotNull(
+                "Status ${statusOf(exchange)}",
+                exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
+                layerOf(exchange.captureLayer),
+                exchange.mockRuleId?.let { mockedBy(exchange) },
+            ).joinToString(" · "),
+            role = TextRole.Caption,
+        )
+        exchange.error?.let { Text(it, error = true) }
+        replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
+        exchange.replayOf?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val original = exchange.replayOfId
+                Text(
+                    if (original != null) "Replay of an earlier request" else "Replay of a request no longer stored",
+                    role = TextRole.Caption,
+                )
+                if (original != null) {
+                    TextButton("Show original", onClick = { onShowOriginal(original) }, Modifier.testTag(SHOW_ORIGINAL))
+                }
+            }
+        }
+        exchange.url?.let {
+            CopyHeading("URL", DetailPart.Url, onCopy)
+            Text(it, role = TextRole.Code)
+        }
+        exchange.connection?.let { bytes ->
+            Section("Connection") {
+                Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
+                Text("Metadata only: no headers or body are captured at this layer", role = TextRole.Caption)
+            }
+        }
+    }
+}
+
+private fun LazyListScope.frames(
+    exchange: HttpExchange,
+    openFrame: Int?,
+    frameBody: BodyView?,
+    onFrame: (Int) -> Unit,
+    onMoreFrames: () -> Unit,
+) {
+    if (exchange.frameCount == 0L) return
+    item { Section("WebSocket frames (${exchange.frameCount})") {} }
+    exchange.frames.forEachIndexed { index, frame ->
+        item { FrameRow(frame, exchange.startedAtMs, open = index == openFrame) { onFrame(index) } }
+        if (index == openFrame && frameBody != null) body(frameBody)
+    }
+    if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
+}
+
+/** A tab's heading with the copy action of its [part]. */
+@Composable
+private fun CopyHeading(
+    title: String,
+    part: DetailPart,
+    onCopy: (DetailPart) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth().padding(top = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), role = TextRole.Heading)
+        TextButton("Copy", onClick = { onCopy(part) }, Modifier.testTag(COPY + part.name))
     }
 }
 

@@ -30,7 +30,12 @@ const val REPLAYED = "replayed-"
 
 const val MOCK_THIS = "mock-this"
 
-const val COPY_CURL = "copy-curl"
+// A detail copy action's tag is this prefix and its DetailPart's name.
+const val COPY = "copy-"
+
+const val COPY_NOTE = "copy-note"
+
+const val CURL = "curl"
 
 const val SEND_AGAIN = "send-again"
 

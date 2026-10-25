@@ -30,10 +30,11 @@ class GalleryTest {
     fun `every component renders in light and dark`() {
         listOf(false, true).forEach { dark ->
             var chosen: String? = null
+            var tab = 0
             runDesktopComposeUiTest(width = 1280, height = 960) {
                 setContent {
                     AppMonitorTheme(dark) {
-                        AppSurface { Gallery { chosen = it } }
+                        AppSurface { Gallery({ tab = it }) { chosen = it } }
                     }
                 }
                 TextRole.entries.forEach { onNodeWithText("Text in ${it.name}").assertExists() }
@@ -41,6 +42,8 @@ class GalleryTest {
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 assertEquals("POST", chosen)
+                onNodeWithText("Headers").performClick()
+                assertEquals(1, tab)
                 val corner = onRoot().captureToImage().toAwtImage().getRGB(1, 1) and 0xFFFFFF
                 assertEquals(if (dark) 0x121212 else 0xFFFFFF, corner, "the surface's color")
                 screenshot(if (dark) "gallery-dark.png" else "gallery-light.png")
@@ -50,7 +53,10 @@ class GalleryTest {
 }
 
 @Composable
-private fun Gallery(onChoose: (String?) -> Unit) {
+private fun Gallery(
+    onTab: (Int) -> Unit,
+    onChoose: (String?) -> Unit,
+) {
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(420.dp).padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PaneTitle("Pane title")
@@ -78,6 +84,7 @@ private fun Gallery(onChoose: (String?) -> Unit) {
                 TextButton("Record", onClick = {})
                 TextButton("Clear", onClick = {})
             }
+            Tabs(listOf("Summary", "Headers", "Body"), selected = 0, onSelect = onTab, Modifier.padding(horizontal = Spacing.lg))
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 BadgeTone.entries.forEach { Badge(it.name, it) }
             }
