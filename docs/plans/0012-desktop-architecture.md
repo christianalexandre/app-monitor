@@ -111,9 +111,14 @@ task that lands each module.
   CI failed once in `sdk/core`'s `MonitorClientTest`: a stand-in desktop
   restarted on the port of the one just stopped found it still bound;
   the stand-in now retries that bind for two seconds.
-- [ ] **H2.4b Issues.** The issue list, editor and "Save as issue"
+- [x] **H2.4b Issues.** (`refactor/desktop-issues-feature`) The issue
+  list, editor and "Save as issue"
   move to `desktop/feature/insights`, behind an `IssueRepository`.
   Accept: `IssuesUiTest` passes; `desktop/app` holds no `IssueList`.
+  Deviation: `statusOf` moved from the traffic feature to `desktop/ui`,
+  with `formatDateTime`, which the settings' answered devices show too.
+  Paid DEBT-0074's in-flight guard and single query in
+  `IssuesViewModel`.
 - [ ] **H2.4c Settings.** `desktop/feature/settings` (retention,
   approvals answered, MCP, proxy).
   Accept: their moved UI tests pass; `desktop/app` holds no screen;

@@ -4,6 +4,7 @@ import appmonitor.desktop.app.store.Replays
 import appmonitor.desktop.app.ui.StorageExports
 import appmonitor.desktop.data.benchmarkRepository
 import appmonitor.desktop.data.breakpointRepository
+import appmonitor.desktop.data.issueRepository
 import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.AskedReplayRepository
@@ -12,6 +13,7 @@ import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HarRepository
 import appmonitor.desktop.domain.HeldCallRepository
+import appmonitor.desktop.domain.IssueRepository
 import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.RunRepository
@@ -41,6 +43,7 @@ internal fun appModule(
         single<ExportRepository> { get<StorageExports>() }
         single<HarRepository> { get<StorageExports>() }
         single<BenchmarkRepository> { storage.benchmarkRepository() }
+        single<IssueRepository> { storage.issueRepository() }
         single<MockRepository> { storage.mockRepository() }
         single<BreakpointRepository> { storage.breakpointRepository() }
         if (replays != null) {

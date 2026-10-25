@@ -52,6 +52,7 @@ import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.domain.durationOf
 import appmonitor.desktop.ui.METHODS
 import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.statusOf
 import appmonitor.desktop.ui.titleOf
 import org.koin.compose.viewmodel.koinViewModel
 

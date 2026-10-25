@@ -1,5 +1,6 @@
 package appmonitor.desktop.ui
 
+import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.Run
 import appmonitor.v1.Header
 import okio.ByteString
@@ -23,6 +24,21 @@ fun titleOf(run: Run): String = run.name ?: formatRunStart(run.startedAtMs)
 fun formatRunStart(ms: Long): String = RUN_FORMAT.format(Instant.ofEpochMilli(ms))
 
 private val RUN_FORMAT = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH).withZone(ZoneId.systemDefault())
+
+/** A date and time as the issue list and the settings show it, in this machine's zone. */
+fun formatDateTime(ms: Long): String = DATE_FORMAT.format(Instant.ofEpochMilli(ms))
+
+private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())
+
+/** The status column of a request row. */
+fun statusOf(exchange: Exchange): String =
+    when {
+        exchange.failed -> "failed"
+        exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
+        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
+        exchange.statusCode != null -> exchange.statusCode.toString()
+        else -> "…"
+    }
 
 /** UTF-8 text of [body], or null when it is not valid UTF-8. */
 fun utf8OrNull(body: ByteString): String? =

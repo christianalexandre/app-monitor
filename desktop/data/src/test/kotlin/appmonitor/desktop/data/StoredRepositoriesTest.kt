@@ -6,6 +6,11 @@ import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.Durations
 import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.ExchangeFilter
+import appmonitor.desktop.domain.Issue
+import appmonitor.desktop.domain.IssueChange
+import appmonitor.desktop.domain.IssueSource
+import appmonitor.desktop.domain.IssueStatus
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
@@ -185,6 +190,59 @@ class StoredRepositoriesTest {
             breakpoints.delete(id)
             storage.flush()
             assertEquals(emptyList(), breakpoints.observeBreakpoints().first())
+        }
+
+    @Test
+    fun `issues are created, listed with their exchanges, edited and deleted through the repository`() =
+        withStorage { storage ->
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "POST", url = "https://api.example.com/cart")),
+                envelope(ResponseReceived(request_id = "r1", status_code = 500)),
+            )
+            val exchange =
+                storage
+                    .trafficRepository()
+                    .observeExchanges(ExchangeFilter())
+                    .first()
+                    .single()
+                    .id
+            val issues = storage.issueRepository()
+
+            val saved = issues.create(" Cart fails ", "500", listOf("flaky", "checkout"), listOf(exchange))
+            val id = (saved as IssueWrite.Saved).id
+            assertEquals(IssueWrite.UnknownExchanges(listOf(exchange + 1)), issues.create("Other", "", emptyList(), listOf(exchange + 1)))
+            val issue = issues.observeIssues().first().single()
+            assertEquals(
+                Issue(
+                    id,
+                    "Cart fails",
+                    "500",
+                    listOf("checkout", "flaky"),
+                    IssueStatus.OPEN,
+                    IssueSource.WINDOW,
+                    issue.createdAtMs,
+                    issue.updatedAtMs,
+                    1,
+                ),
+                issue,
+            )
+            assertEquals(listOf("checkout", "flaky"), issues.observeTags().first())
+            assertEquals(listOf("r1" to 500), issues.exchanges(id).map { it.requestId to it.statusCode })
+
+            assertEquals(IssueWrite.Saved(id), issues.update(id, IssueChange(status = IssueStatus.RESOLVED, tags = listOf("checkout"))))
+            assertEquals(
+                IssueStatus.RESOLVED to listOf("checkout"),
+                issues
+                    .observeIssues()
+                    .first()
+                    .single()
+                    .let { it.status to it.tags },
+            )
+            assertEquals(IssueWrite.UnknownIssue, issues.update(id + 1, IssueChange(note = "gone")))
+
+            issues.delete(id)
+            storage.flush()
+            assertEquals(emptyList(), issues.observeIssues().first())
         }
 }
 
