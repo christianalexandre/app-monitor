@@ -47,7 +47,7 @@ record of how the milestone was actually built once it is done.
 | [0009](0009-ios-deep-capture.md) | M8 | iOS deep capture | Done |
 | [0010](0010-interaction.md) | M9 | Interaction | Done |
 | [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
-| [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Active |
+| [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 
 ## Roadmap
 
