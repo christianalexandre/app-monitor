@@ -1,13 +1,17 @@
 # 12 — Interaction channel
 
 The `interaction` channel, where the desktop changes what an app's calls
-do (ADR-0110, ADR-0113): today the mock rules the desktop keeps and sends.
+do (ADR-0110, ADR-0113, ADR-0118): the mock rules and breakpoints the
+desktop keeps and sends, and the calls a breakpoint holds.
 Messages in `protocol/proto/appmonitor/v1/interaction.proto`; the rules
 in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 (`store/MockPush.kt`, started by `TrafficStore`); the outgoing queue in
 `desktop/server` (`DeviceSession.send`); the window's Mocks panel in
 `desktop/app` (`ui/Mocks.kt`, ADR-0114) and the `create_mock` tool in
-`desktop/mcp` (`Mocks.kt`, SDD 10). The Kotlin SDKs list the channel and
+`desktop/mcp` (`Mocks.kt`, SDD 10). Breakpoints in `desktop/storage`
+(`Breakpoints.kt`, `Breakpoint.sq`), their push in `desktop/app`
+(`store/BreakpointPush.kt`) and the held calls in `store/HeldCalls.kt`;
+no window and no SDK holds a call yet (PLAN-0010). The Kotlin SDKs list the channel and
 serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
 (SDD 06, 07, ADR-0117).
 
@@ -21,14 +25,19 @@ serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
   refused (`false`) on a channel not in `HelloAck` or once the session
   closed. The server writes the queue in order, only after `HelloAck`,
   so an envelope queued as the session is published still comes second.
-- The headless server (`make server`) accepts the channel and sends
-  nothing on it.
+- The headless server (`make server`) accepts the channel and sends on it
+  only `--mocks FILE`'s rules; a call its device holds goes on at its
+  timeout.
 
-### Messages, desktop to device
+### Messages
 
-| Type | Payload | When |
-| --- | --- | --- |
-| `MockRules` | every active rule of the device's app, in match order | right after `HelloAck`, even empty; again each time that list changes |
+| Type | Way | Payload | When |
+| --- | --- | --- | --- |
+| `MockRules` | desktop → device | every active rule of the device's app, in match order | right after `HelloAck`, even empty; again each time that list changes |
+| `BreakpointRules` | desktop → device | every enabled breakpoint of the device's app, in match order | as `MockRules`, independently of it: the two come in no set order |
+| `BreakpointHit` | device → desktop | `rule_id`, `stage` (request or response), `request` (a `RequestStarted`), `response` (a `ResponseReceived`, response stage only), `timeout_ms` | a call waits at a breakpoint |
+| `BreakpointResume` | desktop → device | `request_id`, `stage`, and only what changed: `method`, `url`, `status_code`, `body` (each absent when unchanged), `set_headers`, `removed_headers` | the developer lets the call go on |
+| `BreakpointAbort` | desktop → device | `request_id`, `stage`, `message` | the developer fails the call, as a `MockFailure` |
 
 A `MockRule` carries the desktop's `id`, `method` (empty: any), `host`
 (ignoring case), `path` (segment by segment, `*` one segment, the query
@@ -36,6 +45,16 @@ not matched), `delay_ms`, and one of `response` (status, headers, body)
 or `failure` (a message). Each `MockRules` replaces the one before it.
 The fixture is `protocol/fixtures/mock_rules.bin`, mirrored in
 `sdk/ios/Tests/AppMonitorTests/Samples.swift`.
+
+A `BreakpointRule` carries `id`, `method`, `host` and `path` matched as a
+`MockRule`'s, `request` and `response` (what it holds, at least one) and
+`timeout_ms`. A held call is named by its request id and stage (ADR-0118
+B.1). In a resume, every header of a name in `set_headers` is replaced by
+that list's headers of the name, and every header named in
+`removed_headers` (ignoring case) goes; a header left alone, a masked
+`██` one included, is in neither and keeps the device's value (ADR-0111
+C.1). The fixtures are `protocol/fixtures/breakpoint_rules.bin`,
+`breakpoint_hit.bin`, `breakpoint_resume.bin` and `breakpoint_abort.bin`.
 
 ### Rules on the desktop
 
@@ -54,6 +73,35 @@ The fixture is `protocol/fixtures/mock_rules.bin`, mirrored in
 - `observeActiveMocks(appId)` emits the active list, then again only when
   it changes: a rename, another app's rule or a pending one sends
   nothing.
+
+### Breakpoints on the desktop
+
+- Kept per app id in `breakpoint_rules` (SDD 09), in match order, a new
+  one last and on, ids never reused. No pending state: breakpoints are
+  made in the window only (ADR-0111 E.1).
+- `Storage.createBreakpoint(appId, name, rule)`, `updateBreakpoint(id,
+  change)` (name, enabled, rule), `deleteBreakpoint(id)`, `breakpoints()`,
+  `observeBreakpoints()` and `observeActiveBreakpoints(appId)`, which
+  emits the enabled list again only when it changes; writes return a
+  `BreakpointWrite`.
+- Refused at the call: a blank name or host, a path not starting with
+  `/`, neither `request` nor `response`, a timeout outside 1 ms to
+  `MAX_BREAKPOINT_TIMEOUT_MS` (10 minutes, ADR-0118 E.1).
+- "Clear all data" deletes every breakpoint.
+
+### Held calls
+
+`TrafficStore.heldCalls` (`HeldCalls`) holds, in memory, each well-formed
+`BreakpointHit` a session sends: a request id, a known stage, and a
+response at the response stage. A newer hit for the same request and stage
+replaces the older one. The envelope is still stored raw (SDD 09).
+
+| Event | What `HeldCalls` does |
+| --- | --- |
+| `resume(call, edit)` | sends `resumeOf(call, edit)`: the fields of `edit` that differ from `call.unedited` (method and URL at the request stage, status at the response stage, headers by name, the body); false once the call is gone. A body over `Protocol.MAX_BODY_BYTES` is refused |
+| `abort(call, message)` | sends `BreakpointAbort`; false once the call is gone |
+| the hit's `timeout_ms` passes, from its arrival | drops the call: the device went on unchanged |
+| the session ends | drops every call of it |
 
 ### Who writes rules
 
@@ -143,6 +191,10 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | A mocked exchange stored with its rule, marked in the list, named in the detail and `get_request` | `MockedExchangeTest` in `desktop/storage`, `MockedExchangeUiTest` (`mocked.png`), `GetRequestTest` |
 | The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `desktop/server` |
 | A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |
+| The breakpoint messages round-trip, fixture bytes match on Kotlin and Swift; an absent resume field kept apart from an empty one | `RoundTripTest.breakpointMessages`, `RoundTripTest.aResumeKeepsAnUnchangedFieldApartFromAnEmptyOne`, `FixtureTest`, Swift `FixtureTests` |
+| Breakpoints per app in order, enabled only, a new list only on a change, kept, cleared, refused | `BreakpointsTest` in `desktop/storage` |
+| A stand-in device gets its breakpoints after `HelloAck` and on a change; its hit held, resumed with only the changed fields (the masked header not sent back), aborted, let go at its timeout and when its session ends; a malformed hit not held | `HeldCallsTest` in `desktop/app`, against a real server |
+| A response resume's headers set and removed by name; a truncated body left alone not sent | `HeldCallsTest` |
 
 ## Limits
 
@@ -150,3 +202,6 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
+- No window shows a held call or a breakpoint yet, and no SDK holds a
+  call: both read `BreakpointRules` as an envelope they drop (PLAN-0010
+  M9.8, M9.10, M9.11).

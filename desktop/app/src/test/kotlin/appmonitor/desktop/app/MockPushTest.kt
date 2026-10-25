@@ -46,7 +46,7 @@ class MockPushTest {
                         listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
                         HelloAck.ADAPTER.decode(receiveEnvelope().payload).channels,
                     )
-                    val first = receiveEnvelope()
+                    val first = nextMockRules()
                     assertEquals(Protocol.CHANNEL_INTERACTION to "MockRules", first.channel to first.type)
                     assertEquals(
                         listOf(unavailable.copy(id = window)),
@@ -58,7 +58,7 @@ class MockPushTest {
                     assertEquals(
                         listOf(window, agent),
                         MockRules.ADAPTER
-                            .decode(receiveEnvelope().payload)
+                            .decode(nextMockRules().payload)
                             .rules
                             .map { it.id },
                     )
@@ -124,6 +124,14 @@ class MockPushTest {
                 send(Frame.Binary(true, Envelope(Protocol.CHANNEL_CORE, "Hello", hello.encodeByteString(), 1).encode()))
                 block()
             }
+        }
+    }
+
+    // Breakpoints are pushed beside the rules, in no set order (ADR-0118).
+    private suspend fun DefaultClientWebSocketSession.nextMockRules(): Envelope {
+        while (true) {
+            val envelope = receiveEnvelope()
+            if (envelope.type != "BreakpointRules") return envelope
         }
     }
 

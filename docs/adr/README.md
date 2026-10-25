@@ -135,3 +135,4 @@ Rules:
 | [0115](0115-mocks-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep, match and serve mock rules | Accepted |
 | [0116](0116-mocked-exchanges-in-the-desktop.md) | How the desktop keeps and shows a mocked exchange, and the headless server's rules | Accepted |
 | [0117](0117-mocks-in-the-ios-sdk.md) | How the iOS SDK keeps, matches and serves mock rules | Accepted |
+| [0118](0118-breakpoint-messages-and-held-calls.md) | Breakpoints as their own rule set; a held call named by its request and stage | Accepted |

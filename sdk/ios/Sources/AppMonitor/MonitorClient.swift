@@ -306,7 +306,7 @@ final class MonitorClient: @unchecked Sendable {
         pump()
     }
 
-    /// After `HelloAck` the desktop sends only `MockRules`; anything else is dropped.
+    /// After `HelloAck` only `MockRules` is read; anything else, `BreakpointRules` included, is dropped.
     private func read(_ data: Data?) {
         guard let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data),
             envelope.channel == ProtocolConstants.channelInteraction, envelope.type == "MockRules",

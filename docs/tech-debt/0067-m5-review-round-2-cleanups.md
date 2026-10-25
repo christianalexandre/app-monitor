@@ -67,6 +67,10 @@ change is one line (a mock write's outcome cleared, as M7.2's issues)
 and whose `StorageOpenTest` change is the expected table list. The
 rollback, allocation, idle-pass cleanup and `/tmp` test are unchanged.
 
+Fired by PLAN-0010 M9.7 (`feat/breakpoint-channel`), the same way: one
+rollback line (a breakpoint write's outcome cleared) and the expected
+table list. The code these findings name is unchanged.
+
 ## How it was paid
 
 > Filled when closing.

@@ -74,6 +74,7 @@ class MockedExchangeTest {
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
                     it.execute("ALTER TABLE exchanges DROP COLUMN mock_rule_id")
+                    it.execute("DROP TABLE breakpoint_rules")
                     it.execute("PRAGMA user_version = 4")
                 }
             }
@@ -85,7 +86,7 @@ class MockedExchangeTest {
                 assertEquals(7L, storage.searchExchanges(ExchangeFilter()).single().mockRuleId)
                 storage.close(5.seconds)
             }
-            assertEquals(5, dir.queryLong("PRAGMA user_version"))
+            assertEquals(6, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

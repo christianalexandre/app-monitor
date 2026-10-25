@@ -9,6 +9,7 @@ import appmonitor.desktop.storage.db.AppMonitorDatabase
 import appmonitor.desktop.storage.db.OfRun
 import appmonitor.desktop.storage.db.Prunable
 import appmonitor.desktop.storage.db.Sessions
+import appmonitor.v1.BreakpointRule
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
@@ -132,6 +133,7 @@ class Storage private constructor(
             if (it is StorageItem.NewRun) it.done.complete(ingest.currentRun)
             if (it is StorageItem.SaveIssue) it.done.complete(it.outcome ?: IssueWrite.NotSaved)
             if (it is StorageItem.SaveMock) it.done.complete(it.outcome ?: MockWrite.NotSaved)
+            if (it is StorageItem.SaveBreakpoint) it.done.complete(it.outcome ?: BreakpointWrite.NotSaved)
         }
     }
 
@@ -284,6 +286,37 @@ class Storage private constructor(
     /** Queues deleting rule [id]. */
     suspend fun deleteMock(id: Long) {
         queue.enqueue(StorageItem.DeleteMock(id))
+    }
+
+    /** Queues a breakpoint for [appId], last in its match order and on (ADR-0118). */
+    suspend fun createBreakpoint(
+        appId: String,
+        name: String,
+        rule: BreakpointRule,
+    ): BreakpointWrite {
+        require(name.isNotBlank()) { "A breakpoint needs a name" }
+        requireValid(rule)
+        return saveBreakpoint(StorageItem.SaveBreakpoint(null, appId, BreakpointChange(name.trim(), rule = rule), clock()))
+    }
+
+    /** Queues [change] to breakpoint [id]. */
+    suspend fun updateBreakpoint(
+        id: Long,
+        change: BreakpointChange,
+    ): BreakpointWrite {
+        require(change.name == null || change.name.isNotBlank()) { "A breakpoint needs a name" }
+        change.rule?.let(::requireValid)
+        return saveBreakpoint(StorageItem.SaveBreakpoint(id, null, change.copy(name = change.name?.trim()), clock()))
+    }
+
+    private suspend fun saveBreakpoint(item: StorageItem.SaveBreakpoint): BreakpointWrite {
+        if (!queue.enqueue(item)) return BreakpointWrite.NotSaved
+        return item.done.await()
+    }
+
+    /** Queues deleting breakpoint [id]. */
+    suspend fun deleteBreakpoint(id: Long) {
+        queue.enqueue(StorageItem.DeleteBreakpoint(id))
     }
 
     /** Queues [settings], then applies them at once. */
@@ -519,6 +552,20 @@ class Storage private constructor(
     /** The rules a device of [appId] is sent, in match order (ADR-0113); a new list only when it changes. */
     fun observeActiveMocks(appId: String): Flow<List<MockRule>> =
         observe(database.mockQueries.activeOf(appId) { id, rule -> MockRule.ADAPTER.decode(rule).copy(id = id) }).distinctUntilChanged()
+
+    /** Every breakpoint, by app id, then in match order. */
+    suspend fun breakpoints(): List<StoredBreakpoint> = read(emptyList()) { breakpointQueries.all().executeAsList().map { it.toStored() } }
+
+    /** [breakpoints], again after each commit that changes one. */
+    fun observeBreakpoints(): Flow<List<StoredBreakpoint>> =
+        observe(database.breakpointQueries.all()).map { rows ->
+            rows.map { it.toStored() }
+        }
+
+    /** The breakpoints a device of [appId] is sent, in match order (ADR-0118); a new list only when it changes. */
+    fun observeActiveBreakpoints(appId: String): Flow<List<BreakpointRule>> =
+        observe(database.breakpointQueries.activeOf(appId) { id, rule -> BreakpointRule.ADAPTER.decode(rule).copy(id = id) })
+            .distinctUntilChanged()
 
     /** Every stored answer, oldest first. */
     suspend fun approvals(): List<StoredApproval> = read(emptyList()) { approvalQueries.all(::StoredApproval).executeAsList() }
