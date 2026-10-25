@@ -225,7 +225,7 @@ the closed driver.
   Accept: `./gradlew :desktop:storage:test` with two lost disconnects,
   one failing on every write: the other is stored as disconnected and
   leaves `notSaved`.
-- [ ] **M5.R10 Reads and observed queries race `Storage.close`.**
+- [x] **M5.R10 Reads and observed queries race `Storage.close`.** (`fix/guard-reads-against-close`; the observed-queries test timed out on the old code, passes after; reads after close return an empty list or null rather than throwing, so the app's `produceState` and `ApprovalStore` callers need no change)
   `read` and the `observe*` flows query on `Dispatchers.IO` with no
   closing guard, while `close` closes the driver on the writer thread:
   on a stop hook (SIGTERM) with the window open, the `EndRun` commit

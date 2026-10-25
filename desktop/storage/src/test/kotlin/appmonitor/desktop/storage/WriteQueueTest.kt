@@ -3,9 +3,11 @@ package appmonitor.desktop.storage
 import app.cash.sqldelight.Query
 import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -349,5 +351,54 @@ class WriteQueueTest {
             }
             assertEquals(3, dir.queryLong("SELECT count(*) FROM exchanges"), "not cleared")
             assertEquals(0, dir.queryLong("SELECT count(*) FROM settings"), "dropped with the queue")
+        }
+
+    @Test
+    fun aReadInFlightKeepsTheDriverOpenUntilItReturns() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            runBlocking {
+                val entered = CountDownLatch(1)
+                val release = CountDownLatch(1)
+                val read =
+                    async(Dispatchers.IO) {
+                        storage.readOrNull {
+                            entered.countDown()
+                            release.await()
+                            storage.pragma("page_count")
+                        }
+                    }
+                assertTrue(entered.await(5, TimeUnit.SECONDS))
+                val closing = async { storage.close(10.seconds) }
+                delay(300)
+                assertFalse(closing.isCompleted, "the driver waits for the read")
+                release.countDown()
+                withTimeout(5.seconds) {
+                    assertNotNull(read.await(), "queried an open driver")
+                    closing.await()
+                }
+                assertEquals(emptyList(), storage.runs(), "a read after close returns nothing")
+                assertNull(storage.exchange(1))
+            }
+        }
+
+    @Test
+    fun observedQueriesEndWhenTheStoreCloses() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.flush()
+                val sessions = async { storage.observeSessions().toList() }
+                val runs = async { storage.observeRuns().toList() }
+                storage.observeSessions().first { it.isNotEmpty() }
+                storage.disconnected("s1")
+                storage.close(5.seconds)
+                withTimeout(5.seconds) {
+                    assertTrue(sessions.await().isNotEmpty(), "ended without an exception")
+                    assertTrue(runs.await().isNotEmpty())
+                }
+                assertEquals(emptyList(), storage.observeSessions().toList(), "a flow collected after close ends at once")
+            }
         }
 }

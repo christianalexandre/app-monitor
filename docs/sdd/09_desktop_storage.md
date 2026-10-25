@@ -163,7 +163,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   may be after `close` returned. A `flush` or `newRun` after `close`
   returns at once. Once `close` starts, `clearAll`, `applyRetention` and
   `setRetention` do nothing and return, a call already queued on the writer
-  thread included, so none touches a closed database.
+  thread included, so none touches a closed database. Reads and observed
+  queries stop too: a read returns nothing (an empty list, a null
+  exchange), an observed flow ends at the next commit or before, and the
+  database closes only once every read in flight has returned.
 
 ### Retention
 
@@ -267,6 +270,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | `flush`, `newRun`, `clearAll`, `applyRetention` and `setRetention` after close return | `WriteQueueTest.callsAfterCloseReturn` |
 | A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
 | Retention and clear calls queued on the writer during a timed out close do nothing and return | `WriteQueueTest.callsQueuedOnTheWriterDuringATimedOutCloseDoNothing` |
+| A read in flight keeps the database open until it returns, reads after close return nothing, observed queries end without an exception | `WriteQueueTest.aReadInFlightKeepsTheDriverOpenUntilItReturns`, `WriteQueueTest.observedQueriesEndWhenTheStoreCloses` (M5.R10) |
 | Data directory per OS and its override | `DataDirectoryTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
