@@ -32,7 +32,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   Findings committed in `docs/plans/` as `H1.R*` tasks or one DEBT.
   Accept: the findings list in the PR, each with its failure scenario,
   triaged by the ADR-0094 bar.
-- [x] **H1.2 Ktor on OkHttp is captured once.** (`fix/ktor-on-okhttp-captured-once`) DEBT-0087: the Ktor plugin
+- [x] **H1.2 Ktor on OkHttp is captured once.** (#255) DEBT-0087: the Ktor plugin
   marks its request on Android too, and `AppMonitorInterceptor` skips a
   marked request.
   Accept: `./gradlew :sdk:ktor:allTests :sdk:android-okhttp:allTests` — a
