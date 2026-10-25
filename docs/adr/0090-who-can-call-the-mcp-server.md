@@ -1,7 +1,7 @@
 ---
 id: ADR-0090
 title: Who can call the MCP server, on which port, and whether it is on by default
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -103,7 +103,11 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (`Host` and `Origin` must be
+loopback names), B.2 (a bearer token, shown in a ready-to-paste
+`claude mcp add` command in the settings), C.1 (on when the app starts,
+with a switch to turn it off) and D.1 (fixed port `47475`, path `/mcp`,
+`APPMONITOR_MCP_PORT` overrides it).
 
 ## Consequences
 

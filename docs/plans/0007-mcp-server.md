@@ -29,7 +29,7 @@ MCP SDK's version, licence and Ktor needs) are written down with their
 evidence before the code; `make debt-check` decides how each fired DEBT is
 handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
 
-- [!] **M6.1 MCP exposure decisions.** (`docs/mcp-exposure-decisions`: ADR-0089, ADR-0090, ADR-0091 `Proposed`, waiting for the owner) `Proposed` ADRs, one stop: (a) what
+- [x] **M6.1 MCP exposure decisions.** ADR-0089, ADR-0090, ADR-0091 `Accepted`. `Proposed` ADRs, one stop: (a) what
   the tools return — headers, URLs, bodies and frames as stored (masked on
   the device unless `masking = false`, ADR-0034, ADR-0081), size caps on a
   returned body, binary bodies; (b) who can call it — bound to

@@ -1,7 +1,7 @@
 ---
 id: ADR-0089
 title: What the MCP tools return, and how bodies are capped
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -92,7 +92,10 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted every recommendation: A.1 (headers, URLs, bodies and
+frames as stored, no desktop-side masking), B.1 (a cap per body with
+paging, lists without bodies or headers) and C.1 (UTF-8 as text, anything
+else as base64).
 
 ## Consequences
 

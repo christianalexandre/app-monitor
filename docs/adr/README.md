@@ -106,6 +106,6 @@ Rules:
 | [0086](0086-storage-open-and-write-details.md) | How the store prepares a new file, stores booleans and counts lost writes | Accepted |
 | [0087](0087-exchange-search-queries.md) | Exchange search is one WHERE built from the filters that are set | Accepted |
 | [0088](0088-retention-pass-and-clear-all.md) | Retention measures live pages, deletes in chunks on the writer thread, and "Clear all data" empties the file in place | Accepted |
-| [0089](0089-what-the-mcp-tools-return.md) | What the MCP tools return, and how bodies are capped | Proposed |
-| [0090](0090-who-can-call-the-mcp-server.md) | Who can call the MCP server, on which port, and whether it is on by default | Proposed |
-| [0091](0091-which-mcp-clients-and-setup-docs.md) | Which MCP clients the desktop serves, and what the setup docs cover | Proposed |
+| [0089](0089-what-the-mcp-tools-return.md) | What the MCP tools return, and how bodies are capped | Accepted |
+| [0090](0090-who-can-call-the-mcp-server.md) | Who can call the MCP server, on which port, and whether it is on by default | Accepted |
+| [0091](0091-which-mcp-clients-and-setup-docs.md) | Which MCP clients the desktop serves, and what the setup docs cover | Accepted |

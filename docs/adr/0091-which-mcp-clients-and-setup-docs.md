@@ -1,7 +1,7 @@
 ---
 id: ADR-0091
 title: Which MCP clients the desktop serves, and what the setup docs cover
-status: Proposed
+status: Accepted
 date: 2026-10-24
 superseded_by:
 ---
@@ -62,7 +62,10 @@ uses cannot speak HTTP or run `mcp-remote`.
 
 ## Decision
 
-Empty while `Proposed`.
+The owner accepted the recommendation: option 1, Streamable HTTP only,
+with setup docs for Claude Code, any HTTP client and the MCP Inspector,
+and a pointer to `mcp-remote` for stdio-only clients. A shim of our own is
+DEBT-0069.
 
 ## Consequences
 
