@@ -73,6 +73,12 @@ always stop. Only the owner adds to this list:
 - **Short setup.** A few copy-paste steps, each documented: dependency,
   Gradle block, Run Script, import, start. An option that removes or
   shortens a step qualifies; one that adds a step does not.
+- **Desktop architecture follows known references.** A choice about the
+  desktop's layers, modules, design system, view models, injection or
+  navigation (ADR-0133) follows how Google's `nowinandroid`
+  (github.com/android/nowinandroid) or the owner's `mibo-smart-app`
+  (`~/Documents/mibo-smart-app`, `core/ui/designsystem`, its
+  `docs/guidelines/`) does it; the ADR cites which, with the file read.
 
 ## The loop
 
