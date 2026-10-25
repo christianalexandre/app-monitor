@@ -80,6 +80,13 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    data class SetSetting(
+        val key: String,
+        val value: String,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     /** Completed once the batch holding it is committed or counted as lost. */
     class Barrier : StorageItem {
         val done = CompletableDeferred<Unit>()
@@ -216,6 +223,10 @@ internal class Ingest(
             is StorageItem.SetRetention -> {
                 database.putRetentionSettings(item.settings)
                 retention = item.settings
+            }
+
+            is StorageItem.SetSetting -> {
+                database.settingQueries.put(item.key, item.value)
             }
 
             is StorageItem.Barrier -> {

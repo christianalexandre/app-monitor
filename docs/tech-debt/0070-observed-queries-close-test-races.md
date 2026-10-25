@@ -1,10 +1,10 @@
 ---
 id: DEBT-0070
 title: The observed queries close test can close before its collectors read
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: "The first PR that touches `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/WriteQueueTest.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, or the test failing on CI a second time"
-paid_date:
+paid_date: 2026-10-24
 ---
 
 # DEBT-0070 — The observed queries close test can close before its collectors read
@@ -35,4 +35,5 @@ first list before `close`.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0007 M6.3: the test waits, with a timeout, for each collector's first
+list before it closes the store.

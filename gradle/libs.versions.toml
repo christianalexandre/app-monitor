@@ -19,6 +19,7 @@ okhttp = "5.3.2" # ADR-0025: 5.4+ forces compileSdk 36+ on apps
 androidx-compose-bom = "2026.06.01" # Compose 1.11; 2026.08+ (Compose 1.12) forces compileSdk 37
 androidx-activity = "1.13.0"
 sqldelight = "2.4.1" # ADR-0085
+mcp-kotlin-sdk = "0.15.0" # ADR-0092
 
 [libraries]
 # Gradle plugins, consumed by build-logic convention plugins
@@ -55,3 +56,5 @@ compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-sqlite-dialect = { module = "app.cash.sqldelight:sqlite-3-44-dialect", version.ref = "sqldelight" }
+mcp-kotlin-sdk-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp-kotlin-sdk" }
+mcp-kotlin-sdk-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp-kotlin-sdk" }

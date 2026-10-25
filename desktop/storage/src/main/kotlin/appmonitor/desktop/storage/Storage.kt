@@ -6,10 +6,12 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import appmonitor.desktop.storage.db.AppMonitorDatabase
+import appmonitor.desktop.storage.db.OfRun
 import appmonitor.desktop.storage.db.Sessions
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
+import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
@@ -97,6 +99,9 @@ class Storage private constructor(
     private var clears = 0L
 
     private val closing = MutableStateFlow(false)
+
+    /** True once [close] started: reads then answer empty, which is not "nothing stored". */
+    val isClosing: Boolean get() = closing.value
 
     // Reads hold it shared, close takes it to close the driver: never under a read in flight.
     private val driverLock = ReentrantReadWriteLock()
@@ -211,11 +216,20 @@ class Storage private constructor(
         applyRetention()
     }
 
+    /** The stored value of a `settings` key other than retention's (SDD 09); null when unset or the store is closing. */
+    suspend fun setting(key: String): String? = read(null) { settingQueries.valueOf(key).executeAsOneOrNull() }
+
+    /** Queues writing a `settings` key; [clearAll] deletes it with the rest. */
+    suspend fun setSetting(
+        key: String,
+        value: String,
+    ) {
+        queue.enqueue(StorageItem.SetSetting(key, value))
+    }
+
     /**
-     * Deletes ended sessions outside named runs, oldest last envelope first: older than the age bound, then while the
-     * file passes the size bound, until it is under 90 % of it (ADR-0082). Runs on the writer thread between batches,
-     * one transaction per chunk; a failure is kept in [retentionStatus], not thrown. Once the store is closing it returns
-     * the last status.
+     * Deletes ended sessions outside named runs, oldest first, past the age bound, then down to 90 % of the size bound
+     * (ADR-0082), on the writer thread between batches; failures go to [retentionStatus]. Closing: the last status.
      */
     suspend fun applyRetention(): RetentionStatus =
         whileOpen {
@@ -271,9 +285,8 @@ class Storage private constructor(
         } ?: mutableRetentionStatus.value
 
     /**
-     * Deletes everything, named runs, approvals and settings included, rewrites the file and opens a new run (ADR-0082
-     * D.1, ADR-0088). Connected sessions are forgotten, so close them first; what they send next is dropped. A failure
-     * is kept in [retentionStatus], not thrown; nothing is done once the store is closing.
+     * Deletes everything, settings included, rewrites the file and opens a new run (ADR-0088). Connected sessions are
+     * forgotten: close them first. Failures go to [retentionStatus]; nothing is done once the store is closing.
      */
     suspend fun clearAll() {
         flush()
@@ -348,6 +361,37 @@ class Storage private constructor(
 
     suspend fun runs(): List<StoredRun> = read(emptyList()) { runQueries.all(::StoredRun).executeAsList() }
 
+    /**
+     * A page of runs, newest first, each with its sessions and exchange count, in one transaction; the next page passes
+     * the last run's id as [beforeId].
+     */
+    suspend fun runSummaries(
+        beforeId: Long = Long.MAX_VALUE,
+        limit: Long = PAGE_SIZE,
+    ): List<RunSummary> =
+        read(emptyList()) {
+            runQueries.pageNewestFirst(beforeId, limit, ::StoredRun).executeAsList().map { run ->
+                RunSummary(
+                    run = run,
+                    exchangeCount = exchangeQueries.countOfRun(run.id).executeAsOne(),
+                    sessions =
+                        sessionQueries.ofRun(run.id).executeAsList().map {
+                            SessionSummary(
+                                session =
+                                    it.toStored(),
+                                deviceId = it.device_id,
+                                deviceName = it.device_name,
+                                platform = Platform.fromValue(it.platform.toInt()) ?: Platform.PLATFORM_UNSPECIFIED,
+                                osVersion = it.os_version,
+                                appId = it.app_id,
+                                appVersion = it.app_version,
+                                sdkName = it.sdk_name,
+                            )
+                        },
+                )
+            }
+        }
+
     /** Every run, newest first, again after each commit that changes one. */
     fun observeRuns(): Flow<List<StoredRun>> = observe(database.runQueries.newestFirst(::StoredRun))
 
@@ -384,20 +428,7 @@ class Storage private constructor(
     internal fun searchPlan(filter: ExchangeFilter): List<String> = SearchQuery(driver, filter, 0, PAGE_SIZE).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =
-        read(emptyList()) {
-            sessionQueries.ofRun(runId).executeAsList().map {
-                StoredSession(
-                    id = it.id,
-                    runId = it.run_id,
-                    serverSessionId = it.server_session_id,
-                    hello = Hello.ADAPTER.decode(it.hello),
-                    peerAddress = it.peer_address,
-                    connectedAtMs = it.connected_at_ms,
-                    disconnectedAtMs = it.disconnected_at_ms,
-                    lastEnvelopeAtMs = it.last_envelope_at_ms,
-                )
-            }
-        }
+        read(emptyList()) { sessionQueries.ofRun(runId).executeAsList().map { it.toStored() } }
 
     /** A page of a run's exchanges in arrival order; the next page passes the last [StoredExchange.id] as [afterId]. */
     suspend fun exchangesOfRun(
@@ -624,6 +655,18 @@ private fun Sessions.toStored() =
         lastEnvelopeAtMs = last_envelope_at_ms,
     )
 
+private fun OfRun.toStored() =
+    StoredSession(
+        id = id,
+        runId = run_id,
+        serverSessionId = server_session_id,
+        hello = Hello.ADAPTER.decode(hello),
+        peerAddress = peer_address,
+        connectedAtMs = connected_at_ms,
+        disconnectedAtMs = disconnected_at_ms,
+        lastEnvelopeAtMs = last_envelope_at_ms,
+    )
+
 /** `appmonitor.db` was written by a newer App Monitor; nothing was written to it. */
 class NewerDatabaseException(
     val found: Long,
@@ -635,6 +678,24 @@ data class StoredRun(
     val name: String?,
     val startedAtMs: Long,
     val endedAtMs: Long?,
+)
+
+data class RunSummary(
+    val run: StoredRun,
+    val exchangeCount: Long,
+    val sessions: List<SessionSummary>,
+)
+
+/** A session with its device and app as the `devices` and `apps` rows hold them: the last `Hello` seen. */
+data class SessionSummary(
+    val session: StoredSession,
+    val deviceId: String,
+    val deviceName: String,
+    val platform: Platform,
+    val osVersion: String,
+    val appId: String,
+    val appVersion: String,
+    val sdkName: String,
 )
 
 /** One answered (`device_id`, `app_id`) pair, with the device as its last `Hello` described it (ADR-0083). */

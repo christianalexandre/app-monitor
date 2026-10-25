@@ -20,6 +20,7 @@ rootProject.name = "app-monitor"
 include(":protocol")
 include(":desktop:server")
 include(":desktop:storage")
+include(":desktop:mcp")
 include(":desktop:app")
 include(":tools:fake-client")
 include(":tools:e2e-target")

@@ -48,7 +48,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   uses, the runtime modules the packaged app needs (ADR-0055).
   Accept: `make docs-check`; every lifecycle cell and every tool has a
   named test.
-- [ ] **M6.3 `desktop/mcp` module and `list_runs`.** The server per M6.1
+- [x] **M6.3 `desktop/mcp` module and `list_runs`.** (`feat/mcp-server-list-runs`; `desktop/mcp` moved to SDD 03's "Today" here, as its rule asks, not at M6.10.) The server per M6.1
   and M6.2, started and stopped with the app's store, `list_runs` as the
   first tool.
   Accept: `./gradlew :desktop:mcp:test` (in `make build`) — an MCP client

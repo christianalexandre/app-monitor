@@ -1,7 +1,8 @@
 # 10 — Desktop MCP server
 
-> **Designed, not built yet** (ADR-0066). PLAN-0007 M6.3 to M6.8 build it;
-> each removes the mark from what it delivers.
+> **Partly built** (ADR-0066). Built: the server, access checks, token,
+> lifecycle and `list_runs` (M6.3). Not built yet: the other tools (M6.4 to
+> M6.7) and the app wiring and switch (M6.8); each removes its mark.
 
 `desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
 from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
@@ -30,12 +31,16 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
   tool, and an `embeddedServer(CIO, host = "127.0.0.1", port)`;
   `start()` binds and returns the port, `stop()` stops it. The port is
   `47475`, or `APPMONITOR_MCP_PORT` when set to a number (ADR-0090 D.1);
-  tests pass `0`.
+  tests pass `0`. A taken port is a `java.net.BindException` (CIO reports it
+  as a cancellation caused by one; `start` rethrows the cause). `start`
+  and `stop` hold one lock: a `stop` during `start` waits for it, then
+  frees the port; the server is single use.
 - Stateless (ADR-0092): no `Mcp-Session-Id`, `GET` and `DELETE` answer
   `405`, each `POST` is one JSON response. Server capabilities: `tools`
   only, `listChanged = false`.
-- Steps 1 and 2 are one Ktor plugin on the route, before the SDK's
-  handlers. Step 1: `Host` must be `127.0.0.1:<port>` or
+- Steps 1 and 2 are one Ktor application plugin (`accessCheck`), before the
+  SDK's routing; `<port>` is the local port the connection reached. Step 1:
+  exactly one `Host`, `127.0.0.1:<port>` or
   `localhost:<port>`; an `Origin`, when present, `http://127.0.0.1:<port>`
   or `http://localhost:<port>`; no `Origin` passes (ADR-0090 A.1). Step 2:
   `Authorization` must be `Bearer <token>`, compared in constant time
@@ -44,6 +49,9 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
 - `make server` does not serve MCP: it has no store.
 
 ### Token and switch
+
+> The switch, `mcp.enabled` and the settings rows are **not built yet**
+> (M6.8).
 
 `McpAccess` keeps two keys in the store's `settings` table (SDD 09):
 `mcp.token` and `mcp.enabled` (`true` or `false`, missing = `true`,
@@ -55,11 +63,15 @@ ADR-0090 C.1).
   "Regenerate" and "Clear all data" (which deletes the key, ADR-0088) take
   effect without a restart: the app calls `access.regenerate()` after
   `clearAll()`.
+- `McpAccess.open(storage)` reads or makes the token, `regenerate()`
+  replaces it in memory at once and in the store through the queue.
 - The settings show the state, the address, and the command to paste:
   `claude mcp add --transport http app-monitor http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`.
 - The switch writes `mcp.enabled` and starts or stops the server.
 
 ### Order in the app
+
+> **Not built yet** (M6.8).
 
 1. `Storage.open`, approvals, `McpAccess.open(storage)`.
 2. Device server and, when enabled, MCP server started side by side; a
@@ -120,7 +132,7 @@ and `export_har`, map one to one onto `ExchangeFilter` (ADR-0087): `text`
 
 | Tool | Input | Output | Store |
 | --- | --- | --- | --- |
-| `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform`, `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`. Newest first. | new `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
+| `list_runs` | `limit` (1–100, 20), `before_id` | `runs[]`: `id`, `name`, `started_at`, `ended_at`, `current`, `exchange_count`, `sessions[]` (`session_id`, `device_id`, `device_name`, `platform` (`android`, `ios`, `jvm`, `unspecified`), `os_version`, `app_id`, `app_version`, `sdk_name`, `connected_at`, `disconnected_at`); `next_before_id`, null on a page short of `limit`. Newest first. | `runSummaries(beforeId, limit)`: runs, their sessions and exchange counts in one read |
 | `search_requests` | filter fields, `after_id`, `limit` (1–200, 50) | `requests[]`: `id`, `session_id`, `method`, `url`, `status_code`, `failed`, `error`, `started_at`, `duration_ms`, `capture_layer`, `frame_count`; `next_after_id`. Oldest first. No headers, no bodies (ADR-0089 B.1). | `searchExchanges(filter, afterId, limit)` |
 | `get_request` | `id` (required), `part` (`request`, `response`, `both`; `both`), `body_offset` (0), `body_max_bytes` (1–262 144, 16 384), `frames_after_id`, `frames_limit` (0–200, 20) | the row of `search_requests`, `request` (`method`, `url`, `headers[]`, `body`), `response` (`status_code`, `headers[]`, `body`), `frames` (`items[]`: `id`, `at`, `direction`, `opcode`, `payload` as a body; `next_after_id`). The frames page also stops once its payloads reach `body_max_bytes`, after at least one frame. | `exchange(id)`, `frames(id, afterId, limit)` |
 | `endpoint_stats` | filter fields, `limit` (1–500, 50) | `endpoints[]` by count, descending: `method`, `host`, `path`, `count`, `status` (`1xx`…`5xx`, `failed`), `error_rate`, `duration_ms` (`min`, `p50`, `p95`, `max`), `request_bytes`, `response_bytes`; `exchanges_read`, `truncated` | new `searchExchangeSizes(filter, afterId, limit)`: the rows with their stored body sizes |
@@ -165,7 +177,9 @@ Details the table leaves out:
 ### Lifecycle
 
 Each call class against each state, and the test that pins it. Tests are
-in `desktop/mcp` unless noted.
+in `desktop/mcp` unless noted; the `desktop/app` ones come with M6.8. Two
+internal seams of `McpServer` serve the tests: a `health` source (lost
+writes) and a hook run before each tool (a call held in flight).
 
 | Call class ↓ / state → | Store open | Store closing or closed | Store with lost writes | Server starting | Server running | Server stopping | Port taken |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -181,7 +195,7 @@ in `desktop/mcp` unless noted.
 
 | Tool | Test | Built by |
 | --- | --- | --- |
-| `list_runs` | `ListRunsTest`: newest first, sessions and counts, paging across `limit`, current run flagged | M6.3 |
+| `list_runs` | `ListRunsTest`: newest first, sessions and counts, paging across `limit`, current run flagged, arguments out of range | M6.3 |
 | `search_requests` | `SearchRequestsTest`: one case per filter, combined filters, a page boundary | M6.4 |
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest` on a crafted run with known numbers; schemes grouped; `searchExchangeSizes` in `desktop/storage` `SearchTest` | M6.5 |
