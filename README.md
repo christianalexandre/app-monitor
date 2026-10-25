@@ -137,7 +137,10 @@ AppMonitor.start(AppMonitorOptions(appName: "My App"))
 
 Every `URLSession` is captured without further code, except a request
 carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it already
-captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). The same `AppMonitor`
+captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
+other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
+port, bytes and timing, no content; `captureConnections: false` in the
+options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). The same `AppMonitor`
 product compiles to stubs in configurations whose name lacks `Debug`, and
 the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in

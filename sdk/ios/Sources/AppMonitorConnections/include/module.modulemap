@@ -1,0 +1,4 @@
+module AppMonitorConnections {
+    header "AppMonitorConnections.h"
+    export *
+}

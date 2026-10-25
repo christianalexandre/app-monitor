@@ -31,6 +31,9 @@ targets:
     sources:
       - Tests
       - ../Tests/AppMonitorTests/TestHTTPServer.swift
+      - ../Tests/AppMonitorTests/TestDesktop.swift
+      - ../Tests/AppMonitorTests/RecordingSink.swift
+      - ../Tests/AppMonitorTests/ConnectionCaptureTests.swift
     dependencies:
       - target: TestHost
       - package: AppMonitor

@@ -164,11 +164,23 @@ nonisolated struct Appmonitor_V1_ResponseReceived: Sendable {
   /// Clears the value of `bodySize`. Subsequent reads from it will return its default value.
   mutating func clearBodySize() {self._bodySize = nil}
 
+  /// CAPTURE_LAYER_CONNECTION only: bytes the app wrote, body_size the bytes it
+  /// read; status_code 0 and no body (ADR-0103).
+  var sentSize: Int64 {
+    get {_sentSize ?? 0}
+    set {_sentSize = newValue}
+  }
+  /// Returns true if `sentSize` has been explicitly set.
+  var hasSentSize: Bool {self._sentSize != nil}
+  /// Clears the value of `sentSize`. Subsequent reads from it will return its default value.
+  mutating func clearSentSize() {self._sentSize = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _bodySize: Int64? = nil
+  fileprivate var _sentSize: Int64? = nil
 }
 
 nonisolated struct Appmonitor_V1_RequestFailed: Sendable {
@@ -421,7 +433,7 @@ nonisolated extension Appmonitor_V1_RequestStarted: SwiftProtobuf.Message, Swift
 
 nonisolated extension Appmonitor_V1_ResponseReceived: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ResponseReceived"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{3}status_code\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}request_id\0\u{3}status_code\0\u{1}headers\0\u{1}body\0\u{3}body_truncated\0\u{3}body_size\0\u{3}sent_size\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -435,6 +447,7 @@ nonisolated extension Appmonitor_V1_ResponseReceived: SwiftProtobuf.Message, Swi
       case 4: try { try decoder.decodeSingularBytesField(value: &self.body) }()
       case 5: try { try decoder.decodeSingularBoolField(value: &self.bodyTruncated) }()
       case 6: try { try decoder.decodeSingularInt64Field(value: &self._bodySize) }()
+      case 7: try { try decoder.decodeSingularInt64Field(value: &self._sentSize) }()
       default: break
       }
     }
@@ -463,6 +476,9 @@ nonisolated extension Appmonitor_V1_ResponseReceived: SwiftProtobuf.Message, Swi
     try { if let v = self._bodySize {
       try visitor.visitSingularInt64Field(value: v, fieldNumber: 6)
     } }()
+    try { if let v = self._sentSize {
+      try visitor.visitSingularInt64Field(value: v, fieldNumber: 7)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -473,6 +489,7 @@ nonisolated extension Appmonitor_V1_ResponseReceived: SwiftProtobuf.Message, Swi
     if lhs.body != rhs.body {return false}
     if lhs.bodyTruncated != rhs.bodyTruncated {return false}
     if lhs._bodySize != rhs._bodySize {return false}
+    if lhs._sentSize != rhs._sentSize {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

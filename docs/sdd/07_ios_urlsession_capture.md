@@ -139,6 +139,52 @@ One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
   rejected and a failing call against an in-process `GRPCServer`
   (`GRPCInProcessTransport`), and an idle monitor that sends nothing.
 
+## The connection layer
+
+Every IPv4 and IPv6 stream socket the app's own code connects, a
+third-party SDK's included, is one exchange with `capture_layer =
+CONNECTION` and no content (ADR-0100, ADR-0103). C in
+`sdk/ios/Sources/AppMonitorConnections/` (fishhook vendored at
+`aadc161`, BSD-3-Clause, its two functions renamed so an app's own copy
+links), reporting in `AppMonitor/ConnectionCapture.swift`; compiled only
+with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
+
+- **Installed once**, at the first `start()` with `enabled` and
+  `captureConnections` (default true). Each `connect` reads
+  `sink.options`: idle, stopped or `captureConnections` false → the
+  socket is not reported.
+- **Which images**: every image loaded now or later except those in the
+  shared cache and arm64e ones (signed pointers). So the app binary and
+  its embedded frameworks are reached, gRPC-Core and its BoringSSL
+  included; calls made inside system libraries, `URLSession`'s and
+  Network.framework's sockets (the SDK's own desktop connection among
+  them), are not, so layer 1's traffic is never reported twice.
+
+| Rebound symbol | What it reports |
+| --- | --- |
+| `getaddrinfo` | Nothing sent: each address it returns is mapped to the name asked (at most 512 kept) |
+| `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once |
+| `read`, `readv`, `recv`, `recvfrom`, `recvmsg` | Bytes read, added to the socket's count (one table lookup when the socket is not counted) |
+| `write`, `writev`, `send`, `sendto`, `sendmsg` | Bytes written, likewise |
+| `close` | Before the original: `ResponseReceived` with status 0, no body, `body_size` read, `sent_size` written; a pending `SO_ERROR`, or a socket that never connected and moved no byte, is `RequestFailed` instead |
+
+- **Not reported**: loopback addresses (`127.0.0.0/8`, `::1`, mapped
+  IPv4), where the desktop is on the simulator; sockets numbered 4096 and
+  up; Network.framework's `nw_connection_*` (DEBT-0076).
+- **Errors** read `NSPOSIXErrorDomain <errno>: <strerror>`, e.g.
+  `NSPOSIXErrorDomain 61: Connection refused`.
+- **Cost**: a rebound `write` on a socket that is not counted measured
+  404 ns against 403 ns for the original on the macOS host, 388 against
+  387 on the iPhone 17 Pro simulator (`reboundWriteCost`, best of five
+  rounds of 200 000 calls to `/dev/null`, Apple Silicon).
+- **Tests**: `ConnectionCaptureTests` drives raw BSD sockets from the test
+  image against `TestSocketServer` on loopback (loopback reported for the
+  test): a blocking client by name with its bytes and duration, a
+  non-blocking connect counted once, a refused port, loopback, the option
+  off and an idle monitor, and a `MonitorClient` to a `TestDesktop` that
+  reports nothing. It runs in `swift test` and, hosted in `TestHost` on
+  the simulator, in `make swift-sim`.
+
 ## Limits
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
@@ -156,3 +202,7 @@ One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
 - The desktop shows a gRPC message as bytes; it has no `.proto` to decode
   fields (ADR-0099 C.1). A status other than OK after the server accepted
   the call is still status 200, the code only in `grpc-status` (DEBT-0075).
+- A connection the app keeps open shows as pending until it closes; one
+  reset after bytes moved is `RequestFailed` without its counts
+  (ADR-0103). A non-blocking connect whose error the app already read
+  with `SO_ERROR` fails as `57: Socket is not connected`.

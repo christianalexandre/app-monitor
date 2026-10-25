@@ -58,7 +58,7 @@ interface() {
     -emit-module-interface-path "$out/$config/$module.raw" "${sources[@]}"
   grep -v -e '^//' -e '^import ' "$out/$config/$module.raw" > "$out/$config/$module.swiftinterface"
 }
-interface AppMonitor debug "$src" -D DEBUG -I "$modules"
+interface AppMonitor debug "$src" -D DEBUG -I "$modules" -I "$pkg/Sources/AppMonitorConnections/include"
 interface AppMonitor release "$src"
 interface AppMonitorGRPC debug "$grpc_src" -D DEBUG -I "$out/debug" -I "$modules"
 interface AppMonitorGRPC release "$grpc_src" -I "$modules"

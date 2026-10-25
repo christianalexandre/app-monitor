@@ -49,7 +49,7 @@ evidence before the code.
   server-streaming call against an in-process grpc-swift server show up
   with their status and messages; the SwiftPM consumer builds with and
   without the adapter.
-- [ ] **M8.3 Connection metadata.** Symbol rebinding per ADR-0100 in
+- [x] **M8.3 Connection metadata.** (`feat/ios-connection-metadata`; BSD sockets only, `nw_connection_*` left to DEBT-0076; `sent_size` added to `ResponseReceived`, ADR-0103) Symbol rebinding per ADR-0100 in
   `sdk/ios`, `CONNECTION` exchanges sent through the existing transport,
   the SDK's own socket to the desktop and `URLSession`'s already captured
   traffic not reported twice; SDD 06 or 07 names the rebound symbols and
