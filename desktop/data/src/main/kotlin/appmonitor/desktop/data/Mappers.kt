@@ -6,6 +6,8 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.ConnectionBytes
+import appmonitor.desktop.domain.DeviceComparison
+import appmonitor.desktop.domain.DeviceEndpoint
 import appmonitor.desktop.domain.Durations
 import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.EndpointChange
@@ -29,6 +31,7 @@ import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.Run
+import appmonitor.desktop.domain.RunDevice
 import appmonitor.desktop.domain.RunSummary
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.SessionSummary
@@ -49,6 +52,7 @@ import appmonitor.desktop.storage.StoredSession
 import appmonitor.desktop.domain.ExchangeDetail as DomainExchangeDetail
 import appmonitor.desktop.storage.BreakpointChange as StoredBreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite as StoredBreakpointWrite
+import appmonitor.desktop.storage.DeviceGroups as StoredDeviceGroups
 import appmonitor.desktop.storage.Durations as StoredDurations
 import appmonitor.desktop.storage.Endpoint as StoredEndpoint
 import appmonitor.desktop.storage.EndpointChange as StoredEndpointChange
@@ -211,6 +215,17 @@ internal fun EndpointTally.toDomain(): EndpointStats =
     )
 
 internal fun StoredEndpointGroups.toDomain(): EndpointGroups = EndpointGroups(endpoints.map { it.toDomain() }, exchangesRead, truncated)
+
+internal fun StoredDeviceGroups.toDomain(): DeviceComparison =
+    DeviceComparison(
+        devices = devices.map { RunDevice(it.deviceId, it.name) },
+        endpoints =
+            endpoints.map { tallies ->
+                DeviceEndpoint(tallies.endpoint.toDomain(), tallies.byDevice.mapValues { it.value.toDomain() })
+            },
+        exchangesRead = exchangesRead,
+        truncated = truncated,
+    )
 
 internal fun StoredEndpointChange.toDomain(): EndpointChange = EndpointChange(endpoint.toDomain(), base.toDomain(), run.toDomain())
 

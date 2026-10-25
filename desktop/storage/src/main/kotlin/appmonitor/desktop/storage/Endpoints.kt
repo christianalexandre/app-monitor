@@ -109,22 +109,77 @@ private suspend fun groupByEndpoint(
     page: suspend (afterId: Long, limit: Long) -> List<ExchangeSizes>,
 ): EndpointGroups {
     val endpoints = LinkedHashMap<Endpoint, EndpointTally>()
+    val (read, truncated) =
+        readPages(maxExchanges, page) { row -> Endpoint.of(row.exchange).let { endpoints.getOrPut(it) { EndpointTally(it) }.add(row) } }
+    return EndpointGroups(endpoints.values.sortedWith(MOST_CALLED), read, truncated)
+}
+
+/** Reads up to [maxExchanges] rows oldest first by page, each through [each]; the rows read, and whether one was left. */
+private suspend fun readPages(
+    maxExchanges: Long,
+    page: suspend (afterId: Long, limit: Long) -> List<ExchangeSizes>,
+    each: suspend (ExchangeSizes) -> Unit,
+): Pair<Long, Boolean> {
     var read = 0L
     var afterId = 0L
-    var truncated = false
     while (true) {
-        if (read == maxExchanges) {
-            truncated = page(afterId, 1).isNotEmpty()
-            break
-        }
+        if (read == maxExchanges) return read to page(afterId, 1).isNotEmpty()
         val rows = page(afterId, minOf(Storage.PAGE_SIZE, maxExchanges - read))
-        rows.forEach { row -> Endpoint.of(row.exchange).let { endpoints.getOrPut(it) { EndpointTally(it) }.add(row) } }
+        rows.forEach { each(it) }
         read += rows.size
-        if (rows.isEmpty()) break
+        if (rows.isEmpty()) return read to false
         afterId = rows.last().exchange.id
     }
-    val sorted = endpoints.values.sortedWith(compareByDescending<EndpointTally> { it.count }.thenBy { it.endpoint.toString() })
-    return EndpointGroups(sorted, read, truncated)
+}
+
+private val MOST_CALLED = compareByDescending<EndpointTally> { it.count }.thenBy { it.endpoint.toString() }
+
+/** One device of a run, named as its last `Hello` named it. */
+data class RunDevice(
+    val deviceId: String,
+    val name: String,
+)
+
+/** One endpoint's numbers per device id; a device that never called it has no entry. */
+class DeviceTallies(
+    val endpoint: Endpoint,
+    val byDevice: Map<String, EndpointTally>,
+) {
+    val count: Long get() = byDevice.values.sumOf { it.count }
+}
+
+/** A run's exchanges per endpoint and device; [devices] in the order they first joined the run. */
+class DeviceGroups(
+    val devices: List<RunDevice>,
+    val endpoints: List<DeviceTallies>,
+    val exchangesRead: Long,
+    val truncated: Boolean,
+)
+
+/** [groupByEndpoint] of run [runId] split per device (ADR-0140 D); [filter]'s own run id is ignored. */
+suspend fun Storage.groupByEndpointAndDevice(
+    runId: Long,
+    filter: ExchangeFilter,
+    maxExchanges: Long = MAX_GROUPED_EXCHANGES,
+): DeviceGroups {
+    val inRun = filter.copy(runId = runId)
+    var sessions = sessionDevices(runId)
+    val endpoints = LinkedHashMap<Endpoint, LinkedHashMap<String, EndpointTally>>()
+    val (read, truncated) =
+        readPages(maxExchanges, { afterId, limit -> searchExchangeSizes(inRun, afterId, limit) }) { row ->
+            // A session that joined the run after the devices were read.
+            val device =
+                sessions[row.exchange.sessionId]
+                    ?: sessionDevices(runId).also { sessions = it }[row.exchange.sessionId]
+                    ?: return@readPages
+            val endpoint = Endpoint.of(row.exchange)
+            endpoints.getOrPut(endpoint) { LinkedHashMap() }.getOrPut(device.deviceId) { EndpointTally(endpoint) }.add(row)
+        }
+    val tallies =
+        endpoints
+            .map { (endpoint, byDevice) -> DeviceTallies(endpoint, byDevice) }
+            .sortedWith(compareByDescending<DeviceTallies> { it.count }.thenBy { it.endpoint.toString() })
+    return DeviceGroups(sessions.values.distinct(), tallies, read, truncated)
 }
 
 /** Nearest rank: the smallest value with at least [percent] % of the list at or below it; the list is sorted. */

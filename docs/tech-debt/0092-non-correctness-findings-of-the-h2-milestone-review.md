@@ -3,7 +3,7 @@ id: DEBT-0092
 title: Findings of the H2 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/InsightsViewModel.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt`, `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`, `desktop/domain/src/main/kotlin/appmonitor/desktop/domain/Insights.kt` or `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`"
+trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt`, `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt` or `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`"
 paid_date:
 ---
 
@@ -65,6 +65,14 @@ item for its file and leaves the others here.
 stored) leaves no request picked, so the pane says "Select a request"
 (`TrafficViewModelTest`, "an original no longer listed or stored leaves
 no request picked").
+
+`InsightsViewModel.kt` paid in PLAN-0013 H3.3's PR
+(`feat/compare-devices`): only the newest export writes `exportNote`
+(`InsightsViewModelTest`, "an older export finishing last leaves the
+newest one's note"). `Insights.kt` fired in the same PR and stays: the
+copy is how ADR-0135 keeps `desktop/domain` and `desktop/storage`
+independent (neither depends on the other), so `desktop/data`'s equality
+test is the guard; it leaves the trigger.
 
 ## How it was paid
 

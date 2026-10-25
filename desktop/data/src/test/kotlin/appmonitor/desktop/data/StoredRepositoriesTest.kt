@@ -147,6 +147,44 @@ class StoredRepositoriesTest {
         }
 
     @Test
+    fun `a run is read per endpoint and device, a device reconnected in it counted once`() =
+        withStorage { storage ->
+            storage.record(envelope(RequestStarted("r0", "GET", "https://api.test/users")))
+            val run = storage.runRepository().record()!!
+            val iphone = HELLO.copy(device_id = "d2", device_name = "iPhone", platform = Platform.PLATFORM_IOS)
+            storage.connected("s1", HELLO, "127.0.0.1")
+            storage.received("s1", envelope(RequestStarted("r1", "GET", "https://api.test/users")))
+            storage.received("s1", envelope(ResponseReceived("r1", 200, body = "[]".encodeUtf8(), body_size = 2)))
+            storage.disconnected("s1")
+            storage.connected("s2", iphone, "127.0.0.1")
+            storage.received("s2", envelope(RequestStarted("r1", "GET", "https://api.test/users")))
+            storage.received("s2", envelope(ResponseReceived("r1", 500)))
+            storage.connected("s3", HELLO, "127.0.0.1")
+            storage.received("s3", envelope(RequestStarted("r2", "GET", "https://api.test/users")))
+            storage.received("s3", envelope(RequestStarted("r3", "GET", "https://api.test/feed")))
+            storage.flush()
+
+            val comparison = storage.benchmarkRepository().byDevice(ExchangeFilter(), run)
+            assertEquals(listOf("d1" to "Pixel", "d2" to "iPhone"), comparison.devices.map { it.deviceId to it.name })
+            assertEquals(4, comparison.exchangesRead, "the exchange before Record is not in the run")
+            assertEquals(listOf("/users", "/feed"), comparison.endpoints.map { it.endpoint.path })
+            val users = comparison.endpoints.first().byDevice
+            assertEquals(2L, users.getValue("d1").count)
+            assertEquals(listOf(0L, 1L, 0L, 0L, 0L), users.getValue("d1").statusClasses)
+            assertEquals(2L, users.getValue("d1").responseBytes)
+            assertEquals(listOf(0L, 0L, 0L, 0L, 1L), users.getValue("d2").statusClasses)
+            assertEquals(
+                setOf("d1"),
+                comparison.endpoints
+                    .last()
+                    .byDevice.keys,
+            )
+
+            val filtered = storage.benchmarkRepository().byDevice(ExchangeFilter(statusClass = StatusClass.SERVER_ERROR, runId = 99), run)
+            assertEquals(listOf(setOf("d2")), filtered.endpoints.map { it.byDevice.keys })
+        }
+
+    @Test
     fun `runs, a search page, replays, one exchange and its frames read through the query repository`() =
         withStorage { storage ->
             storage.record(

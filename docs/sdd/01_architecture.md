@@ -332,6 +332,11 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   sorts by it, again reverses. The numbers are `endpoint_stats`' (SDD 10),
   read once when opened and on "Refresh", not on each commit: a read pages
   through up to 100 000 exchanges, and says so when it stops there.
+  With a run shown, "By device" (ADR-0140 D) splits the same rows into one
+  group of columns per device of the run, in the order they joined it:
+  count, status classes, p50, p95 and received bytes, `—` where a device
+  never called the endpoint; "By endpoint" goes back. A device reconnected
+  during the run is one column.
 - Run diff (ADR-0097): "Compare runs" in the run list (two runs or more)
   opens a base and a run picked from every run (the previous and the
   newest first), each by title and id, under the request filter for both.

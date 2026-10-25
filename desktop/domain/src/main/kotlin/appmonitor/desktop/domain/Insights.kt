@@ -56,6 +56,26 @@ data class EndpointDiff(
     val truncated: Boolean,
 )
 
+/** One device of a run, named as its last `Hello` named it. */
+data class RunDevice(
+    val deviceId: String,
+    val name: String,
+)
+
+/** One endpoint's numbers per device id; a device that never called it has no entry. */
+data class DeviceEndpoint(
+    val endpoint: Endpoint,
+    val byDevice: Map<String, EndpointStats>,
+)
+
+/** A run's endpoints with one column per device (ADR-0140 D); [devices] in the order they joined the run. */
+data class DeviceComparison(
+    val devices: List<RunDevice>,
+    val endpoints: List<DeviceEndpoint>,
+    val exchangesRead: Long,
+    val truncated: Boolean,
+)
+
 /** The exchanges one grouping reads at most, oldest first; `desktop/data`'s tests hold it to the store's. */
 const val MAX_GROUPED_EXCHANGES = 100_000L
 
@@ -80,6 +100,13 @@ interface BenchmarkRepository {
         runId: Long,
         maxExchanges: Long = MAX_GROUPED_EXCHANGES,
     ): EndpointDiff
+
+    /** Run [runId]'s exchanges [filter] matches per endpoint and device; its own run id is ignored. */
+    suspend fun byDevice(
+        filter: ExchangeFilter,
+        runId: Long,
+        maxExchanges: Long = MAX_GROUPED_EXCHANGES,
+    ): DeviceComparison
 }
 
 /** What a HAR export wrote, or why it wrote nothing. */

@@ -1,6 +1,10 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,10 +14,14 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.benchmarkRepository
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.feature.insights.BENCHMARK_COLUMN
+import appmonitor.desktop.feature.insights.BY_DEVICE
+import appmonitor.desktop.feature.insights.BY_DEVICE_COLUMN
+import appmonitor.desktop.feature.insights.BY_DEVICE_LIST
 import appmonitor.desktop.feature.insights.BenchmarkColumn
 import appmonitor.desktop.feature.insights.BenchmarkRow
 import appmonitor.desktop.feature.insights.sortBenchmarks
 import appmonitor.desktop.feature.traffic.BENCHMARKS
+import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.SEARCH
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Envelope
@@ -102,6 +110,46 @@ class BenchmarksUiTest {
                 awaitText("2 requests read")
                 onNodeWithText("Every device in the live list", substring = true).assertExists()
                 onNodeWithText("under the request filter", substring = true).assertExists()
+            }
+        }
+
+    @Test
+    fun `a run's benchmarks split per device show each device's numbers`() =
+        withStorage { storage ->
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://api.example.com/users"), 1_000),
+                envelope(ResponseReceived(request_id = "r1", status_code = 200), 1_040),
+                envelope(RequestStarted(request_id = "r2", method = "GET", url = "https://api.example.com/feed"), 2_000),
+                envelope(ResponseReceived(request_id = "r2", status_code = 200), 2_010),
+            )
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://api.example.com/users"), 1_000),
+                envelope(ResponseReceived(request_id = "r1", status_code = 503), 1_250),
+                sessionId = "s2",
+                hello = HELLO.copy(device_id = "d2", device_name = "iPhone"),
+            )
+            runBlocking {
+                storage.rename(storage.runId, "Checkout")
+                storage.flush()
+            }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening") }
+
+                onNodeWithTag(RUNS).performClick()
+                awaitText("Checkout")
+                onNodeWithText("Checkout").performClick()
+                awaitText("https://api.example.com/feed")
+                onNodeWithTag(BENCHMARKS).performClick()
+                awaitText("3 requests read")
+                onNodeWithTag(BY_DEVICE).performClick()
+                awaitText("3 requests read from 2 devices")
+                onNodeWithTag(BY_DEVICE_COLUMN + HELLO.device_id, useUnmergedTree = true).assertTextEquals(HELLO.device_name)
+                onNodeWithTag(BY_DEVICE_COLUMN + "d2", useUnmergedTree = true).assertTextEquals("iPhone")
+                onNodeWithTag(BY_DEVICE_LIST, useUnmergedTree = true).assert(hasAnyDescendant(hasText("250 ms")))
+                onNodeWithTag(BY_DEVICE_LIST, useUnmergedTree = true).assert(hasAnyDescendant(hasText("5xx 1")))
+                screenshot("devices.png")
+                onNodeWithText("By endpoint").performClick()
+                awaitText("2xx 1 · 5xx 1")
             }
         }
 }
