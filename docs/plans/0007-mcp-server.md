@@ -136,7 +136,7 @@ one case). One was rejected: a lower-case `head` is not `HEAD` (methods
 are case-sensitive, RFC 9110 9.1), so curl sending it as is replays what
 was stored.
 
-- [ ] **M6.R5 The launch race of M6.R1 is narrowed, not closed.**
+- [x] **M6.R5 The launch race of M6.R1 is narrowed, not closed.** (`fix/mcp-switch-launch-write`; `start`'s check and write and `setEnabled`'s write in one `synchronized` block; the test races two threads 2,000 rounds, as no hook fits a window with no suspension point: it caught the old code in 2 of 6 runs)
   `setEnabled` writes `switched` and `enabled` outside the lock, so a
   `setEnabled(false)` that lands after `start` read `switched` and before
   it writes `enabled` is overwritten: the server is stopped and the store
