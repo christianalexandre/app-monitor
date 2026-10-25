@@ -1,11 +1,12 @@
 # 10 — Desktop MCP server
 
-`desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
-from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
-tools return), ADR-0090 (who can call, port, on by default), ADR-0091
-(clients), ADR-0092 (SDK, transport, modules). Code: `desktop/mcp/`, used
-by `desktop/app`; it reads `desktop/storage` (SDD 09) and never writes to
-it, except the two settings below. Client setup: the README's *Ask your AI
+`desktop/mcp` serves the stored traffic to AI agents over MCP from inside
+the desktop process (ADR-0005), read-only but for issues. Decisions:
+ADR-0089 (what the tools return), ADR-0090 (who can call, port, on by
+default), ADR-0091 (clients), ADR-0092 (SDK, transport, modules), ADR-0095
+and ADR-0096 (issues, the one write). Code: `desktop/mcp/`, used by
+`desktop/app`; it reads `desktop/storage` (SDD 09) and writes to it only
+through `save_issue` and the two settings below. Client setup: the README's *Ask your AI
 agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
 ## How it works
@@ -21,7 +22,8 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
                                     mcpStatelessStreamableHttp: one session per request
                                                      │ tools/list, tools/call
                                                      ▼
-                                    Storage reads (Dispatchers.IO, one transaction each)
+                                    Storage reads (Dispatchers.IO, one transaction each);
+                                    save_issue: createIssue / updateIssue on the writer queue
 ```
 
 - `McpServer(storage, access, port)` builds one SDK `Server` with every
@@ -37,7 +39,9 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
   frees the port; the server is single use.
 - Stateless (ADR-0092): no `Mcp-Session-Id`, `GET` and `DELETE` answer
   `405`, each `POST` is one JSON response. Server capabilities: `tools`
-  only, `listChanged = false`.
+  only, `listChanged = false`. Every tool is annotated `readOnlyHint: true`
+  but `save_issue`: `readOnlyHint`, `destructiveHint` and `idempotentHint`
+  false (it creates and edits, never deletes, ADR-0095 C.1).
 - Steps 1 and 2 are one Ktor application plugin (`accessCheck`), before the
   SDK's routing; `<port>` is the local port the connection reached. Step 1:
   exactly one `Host`, `127.0.0.1:<port>` or
@@ -104,9 +108,11 @@ ADR-0090 C.1).
   an argument out of range, an unknown id, or the store closing. An unknown
   tool or malformed JSON-RPC is the SDK's JSON-RPC error.
 - **Store closing.** `Storage`'s reads return an empty list or null once it
-  closes (SDD 09), which would read as "nothing stored". Each tool checks
-  `storage.isClosing` (a new read-only property) **after** its reads and
-  answers the error "App Monitor is closing" instead.
+  closes (SDD 09), which would read as "nothing stored", and refuse
+  writes. The shared wrapper every tool goes through checks
+  `storage.isClosing` **after** the tool returns or fails, and answers the
+  error "App Monitor is closing" instead of either, so an unknown-id error
+  made of an empty read is never what a closing store says.
 - **Lost writes.** When `storage.health` counts unsaved events, the result
   carries `"warnings": ["N events were not saved: <error>"]` (`export_har`:
   `log._warnings`, as HAR 1.2 allows only `_` custom fields; `to_curl`: a
@@ -159,6 +165,8 @@ return (`capture_layer` as `platform`, `adapter`, `connection`, `proxy`,
 | `diff_runs` | `base_run_id`, `run_id` (required), filter fields, `limit` (1–500, 50, per list) | `base_run_id`, `run_id`; `added[]` (in `run_id` only) and `gone[]` (in `base_run_id` only), as `endpoint_stats`' endpoints; `changed[]` (`method`, `host`, `path`, and `count`, `error_rate`, `p50_ms`, `p95_ms`, each `base`, `run`, `delta`); `added_count`, `gone_count`, `changed_count` (before `limit`); `unchanged` (a count); `truncated` (either run hit the read cap). Unknown run: "no run with id N". | `runs()`, then `endpoint_stats`' grouping once per run |
 | `export_har` | filter fields, `max_entries` (1–1 000, 100), `bodies` (`none`, `capped`, `full`; `capped`) | HAR 1.2 JSON as the text; `capped` bodies at 16 KiB each | `searchExchanges`, `exchange(id)`, `frames` |
 | `to_curl` | `id` (required) | a POSIX shell command as the text | `exchange(id)` |
+| `list_issues` | `status` (`open`, `resolved`), `tag` (exact), `limit` (1–100, 20), `before_id` | `issues[]`: `id`, `title`, `note`, `tags[]` (sorted), `status`, `source` (`window`, `mcp`), `created_at`, `updated_at`, `exchange_ids[]` (ascending); `next_before_id`. Newest first. | `issuePage(filter, beforeId, limit)`: issues and their links in one read |
+| `save_issue` | `id` (omit to create), `title`, `note`, `tags[]` (0–50), `status`, `exchange_ids[]` (1–1 000) | `created`, `issue` as in `list_issues` | `createIssue(…, IssueSource.MCP)` or `updateIssue(id, IssueChange)`, then `issuePage` |
 
 Details the table leaves out:
 
@@ -222,6 +230,21 @@ Details the table leaves out:
   request event stored: "exchange N has no request stored". Code:
   `ToCurl.kt`.
 
+- **Issues** (`save_issue`, ADR-0095, ADR-0096): without `id` it creates
+  an issue with `source` `mcp`; `title` (not blank, trimmed) and
+  `exchange_ids` required, `note` empty, `tags` none and `status` `open` by
+  default. With `id` each omitted field is unchanged (an `IssueChange`
+  null), `tags` and `exchange_ids` replace the stored ones, and an edit
+  with no field is refused; so an edit the developer makes in the window
+  to another field meanwhile is kept, and on the same field the write the
+  writer queue takes last wins (SDD 09 lists every writer). The call
+  waits for its batch, then reads the issue back. Errors: an exchange not
+  stored when the write reaches the writer, "no exchange with id 4, 7",
+  nothing written; a deleted or unknown issue, "no issue with id N"; a
+  closing store, "App Monitor is closing"; a lost batch, "the issue was not
+  saved: <error>", and later calls carry the lost write in `warnings`.
+  No tool deletes an issue or changes traffic. Code: `Issues.kt`.
+
 ### Lifecycle
 
 Each call class against each state, and the test that pins it. Tests are
@@ -232,6 +255,7 @@ writes) and a hook run before each tool (a call held in flight).
 | Call class ↓ / state → | Store open | Store closing or closed | Store with lost writes | Server starting | Server running | Server stopping | Port taken |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Tool call | answers from the store: `McpServerTest.clientListsRunsOverHttp` | error "App Monitor is closing", never an empty success: `LifecycleTest.toolCallWhileTheStoreClosesIsAnError` | answers with `warnings`: `LifecycleTest.lostWritesAreAWarning` | connection refused until `start` returns: `LifecycleTest.startReturnsOnceBound` | as "store open" | a call in flight completes within the grace: `LifecycleTest.callInFlightCompletesDuringStop`; a new connection is refused: `LifecycleTest.noConnectionAfterStop` | no server: `LifecycleTest.portTakenFailsStartWithBindException` |
+| Write (`save_issue`) | queued on the writer, answered once committed, the issue then in `observeIssues`, which the window shows: `IssuesTest.aClientSavesEditsAndListsAnIssueThatTheAppsStoreShows`; an edit in the window between two MCP writes kept: `IssuesTest.anEditInTheWindowMeanwhileIsKept` | error "App Monitor is closing", nothing written: `IssuesTest.aSaveWhileTheStoreClosesIsAnError` | the write's own batch lost: error "the issue was not saved: <error>", nothing written, a warning after: `IssuesTest.aLostWriteIsAnErrorThatSaysWhy` | as tool call | as "store open" | as tool call | as tool call |
 | Protocol call (`initialize`, `tools/list`, `GET`, `DELETE`) | `initialize`, `tools/list` answered, `GET`/`DELETE` `405`: `McpServerTest.statelessEndpoint` | `tools/list` still answered (no read): `LifecycleTest.toolsListNeedsNoStore` | as "store open" | as above | as "store open" | as tool call | as tool call |
 | Refused request | foreign `Origin` or `Host` `403`, missing or wrong token `401`, before the SDK: `AccessTest` (`foreignOriginIsRefused`, `foreignHostIsRefused`, `wrongPortInHostIsRefused`, `missingTokenIsRefused`, `wrongTokenIsRefused`) | same | same | — | same | — | — |
 | Token change | "Regenerate" or "Clear all data": the old token gets `401`, the new one passes, no restart: `AccessTest.regeneratedTokenTakesEffectAtOnce` | — | — | — | same | — | — |
@@ -247,8 +271,9 @@ writes) and a hook run before each tool (a call held in flight).
 | `search_requests` | `SearchRequestsTest`: one case per filter, combined filters, a page boundary | M6.4 |
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, nearest rank; `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` in `desktop/storage` | M6.5 |
-| `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store, the store closing during the runs read | M6.6 |
+| `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store (the runs read empty, answered as closing, not unknown) | M6.6 |
 | `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
+| `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue` annotated as writing | M7.3 |
 | `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
 
 ## Limits

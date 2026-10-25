@@ -42,7 +42,7 @@ the lifecycle table lists every call class against each store state.
   Accept: `./gradlew :desktop:storage:test :desktop:storage:verifySqlDelightMigration :desktop:app:test`
   — a linked exchange kept past both retention bounds per ADR-0095, an
   issue survives a reopen, an offscreen screenshot `issues.png`.
-- [ ] **M7.3 `save_issue` and `list_issues`.** The two MCP tools per
+- [x] **M7.3 `save_issue` and `list_issues`.** The two MCP tools per
   ADR-0095, SDD 10's schemas and lifecycle table extended with the first
   write (store closing, lost write, an edit in the window at the same
   time).

@@ -39,19 +39,20 @@ private fun warning(health: StorageHealth): String? =
 internal fun jsonResult(
     result: JsonObject,
     health: StorageHealth,
-): CallToolResult {
-    val body = warning(health)?.let { JsonObject(result + ("warnings" to JsonArray(listOf(JsonPrimitive(it))))) } ?: result
-    return CallToolResult(content = listOf(TextContent(body.toString())))
-}
+) = warned(result, health) { warnings -> JsonObject(this + ("warnings" to warnings)) }
 
 /** [har] as [jsonResult], the warning in `log._warnings`: HAR 1.2 allows no other custom field. */
 internal fun harResult(
     har: JsonObject,
     health: StorageHealth,
+) = warned(har, health) { warnings -> JsonObject(this + ("log" to JsonObject(getValue("log") as JsonObject + ("_warnings" to warnings)))) }
+
+private fun warned(
+    result: JsonObject,
+    health: StorageHealth,
+    add: JsonObject.(JsonArray) -> JsonObject,
 ): CallToolResult {
-    val log = har.getValue("log") as JsonObject
-    val body =
-        warning(health)?.let { JsonObject(mapOf("log" to JsonObject(log + ("_warnings" to JsonArray(listOf(JsonPrimitive(it))))))) } ?: har
+    val body = warning(health)?.let { result.add(JsonArray(listOf(JsonPrimitive(it)))) } ?: result
     return CallToolResult(content = listOf(TextContent(body.toString())))
 }
 
@@ -106,4 +107,39 @@ internal fun JsonObject?.choice(
     val value = string(name, default) ?: return null
     if (value !in choices) throw ToolError("$name must be one of ${choices.joinToString()}")
     return value
+}
+
+/** An optional array of strings of [sizes] items, null when absent or null. */
+internal fun JsonObject?.strings(
+    name: String,
+    sizes: IntRange,
+): List<String>? = array(name, sizes, "strings") { (it as? JsonPrimitive)?.takeIf { item -> item.isString }?.content }
+
+/** An optional array of integers in [range], of [sizes] items, null when absent or null. */
+internal fun JsonObject?.longs(
+    name: String,
+    sizes: IntRange,
+    range: LongRange,
+): List<Long>? =
+    array(name, sizes, "integers from ${range.first} to ${range.last}") { item ->
+        (item as? JsonPrimitive)
+            ?.takeUnless { it.isString }
+            ?.content
+            ?.toLongOrNull()
+            ?.takeIf { it in range }
+    }
+
+private fun <T : Any> JsonObject?.array(
+    name: String,
+    sizes: IntRange,
+    what: String,
+    item: (JsonElement) -> T?,
+): List<T>? {
+    val value = this?.get(name)
+    if (value == null || value is JsonNull) return null
+    val items = (value as? JsonArray)?.map { item(it) ?: throw ToolError("$name must be an array of $what") }
+    if (items == null || items.size !in sizes) {
+        throw ToolError("$name must be an array of ${sizes.first} to ${sizes.last} $what")
+    }
+    return items
 }

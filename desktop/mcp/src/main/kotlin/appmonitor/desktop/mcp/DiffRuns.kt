@@ -55,14 +55,12 @@ internal object DiffRuns {
         storage: Storage,
         arguments: JsonObject?,
         maxExchanges: Long = EndpointStats.MAX_EXCHANGES,
-        runIds: suspend () -> List<Long> = { storage.runs().map { it.id } },
     ): JsonObject {
         val baseRunId = arguments.long("base_run_id", 1..Long.MAX_VALUE, null) ?: throw ToolError("base_run_id is required")
         val filter = Filters.filter(arguments)
         val runId = filter.runId ?: throw ToolError("run_id is required")
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!.toInt()
-        val known = runIds().toSet()
-        if (storage.isClosing) throw ToolError(CLOSING)
+        val known = storage.runs().map { it.id }.toSet()
         listOf(baseRunId, runId).firstOrNull { it !in known }?.let { throw ToolError("no run with id $it") }
 
         val base = EndpointStats.group(storage, filter.copy(runId = baseRunId), maxExchanges)

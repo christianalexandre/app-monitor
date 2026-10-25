@@ -29,7 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The read-only MCP server over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
+ * The MCP server, read-only but `save_issue`, over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(
@@ -63,6 +63,10 @@ class McpServer internal constructor(
                 ExportHar.inputSchema,
             ) { harResult(ExportHar.call(storage, it, version), health()) }
             textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(storage, it) }
+            tool(ListIssues.NAME, ListIssues.description, ListIssues.inputSchema) { ListIssues.call(storage, it) }
+            result(SaveIssue.NAME, SaveIssue.description, SaveIssue.inputSchema, WRITES) {
+                jsonResult(SaveIssue.call(storage, it, health), health())
+            }
         }
 
     private val lock = Mutex()
@@ -128,19 +132,21 @@ class McpServer internal constructor(
         name: String,
         description: String,
         inputSchema: ToolSchema,
+        annotations: ToolAnnotations = READS,
         call: suspend (JsonObject?) -> CallToolResult,
     ) {
         addTool(
             name = name,
             description = description,
             inputSchema = inputSchema,
-            toolAnnotations = ToolAnnotations(readOnlyHint = true, openWorldHint = false),
+            toolAnnotations = annotations,
         ) { request ->
             beforeTool()
+            // A closing store reads as empty and refuses writes: checked after the call, whatever it answered.
             try {
-                call(request.arguments)
+                call(request.arguments).takeUnless { storage.isClosing } ?: errorResult(CLOSING)
             } catch (e: ToolError) {
-                errorResult(e.message!!)
+                errorResult(if (storage.isClosing) CLOSING else e.message!!)
             }
         }
     }
@@ -150,5 +156,9 @@ class McpServer internal constructor(
         internal const val LOOPBACK = "127.0.0.1"
         val GRACE: Duration = 500.milliseconds
         val STOP_TIMEOUT: Duration = 5.seconds
+        private val READS = ToolAnnotations(readOnlyHint = true, openWorldHint = false)
+
+        // ADR-0095 C.1: creates and edits, never deletes.
+        private val WRITES = ToolAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = false)
     }
 }

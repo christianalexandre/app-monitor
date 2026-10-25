@@ -47,7 +47,6 @@ internal object SearchRequests {
         val afterId = arguments.long("after_id", 0..Long.MAX_VALUE, 0)!!
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val exchanges = storage.searchExchanges(filter, afterId, limit)
-        if (storage.isClosing) throw ToolError(CLOSING)
         return buildJsonObject {
             put("requests", JsonArray(exchanges.map { it.toRowJson() }))
             put("next_after_id", (if (exchanges.size.toLong() == limit) exchanges.last().id else null).json())

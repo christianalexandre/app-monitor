@@ -135,7 +135,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   | Writer | Writes | How |
   | --- | --- | --- |
   | Window ("Save as issue", the issue editor) | create, edit, delete | `createIssue`, `updateIssue`, `deleteIssue` |
-  | MCP `save_issue` (M7.3) | create, edit | `createIssue`, `updateIssue` |
+  | MCP `save_issue` (SDD 10) | create, edit | `createIssue`, `updateIssue` |
   | Retention pass | deletes an issue's session's other exchanges, never a linked one | between batches |
   | "Clear all data" | deletes every issue, tag and link | between batches, after a flush |
 
@@ -282,7 +282,9 @@ closes the approved devices (ADR-0083). A failure goes to
   unset matches all) matches, newest first, each with its sorted tags and
   linked exchange count, through one query that listens to the three issue
   tables; `observeIssueTags()` every tag in use, `issueExchanges(id)` the
-  linked exchanges in arrival order.
+  linked exchanges in arrival order. `issuePage(filter, beforeId, limit)`
+  reads one page of the same query once, each issue with its linked
+  exchange ids, in one transaction (`list_issues`, SDD 10).
 - `searchExchangeSizes(filter, afterId, limit)` is the same search with
   each row's stored body sizes (`bodies.size` of both parts, 0 when the
   part has no row), read by two subqueries on the `bodies` key;

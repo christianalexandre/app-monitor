@@ -446,7 +446,24 @@ class Storage private constructor(
 
     /** The issues [filter] matches, newest first, again after each commit that changes an issue, its tags or exchanges. */
     fun observeIssues(filter: IssueFilter = IssueFilter()): Flow<List<StoredIssue>> =
-        observe(database.issueQueries.filtered(filter.status?.stored, filter.tag)).map { rows -> rows.map { it.toStored() } }
+        observe(database.issueQueries.filtered(filter.status?.stored, filter.tag, Long.MAX_VALUE, -1)).map { rows ->
+            rows.map { it.toStored() }
+        }
+
+    /**
+     * A page of the issues [filter] matches, newest first, each with the ids of the exchanges it links, in one
+     * transaction; the next page passes the last issue's id as [beforeId].
+     */
+    suspend fun issuePage(
+        filter: IssueFilter = IssueFilter(),
+        beforeId: Long = Long.MAX_VALUE,
+        limit: Long = PAGE_SIZE,
+    ): List<IssueDetail> =
+        read(emptyList()) {
+            issueQueries.filtered(filter.status?.stored, filter.tag, beforeId, limit).executeAsList().map {
+                IssueDetail(it.toStored(), issueQueries.exchangeIds(it.id).executeAsList())
+            }
+        }
 
     /** Every tag on an issue, sorted, again after each commit that changes one. */
     fun observeIssueTags(): Flow<List<String>> = observe(database.issueQueries.allTags())

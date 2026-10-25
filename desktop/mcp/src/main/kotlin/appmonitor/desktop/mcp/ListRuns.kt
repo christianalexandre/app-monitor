@@ -46,7 +46,6 @@ internal object ListRuns {
         val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
         val beforeId = arguments.long("before_id", 1..Long.MAX_VALUE, null) ?: Long.MAX_VALUE
         val runs = storage.runSummaries(beforeId, limit)
-        if (storage.isClosing) throw ToolError(CLOSING)
         val current = storage.currentRun.value
         return buildJsonObject {
             put("runs", JsonArray(runs.map { it.toJson(current) }))

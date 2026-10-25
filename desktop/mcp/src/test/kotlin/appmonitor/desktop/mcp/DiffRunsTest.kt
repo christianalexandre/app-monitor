@@ -152,22 +152,9 @@ class DiffRunsTest {
                 assertEquals("no run with id 99", client.callTool(DiffRuns.NAME, mapOf("base_run_id" to runs.base, "run_id" to 99)).text)
             }
             running.storage.close(5.seconds)
-            val closed = assertFailsWith<ToolError> { DiffRuns.call(running.storage, args(runs.base, runs.run)) }
-            assertEquals(CLOSING, closed.message)
-        }
-
-    @Test
-    fun storeClosingBetweenTheCheckAndTheRunsReadIsClosingNotUnknown() =
-        withServer { running ->
-            val runs = running.seed()
-            val error =
-                assertFailsWith<ToolError> {
-                    DiffRuns.call(running.storage, args(runs.base, runs.run)) {
-                        running.storage.close(5.seconds)
-                        running.storage.runs().map { it.id }
-                    }
-                }
-            assertEquals(CLOSING, error.message)
+            // The runs read answers empty once closing: the error is the closing store, not "no run with id".
+            val closed = running.client { it.callTool(DiffRuns.NAME, mapOf("base_run_id" to runs.base, "run_id" to runs.run)) }
+            assertEquals(CLOSING, closed.text)
         }
 
     private fun args(
