@@ -76,7 +76,7 @@ class Storage private constructor(
     retentionInterval: Duration?,
     private val afterRetentionChunk: suspend () -> Unit,
     beforeCommit: (List<StorageItem>) -> Unit,
-) {
+) : TrafficSink {
     internal val writerDispatcher: ExecutorCoroutineDispatcher =
         Executors
             .newSingleThreadExecutor { Thread(it, WRITER_THREAD).apply { isDaemon = true } }
@@ -158,7 +158,7 @@ class Storage private constructor(
     val queueFullWaits: Long get() = queue.fullWaits
 
     /** Queues a session's start; call before its first [received]. Suspends only while the queue is full. */
-    suspend fun connected(
+    override suspend fun connected(
         sessionId: String,
         hello: Hello,
         peerAddress: String?,
@@ -166,14 +166,14 @@ class Storage private constructor(
         queue.enqueue(StorageItem.Connected(sessionId, hello, peerAddress, clock()))
     }
 
-    suspend fun received(
+    override suspend fun received(
         sessionId: String,
         envelope: Envelope,
     ) {
         queue.enqueue(StorageItem.Received(sessionId, envelope, clock()))
     }
 
-    suspend fun disconnected(sessionId: String) {
+    override suspend fun disconnected(sessionId: String) {
         queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
     }
 
@@ -660,14 +660,9 @@ class Storage private constructor(
 
     /** The original's exchange id of each replay in [exchanges] whose original is still stored, by the replay's id. */
     suspend fun replayOriginals(exchanges: List<StoredExchange>): Map<Long, Long> {
-        val replays = exchanges.filter { it.replayOf != null }
+        val replays = exchanges.filter { it.replayOf != null }.map { it.id }
         if (replays.isEmpty()) return emptyMap()
-        return read(emptyMap()) {
-            replays
-                .mapNotNull { replay ->
-                    exchangeQueries.idOf(replay.sessionId, replay.replayOf!!).executeAsOneOrNull()?.let { replay.id to it }
-                }.toMap()
-        }
+        return read(emptyMap()) { exchangeQueries.originalsOf(replays).executeAsList().associate { it.replay to it.original } }
     }
 
     suspend fun session(id: Long): StoredSession? = read(null) { sessionQueries.byId(id).executeAsOneOrNull()?.toStored() }

@@ -96,6 +96,17 @@ const val MAX_GROUPED_EXCHANGES = 100_000L
 suspend fun Storage.groupByEndpoint(
     filter: ExchangeFilter,
     maxExchanges: Long = MAX_GROUPED_EXCHANGES,
+): EndpointGroups = groupByEndpoint(maxExchanges) { afterId, limit -> searchExchangeSizes(filter, afterId, limit) }
+
+/** [Storage.groupByEndpoint] over the live list. */
+suspend fun LiveTraffic.groupByEndpoint(
+    filter: ExchangeFilter,
+    maxExchanges: Long = MAX_GROUPED_EXCHANGES,
+): EndpointGroups = groupByEndpoint(maxExchanges) { afterId, limit -> searchExchangeSizes(filter, afterId, limit) }
+
+private suspend fun groupByEndpoint(
+    maxExchanges: Long,
+    page: suspend (afterId: Long, limit: Long) -> List<ExchangeSizes>,
 ): EndpointGroups {
     val endpoints = LinkedHashMap<Endpoint, EndpointTally>()
     var read = 0L
@@ -103,14 +114,14 @@ suspend fun Storage.groupByEndpoint(
     var truncated = false
     while (true) {
         if (read == maxExchanges) {
-            truncated = searchExchangeSizes(filter, afterId, 1).isNotEmpty()
+            truncated = page(afterId, 1).isNotEmpty()
             break
         }
-        val page = searchExchangeSizes(filter, afterId, minOf(Storage.PAGE_SIZE, maxExchanges - read))
-        page.forEach { row -> Endpoint.of(row.exchange).let { endpoints.getOrPut(it) { EndpointTally(it) }.add(row) } }
-        read += page.size
-        if (page.isEmpty()) break
-        afterId = page.last().exchange.id
+        val rows = page(afterId, minOf(Storage.PAGE_SIZE, maxExchanges - read))
+        rows.forEach { row -> Endpoint.of(row.exchange).let { endpoints.getOrPut(it) { EndpointTally(it) }.add(row) } }
+        read += rows.size
+        if (rows.isEmpty()) break
+        afterId = rows.last().exchange.id
     }
     val sorted = endpoints.values.sortedWith(compareByDescending<EndpointTally> { it.count }.thenBy { it.endpoint.toString() })
     return EndpointGroups(sorted, read, truncated)

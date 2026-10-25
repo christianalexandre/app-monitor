@@ -36,6 +36,7 @@ import appmonitor.desktop.domain.SettingRepository
 import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.diffEndpoints
@@ -52,6 +53,9 @@ fun Storage.runRepository(): RunRepository = StoredRunRepository(this)
 /** The traffic of this store. */
 fun Storage.trafficRepository(): TrafficRepository = StoredTrafficRepository(this)
 
+/** The live list when a read names no run or stored session or exchange, else this store (SDD 09, ADR-0141). */
+fun Storage.trafficRepository(live: LiveTraffic): TrafficRepository = LiveTrafficRepository(this, live)
+
 /** The mock rules of this store. */
 fun Storage.mockRepository(): MockRepository = StoredMockRepository(this)
 
@@ -64,8 +68,14 @@ fun Storage.issueRepository(): IssueRepository = StoredIssueRepository(this)
 /** The paged reads of this store, as the MCP tools make them. */
 fun Storage.trafficQueryRepository(): TrafficQueryRepository = StoredTrafficQueryRepository(this)
 
+/** [trafficQueryRepository] reading [live] as [trafficRepository] does. */
+fun Storage.trafficQueryRepository(live: LiveTraffic): TrafficQueryRepository = LiveTrafficQueryRepository(this, live)
+
 /** The per endpoint numbers of this store. */
 fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
+
+/** [benchmarkRepository] reading [live] as [trafficRepository] does. */
+fun Storage.benchmarkRepository(live: LiveTraffic): BenchmarkRepository = LiveBenchmarkRepository(this, live)
 
 /** The `settings` keys of this store. */
 fun Storage.settingRepository(): SettingRepository = StoredSettingRepository(this)

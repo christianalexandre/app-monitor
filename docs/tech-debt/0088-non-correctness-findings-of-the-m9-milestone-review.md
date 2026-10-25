@@ -30,9 +30,6 @@ not hit (ADR-0094):
   skips the headers that the `OutgoingContent` carries. It changes
   `Content-Type` only on a `ByteArrayContent`. A `WriteChannelContent`
   goes out unedited.
-- **One query per replay row.** `Storage.replayOriginals` looks up each
-  row's original with its own `idOf` query. A join would do it in the
-  page query.
 - **Comment blocks longer than four lines** (guidelines 02): `parseArgs`
   in `Main.kt`, `TrafficStore` in `TrafficStore.kt` and `readMockRules`
   in `MockFile.kt`.
@@ -42,6 +39,10 @@ Paid in PLAN-0012 H2.2b's PR (`refactor/desktop-traffic-feature`):
 loaded pages showed "Select a request"; `TrafficViewModel` now reads it
 by id (`TrafficViewModelTest`, "show original reads an original past the
 loaded pages").
+
+Paid in PLAN-0013 H3.1's PR (`feat/live-traffic-source`), which touches
+`Storage.kt`: `Storage.replayOriginals` reads every original in one join
+(`originalsOf`), not one `idOf` per replay row (`ReplayedExchangeTest`).
 
 Paid in M9.R2's PR: an empty OkHttp response (`Content-Length: 0`) is
 now held at a response breakpoint, as in Ktor and iOS

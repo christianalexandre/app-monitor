@@ -24,15 +24,21 @@ Built on ADR-0133's modules: each task changes `desktop/domain`,
 store. Every UI task adds or updates screenshots in light and dark. A
 task too large for one PR is split at once.
 
-- [ ] **H3.1 Live list in memory and Clear.** The window opens on every
-  device's exchanges held in memory (bounded), with Clear; no run opens
-  at launch and nothing of the live list is written to disk; MCP reads
-  the live list by default. `desktop/data` serves it behind the existing
-  repositories.
-  Accept: `./gradlew :desktop:data:test :desktop:feature:traffic:test
-  :desktop:mcp:test :desktop:storage:test` — traffic from two devices
-  shows in one list, Clear empties it, the store gets no exchange row
-  while nothing is recording, the bound drops the oldest.
+- [x] **H3.1 Live list source.** `LiveTraffic` holds every device's
+  exchanges in memory (bounded), with Clear; `desktop/data` serves it and
+  the store behind the existing repositories (ADR-0141). Split from the
+  original H3.1, which was too large for one PR.
+  Accept: `./gradlew :desktop:storage:test :desktop:data:test
+  :desktop:mcp:test` — traffic from two devices shows in one list, Clear
+  empties it, the bound drops the oldest, the store gets no row of it,
+  MCP tools read it when no run is given.
+- [ ] **H3.1b Live list in the window and Clear.** The device server and
+  the proxy feed the live list, not the store; no run opens at launch;
+  the window opens on it with Clear; MCP reads it by default.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test
+  :desktop:storage:test` — traffic from two devices shows in one list,
+  Clear empties it, the store gets no exchange row while nothing is
+  recording.
 - [ ] **H3.2 Runs as stored recordings, and Save.** Record / Stop: every
   exchange that starts while recording is stored in the run, whatever
   its session; existing runs kept by a migration; runs and "Saved"

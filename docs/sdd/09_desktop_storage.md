@@ -5,7 +5,9 @@ SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisio
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
 files, connection settings), ADR-0086 (opening, booleans, lost writes),
 ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
-(issues), ADR-0096 (issue rows, their writers, retention of their exchanges).
+(issues), ADR-0096 (issue rows, their writers, retention of their exchanges),
+ADR-0140 (live traffic in memory, only recordings stored), ADR-0141 (the live
+list's types, ids and bound).
 Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
@@ -275,6 +277,39 @@ they send next is dropped; the app first forgets every approval, which
 closes the approved devices (ADR-0083). A failure goes to
 `retentionStatus`.
 
+### Live list
+
+`LiveTraffic` holds the live list in memory (ADR-0140 A, ADR-0141): every
+device's sessions and exchanges since the last `clear()`, as the store's
+row types. The device server and the proxy still feed `Storage` until
+PLAN-0013's H3.1b switches them to it.
+
+- **Fed** by `TrafficSink`'s `connected`, `received`, `disconnected`, which
+  `Storage` implements too. The four `network` events are decoded as
+  `Ingest` does (status 0 is no status, the last `grpc-status`, an event
+  for an unknown request creates it); other channels and payloads that do
+  not decode are dropped.
+- **Ids** come from one counter starting at `LiveTraffic.FIRST_ID` (2^50)
+  for sessions, exchanges and frames; `LiveTraffic.isLive(id)` tells a
+  live id from a row id. A live session's `runId` is 0.
+- **Bound**: 10 000 exchanges and 128 MiB of bodies and frame payloads
+  (`MAX_EXCHANGES`, `MAX_BYTES`); past either the oldest exchange goes,
+  and an ended session with it once it holds none. An ended session that
+  sent nothing is dropped at its end.
+- **Clear** empties the exchanges and the ended sessions; connected
+  sessions stay, and their next exchange gets a new id.
+- **Reads** mirror the store's: `searchExchanges`, `searchExchangeSizes`,
+  `observeExchanges` and `observeSessions` (again after each change, on
+  `Dispatchers.Default`), `exchange(id)` with `replayOfId`, `frames`,
+  `session`, `replayOriginals`, `groupByEndpoint`. The filter match
+  follows `SearchQuery`'s; a filter with a run matches nothing. The mock
+  rule's name is left null: `desktop/data` reads it from `mock_rules`.
+- **Which one a read means** (`desktop/data`'s `Storage.trafficRepository(live)`,
+  `trafficQueryRepository(live)`, `benchmarkRepository(live)`): a filter
+  with a session goes where that session lives, else one with a run to
+  the store, else the live list; a read by id by `isLive`; runs, run
+  diffs, health and issues are the store's.
+
 ### Reading
 
 - `Storage`'s reads are suspending functions that move to `Dispatchers.IO`; WAL lets a read see the last committed
@@ -396,6 +431,8 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |
 | "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
+| Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
+| Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |
 
 ## Limits
 
