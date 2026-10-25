@@ -43,7 +43,10 @@ class ProxyServer(
     private var group: EventLoopGroup? = null
     private var channel: Channel? = null
     private var used = false
-    private val clients = DefaultChannelGroup(GlobalEventExecutor.INSTANCE)
+
+    // Stays closed: a client accepted while stop() runs registers after the loops' close-all
+    // and would stay open.
+    private val clients = DefaultChannelGroup(GlobalEventExecutor.INSTANCE, true)
 
     /** Binds and returns the port; throws [java.net.BindException] when it is taken. A second call throws. */
     fun start(): Int {
