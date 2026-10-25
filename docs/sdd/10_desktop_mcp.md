@@ -210,7 +210,8 @@ Details the table leaves out:
   `# body of <n> bytes left out: curl sends none with --head`), one
   `-H '<name>: <value>'` per stored header in order but `Content-Length`
   and `Transfer-Encoding`, which curl sets from the body it sends (a stored
-  one would not match a body cut by the device), the values as stored
+  one would not match a body cut by the device; a stored `Content-Length: 0`
+  is kept when no body is sent, as curl then sends none), the values as stored
   (masked ones stay masked), an empty value as `-H '<name>;'` (curl drops
   `<name>:`); text bodies as `--data-raw '<body>'`, binary ones, and text
   holding NUL (no shell argument can), as
@@ -248,7 +249,7 @@ writes) and a hook run before each tool (a call held in flight).
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, nearest rank; `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` in `desktop/storage` | M6.5 |
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store, the store closing during the runs read | M6.6 |
 | `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
-| `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3 |
+| `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
 
 ## Limits
 
