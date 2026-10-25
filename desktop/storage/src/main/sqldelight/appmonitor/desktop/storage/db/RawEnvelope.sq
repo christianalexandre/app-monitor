@@ -15,3 +15,6 @@ INSERT INTO raw_envelopes(session_ref, channel, type, timestamp_ms, payload) VAL
 
 ofSession:
 SELECT * FROM raw_envelopes WHERE session_ref = ? ORDER BY id;
+
+deleteOfSession:
+DELETE FROM raw_envelopes WHERE session_ref = ?;

@@ -297,6 +297,17 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   its first `PAGE_SIZE` frames ("Show more frames" reads one more page)
   again whenever its list row changes. A write failure shows
   "N events not saved: <error>" under the status.
+- Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
+  issue" (or "Save N as issue") above the list takes the ticked requests,
+  from any session or run, or the selected one, and asks a title (the
+  first request's method and URL by default), a note and comma-separated
+  tags. "Issues" beside the run picker lists them newest first ("Open" or
+  "Resolved", tags, request count, "in the window" or "by MCP", last
+  change) with a status and a tag filter; one opens to edit its title,
+  note, tags and status, lists its requests, and "Delete" removes it after
+  a confirmation. The editor sends only the fields changed since it opened
+  (SDD 09 lists every writer and their order), so an MCP edit of another
+  field meanwhile is kept.
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call

@@ -1,0 +1,25 @@
+CREATE TABLE issues (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  note TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('open', 'resolved')),
+  source TEXT NOT NULL CHECK (source IN ('window', 'mcp')),
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE TABLE issue_tags (
+  issue_ref INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (issue_ref, tag)
+);
+
+CREATE INDEX issue_tags_tag ON issue_tags(tag);
+
+CREATE TABLE issue_exchanges (
+  issue_ref INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  exchange_ref INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  PRIMARY KEY (issue_ref, exchange_ref)
+);
+
+CREATE INDEX issue_exchanges_exchange_ref ON issue_exchanges(exchange_ref);

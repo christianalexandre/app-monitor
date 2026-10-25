@@ -3,7 +3,7 @@ id: DEBT-0071
 title: Non-correctness findings of the first M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR after PLAN-0007 M6.R4 is `[x]` that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release"
+trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release"
 paid_date:
 ---
 
@@ -39,17 +39,18 @@ findings that do.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.R4 is `[x]` that touches
-`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`,
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`,
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or
-`desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or
-the first desktop release (the version label).
+The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release.
 
 Re-triggered by PLAN-0007 M6.R5, which touched `McpController.kt` to fix
 the switch race: its only item here, the `dev` version, needs a build
 version passed to the app, and the first desktop release already forces
 it, so the file left the list.
+
+Fired by PLAN-0008 M7.2, which adds the issue calls to `Storage.kt`:
+`setSetting`, the only item in that file, is untouched, and the issue
+writes return an `IssueWrite` that says `NotSaved` after close. M7.4 and
+M7.6 move `EndpointStats` and `ExportHar` code and will meet the other
+items; re-triggered past PLAN-0008 so they are paid there or after.
 
 ## How it was paid
 

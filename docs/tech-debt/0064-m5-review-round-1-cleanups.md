@@ -3,7 +3,7 @@ id: DEBT-0064
 title: Non-correctness findings of the first M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR after PLAN-0007 M6.5 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`"
+trigger: "The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`"
 paid_date:
 ---
 
@@ -42,7 +42,7 @@ lines.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.8 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`.
+The first PR after PLAN-0008 closes that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`.
 
 Re-triggered three times during PLAN-0006 because its review tasks
 rewrote the code these findings name. Fired again by PLAN-0007 M6.3,
@@ -61,6 +61,15 @@ does not touch; the trigger is narrowed to them.
 Fired by PLAN-0007 M6.8 (`feat/mcp-app-wiring`), which adds the MCP
 settings to `App.kt`: it paid the two parts in that file (the long comment
 and `durationOf`); `App.kt` leaves the trigger.
+
+Fired by PLAN-0008 M7.2 (`feat/issues-in-store-and-window`), which adds
+issue items to `Ingest` and routes each retention candidate through
+`prune` (ADR-0096). The `WriteQueue.kt` comment is already within four
+lines: paid. The size loop still commits one session per transaction and
+measures after each; chunking it changes how far past 90 % a pass deletes,
+which M7.2's retention tests pin, so it is not mixed into the issue
+schema. M7.2 adds one more `lastId` (`Issue.sq`) to the mappings item.
+Re-triggered past PLAN-0008, whose milestone review reads this code.
 
 ## How it was paid
 
