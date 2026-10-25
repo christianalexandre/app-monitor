@@ -24,7 +24,7 @@ paid". H1.1's findings that normal use hits become `H1.R*` tasks here,
 at most two; the rest go into one DEBT (ADR-0094). Non-correctness review
 DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
 
-- [ ] **H1.1 Review the field-test path.** `code-review` at `medium` over
+- [x] **H1.1 Review the field-test path.** (#254) `code-review` at `medium` over
   what a real app runs, not one milestone's diff: the setup steps of the
   README and SDD 02 (dependency, Gradle block or plugin, Run Script,
   start), discovery and approval, the transport, and the capture in
@@ -50,6 +50,44 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   unknown rather than invented.
   Accept: `make swift-sim` — a background task resumed before `start`
   reaches the stand-in desktop at completion.
+- [ ] **H1.R1 The setup steps a real app needs are in the README.** The
+  README's Android setup omits the debug `network-security-config` with
+  `<debug-overrides>` and the runtime `ACCESS_LOCAL_NETWORK` request; the
+  iOS one names the Run Script but not its input and output files under
+  `ENABLE_USER_SCRIPT_SANDBOXING`; the KMP swap snippet lacks the sample's
+  `KOTLIN_FRAMEWORK_BUILD_TYPE` fallback. The cleartext log of
+  `MonitorClient.kt` points to an "SDK README" that does not exist.
+  Accept: each README step matches what `samples/android`, `samples/ios`
+  and `samples/kmp` do, listed side by side in the PR; the cleartext log
+  names a document that exists (`./gradlew :sdk:core:allTests`);
+  `make docs-check`.
+- [ ] **H1.R2 iOS connection capture skips the KMP SDK's own socket.**
+  ADR-0100 C.1: the SDK's own desktop socket is never reported, but
+  `ConnectionCapture.connected` skips only loopback peers. On a physical
+  iPhone, `sdk/core`'s CIO socket to the desktop is reported.
+  Accept: `swift test --package-path sdk/ios` — a connect to a desktop
+  the SDK discovered, on a non-loopback address, is not reported; another
+  host on the same address and a different port still is.
+
+### H1 milestone review
+
+`code-review` at `medium` of the field-test path (H1.1), not of a diff:
+`sdk/android-okhttp`, `sdk/ktor`, `sdk/core`, `sdk/ios/Sources/AppMonitor`
+(generated code excluded), `gradle-plugin/src/main`, the README and SDD 02.
+Already open DEBT-0039, DEBT-0085, DEBT-0086 and DEBT-0087 were not
+reported again. Nine findings:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | Cleartext `ws://` blocked on a targetSdk ≥ 28 app that follows the README: the client stops for good, and the log points to a missing README. `ACCESS_LOCAL_NETWORK` is not in the README either. | Yes: no capture at all | H1.R1 |
+| 2 | Run Script without input and output files fails a sandboxed Debug build (`plutil` denied). | Yes: a new Xcode project | H1.R1 |
+| 3 | The README's KMP snippet picks `ktor-no-op` only for `CONFIGURATION == release`; a `Staging` configuration links the real SDK (Debug only). | Yes: privacy | H1.R1 |
+| 4 | On a physical iPhone, a KMP app with the Swift SDK reports `sdk/core`'s own desktop socket as a connection. | Yes: wrong data shown | H1.R2 |
+| 5 | After the cleartext stop, `MonitorHolder` still holds the stopped client: `start` is ignored and capture keeps working for envelopes that are dropped. | No: fixing the policy needs a rebuild, which starts afresh | DEBT-0089 |
+| 6 | The Swift client never resets `connectFailureLogged` after a `HelloAck`, so only its first connect failure is ever logged. | No: diagnostic only | DEBT-0089 |
+| 7 | `AppMonitorInterceptor` captures the request body again for each breakpoint event, up to three writes. | No: cost only, bodies are re-readable | DEBT-0089 |
+| 8 | Replay closures keep 200 requests with their bodies. | — | Rejected: DEBT-0088 has it |
+| 9 | A frame taken from the buffer and lost with its socket is not counted. | — | Rejected: SDD 04 limits, DEBT-0023 |
 
 ## Outcome
 
