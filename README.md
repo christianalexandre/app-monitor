@@ -20,9 +20,10 @@ checkout fail in the last run?"* straight from the captured traffic.
 > three OSes, the Kotlin ↔ Swift contract, every sample app, the Android, iOS
 > and KMP samples end to end, unsigned packages and an SDK publication
 > dry-run. The desktop keeps what it captured across restarts, grouped in
-> named runs, searchable and bounded by retention settings. Everything below
-> marked *planned* does not exist yet. Current milestone:
-> [M5 — Persistence](docs/plans/0006-persistence-and-runs.md).
+> named runs, searchable and bounded by retention settings, and serves that
+> history to AI agents over a local MCP server. Everything below marked
+> *planned* does not exist yet. Current milestone:
+> [M6 — MCP server](docs/plans/0007-mcp-server.md).
 
 ## Why
 
@@ -84,7 +85,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
 | iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
-| Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals — M1, M5 |
+| Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals, MCP server on `127.0.0.1` — M1, M5, M6 |
 
 ## Roadmap
 
@@ -96,7 +97,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M3 — Release gate](docs/plans/0004-release-gate.md) | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
 | [M4 — KMP SDK](docs/plans/0005-kmp-sdk.md) | Ktor plugin on Android and iOS, deduped with the Swift SDK |
 | [M5 — Persistence](docs/plans/0006-persistence-and-runs.md) | Runs, search, filters, retention |
-| M6 — MCP server | Traffic, runs and stats queryable by AI agents |
+| [M6 — MCP server](docs/plans/0007-mcp-server.md) | Traffic, runs and stats queryable by AI agents |
 | M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | M8 — iOS deep capture | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | M9 — Interaction | Mocks, breakpoints, replay |

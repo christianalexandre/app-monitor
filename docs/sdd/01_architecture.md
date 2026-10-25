@@ -16,7 +16,8 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`, `desktop/server`, `desktop/storage`, `desktop/app` (on SQLite),
+Built: `protocol`, `desktop/server`, `desktop/storage`, `desktop/mcp` (SDD 10),
+`desktop/app` (on SQLite),
 `tools/fake-client`, `tools/e2e-target`, `sdk/core` (JVM, Android, iOS),
 `sdk/android-okhttp`, the Ktor plugin (`sdk/ktor`, HTTP and WebSocket
 frames), the no-op modules (`sdk/*-no-op`), the iOS SDK (`sdk/ios`) and the
@@ -235,7 +236,8 @@ a stack trace (DEBT-0010). See ADR-0010.
 ## Desktop
 
 Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
-(`desktop/storage`, SDD 09), MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
+(`desktop/storage`, SDD 09), MCP server bound to `127.0.0.1` (`desktop/mcp`,
+SDD 10). Each debug tool
 is a feature module owning a `channel` **(planned)**. See ADR-0005.
 
 `desktop/app` today (ADR-0011):
