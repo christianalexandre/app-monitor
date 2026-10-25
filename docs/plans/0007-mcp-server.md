@@ -79,7 +79,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   for one), a port already taken shows a status, not a crash.
   Accept: `./gradlew :desktop:app:test` with an offscreen screenshot of
   the settings showing the MCP address, and a test with the port taken.
-- [ ] **M6.9 Claude Code setup and live check.** Setup docs per M6.1 (c);
+- [x] **M6.9 Claude Code setup and live check.** (`docs/mcp-client-setup`; setup in the README, live check in SDD 02; the Android emulator's sample was the client, `liveScreenshots` approved it first; Claude Code run with `--mcp-config` on the README's `.mcp.json`, `claude mcp add` checked against its `--help` only.) Setup docs per M6.1 (c);
   a sample's traffic stored by `make desktop`, then a real MCP client
   (Claude Code with the documented setup, or the MCP Inspector) calling
   every tool against it.

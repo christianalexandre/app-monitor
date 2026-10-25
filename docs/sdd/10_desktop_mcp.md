@@ -5,7 +5,8 @@ from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
 tools return), ADR-0090 (who can call, port, on by default), ADR-0091
 (clients), ADR-0092 (SDK, transport, modules). Code: `desktop/mcp/`, used
 by `desktop/app`; it reads `desktop/storage` (SDD 09) and never writes to
-it, except the two settings below.
+it, except the two settings below. Client setup: the README's *Ask your AI
+agent (MCP)*; the live check against a sample's traffic: SDD 02.
 
 ## How it works
 

@@ -213,6 +213,30 @@ the live run connects with no prompt and its exchanges land under that run;
 `sqlite3 <liveDataDir>/appmonitor.db` reads them, and a SIGTERM closes the run
 and the sessions. `hdiutil detach build/live/dmg` afterwards.
 
+## MCP clients against real traffic
+
+The setup a developer follows is the README's *Ask your AI agent (MCP)*
+(ADR-0091). To check every tool against a sample's traffic stored by
+`make desktop`, with no clicks:
+
+1. A store with the device approved: `liveScreenshots` with
+   `-PliveDataDir=$PWD/build/<dir>/data` (an absolute path), as above. It
+   approves the **first** device that says hello; a sample already running
+   on the emulator wins over a simulator launched after it.
+2. `APPMONITOR_DATA_DIR=$PWD/build/<dir>/data make desktop`, then launch
+   the approved sample with `runAll`: no prompt, its exchanges land in the
+   desktop's new run.
+3. The token is in the store:
+   `sqlite3 build/<dir>/data/appmonitor.db "select value from settings where key='mcp.token'"`.
+4. MCP Inspector (`npx @modelcontextprotocol/inspector --cli <url> --header
+   "Authorization: Bearer <token>" --method tools/call --tool-name <tool>
+   --tool-arg key=value`), or Claude Code without touching its own
+   configuration: the README's `.mcp.json` saved as `build/<dir>/mcp.json`,
+   then `APPMONITOR_MCP_TOKEN=<token> claude -p --strict-mcp-config
+   --mcp-config build/<dir>/mcp.json --allowedTools mcp__app-monitor "<question>"`.
+5. A SIGTERM to the app's `java` process stops it and closes the run; the
+   Gradle `run` task then reports `BUILD FAILED`, which is expected.
+
 ## SDK publication dry-run
 
 `make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058) publishes
