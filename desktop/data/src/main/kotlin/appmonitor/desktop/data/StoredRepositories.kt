@@ -1,9 +1,12 @@
 package appmonitor.desktop.data
 
+import appmonitor.desktop.domain.BenchmarkRepository
 import appmonitor.desktop.domain.Breakpoint
 import appmonitor.desktop.domain.BreakpointChange
 import appmonitor.desktop.domain.BreakpointRepository
 import appmonitor.desktop.domain.BreakpointWrite
+import appmonitor.desktop.domain.EndpointDiff
+import appmonitor.desktop.domain.EndpointGroups
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
@@ -19,6 +22,8 @@ import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.diffEndpoints
+import appmonitor.desktop.storage.groupByEndpoint
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.MockRule
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +41,9 @@ fun Storage.mockRepository(): MockRepository = StoredMockRepository(this)
 
 /** The breakpoints of this store. */
 fun Storage.breakpointRepository(): BreakpointRepository = StoredBreakpointRepository(this)
+
+/** The per endpoint numbers of this store. */
+fun Storage.benchmarkRepository(): BenchmarkRepository = StoredBenchmarkRepository(this)
 
 internal class StoredRunRepository(
     private val storage: Storage,
@@ -113,4 +121,22 @@ internal class StoredBreakpointRepository(
     ): BreakpointWrite = storage.updateBreakpoint(id, change.toStored()).toDomain()
 
     override suspend fun delete(id: Long) = storage.deleteBreakpoint(id)
+}
+
+internal class StoredBenchmarkRepository(
+    private val storage: Storage,
+) : BenchmarkRepository {
+    override suspend fun endpoints(filter: ExchangeFilter): EndpointGroups = storage.groupByEndpoint(filter.toStored()).toDomain()
+
+    override suspend fun diff(
+        filter: ExchangeFilter,
+        baseRunId: Long,
+        runId: Long,
+    ): EndpointDiff {
+        val stored = filter.toStored()
+        return diffEndpoints(
+            storage.groupByEndpoint(stored.copy(runId = baseRunId)),
+            storage.groupByEndpoint(stored.copy(runId = runId)),
+        ).toDomain()
+    }
 }

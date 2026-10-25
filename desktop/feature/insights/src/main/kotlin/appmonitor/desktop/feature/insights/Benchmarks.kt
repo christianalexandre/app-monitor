@@ -1,4 +1,4 @@
-package appmonitor.desktop.app.ui
+package appmonitor.desktop.feature.insights
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,42 +35,40 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
-import appmonitor.desktop.storage.EndpointGroups
-import appmonitor.desktop.storage.EndpointTally
-import appmonitor.desktop.storage.ExchangeFilter
-import appmonitor.desktop.storage.Storage
-import appmonitor.desktop.storage.groupByEndpoint
+import appmonitor.desktop.domain.EndpointStats
+import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.ui.formatDuration
+import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
 /** A sortable column of the benchmarks; [value] is null for an endpoint without the number, sorted last. */
-internal enum class BenchmarkColumn(
+enum class BenchmarkColumn(
     val label: String,
-    val value: (EndpointTally) -> Comparable<*>?,
+    val value: (EndpointStats) -> Comparable<*>?,
 ) {
     ENDPOINT("Endpoint", { "${it.endpoint.host.orEmpty()}${it.endpoint.path} ${it.endpoint.method.orEmpty()}" }),
     COUNT("Count", { it.count }),
     ERROR_RATE("Errors", { it.errorRate }),
-    P50("p50", { it.durationStats?.p50 }),
-    P95("p95", { it.durationStats?.p95 }),
-    P99("p99", { it.durationStats?.p99 }),
+    P50("p50", { it.durations?.p50 }),
+    P95("p95", { it.durations?.p95 }),
+    P99("p99", { it.durations?.p99 }),
     REQUEST_BYTES("Sent", { it.requestBytes }),
     RESPONSE_BYTES("Received", { it.responseBytes }),
 }
 
 /** [endpoints] by [column], nulls last either way; ties keep the grouping's order (most called first). */
 @Suppress("UNCHECKED_CAST")
-internal fun sortBenchmarks(
-    endpoints: List<EndpointTally>,
+fun sortBenchmarks(
+    endpoints: List<EndpointStats>,
     column: BenchmarkColumn,
     descending: Boolean,
-): List<EndpointTally> {
+): List<EndpointStats> {
     val values = compareBy<Comparable<Any>> { it }.let { if (descending) it.reversed() else it }
     return endpoints.sortedWith(compareBy(nullsLast(values)) { column.value(it) as Comparable<Any>? })
 }
 
 /** One row as the window shows it; also what the tests compare against `endpoint_stats`. */
-internal data class BenchmarkRow(
+data class BenchmarkRow(
     val endpoint: String,
     val count: String,
     val status: String,
@@ -80,8 +80,8 @@ internal data class BenchmarkRow(
     val responseBytes: String,
 ) {
     companion object {
-        fun of(tally: EndpointTally): BenchmarkRow {
-            val durations = tally.durationStats
+        fun of(tally: EndpointStats): BenchmarkRow {
+            val durations = tally.durations
             val classes = tally.statusClasses.mapIndexedNotNull { index, n -> if (n == 0L) null else "${index + 1}xx $n" }
             val failed = if (tally.failed == 0L) emptyList() else listOf("failed ${tally.failed}")
             return BenchmarkRow(
@@ -104,14 +104,19 @@ internal data class BenchmarkRow(
  * on "Refresh" (SDD 01); [scope] says which run and filter in the title.
  */
 @Composable
-internal fun Benchmarks(
-    storage: Storage,
+fun Benchmarks(
     filter: ExchangeFilter,
     scope: String,
     onClose: () -> Unit,
+    viewModel: InsightsViewModel = koinViewModel(),
 ) {
     var reads by remember { mutableIntStateOf(0) }
-    val groups by produceState<EndpointGroups?>(null, storage, filter, reads) { value = storage.groupByEndpoint(filter) }
+    LaunchedEffect(filter, reads) { viewModel.readBenchmarks(filter) }
+    DisposableEffect(viewModel) { onDispose { viewModel.closeBenchmarks() } }
+    val groups =
+        viewModel.state
+            .collectAsState()
+            .value.benchmarks
     var column by remember { mutableStateOf(BenchmarkColumn.COUNT) }
     var descending by remember { mutableStateOf(true) }
     DialogCard(DialogWidth.Table) {
@@ -207,6 +212,6 @@ private fun bytesOf(bytes: Long): String =
         else -> "$bytes B"
     }
 
-internal const val BENCHMARK_LIST = "benchmark-list"
+const val BENCHMARK_LIST = "benchmark-list"
 
-internal const val BENCHMARK_COLUMN = "benchmark-column-"
+const val BENCHMARK_COLUMN = "benchmark-column-"

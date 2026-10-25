@@ -96,9 +96,23 @@ task that lands each module.
   over a real store and a stand-in device; each feature gained a view
   model test over fake repositories. `fittingRules` moved to
   `desktop/domain`, which the push and the mock list share.
-- [ ] **H2.4 Insights and settings.** `desktop/feature/insights` (issues,
-  benchmarks, run diff, export) and `desktop/feature/settings`
-  (retention, MCP, proxy).
+- [x] **H2.4a Benchmarks, run diff and HAR export.**
+  (`refactor/desktop-insights-feature`) `desktop/feature/insights` with
+  the benchmarks, the run diff and the HAR export, behind domain
+  repositories. Split from H2.4 (too large for one PR).
+  Accept: `./gradlew :desktop:feature:insights:test :desktop:app:test` —
+  `BenchmarksUiTest`, `RunDiffUiTest` and `ExportUiTest` pass;
+  `desktop/app` holds no `Benchmarks`, `RunDiff` or `exportHar`.
+  Deviation: `titleOf` moved from the traffic feature to `desktop/ui`
+  (ADR-0137), as the run diff shows run titles too. The HAR file is
+  written through a new `HarRepository`, beside `ExportRepository`'s
+  cURL. Fixed a race in `ExportUiTest` that failed #267's CI once: it
+  clicked "Copy as cURL" before the detail pane had read the exchange.
+- [ ] **H2.4b Issues.** The issue list, editor and "Save as issue"
+  move to `desktop/feature/insights`, behind an `IssueRepository`.
+  Accept: `IssuesUiTest` passes; `desktop/app` holds no `IssueList`.
+- [ ] **H2.4c Settings.** `desktop/feature/settings` (retention,
+  approvals answered, MCP, proxy).
   Accept: their moved UI tests pass; `desktop/app` holds no screen;
   `desktop/data`'s mappers are `internal` again (ADR-0135).
 - [ ] **H2.5 MCP through the repositories.** `desktop/mcp` depends on

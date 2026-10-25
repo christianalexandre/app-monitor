@@ -2,10 +2,10 @@ package appmonitor.desktop.feature.traffic
 
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.Run
+import appmonitor.desktop.ui.formatRunStart
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 fun statusOf(exchange: Exchange): String =
     when {
@@ -15,9 +15,6 @@ fun statusOf(exchange: Exchange): String =
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
-
-/** A run's name, or its start time while it has none (ADR-0084 B.1). */
-fun titleOf(run: Run): String = run.name ?: RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs))
 
 // ADR-0111: a replayed POST really runs a second time on the server.
 fun replayLabelOf(method: String?): String =
@@ -30,11 +27,9 @@ internal fun spanOf(
     current: Boolean,
 ): String =
     listOfNotNull(
-        RUN_FORMAT.format(Instant.ofEpochMilli(run.startedAtMs)) +
+        formatRunStart(run.startedAtMs) +
             (run.endedAtMs?.let { " – ${TIME_FORMAT.format(Instant.ofEpochMilli(it))}" } ?: ""),
         if (current) "current" else null,
     ).joinToString(" · ")
-
-private val RUN_FORMAT = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH).withZone(ZoneId.systemDefault())
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())

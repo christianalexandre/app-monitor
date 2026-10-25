@@ -1,50 +1,18 @@
 package appmonitor.desktop.app.ui
 
+import appmonitor.desktop.data.toStored
+import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
+import appmonitor.desktop.domain.HarRepository
+import appmonitor.desktop.domain.HarWrite
 import appmonitor.desktop.mcp.ExportRefused
 import appmonitor.desktop.mcp.Exports
-import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.awt.FileDialog
-import java.awt.Frame
 import java.io.File
 import java.io.IOException
-
-/** The native save dialog, [suggested] as the file name; null when cancelled. */
-internal fun saveHarDialog(suggested: String): File? {
-    val dialog = FileDialog(null as Frame?, "Export HAR", FileDialog.SAVE)
-    dialog.file = suggested
-    dialog.isVisible = true
-    val name = dialog.file ?: return null
-    return File(dialog.directory, if (name.endsWith(".har")) name else "$name.har")
-}
-
-/** Writes `export_har`'s log of what [filter] matches to [file]; returns the line the window shows. */
-internal suspend fun exportHar(
-    storage: Storage,
-    filter: ExchangeFilter,
-    file: File,
-): String =
-    withContext(Dispatchers.IO) {
-        try {
-            val har = Exports.har(storage, filter)
-            file.writeText(har.text)
-            val more = if (har.more) " (the first ${Exports.MAX_ENTRIES}; more matched)" else ""
-            val connections = if (har.connections > 0) "; ${har.connections} connections left out" else ""
-            "Exported ${har.entries} exchanges$more to ${file.name}$connections"
-        } catch (e: ExportRefused) {
-            "Not exported: ${e.message}"
-        } catch (e: IOException) {
-            "Not exported: ${e.message ?: e::class.simpleName}"
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            "Not exported: ${e.message ?: e::class.simpleName}"
-        }
-    }
 
 /** `to_curl`'s command for exchange [id], or why there is none. */
 internal suspend fun curlOf(
@@ -57,11 +25,30 @@ internal suspend fun curlOf(
         Result.failure(e)
     }
 
-/** [ExportRepository] over the MCP tools' exports of [storage]. */
+/** [ExportRepository] and [HarRepository] over the MCP tools' exports of [storage]. */
 internal class StorageExports(
     private val storage: Storage,
-) : ExportRepository {
+) : ExportRepository,
+    HarRepository {
     override suspend fun curl(id: Long): Result<String> = curlOf(storage, id)
-}
 
-internal fun harFileName(runId: Long?) = if (runId == null) "app-monitor-all-runs.har" else "app-monitor-run-$runId.har"
+    override suspend fun write(
+        filter: ExchangeFilter,
+        file: File,
+    ): HarWrite =
+        withContext(Dispatchers.IO) {
+            try {
+                val har = Exports.har(storage, filter.toStored())
+                file.writeText(har.text)
+                HarWrite.Written(har.entries, har.more, Exports.MAX_ENTRIES, har.connections)
+            } catch (e: ExportRefused) {
+                HarWrite.NotWritten(e.message.orEmpty())
+            } catch (e: IOException) {
+                HarWrite.NotWritten(e.message ?: e::class.simpleName.orEmpty())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                HarWrite.NotWritten(e.message ?: e::class.simpleName.orEmpty())
+            }
+        }
+}

@@ -86,6 +86,8 @@ class ExportUiTest {
                 assertEquals(body, postData["text"]!!.jsonPrimitive.content, "bodies whole, past export_har's 16 KiB cap")
 
                 onNodeWithText("http://127.0.0.1:1/items?q=a%20b").performClick()
+                // The detail pane reads the exchange off the UI thread.
+                awaitTag(COPY_CURL)
                 onNodeWithTag(COPY_CURL).performClick()
                 awaitText("Copied")
                 screenshot("export.png")
