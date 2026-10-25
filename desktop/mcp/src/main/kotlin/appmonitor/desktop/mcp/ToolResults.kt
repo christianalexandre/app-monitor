@@ -26,18 +26,21 @@ internal class ToolError(
 
 internal fun errorResult(message: String) = CallToolResult(content = listOf(TextContent(message)), isError = true)
 
+/** [text] as one [TextContent], after a `#` line per warning when [health] counts unsaved events (`to_curl`). */
+internal fun textResult(
+    text: String,
+    health: StorageHealth,
+) = CallToolResult(content = listOf(TextContent(listOfNotNull(warning(health)?.let { "# warning: $it" }, text).joinToString("\n"))))
+
+private fun warning(health: StorageHealth): String? =
+    if (health.notSaved == 0L) null else "${health.notSaved} events were not saved" + (health.lastError?.let { ": $it" } ?: "")
+
 /** [result] as the text of one [TextContent], with a `warnings` field when [health] counts unsaved events. */
 internal fun jsonResult(
     result: JsonObject,
     health: StorageHealth,
 ): CallToolResult {
-    val body =
-        if (health.notSaved == 0L) {
-            result
-        } else {
-            val warning = "${health.notSaved} events were not saved" + (health.lastError?.let { ": $it" } ?: "")
-            JsonObject(result + ("warnings" to JsonArray(listOf(JsonPrimitive(warning)))))
-        }
+    val body = warning(health)?.let { JsonObject(result + ("warnings" to JsonArray(listOf(JsonPrimitive(it))))) } ?: result
     return CallToolResult(content = listOf(TextContent(body.toString())))
 }
 

@@ -69,7 +69,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   and the changes in count, error rate and duration.
   Accept: `./gradlew :desktop:mcp:test` on two crafted runs with known
   differences.
-- [ ] **M6.7 `export_har` and `to_curl`.** HAR 1.2 for a run or a filter,
+- [x] **M6.7 `export_har` and `to_curl`.** (`feat/mcp-export-har-to-curl`; HAR's `time`/`wait` 0 with a `comment` where SDD 10 said -1, which HAR forbids there; cURL adds `--globoff`, `--head` and `Name;` for empty headers.) HAR 1.2 for a run or a filter,
   a cURL command for one exchange, returned as tool text.
   Accept: `./gradlew :desktop:mcp:test` — the HAR validated against the
   HAR 1.2 field list, the cURL command run against a local server
