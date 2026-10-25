@@ -148,3 +148,4 @@ Rules:
 | [0128](0128-a-network-interceptor-serves-no-mock-and-keeps-the-host.md) | As a network interceptor, the OkHttp capture serves no mock and keeps the host | Accepted |
 | [0129](0129-ktor-marks-its-captures-beside-the-okhttp-sdk.md) | The Ktor plugin marks its captures beside the OkHttp SDK, and the interceptor skips and strips the mark | Accepted |
 | [0130](0130-a-held-ios-task-asks-the-apps-delegate.md) | A held iOS task asks the app's delegate | Accepted |
+| [0131](0131-background-tasks-resumed-before-start-are-adopted.md) | Background tasks the resume hook never saw are adopted at their first callback | Accepted |

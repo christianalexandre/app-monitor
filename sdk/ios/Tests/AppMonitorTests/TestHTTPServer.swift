@@ -3,7 +3,8 @@ import Network
 
 /// HTTP/1.1 on 127.0.0.1 for capture tests; records each request as it arrived. Routes: `/ok` 200 with
 /// a cookie, `/error` 500, `/big/N` N bytes, `/echo` the request body, `/redirect` 302 to `/ok`,
-/// `/auth` 401 asking for Basic credentials unless the request has some, `/hang` never answers.
+/// `/auth` 401 asking for Basic credentials unless the request has some, `/hang` never answers, `/slow` is
+/// `/ok` one second later.
 final class TestHTTPServer: @unchecked Sendable {
     struct Request: Sendable {
         let method: String
@@ -69,7 +70,10 @@ final class TestHTTPServer: @unchecked Sendable {
                 buffered = rest
                 requests.append(request)
                 if let response = Self.response(to: request) {
-                    connection.send(content: response, completion: .idempotent)
+                    let delay: TimeInterval = request.path.hasPrefix("/slow") ? 1 : 0
+                    queue.asyncAfter(deadline: .now() + delay) {
+                        connection.send(content: response, completion: .idempotent)
+                    }
                 }
             }
             if !done { read(connection, buffered) }
@@ -80,7 +84,7 @@ final class TestHTTPServer: @unchecked Sendable {
         let path = String(request.path.prefix { $0 != "?" })
         let (status, headers, body): (String, [String], Data)
         switch path {
-        case "/ok":
+        case "/ok", "/slow":
             (status, headers, body) = ("200 OK", ["Content-Type: text/plain", "Set-Cookie: s=1"], Data("hello".utf8))
         case "/error": (status, headers, body) = ("500 Internal Server Error", [], Data("boom".utf8))
         case "/echo": (status, headers, body) = ("200 OK", [], request.body)
