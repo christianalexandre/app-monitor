@@ -26,7 +26,7 @@ one PR is split at once (M8's rule). Guideline
 `docs/guidelines/05_desktop_architecture.md` and SDD 03 change in the
 task that lands each module.
 
-- [x] **H2.1 Design system.** (#261) `desktop/designsystem` with
+- [x] **H2.1 Design system.** (#262) `desktop/designsystem` with
   `AppMonitorTheme`, the tokens and the components the current screens
   repeat; `desktop/app` switched to the theme and the components; the
   design system rule script in `make check`; a gallery screenshot test.
