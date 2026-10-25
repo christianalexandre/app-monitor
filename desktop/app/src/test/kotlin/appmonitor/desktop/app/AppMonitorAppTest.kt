@@ -329,8 +329,9 @@ class AppMonitorAppTest {
                 onNodeWithTag(RUNS).performClick()
                 onNodeWithText("New run").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { storage.currentRun.value > second }
-                awaitText("No requests yet")
-                onNodeWithText("iPhone").assertDoesNotExist()
+                // Until the new run is written, the window shows the last one with an empty first page.
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("iPhone").fetchSemanticsNodes().isEmpty() }
+                onNodeWithText("No requests yet").assertExists()
             }
         }
 
