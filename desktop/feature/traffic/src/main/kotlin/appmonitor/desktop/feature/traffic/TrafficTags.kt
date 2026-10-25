@@ -46,4 +46,6 @@ const val REFUSE_REPLAY = "refuse-replay"
 
 const val CLEAR = "clear"
 
+const val RECORD = "record"
+
 const val ALL_DEVICES = "all-devices"

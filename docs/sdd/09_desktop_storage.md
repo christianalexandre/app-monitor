@@ -7,7 +7,7 @@ files, connection settings), ADR-0086 (opening, booleans, lost writes),
 ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
 (issues), ADR-0096 (issue rows, their writers, retention of their exchanges),
 ADR-0140 (live traffic in memory, only recordings stored), ADR-0141 (the live
-list's types, ids and bound).
+list's types, ids and bound), ADR-0142 (recording through `Recorder`).
 Code: `desktop/storage/`, used by `desktop/app`.
 
 ## How it works
@@ -156,6 +156,15 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `currentRun` (a `StateFlow`) is the writer's current run after each batch.
   A lost batch puts back the run current before it, and a session that
   arrived in it joins that run when it is written again.
+- **Recording** (ADR-0140 B, ADR-0142): `record()` is a `newRun()` that
+  also sets `recording` (a `StateFlow`, null when none) to the new run,
+  returning its id once written, null when lost; `stop()` ends it and
+  waits for the write. `clearAll()` and `close` end it too; an open that
+  finds a run without an end (a crash while recording) closes it. The
+  window opens the store with `Storage.open(dir, startRun = false)`: no
+  run at launch nor after `clearAll`, `runId` is 0, and a session is only
+  written once `Recorder` gives it a run. Tests keep the default, a run
+  per launch.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
   `forget(deviceId, appId)` and `forgetAll()` delete; queued in click order,
@@ -282,9 +291,10 @@ closes the approved devices (ADR-0083). A failure goes to
 `LiveTraffic` holds the live list in memory (ADR-0140 A, ADR-0141): every
 device's sessions and exchanges since the last `clear()`, as the store's
 row types. The device server (`TrafficStore`) and the proxy
-(`ProxyRecording`) feed it, not `Storage`: no exchange reaches the store
-from the window's launch on. The window, its exports and benchmarks, and
-the MCP server read through the routed repositories below.
+(`ProxyRecording`) feed `Recorder`, which feeds it and, while recording,
+`Storage` (below): no exchange reaches the store unless it starts while
+recording. The window, its exports and benchmarks, and the MCP server read
+through the routed repositories below.
 
 - **Fed** by `TrafficSink`'s `connected`, `received`, `disconnected`, which
   `Storage` implements too. The four `network` events are decoded as
@@ -311,6 +321,27 @@ the MCP server read through the routed repositories below.
   with a session goes where that session lives, else one with a run to
   the store, else the live list; a read by id by `isLive`; runs, run
   diffs, health and issues are the store's.
+
+### Recorder
+
+`Recorder` is the `TrafficSink` the window wires (ADR-0142). Every call
+goes to `LiveTraffic` first; then:
+
+- A `RequestStarted` read while `Storage.recording` is set ties its
+  request id to that run, in the session; every later event of that id
+  (response, failure, frames) goes to the store in that run, after
+  `stop()` too, until the session ends. Events of a request that started
+  outside a recording are not stored. Only field 1 (`request_id`) of the payload is read; bodies are
+  skipped.
+- Envelopes of other channels, and `network` types this desktop does not
+  know, go to the store while recording, in the recording's run (as
+  `raw_envelopes`).
+- A session gets a row in a run with its first stored envelope there:
+  its own `Hello`, peer and connection time, and `server_session_id`
+  as the device sent it. A session spanning two recordings has a row in
+  each, ended together when the device disconnects.
+- `forget()`, after `clearAll()`, drops which requests were recorded, so
+  nothing more of them is written.
 
 ### Reading
 
@@ -435,6 +466,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 | Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
+| Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |
 
 ## Limits

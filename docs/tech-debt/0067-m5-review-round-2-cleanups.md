@@ -71,6 +71,10 @@ Fired by PLAN-0010 M9.7 (`feat/breakpoint-channel`), the same way: one
 rollback line (a breakpoint write's outcome cleared) and the expected
 table list. The code these findings name is unchanged.
 
+Fired by PLAN-0013 H3.2 (`feat/record-runs`), the same way: one rollback
+line (the recording put back, as the current run is). The code these
+findings name is unchanged.
+
 ## How it was paid
 
 > Filled when closing.

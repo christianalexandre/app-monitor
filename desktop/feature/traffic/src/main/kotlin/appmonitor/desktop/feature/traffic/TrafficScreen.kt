@@ -167,7 +167,7 @@ private fun RunList(
                     } else {
                         Column(Modifier.weight(1f)) {
                             Text(titleOf(run), role = TextRole.BodyStrong)
-                            Text(spanOf(run, current = run.id == state.currentRun), role = TextRole.Caption)
+                            Text(spanOf(run, recording = run.id == state.recording), role = TextRole.Caption)
                         }
                         TextButton("Rename", onClick = {
                             draft = run.name.orEmpty()
@@ -277,7 +277,16 @@ private fun RequestList(
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Requests") }
-            if (state.runs.shownRunId == null) TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
+            if (state.runs.shownRunId == null) {
+                if (state.runs.recording == null) {
+                    TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
+                } else {
+                    TextButton("Stop recording", onClick = viewModel::stop, Modifier.testTag(RECORD))
+                }
+                TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
             TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
             TextButton(

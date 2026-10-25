@@ -27,6 +27,7 @@ import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
 import appmonitor.desktop.storage.LiveTraffic
+import appmonitor.desktop.storage.Recorder
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.dataDirectory
 import kotlinx.coroutines.CancellationException
@@ -60,13 +61,14 @@ fun main() {
             return
         }
     val live = LiveTraffic()
-    val store = TrafficStore(storage, live)
+    val recorder = Recorder(live, storage)
+    val store = TrafficStore(storage, recorder)
     val runRepository = storage.runRepository()
     val traffic = storage.trafficRepository(live)
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
     val mcp = McpController(storage, live, access, replays = store.replays)
-    val proxy = ProxyController(storage, live, directory)
+    val proxy = ProxyController(storage, recorder, directory)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
     addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT + ProxyServer.STOP_TIMEOUT) {
@@ -100,6 +102,7 @@ fun main() {
                                     scope.launch {
                                         approvals.forgetAll()
                                         storage.clearAll()
+                                        recorder.forget()
                                         live.clear()
                                         mcp.afterClearAll()
                                         proxy.afterClearAll()
@@ -134,7 +137,7 @@ internal fun openServices(
     directory: Path,
     disconnect: (DeviceKey) -> Unit,
 ): Services {
-    val storage = Storage.open(directory)
+    val storage = Storage.open(directory, startRun = false)
     return try {
         runBlocking { Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(storage.settingRepository())) }
     } catch (e: Exception) {

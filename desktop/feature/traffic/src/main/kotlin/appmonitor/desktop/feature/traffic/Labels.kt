@@ -14,12 +14,12 @@ private val SAFE_METHODS = setOf("GET", "HEAD", "OPTIONS")
 
 internal fun spanOf(
     run: Run,
-    current: Boolean,
+    recording: Boolean,
 ): String =
     listOfNotNull(
         formatRunStart(run.startedAtMs) +
             (run.endedAtMs?.let { " – ${TIME_FORMAT.format(Instant.ofEpochMilli(it))}" } ?: ""),
-        if (current) "current" else null,
+        if (recording) "recording" else null,
     ).joinToString(" · ")
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())

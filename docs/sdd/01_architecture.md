@@ -251,10 +251,11 @@ is a feature module owning a `channel` **(planned)**. See ADR-0005.
 `desktop/app` today (ADR-0011):
 
 ```
-AppMonitorServer.sessions ──► TrafficStore.collect ──► LiveTraffic (SDD 09) ──► observed reads ──► AppMonitorApp
-                                 one coroutine per session;   in memory,           sessions, a page
-                                 connected / received /       bounded; stored      of exchanges, one
-                                 disconnected                 runs from Storage    exchange's detail
+AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ──► LiveTraffic (SDD 09) ──► observed reads ──► AppMonitorApp
+                                 one coroutine per session;  │          in memory,           sessions, a page
+                                 connected / received /      │          bounded; stored      of exchanges, one
+                                 disconnected                │          runs from Storage    exchange's detail
+                                                             └─► Storage, what starts while recording (ADR-0142)
 ```
 
 - `main` opens `Storage` in `dataDirectory()` first; when that fails the

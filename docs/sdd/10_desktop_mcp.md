@@ -320,7 +320,7 @@ writes) and a hook run before each tool (a call held in flight).
 
 | Tool | Test | Built by |
 | --- | --- | --- |
-| `list_runs` | `ListRunsTest`: newest first, sessions and counts, paging across `limit`, current run flagged, arguments out of range | M6.3 |
+| `list_runs` | `ListRunsTest`: newest first, sessions and counts, paging across `limit`, the recording flagged, arguments out of range | M6.3 |
 | `search_requests` | `SearchRequestsTest`: one case per filter, combined filters, a page boundary | M6.4 |
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id, a mocked exchange's rule id and name | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, a known p99 (`knownP99`, the run `desktop/app`'s `BenchmarksUiTest` also shows); `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` and `EndpointsTest` (nearest rank) in `desktop/storage` | M6.5, M7.4 |

@@ -67,7 +67,7 @@ internal fun withStorage(
 ) {
     val dir: Path = createTempDirectory("mcp-test")
     try {
-        val storage = Storage.open(dir.resolve("data"), clock)
+        val storage = Storage.open(dir.resolve("data"), clock = clock)
         try {
             runBlocking { block(storage) }
         } finally {

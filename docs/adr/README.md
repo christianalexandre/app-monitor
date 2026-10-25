@@ -159,3 +159,4 @@ Rules:
 | [0139](0139-live-traffic-by-default-and-runs-as-recordings.md) | The window shows live traffic by default; a run is a recording started and stopped by hand | Superseded by [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) |
 | [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) | Live traffic stays in memory; only recordings and what the user saves are stored | Accepted |
 | [0141](0141-the-live-list-is-held-as-the-store-s-rows-in-memory.md) | The live list is held as the store's rows in memory, its ids apart from the store's | Accepted |
+| [0142](0142-a-recorder-sink-stores-what-starts-while-recording.md) | A Recorder sink stores what starts while recording, one session row per run | Accepted |

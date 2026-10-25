@@ -53,10 +53,12 @@ Module scripts apply one convention plugin from `build-logic/`:
 
 `./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
 `AppMonitorServer` on port 47474 with the desktop window's composable rendered
-offscreen, on a store and approvals like `Main.kt`'s. It waits up to 5
-minutes for a device, screenshots the approval panel, approves it (the answer
-is stored), waits for 5 finished exchanges, then screenshots the GET JSON and
-the WebSocket exchanges from the live list. All go into `docs/screenshots/<liveName>-*.png`. `make desktop` must not be
+offscreen, on a store, approvals and `Recorder` like `Main.kt`'s. It clicks
+Record, waits up to 5 minutes for a device, screenshots the approval panel,
+approves it (the answer is stored), waits for 5 finished exchanges, then
+screenshots the GET JSON and the WebSocket exchanges from the live list and
+clicks Stop. It then reopens the store and screenshots the GET JSON from the
+recording (`<liveName>-reopen.png`). All go into `docs/screenshots/<liveName>-*.png`. `make desktop` must not be
 running (same port). The sample is driven by hand:
 
 1. `./gradlew :samples:android:assembleDebug`, then
@@ -247,7 +249,7 @@ The setup a developer follows is the README's *Ask your AI agent (MCP)*
    on the emulator wins over a simulator launched after it.
 2. `APPMONITOR_DATA_DIR=$PWD/build/<dir>/data make desktop`, then launch
    the approved sample with `runAll`: no prompt, its exchanges land in the
-   desktop's new run.
+   live list, which the tools read without `run_id`.
 3. The token is in the store:
    `sqlite3 build/<dir>/data/appmonitor.db "select value from settings where key='mcp.token'"`.
 4. MCP Inspector (`npx @modelcontextprotocol/inspector --cli <url> --header
