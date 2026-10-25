@@ -40,9 +40,14 @@ internal data class HttpExchange(
     val frameCount: Long = 0,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
 ) {
-    val durationMs: Long?
-        get() = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
+    val durationMs: Long? get() = durationOf(startedAtMs, endedAtMs)
 }
+
+/** Null unless both times are known. */
+internal fun durationOf(
+    startedAtMs: Long?,
+    endedAtMs: Long?,
+): Long? = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
 
 internal fun HttpExchange(
     detail: ExchangeDetail,

@@ -71,7 +71,8 @@ Every id is an `INTEGER PRIMARY KEY`; children reference their parent with
 - `approvals` and `settings` are in the version-1 schema, so M5.5 and M5.8
   needed no migration. `settings` holds `retention.max_age_days` (days, or
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
-  default. `mcp.token` is the MCP server's bearer token (SDD 10), read with
+  default. `mcp.token` is the MCP server's bearer token and `mcp.enabled`
+  its switch (SDD 10), read with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).

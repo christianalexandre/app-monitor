@@ -1,11 +1,5 @@
 # 10 — Desktop MCP server
 
-> **Partly built** (ADR-0066). Built: the server, access checks, token,
-> lifecycle, `list_runs` (M6.3), `search_requests` and `get_request` (M6.4),
-> `endpoint_stats` (M6.5), `diff_runs` (M6.6), `export_har` and `to_curl`
-> (M6.7). Not built yet: the app wiring and switch (M6.8); it removes its
-> mark.
-
 `desktop/mcp` serves the stored traffic to AI agents over MCP, read-only,
 from inside the desktop process (ADR-0005). Decisions: ADR-0089 (what the
 tools return), ADR-0090 (who can call, port, on by default), ADR-0091
@@ -33,8 +27,11 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
   tool, and an `embeddedServer(CIO, host = "127.0.0.1", port)`;
   `start()` binds and returns the port, `stop()` stops it. The port is
   `47475`, or `APPMONITOR_MCP_PORT` when set to a number (ADR-0090 D.1);
-  tests pass `0`. A taken port is a `java.net.BindException` (CIO reports it
-  as a cancellation caused by one; `start` rethrows the cause). `start`
+  tests pass `0`. A taken port is a `java.net.BindException`: `start` first
+  binds and closes a plain `ServerSocket` on it, because CIO reports a
+  taken port as a cancellation caused by one **and** as an uncaught
+  exception on `Dispatchers.IO`; a port taken between the two still
+  throws the cause CIO reports. `start`
   and `stop` hold one lock: a `stop` during `start` waits for it, then
   frees the port; the server is single use.
 - Stateless (ADR-0092): no `Mcp-Session-Id`, `GET` and `DELETE` answer
@@ -52,9 +49,6 @@ claude / Inspector / any client ──HTTP POST /mcp──► 127.0.0.1:47475  (
 
 ### Token and switch
 
-> The switch, `mcp.enabled` and the settings rows are **not built yet**
-> (M6.8).
-
 `McpAccess` keeps two keys in the store's `settings` table (SDD 09):
 `mcp.token` and `mcp.enabled` (`true` or `false`, missing = `true`,
 ADR-0090 C.1).
@@ -62,26 +56,39 @@ ADR-0090 C.1).
 - At launch, after `Storage.open`: no token → 32 bytes from `SecureRandom`,
   base64url without padding, written through the queue (`setSetting`).
 - `token` is a `StateFlow` the plugin reads on each request, so
-  "Regenerate" and "Clear all data" (which deletes the key, ADR-0088) take
-  effect without a restart: the app calls `access.regenerate()` after
-  `clearAll()`.
+  "Regenerate token" and "Clear all data" (which deletes both keys,
+  ADR-0088) take effect without a restart: after `clearAll()` the app
+  calls `McpController.afterClearAll()`, which regenerates the token and
+  writes `mcp.enabled = false` back when the switch was off, so clearing
+  data never turns on a server the developer turned off.
 - `McpAccess.open(storage)` reads or makes the token, `regenerate()`
   replaces it in memory at once and in the store through the queue.
-- The settings show the state, the address, and the command to paste:
-  `claude mcp add --transport http app-monitor http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`.
-- The switch writes `mcp.enabled` and starts or stops the server.
+- The settings' "MCP server" section shows the switch, the state
+  ("Listening on http://127.0.0.1:<port>/mcp", "Port <port> in use: quit
+  what holds it, or set APPMONITOR_MCP_PORT", "Off", "Failed: <message>"),
+  and, when on, the command to paste with "Copy command" and "Regenerate
+  token":
+  `claude mcp add --transport http app-monitor http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`
+  (`claudeMcpAdd` in `ui/App.kt`).
+- `McpController` (`desktop/app`, `store/McpController.kt`) owns the
+  switch: `start()` reads `mcp.enabled` and starts when on; `setEnabled`
+  writes it and starts or stops; each start builds a new `McpServer`
+  (single use). A failed start is its `status` (`PortTaken`, `Failed`),
+  never a throw. `close()` stops for good; a later `setEnabled(true)`
+  does nothing.
 
 ### Order in the app
 
-> **Not built yet** (M6.8).
-
-1. `Storage.open`, approvals, `McpAccess.open(storage)`.
-2. Device server and, when enabled, MCP server started side by side; a
-   failed MCP start (`BindException`: port taken) is a status in the
-   settings, "Port 47475 in use", and nothing else stops.
-3. On exit: MCP server stopped (grace 500 ms, then `STOP_TIMEOUT`), device
-   server stopped, then `Storage.close`. Same `once` and shutdown hook as
-   the device server.
+1. `openServices`: `Storage.open`, approvals, `McpAccess.open(storage)`;
+   a failure after the open closes the store again.
+2. Device server and `McpController.start()` launched side by side in
+   the serving scope; a failed MCP start (port taken) is a status in the
+   settings and nothing else stops.
+3. On exit, window closed or shutdown hook: `stopAll` stops MCP (grace
+   500 ms, then `STOP_TIMEOUT`), then the device server, each even when
+   the other fails, and only then `Storage.close`. The hook's budget is
+   the device server's and the store's `STOP_TIMEOUT` plus MCP's grace
+   and `STOP_TIMEOUT`.
 4. Storage failed at open → neither server starts (SDD 09).
 
 ### Results, common to every tool
@@ -208,7 +215,7 @@ Details the table leaves out:
 ### Lifecycle
 
 Each call class against each state, and the test that pins it. Tests are
-in `desktop/mcp` unless noted; the `desktop/app` ones come with M6.8. Two
+in `desktop/mcp` unless noted. Two
 internal seams of `McpServer` serve the tests: a `health` source (lost
 writes) and a hook run before each tool (a call held in flight).
 
@@ -218,9 +225,9 @@ writes) and a hook run before each tool (a call held in flight).
 | Protocol call (`initialize`, `tools/list`, `GET`, `DELETE`) | `initialize`, `tools/list` answered, `GET`/`DELETE` `405`: `McpServerTest.statelessEndpoint` | `tools/list` still answered (no read): `LifecycleTest.toolsListNeedsNoStore` | as "store open" | as above | as "store open" | as tool call | as tool call |
 | Refused request | foreign `Origin` or `Host` `403`, missing or wrong token `401`, before the SDK: `AccessTest` (`foreignOriginIsRefused`, `foreignHostIsRefused`, `wrongPortInHostIsRefused`, `missingTokenIsRefused`, `wrongTokenIsRefused`) | same | same | — | same | — | — |
 | Token change | "Regenerate" or "Clear all data": the old token gets `401`, the new one passes, no restart: `AccessTest.regeneratedTokenTakesEffectAtOnce` | — | — | — | same | — | — |
-| Start | binds `127.0.0.1` only: `LifecycleTest.bindsLoopbackOnly`; port from `APPMONITOR_MCP_PORT`: `McpPortTest` | not started after a failed open: `desktop/app` `McpWiringTest.noServerWithoutStorage` | starts | — | `start` twice fails: `LifecycleTest.startTwiceFails` | — | `BindException`, the app shows a status and keeps the device server: `desktop/app` `McpWiringTest.portTakenIsAStatus` |
+| Start | binds `127.0.0.1` only: `LifecycleTest.bindsLoopbackOnly`; port from `APPMONITOR_MCP_PORT`: `McpPortTest` | not started after a failed open: `desktop/app` `McpWiringTest.noServerWithoutStorage` | starts | — | `start` twice fails: `LifecycleTest.startTwiceFails` | — | `BindException`, the app shows a status and keeps the device server: `desktop/app` `McpWiringTest.portTakenIsAStatus`, `AppMonitorAppTest` "a taken MCP port shows a status…" (`mcp-port-taken.png`) |
 | Stop | `stop` returns within `STOP_TIMEOUT`, port free again: `LifecycleTest.stopFreesThePort` | the app stops MCP before closing the store: `desktop/app` `McpWiringTest.stopsBeforeTheStoreCloses` | as open | stop during start leaves nothing bound: `LifecycleTest.stopDuringStart` | as open | second `stop` returns at once: `LifecycleTest.stopTwice` | `stop` after a failed start returns: `LifecycleTest.stopAfterFailedStart` |
-| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops` | — | — | — | — | — | — |
+| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops`; kept off by "Clear all data": `McpWiringTest.clearAllRegeneratesTheTokenAndKeepsTheSwitch` | — | — | — | — | — | — |
 
 ### Tests per tool
 

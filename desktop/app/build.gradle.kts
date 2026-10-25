@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":desktop:mcp"))
     implementation(project(":desktop:server"))
     implementation(project(":desktop:storage"))
     implementation(compose.desktop.currentOs)
