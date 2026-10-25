@@ -10,8 +10,9 @@ struct Endpoint: Equatable, Sendable {
     var port: UInt16 = ProtocolConstants.defaultPort
     var path: String = ProtocolConstants.websocketPath
 
+    /// An IPv6 zone id is sent as `%25` (RFC 6874), which older Foundation requires.
     var url: URL? {
-        let bracketed = host.contains(":") ? "[\(host)]" : host
+        let bracketed = host.contains(":") ? "[\(host.replacingOccurrences(of: "%", with: "%25"))]" : host
         return URL(string: "ws://\(bracketed):\(port)\(path)")
     }
 }
@@ -96,6 +97,9 @@ final class MonitorClient: @unchecked Sendable {
     }
 
     var state: ClientState { queue.sync { current } }
+
+    /// The desktop's mock rules while a session that accepted `interaction` is up (ADR-0115 A.1).
+    let mocks = MockRuleSet()
 
     /// Envelopes dropped by the buffer or for their size (DEBT-0023).
     var dropped: Int { buffer.dropped + oversized.value }
@@ -274,6 +278,8 @@ final class MonitorClient: @unchecked Sendable {
             }
             if self.current == .handshaking {
                 self.handleAck(data, on: connection)
+            } else {
+                self.read(data)
             }
             if self.current == .connected { self.receive(connection) }
         }
@@ -298,6 +304,15 @@ final class MonitorClient: @unchecked Sendable {
         accepted = Set(ack.channels)
         setState(.connected)
         pump()
+    }
+
+    /// After `HelloAck` the desktop sends only `MockRules`; anything else is dropped.
+    private func read(_ data: Data?) {
+        guard let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data),
+            envelope.channel == ProtocolConstants.channelInteraction, envelope.type == "MockRules",
+            let rules = try? Appmonitor_V1_MockRules(serializedBytes: envelope.payload)
+        else { return }
+        mocks.replace(rules.rules)
     }
 
     /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
@@ -363,6 +378,7 @@ final class MonitorClient: @unchecked Sendable {
         pingTimer = nil
         pongTimer = nil
         sending = false
+        mocks.clear()
         defer { connection = nil }
         return connection
     }

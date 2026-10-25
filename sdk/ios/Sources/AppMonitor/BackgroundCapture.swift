@@ -54,10 +54,18 @@ enum BackgroundHooks {
 
     /// Called by `Hooks.started` for every captured task: registers it when its session is a background one.
     static func started(_ task: URLSessionTask, _ capture: TaskCapture) {
+        guard let owner = backgroundSession(of: task) else { return }
+        tasks(of: owner).add(task, capture)
+    }
+
+    /// True when `task` runs in a background session; false too when the hooks are not installed.
+    static func isBackground(_ task: URLSessionTask) -> Bool { backgroundSession(of: task) != nil }
+
+    private static func backgroundSession(of task: URLSessionTask) -> AnyObject? {
         guard let sessionClass, task.responds(to: session),
             let owner = task.perform(session)?.takeUnretainedValue(), owner.isKind(of: sessionClass)
-        else { return }
-        tasks(of: owner).add(task, capture)
+        else { return nil }
+        return owner
     }
 
     private static func tasks(of session: AnyObject) -> BackgroundTasks {

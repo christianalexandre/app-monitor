@@ -8,8 +8,8 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 `desktop/server` (`DeviceSession.send`); the window's Mocks panel in
 `desktop/app` (`ui/Mocks.kt`, ADR-0114) and the `create_mock` tool in
 `desktop/mcp` (`Mocks.kt`, SDD 10). The Kotlin SDKs list the channel and
-serve the rules (SDD 04, 05, 08, ADR-0115); the Swift SDK does not yet
-(PLAN-0010).
+serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
+(SDD 06, 07, ADR-0117).
 
 ## How it works
 
@@ -137,6 +137,9 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | Which rule answers a request, one vector for every SDK | `protocol/fixtures/mock_matching.json`, `MockMatchingVectorTest` in `sdk/core` |
 | A device keeps the last set, empties it when the session ends | `MonitorClientMocksTest` in `sdk/core` |
 | OkHttp and Ktor answer a matching call without the network | `MockAnswerTest` in `sdk/android-okhttp` and `sdk/ktor` |
+| The Swift SDK runs the vector, keeps the last set, empties it when the session ends | `MockMatchingVectorTests`, `MonitorClientMocksTests` in `sdk/ios` |
+| `URLSession` answers a matching data or upload task without the network, after its delay, a failure and a cancel included | `MockAnswerTests` in `sdk/ios` |
+| A rule answers a call on a real emulator and simulator, end to end | `make e2e-android`, `make e2e-ios` |
 | A mocked exchange stored with its rule, marked in the list, named in the detail and `get_request` | `MockedExchangeTest` in `desktop/storage`, `MockedExchangeUiTest` (`mocked.png`), `GetRequestTest` |
 | The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `desktop/server` |
 | A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |
@@ -145,6 +148,5 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 
 - A rule cannot be moved in its app's match order (DEBT-0082).
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
-- The Swift SDK does not list the channel yet (PLAN-0010).
 - The headless server sends its file's rules once per session; it does not
   reread the file.

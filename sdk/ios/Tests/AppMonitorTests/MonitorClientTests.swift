@@ -51,6 +51,12 @@ struct MonitorClientTests {
         return desktop.port
     }
 
+    @Test func anIPv6HostKeepsItsZoneInTheURL() {
+        #expect(Endpoint(host: "fe80::1%en0").url?.absoluteString == "ws://[fe80::1%25en0]:47474/v1/ws")
+        #expect(Endpoint(host: "fe80::1%en0").url?.host == "fe80::1%en0")
+        #expect(Endpoint(host: "10.0.0.2", port: 9).url?.absoluteString == "ws://10.0.0.2:9/v1/ws")
+    }
+
     @Test func handshakeSendsHelloFirstThenConnects() async throws {
         let desktop = TestDesktop()
         try await desktop.start()

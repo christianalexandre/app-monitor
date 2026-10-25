@@ -83,6 +83,14 @@ final class TestDesktop: @unchecked Sendable {
         }
     }
 
+    /// Sends `envelope` to every device connected now, as the desktop pushes `MockRules`.
+    func push(_ envelope: Appmonitor_V1_Envelope) {
+        let bytes = try! envelope.serializedBytes() as Data
+        queue.async {
+            for connection in self.connections { self.send(connection, bytes, opcode: .binary) }
+        }
+    }
+
     private var isWithoutPongs: Bool {
         if case .ackWithoutPongs = mode { return true }
         return false

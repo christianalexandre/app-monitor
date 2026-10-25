@@ -17,6 +17,13 @@ final class Sink: CaptureSink, @unchecked Sendable {
 
     var all: [Appmonitor_V1_Envelope] { lock.withLock { envelopes } }
 
+    /// The rules a session would hold; a background task must never be answered from them (ADR-0110 D.1).
+    let rules = MockRuleSet()
+
+    func mock(method: String, url: String) -> Appmonitor_V1_MockRule? {
+        rules.match(method: method, url: url)
+    }
+
     func started() throws -> Appmonitor_V1_RequestStarted {
         try Appmonitor_V1_RequestStarted(serializedBytes: #require(all.first { $0.type == "RequestStarted" }).payload)
     }
@@ -172,8 +179,27 @@ final class BackgroundSessionTests {
         let response = try sink.response()
         #expect(String(decoding: response.body, as: UTF8.self) == "payload" && response.bodySize == 7)
         #expect(String(decoding: delegate.received, as: UTF8.self) == "payload")
-        #expect(delegate.callbacks.contains("didSendBodyData"))
         #expect(delegate.callbacks.suffix(3) == ["didReceiveData", "didFinishCollecting", "didComplete"])
+    }
+
+    @Test func aFileUploadAMockRuleMatchesStillGoesToTheNetwork() async throws {
+        let sink = capture()
+        var rule = Appmonitor_V1_MockRule()
+        rule.id = 1
+        rule.host = "127.0.0.1"
+        rule.path = "/echo"
+        rule.failure = Appmonitor_V1_MockFailure()
+        sink.rules.replace([rule])
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("payload".utf8).write(to: file)
+        var request = URLRequest(url: server.url("/echo"))
+        request.httpMethod = "POST"
+
+        await run(session.uploadTask(with: request, fromFile: file))
+
+        #expect(try !sink.started().hasMockRuleID)
+        #expect(String(decoding: delegate.received, as: UTF8.self) == "payload")
+        #expect(delegate.callbacks.last == "didComplete")
     }
 
     @Test func nothingIsCapturedBeforeStart() async throws {

@@ -79,7 +79,9 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.appID = bundle.bundleIdentifier ?? ProcessInfo.processInfo.processName
     hello.appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     hello.sdkVersion = sdkVersion
-    hello.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
+    hello.channels = [
+        ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
+    ]
     hello.sdkName = sdkName
     return hello
 }

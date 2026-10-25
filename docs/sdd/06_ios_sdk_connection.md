@@ -24,7 +24,7 @@ the app's threads, behind an `NSLock`.
 | **discovering** | Manual `host` only, else `NWBrowser` (`bonjourWithTXTRecord`, `_appmonitor._tcp`), then `127.0.0.1:47474` on the simulator (`targetEnvironment(simulator)`, ADR-0002), as in [Discovery](#discovery). | An endpoint → connecting. Nothing within 5 s → backing off. `stop()` → stopped. |
 | **connecting** | `NWConnection` to `NWEndpoint.url(ws://host:port/path)` with `NWProtocolWebSocket` over TCP; a 10 s timer on the queue. | `.ready` → handshaking. `.failed`, `.cancelled`, `.waiting` with ECONNREFUSED (nothing listens there, ADR-0041) or the 10 s timer → backing off; the first such failure of a client logs one line naming the endpoint and the Info.plist keys (ADR-0036 E). Any other `.waiting` is not an exit: the local network prompt may be up (ADR-0040). `stop()` → stopped. No cleartext exit: ATS does not govern Network.framework. |
 | **handshaking** | Sends `Hello` as the first message, waits for `HelloAck` with no timeout; the pinger runs. | `HelloAck` → connected. Close 1008 → backing off at the longest delay. Any other close, `.failed`, or no pong within 30 s → backing off. `stop()` → stopped. |
-| **connected** | Sends the buffer in order, then each new event; envelopes on a channel missing from `HelloAck.channels` are dropped. One `send` in flight at a time; the next starts from its completion. | Close from the desktop, `.failed`, a `send` completion with an error, or no pong within 30 s → backing off. `stop()` → stopped. |
+| **connected** | Sends the buffer in order, then each new event; envelopes on a channel missing from `HelloAck.channels` are dropped. One `send` in flight at a time; the next starts from its completion. Reads what the desktop sends: an `interaction` `MockRules` replaces the mock rules, anything else is dropped (SDD 12, ADR-0117). | Close from the desktop, `.failed`, a `send` completion with an error, or no pong within 30 s → backing off. `stop()` → stopped. |
 | **backing off** | `DispatchSourceTimer`: 1 s, 2, 4… up to 30 s, ±20 % jitter; reset once a session reaches connected. | Timer → discovering. `stop()` → stopped. |
 | **stopped** | Every resource released, buffer discarded. Events dropped. | `start()` → a new client, empty buffer. |
 
@@ -79,7 +79,8 @@ as outputs; `sdk/ios/TestHost/project.yml` is the reference.
 | --- | --- | --- |
 | Serial `DispatchQueue` | client | `start()` → `stop()`; every resource below delivers on it |
 | Ring buffer (`NSLock`) | client | `start()` → `stop()`; survives reconnects |
-| Device id, `Hello` | client | built once, on the queue, at the first handshake |
+| Device id, `Hello` | client | built once, on the queue, at the first handshake; lists `core`, `network` and `interaction` |
+| Mock rules (`MockRuleSet`, `NSLock`) | client | the last `MockRules` of the session; emptied when the connection is released, so no mock outlives its desktop (ADR-0117) |
 | `NWBrowser`, its probe `NWConnection`s, 500 ms TXT timer, 3 s / 5 s bound | discovering | cancelled on every exit of discovering |
 | `NWConnection` | connecting | handed to handshaking, then connected; cancelled on any exit to backing off or stopped |
 | 10 s connect timer | connecting | cancelled on exit |

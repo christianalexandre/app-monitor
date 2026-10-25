@@ -134,3 +134,4 @@ Rules:
 | [0114](0114-mock-editor-and-create-mock.md) | The window's mock editor and the create_mock tool | Accepted |
 | [0115](0115-mocks-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep, match and serve mock rules | Accepted |
 | [0116](0116-mocked-exchanges-in-the-desktop.md) | How the desktop keeps and shows a mocked exchange, and the headless server's rules | Accepted |
+| [0117](0117-mocks-in-the-ios-sdk.md) | How the iOS SDK keeps, matches and serves mock rules | Accepted |

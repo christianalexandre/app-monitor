@@ -17,6 +17,7 @@ enum SampleCalls {
             SampleButton(label: "Upload") { await upload() },
             SampleButton(label: "WebSocket echo") { await webSocketEcho() },
             SampleButton(label: "Background download") { await BackgroundDownload.shared.run() },
+            SampleButton(label: "418, or a mock") { await data(URLRequest(url: httpbin("status/418"))) },
         ] + grpc
 
     #if DEBUG

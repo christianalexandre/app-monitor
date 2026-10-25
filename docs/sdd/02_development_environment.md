@@ -124,9 +124,9 @@ xcrun simctl launch booted dev.appmonitor.sample -runAll YES
 ```
 
 For the screenshots, run
-`./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=7`
-in the background instead of the server (the seven `URLSession` buttons, one
-exchange each; the eighth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
+`./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=8`
+in the background instead of the server (the eight `URLSession` buttons, one
+exchange each; the ninth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
 Calls made before the approval wait in the SDK's buffer, so `-runAll` can
 start before the click. `-host H -port N` pin the SDK to that desktop, as
 `make e2e-ios` does.
@@ -151,9 +151,12 @@ SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
   -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
 ```
 
-It then waits up to `E2E_TIMEOUT` seconds (120) for the seven calls as
-`make e2e-android` does (the upload's `PUT` and the background download
-included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
+The server gets `--mocks build/e2e-ios/mocks.json`, one rule (id 1) for
+`GET 127.0.0.1/status/418` that answers 200 `mocked`, as on Android; the
+sample's `418, or a mock` button calls that path (ADR-0117).
+It then waits up to `E2E_TIMEOUT` seconds (120) for the eight calls as
+`make e2e-android` does (the upload's `PUT`, the background download and
+the mocked call, asserted `mock 1`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
 and for the gRPC-Core call in the `[proxy]` session: `POST
 https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`, its request and
 response messages, its response.

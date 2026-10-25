@@ -70,3 +70,7 @@ The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy
 ## How it was paid
 
 > Filled when closing.
+
+`scripts/e2e_ios.sh` paid in `feat/ios-sdk-mocks`: the gRPC and proxy ports
+are read by `logged`, which waits up to 10 s for their line as `listen` does
+for `Listening on port`. The other items are open.
