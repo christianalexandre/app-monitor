@@ -93,11 +93,14 @@ task too large for one PR is split at once.
   design system after `MiboTabs`; the tab stays across picks; a body is
   copied as the device sent it; Timing has start, end, duration and
   frames only, the protocol carries no phase (ADR-0147).
-- [ ] **H3.6c Filter sheet.** Status class and host, as
+- [x] **H3.6c Filter sheet.** Status class and host, as
   `app-network-monitor`'s sheet, replacing the toolbar's filter choices.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   a host filter keeps only that host's rows; screenshots of every
-  screen in light and dark listed in the PR for the owner's review.
+  screen in light and dark listed in the PR for the owner's review. The filter
+  keeps sets of status classes and hosts, empty keeps all; the hosts come
+  from the store or the live list; method and "Failed only" moved into
+  the sheet too, the toolbar keeps the search (ADR-0148).
 
 ## Outcome
 

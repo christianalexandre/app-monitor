@@ -56,7 +56,7 @@ internal object Filters {
         ExchangeFilter(
             text = arguments.string("text"),
             method = arguments.string("method"),
-            statusClass = arguments.choice("status_class", statusClasses.keys, null)?.let { statusClasses.getValue(it) },
+            statusClasses = setOfNotNull(arguments.choice("status_class", statusClasses.keys, null)?.let { statusClasses.getValue(it) }),
             failedOnly = arguments.boolean("failed_only", false),
             deviceId = arguments.string("device_id"),
             appId = arguments.string("app_id"),

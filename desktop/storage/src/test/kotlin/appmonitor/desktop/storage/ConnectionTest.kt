@@ -32,7 +32,7 @@ class ConnectionTest {
                 val sizes = storage.searchExchangeSizes(ExchangeFilter()).single()
                 assertEquals(512L to 2_048L, sizes.requestBytes to sizes.responseBytes)
                 assertEquals(1, storage.searchExchanges(ExchangeFilter(text = "PUSH.example.com:5223")).size)
-                StatusClass.entries.forEach { assertEquals(0, storage.searchExchanges(ExchangeFilter(statusClass = it)).size) }
+                StatusClass.entries.forEach { assertEquals(0, storage.searchExchanges(ExchangeFilter(statusClasses = setOf(it))).size) }
                 storage.close(5.seconds)
             }
         }

@@ -139,6 +139,30 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `the filter sheet offers the shown hosts and a host filter keeps only that host's rows`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10), session(11))
+            traffic.exchanges.value =
+                listOf(exchange(1, session = 10, host = "api.example.com"), exchange(2, session = 11, host = "shop.example.com"))
+            val viewModel = viewModel()
+            assertEquals(listOf("api.example.com", "shop.example.com"), viewModel.state.value.hosts)
+
+            viewModel.setFilter(ExchangeFilter(hosts = setOf("shop.example.com")))
+            assertEquals(
+                listOf(2L),
+                viewModel.state.value.rows
+                    .map { it.id },
+            )
+            assertEquals(1, viewModel.state.value.filter.count)
+
+            viewModel.selectSession(10)
+            assertEquals(emptyList(), viewModel.state.value.rows)
+            assertEquals(listOf("api.example.com", "shop.example.com"), viewModel.state.value.hosts, "a picked host stays to be unpicked")
+            viewModel.setFilter(ExchangeFilter())
+            assertEquals(listOf("api.example.com"), viewModel.state.value.hosts)
+        }
+
+    @Test
     fun `show original reads an original past the loaded pages`() =
         runTest {
             val last = TrafficRepository.PAGE_SIZE + 5
@@ -375,9 +399,25 @@ class TrafficViewModelTest {
             limits += limit
             return combine(sessions, exchanges) { sessions, list ->
                 val shown = filter.sessionId?.let(::setOf) ?: sessions.filter { it.runId == (filter.runId ?: 0) }.map { it.id }.toSet()
-                list.filter { it.sessionId in shown && (filter.method == null || it.method == filter.method) }.take(limit.toInt())
+                list
+                    .filter { it.sessionId in shown && (filter.method == null || it.method == filter.method) }
+                    .filter { filter.hosts.isEmpty() || it.host in filter.hosts }
+                    .take(limit.toInt())
             }
         }
+
+        override fun observeHosts(
+            runId: Long?,
+            sessionId: Long?,
+        ): Flow<List<String>> =
+            combine(sessions, exchanges) { sessions, list ->
+                val shown = sessionId?.let(::setOf) ?: sessions.filter { it.runId == (runId ?: 0) }.map { it.id }.toSet()
+                list
+                    .filter { it.sessionId in shown }
+                    .mapNotNull { it.host }
+                    .distinct()
+                    .sorted()
+            }
 
         override suspend fun exchange(
             id: Long,
@@ -438,13 +478,14 @@ private fun exchange(
     id: Long,
     session: Long,
     method: String = "GET",
+    host: String = "example.com",
 ) = Exchange(
     id,
     session,
     "req-$id",
     method,
-    "https://example.com/$id",
-    "example.com",
+    "https://$host/$id",
+    host,
     200,
     false,
     0,

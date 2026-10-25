@@ -68,3 +68,17 @@ const val SAVE_RUN_NAME = "save-run-name"
 const val DISCONNECT = "disconnect-"
 
 const val RECONNECT = "reconnect-"
+
+const val FILTERS = "filters"
+
+const val FILTERS_DONE = "filters-done"
+
+const val FILTER_RESET = "filter-reset"
+
+const val FAILED_ONLY = "failed-only"
+
+// A status class chip's tag is this prefix and the class's first code, as `status-filter-400`.
+const val STATUS_FILTER = "status-filter-"
+
+// A host row's tag is this prefix and the host.
+const val HOST_FILTER = "host-filter-"

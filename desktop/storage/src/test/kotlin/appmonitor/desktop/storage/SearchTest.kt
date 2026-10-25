@@ -27,9 +27,16 @@ class SearchTest {
             assertEquals(listOf("under"), ids(ExchangeFilter(text = "a_b")), "_ is literal")
             assertEquals(ALL, ids(ExchangeFilter(text = "")), "empty text matches all")
             assertEquals(listOf("login", "pay"), ids(ExchangeFilter(method = "POST")))
-            assertEquals(listOf("login", "cdn", "percent"), ids(ExchangeFilter(statusClass = StatusClass.SUCCESS)))
-            assertEquals(listOf("cart"), ids(ExchangeFilter(statusClass = StatusClass.CLIENT_ERROR)))
-            assertEquals(listOf("pay"), ids(ExchangeFilter(statusClass = StatusClass.SERVER_ERROR)))
+            assertEquals(listOf("login", "cdn", "percent"), ids(ExchangeFilter(statusClasses = setOf(StatusClass.SUCCESS))))
+            assertEquals(listOf("cart"), ids(ExchangeFilter(statusClasses = setOf(StatusClass.CLIENT_ERROR))))
+            assertEquals(listOf("pay"), ids(ExchangeFilter(statusClasses = setOf(StatusClass.SERVER_ERROR))))
+            assertEquals(
+                listOf("login", "pay"),
+                ids(ExchangeFilter(statusClasses = setOf(StatusClass.SUCCESS, StatusClass.SERVER_ERROR), text = "example.com")),
+                "any one of the status classes",
+            )
+            assertEquals(listOf("cart", "pay"), ids(ExchangeFilter(hosts = setOf("shop.example.com"))), "one host")
+            assertEquals(listOf("login", "cart", "pay"), ids(ExchangeFilter(hosts = setOf("api.example.com", "shop.example.com"))))
             assertEquals(listOf("timeout"), ids(ExchangeFilter(failedOnly = true)))
             assertEquals(listOf("cart", "pay", "under"), ids(ExchangeFilter(deviceId = "iphone")))
             assertEquals(listOf("percent", "under"), ids(ExchangeFilter(appId = "other")))
@@ -44,7 +51,7 @@ class SearchTest {
                     ExchangeFilter(
                         text = "example",
                         method = "POST",
-                        statusClass = StatusClass.SERVER_ERROR,
+                        statusClasses = setOf(StatusClass.SERVER_ERROR),
                         deviceId = "iphone",
                         appId = "dev.appmonitor.sample",
                         runId = second,
@@ -52,7 +59,27 @@ class SearchTest {
                 ),
                 "filters are combined with AND",
             )
-            assertEquals(emptyList(), ids(ExchangeFilter(method = "POST", runId = storage.runId, statusClass = StatusClass.SERVER_ERROR)))
+            assertEquals(
+                emptyList(),
+                ids(ExchangeFilter(method = "POST", runId = storage.runId, statusClasses = setOf(StatusClass.SERVER_ERROR))),
+            )
+        }
+
+    @Test
+    fun hostsOfARunASessionOrEveryExchange() =
+        withSearchData { storage, second ->
+            runBlocking {
+                val session = storage.sessions(storage.runId).first()
+                assertEquals(
+                    listOf("api.example.com", "b.example.net", "c.example.net", "cdn.example.org", "shop.example.com", "slow.example.net"),
+                    storage.observeHosts(null).first(),
+                )
+                assertEquals(listOf("c.example.net", "shop.example.com"), storage.observeHosts(second).first())
+                assertEquals(
+                    listOf("api.example.com", "cdn.example.org", "slow.example.net"),
+                    storage.observeHosts(second, session.id).first(),
+                )
+            }
         }
 
     @Test
@@ -151,7 +178,8 @@ class SearchTest {
             val cases =
                 mapOf(
                     ExchangeFilter(method = "POST") to "exchanges_method",
-                    ExchangeFilter(statusClass = StatusClass.CLIENT_ERROR) to "exchanges_status_code",
+                    ExchangeFilter(statusClasses = setOf(StatusClass.CLIENT_ERROR)) to "exchanges_status_code",
+                    ExchangeFilter(hosts = setOf("cdn.example.org")) to "exchanges_host",
                     ExchangeFilter(sessionId = session.id) to "exchanges_session_ref_id",
                     ExchangeFilter(runId = second) to "exchanges_session_ref_id",
                     ExchangeFilter(deviceId = "iphone") to "exchanges_session_ref_id",

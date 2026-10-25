@@ -9,12 +9,14 @@ import appmonitor.v1.ResponseReceived
 
 /**
  * What the exchange list is narrowed to (SDD 09); every null or false field matches all. [text] is a substring of the
- * URL, the host included, case-insensitive for ASCII.
+ * URL, the host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them, and
+ * match all when empty.
  */
 data class ExchangeFilter(
     val text: String? = null,
     val method: String? = null,
-    val statusClass: StatusClass? = null,
+    val statusClasses: Set<StatusClass> = emptySet(),
+    val hosts: Set<String> = emptySet(),
     val failedOnly: Boolean = false,
     val deviceId: String? = null,
     val appId: String? = null,
@@ -78,10 +80,16 @@ internal class SearchQuery<T : Any>(
             where += "exchanges.method = ?"
             binds += { bindString(it, method) }
         }
-        filter.statusClass?.let { status ->
-            where += "exchanges.status_code >= ? AND exchanges.status_code < ?"
-            binds += { bindLong(it, status.from.toLong()) }
-            binds += { bindLong(it, status.from + 100L) }
+        if (filter.statusClasses.isNotEmpty()) {
+            where += filter.statusClasses.joinToString(" OR ", "(", ")") { "(exchanges.status_code >= ? AND exchanges.status_code < ?)" }
+            filter.statusClasses.forEach { status ->
+                binds += { bindLong(it, status.from.toLong()) }
+                binds += { bindLong(it, status.from + 100L) }
+            }
+        }
+        if (filter.hosts.isNotEmpty()) {
+            where += filter.hosts.joinToString(", ", "exchanges.host IN (", ")") { "?" }
+            filter.hosts.forEach { host -> binds += { bindString(it, host) } }
         }
         if (filter.failedOnly) where += "exchanges.failed = 1"
         filter.text?.takeIf { it.isNotEmpty() }?.let { text ->

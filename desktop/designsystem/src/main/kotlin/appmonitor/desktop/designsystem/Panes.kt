@@ -1,6 +1,7 @@
 package appmonitor.desktop.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -66,6 +68,30 @@ private fun colorOf(tone: BadgeTone): Color {
 }
 
 private const val BADGE_ALPHA = 0.16f
+
+/** A [Badge] that turns on and off: in its [tone]'s color while [selected], neutral and faded while not. */
+@Composable
+fun ToggleChip(
+    text: String,
+    tone: BadgeTone,
+    selected: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val color = if (selected) colorOf(tone) else colorOf(BadgeTone.Neutral)
+    val shape = RoundedCornerShape(Radius.small)
+    Box(
+        modifier
+            .clip(shape)
+            .toggleable(selected, onValueChange = onToggle, role = Role.Checkbox)
+            .background(color.copy(alpha = if (selected) BADGE_ALPHA else BADGE_ALPHA / 2))
+            .border(1.dp, if (selected) color else Color.Transparent, shape)
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        contentAlignment = Alignment.Center,
+    ) {
+        MaterialText(text, color = color, style = styleOf(if (selected) TextRole.SmallStrong else TextRole.Small), maxLines = 1)
+    }
+}
 
 /** The window's actions over its panes, in one row ruled below. */
 @Composable

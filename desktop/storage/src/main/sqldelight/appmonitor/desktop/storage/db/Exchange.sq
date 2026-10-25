@@ -62,6 +62,19 @@ WHERE session_ref = :sessionRef AND id > :afterId
 ORDER BY id
 LIMIT :limit;
 
+-- The hosts a filter sheet offers (SDD 09).
+hosts:
+SELECT DISTINCT host FROM exchanges WHERE host IS NOT NULL ORDER BY host;
+
+hostsOfRun:
+SELECT DISTINCT exchanges.host FROM exchanges
+JOIN sessions ON sessions.id = exchanges.session_ref
+WHERE sessions.run_id = ? AND exchanges.host IS NOT NULL
+ORDER BY exchanges.host;
+
+hostsOfSession:
+SELECT DISTINCT host FROM exchanges WHERE session_ref = ? AND host IS NOT NULL ORDER BY host;
+
 countOfRun:
 SELECT count(*) FROM exchanges JOIN sessions ON sessions.id = exchanges.session_ref WHERE sessions.run_id = ?;
 

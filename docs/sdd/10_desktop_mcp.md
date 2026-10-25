@@ -157,7 +157,8 @@ returns an empty slice at `stored_bytes`. Code: `Body.kt`.
 Filter fields, shared by `search_requests`, `endpoint_stats`, `diff_runs`
 and `export_har`, map one to one onto `ExchangeFilter` (ADR-0087): `text`
 (substring of the URL, ASCII case-insensitive), `method` (exact),
-`status_class` (`1xx`…`5xx`), `failed_only`, `device_id`, `app_id`,
+`status_class` (`1xx`…`5xx`, a set of one of the filter's
+`statusClasses`, ADR-0148), `failed_only`, `device_id`, `app_id`,
 `run_id`, `session_id`. Unset fields match all; without `run_id` or a
 stored `session_id` a tool reads the live list, as do `get_request`,
 `to_curl` and `replay_request` given a live id (ADR-0141 C). Code: `Filters.kt`, which

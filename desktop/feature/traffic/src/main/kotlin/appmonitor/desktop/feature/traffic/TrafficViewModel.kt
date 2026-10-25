@@ -65,7 +65,8 @@ data class RunsState(
 /**
  * The shown list's sessions, the first [rows] that [filter] matches of the picked [session] or, when null, of every
  * device, the picked [row] and its [detail], the exchanges [marked] for "Save as issue" (ADR-0095 A.1) and the devices
- * [disconnected] (ADR-0144); [canDisconnect] is false with nobody to ask.
+ * [disconnected] (ADR-0144); [canDisconnect] is false with nobody to ask. [hosts] are the shown list's, and the
+ * filter's own ones gone from it, for the filter sheet.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -73,6 +74,7 @@ data class TrafficState(
     val session: Session? = null,
     val health: StoreHealth = StoreHealth(),
     val filter: ExchangeFilter = ExchangeFilter(),
+    val hosts: List<String> = emptyList(),
     val rows: List<Exchange> = emptyList(),
     val row: Exchange? = null,
     val marked: Map<Long, Exchange> = emptyMap(),
@@ -154,6 +156,11 @@ class TrafficViewModel(
             limit.flatMapLatest { traffic.observeExchanges(filter, it) }.onStart { emit(emptyList()) }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    private val hosts =
+        combine(runs.map { it.shownRunId }.distinctUntilChanged(), session.map { it?.id }.distinctUntilChanged(), ::Pair)
+            .flatMapLatest { (run, id) -> traffic.observeHosts(run, id).onStart { emit(emptyList()) } }
+            .combine(filter) { hosts, filter -> (hosts + filter.hosts).distinct().sorted() }
+
     private val row =
         combine(rows, selectedRequest) { rows, id -> rows.firstOrNull { it.id == id } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -208,7 +215,7 @@ class TrafficViewModel(
             TrafficState(runs, sessions, session, health, filter)
         }.combine(connections?.disconnected ?: flowOf(emptyList())) { lists, disconnected ->
             lists.copy(disconnected = disconnected, canDisconnect = connections != null)
-        }
+        }.combine(hosts) { lists, hosts -> lists.copy(hosts = hosts) }
 
     val state: StateFlow<TrafficState> =
         combine(lists, rows, row, marked, detail) { lists, rows, row, marked, detail ->

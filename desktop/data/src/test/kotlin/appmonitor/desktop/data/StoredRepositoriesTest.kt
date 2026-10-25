@@ -97,7 +97,7 @@ class StoredRepositoriesTest {
             val all = traffic.observeExchanges(ExchangeFilter(sessionId = session.id)).first()
             assertEquals(listOf("r1", "r2"), all.map { it.requestId })
             assertEquals(listOf(false, true), all.map { it.isError })
-            val ok = traffic.observeExchanges(ExchangeFilter(sessionId = session.id, statusClass = StatusClass.SUCCESS)).first()
+            val ok = traffic.observeExchanges(ExchangeFilter(sessionId = session.id, statusClasses = setOf(StatusClass.SUCCESS))).first()
             assertEquals(listOf("r1"), ok.map { it.requestId })
             assertEquals(listOf("r2"), traffic.observeExchanges(ExchangeFilter(text = "login")).first().map { it.requestId })
 
@@ -180,7 +180,11 @@ class StoredRepositoriesTest {
                     .byDevice.keys,
             )
 
-            val filtered = storage.benchmarkRepository().byDevice(ExchangeFilter(statusClass = StatusClass.SERVER_ERROR, runId = 99), run)
+            val filtered =
+                storage.benchmarkRepository().byDevice(
+                    ExchangeFilter(statusClasses = setOf(StatusClass.SERVER_ERROR), runId = 99),
+                    run,
+                )
             assertEquals(listOf(setOf("d2")), filtered.endpoints.map { it.byDevice.keys })
         }
 
