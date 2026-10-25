@@ -3,7 +3,7 @@ id: DEBT-0071
 title: Non-correctness findings of the first M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR after PLAN-0007 M6.R4 is `[x]` that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release"
+trigger: "The first PR after PLAN-0007 M6.R4 is `[x]` that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or the first desktop release"
 paid_date:
 ---
 
@@ -41,11 +41,15 @@ findings that do.
 
 The first PR after PLAN-0007 M6.R4 is `[x]` that touches
 `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`,
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`,
 `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`,
 `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/GetRequest.kt` or
 `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/EndpointStats.kt`, or
 the first desktop release (the version label).
+
+Re-triggered by PLAN-0007 M6.R5, which touched `McpController.kt` to fix
+the switch race: its only item here, the `dev` version, needs a build
+version passed to the app, and the first desktop release already forces
+it, so the file left the list.
 
 ## How it was paid
 

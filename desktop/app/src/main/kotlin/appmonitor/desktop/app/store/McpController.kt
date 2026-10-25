@@ -13,7 +13,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.BindException
-import java.util.concurrent.atomic.AtomicBoolean
 
 /** What the settings show about the MCP server (SDD 10). */
 internal sealed interface McpStatus {
@@ -37,7 +36,7 @@ internal sealed interface McpStatus {
 /**
  * Starts and stops the MCP server with the `mcp.enabled` switch (missing = on, ADR-0090 C.1); a server is single use,
  * so each start builds one. A taken port or any start failure is a [status], never a throw. Once [close]d it stays off.
- * A [setEnabled] before [start]'s read returns wins over the stored switch.
+ * A [setEnabled] before [start] writes the stored switch wins over it.
  */
 internal class McpController(
     private val storage: Storage,
@@ -48,7 +47,8 @@ internal class McpController(
     private val lock = Mutex()
     private var server: McpServer? = null
     private var closed = false
-    private val switched = AtomicBoolean(false)
+    private val switchLock = Any()
+    private var switched = false
     private val mutableStatus = MutableStateFlow<McpStatus>(McpStatus.Off)
     private val mutableEnabled = MutableStateFlow(true)
 
@@ -60,15 +60,21 @@ internal class McpController(
     suspend fun start() {
         val stored = readSwitch() != false.toString()
         lock.withLock {
-            if (!switched.get()) mutableEnabled.value = stored
-            if (mutableEnabled.value) startLocked()
+            val on =
+                synchronized(switchLock) {
+                    if (!switched) mutableEnabled.value = stored
+                    mutableEnabled.value
+                }
+            if (on) startLocked()
         }
     }
 
     /** Persists the switch, then starts or stops the server. */
     suspend fun setEnabled(on: Boolean) {
-        switched.set(true)
-        mutableEnabled.value = on
+        synchronized(switchLock) {
+            switched = true
+            mutableEnabled.value = on
+        }
         storage.setSetting(KEY_ENABLED, on.toString())
         lock.withLock { if (on) startLocked() else stopLocked() }
     }

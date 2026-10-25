@@ -16,6 +16,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -27,6 +29,8 @@ import kotlin.test.assertTrue
 private const val INITIALIZE =
     """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},""" +
         """"clientInfo":{"name":"raw","version":"1"}}}"""
+
+private const val RACE_ROUNDS = 2_000
 
 class McpWiringTest {
     private val loopback = InetAddress.getByName("127.0.0.1")
@@ -136,6 +140,28 @@ class McpWiringTest {
             assertEquals(McpStatus.Off, mcp.status.value)
             assertEquals("false", runBlocking { storage.setting(McpController.KEY_ENABLED) })
             runBlocking { mcp.close() }
+        }
+
+    @Test
+    fun switchTurnedOffAsStartWritesItEndsOff() =
+        withStorage { storage ->
+            val access = runBlocking { McpAccess.open(storage) }
+            repeat(RACE_ROUNDS) { round ->
+                val read = CountDownLatch(1)
+                val mcp =
+                    McpController(storage, access, 0) {
+                        read.countDown()
+                        null
+                    }
+                val off = thread { read.await().also { runBlocking { mcp.setEnabled(false) } } }
+
+                runBlocking { mcp.start() }
+                off.join()
+
+                assertEquals(false, mcp.enabled.value, "round $round")
+                assertEquals(McpStatus.Off, mcp.status.value, "round $round")
+                runBlocking { mcp.close() }
+            }
         }
 
     @Test
