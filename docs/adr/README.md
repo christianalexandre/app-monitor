@@ -116,6 +116,6 @@ Rules:
 | [0096](0096-issue-rows-and-their-writers.md) | Issue rows, their writers' order, and what retention trims | Accepted |
 | [0097](0097-endpoint-grouping-in-storage.md) | The endpoint grouping lives in desktop/storage | Accepted |
 | [0098](0098-window-exports-through-desktop-mcp.md) | The window's HAR and cURL exports call desktop/mcp's code | Accepted |
-| [0099](0099-grpc-swift-adapter.md) | Which grpc-swift the adapter targets, and how an app adds it | Proposed |
-| [0100](0100-connection-metadata-layer.md) | What the connection layer captures on iOS, and when it is on | Proposed |
-| [0101](0101-desktop-proxy-mode.md) | How the desktop proxy mode is exposed, trusted and fed | Proposed |
+| [0099](0099-grpc-swift-adapter.md) | Which grpc-swift the adapter targets, and how an app adds it | Accepted |
+| [0100](0100-connection-metadata-layer.md) | What the connection layer captures on iOS, and when it is on | Accepted |
+| [0101](0101-desktop-proxy-mode.md) | How the desktop proxy mode is exposed, trusted and fed | Accepted |

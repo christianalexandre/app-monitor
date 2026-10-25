@@ -31,8 +31,8 @@ the "stop and ask" areas come first, in one stop, and the platform
 primitives (library versions and licences) are written down with their
 evidence before the code.
 
-- [ ] **M8.1 Deep capture decisions.** ADR-0099, ADR-0100 and ADR-0101
-  `Proposed`, one stop: (a) the grpc-swift adapter's major version, its
+- [x] **M8.1 Deep capture decisions.** ADR-0099, ADR-0100 and ADR-0101
+  `Accepted` (ADR-0100 D still open), one stop: (a) the grpc-swift adapter's major version, its
   product and the setup step it adds; (b) what the connection layer
   captures, whether it is on by default, and the owner's Instruments
   finding on which SDK the old tool missed (ADR-0004); (c) the proxy's

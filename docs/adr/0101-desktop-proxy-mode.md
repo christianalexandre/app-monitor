@@ -1,7 +1,7 @@
 ---
 id: ADR-0101
 title: How the desktop proxy mode is exposed, trusted and fed
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -113,7 +113,11 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+Every recommended option: A.1 (`127.0.0.1` only), B.1 (per app launch,
+by environment), C.1 (one CA per data directory, generated on first use),
+D.1 (a button installs it on booted simulators), E.1 (every host
+intercepted) and F.1 (no duplicates by construction). Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 

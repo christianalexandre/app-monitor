@@ -1,7 +1,7 @@
 ---
 id: ADR-0100
 title: What the connection layer captures on iOS, and when it is on
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -91,7 +91,13 @@ shaped like that SDK if it is not a plain socket client.
 
 ## Decision
 
-Empty while `Proposed`.
+Every recommended option: A.1 (`getaddrinfo`, `connect`, read/write
+wrappers, `close` and `nw_connection_*` through fishhook, BSD-3-Clause),
+B.1 (on with `start()` in debug builds, with an option to turn it off) and
+C.1 (its own desktop socket and loopback not reported). D is open: the
+owner's Instruments finding is not in yet, and the plan's order does not
+depend on it. Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-0099
 title: Which grpc-swift the adapter targets, and how an app adds it
-status: Proposed
+status: Accepted
 date: 2026-10-25
 superseded_by:
 ---
@@ -90,7 +90,10 @@ Recommended: 1.
 
 ## Decision
 
-Empty while `Proposed`.
+Every recommended option: A.1 (gRPC Swift 2 only), B.1 (a second
+product `AppMonitorGRPC` in the same package) and C.1 (one `ADAPTER`
+exchange per RPC). Accepted by the agent on the owner's standing instruction of 2026-10-25
+(take the recommended options while the owner is away).
 
 ## Consequences
 
