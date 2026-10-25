@@ -1,10 +1,10 @@
 ---
 id: PLAN-0009
 title: iOS deep capture
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M8
 started: 2026-10-25
-finished:
+finished: 2026-10-25
 ---
 
 # PLAN-0009 — iOS deep capture (M8)
@@ -98,12 +98,54 @@ evidence before the code.
   `make e2e-ios` with the proxy on — the sample's gRPC call stored as a
   `PROXY` exchange with its messages.
 
+### Milestone review
+
+Findings of the `code-review` of `d5f2e82..5115fdb`. None is wrong data,
+a crash, a hang or a leak in normal use, so no task was added. Eight went
+to DEBT-0081: a request body dropped after the origin answers early, no
+backpressure in the HTTP/1.1 and HTTP/2 relays, an fd slot kept when a
+socket is closed outside the rebound `close`, an empty "Proxy" session
+after a failed start, connections counted against the HAR cap, connections
+marked truncated, the iOS end to end reading the gRPC port too early, and
+the two `statusOf` functions. None was rejected.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan and ADR-0099 to ADR-0101 (#225); M8.2 the
+  `AppMonitorGRPC` adapter for grpc-swift (#226); M8.3 BSD socket
+  connections through symbol rebinding, with `sent_size` (#227); M8.4
+  connection exchanges in every desktop reader (#228); M8.5 the proxy
+  mode with HTTP/1.1 and TLS interception (#229); M8.6 HTTP/2 and gRPC
+  through the proxy (#230); M8.7 `grpc-status` read as an error (#231);
+  ADR-0108 (#232); M8.8 a gRPC-Core call from the iOS sample through the
+  proxy, checked by `make e2e-ios` (#233). One review round, no task; the
+  close is in this PR.
+- **Decisions**: ADR-0099 (grpc-swift 2 adapter product), ADR-0100
+  (connection layer; D, the owner's Instruments finding, is still open),
+  ADR-0101 (proxy mode), ADR-0102 (gRPC call events), ADR-0103
+  (connection events), ADR-0104 (connections in the desktop), ADR-0105
+  (Netty and Bouncy Castle), ADR-0106 (proxy HTTP/2 and gRPC), ADR-0107
+  (`grpc_status` column), ADR-0108 (simulator trust through
+  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`, replacing ADR-0101 D.1), ADR-0109
+  (gRPC-Core in the iOS sample).
+- **Debt**: DEBT-0075 created and paid by M8.7. DEBT-0076 to DEBT-0080
+  created; DEBT-0076 to DEBT-0079 fired on this review and were
+  re-triggered on their developer events or the next plan that changes
+  the code they name. DEBT-0081 created with the review's eight findings.
+  DEBT-0060, DEBT-0064, DEBT-0067, DEBT-0068, DEBT-0071, DEBT-0072 and
+  DEBT-0074 fired as their files were touched and were partly paid or
+  re-triggered. No correctness finding that normal use hits is left open.
+- **Deviations**: M8.6 was split three ways. The proxy's HTTP/2 stayed
+  M8.6, DEBT-0075 became M8.7, and the simulator half became M8.8, whose
+  approach ADR-0108 changed from the keychain to a roots file. M8.3
+  rebinds BSD sockets only (`nw_connection_*` is DEBT-0076). The plan
+  ended with eight tasks instead of six.
+- **Lessons**: M7's lesson held. Every reader was tested with what the
+  other writer really sends: the `CONNECTION` and `PROXY` fixtures, and
+  the adapter's and the proxy's failed gRPC calls. The review found no
+  wrong reading in the list, detail, MCP, HAR or run diff. What slipped
+  was the relays' streaming behaviour: an origin that answers before the
+  body ends, and a slow peer under a large stream. The next plan that
+  changes a relay should test both against a real origin. Splitting a
+  task as soon as its second half needed its own decision (M8.6 into
+  M8.6 to M8.8) kept each PR to one Accept line.
