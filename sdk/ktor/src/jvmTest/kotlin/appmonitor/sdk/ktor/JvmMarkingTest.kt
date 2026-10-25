@@ -5,5 +5,5 @@ import kotlin.test.assertEquals
 
 class JvmMarkingTest {
     @Test
-    fun capturedRequestsAreNotMarked() = assertEquals(false, MARKS_CAPTURED_REQUESTS)
+    fun capturedRequestsAreMarkedBesideTheOkHttpSdk() = assertEquals(true, MARKS_CAPTURED_REQUESTS)
 }

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0087
 title: The Gradle plugin captures Ktor's OkHttp engine a second time
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The first Android app with both `appmonitor-ktor` and `appmonitor-okhttp` that applies the plugin, or the next PR that changes `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/AppMonitorKtor.kt`
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0087 — The Gradle plugin captures Ktor's OkHttp engine a second time
@@ -38,4 +38,9 @@ trigger now names the Ktor plugin's file.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0011 H1.2 (ADR-0129). `sdk/ktor` on the JVM and Android sets
+`X-AppMonitor-Capture: ktor` on each hop it captures when
+`appmonitor-okhttp` is on the classpath, and `AppMonitorInterceptor`
+sends a request carrying it on without the header and captures nothing of
+it. `OkHttpEngineDedupeTest` (one exchange, no header at the server) and
+`AppMonitorInterceptorTest` (application and network interceptor) pin it.
