@@ -101,7 +101,7 @@ Rules:
 | [0081](0081-what-the-desktop-stores-on-disk.md) | What the desktop stores on disk, where, and how it is protected | Accepted |
 | [0082](0082-storage-retention.md) | How long the desktop keeps captured traffic, and how it is cleared | Accepted |
 | [0083](0083-persisted-device-approvals.md) | Device approvals survive a restart, and how one is revoked | Accepted |
-| [0084](0084-what-a-run-is.md) | What a run is for the developer, and what the window shows by default | Superseded by [0139](0139-live-traffic-by-default-and-runs-as-recordings.md) |
+| [0084](0084-what-a-run-is.md) | What a run is for the developer, and what the window shows by default | Superseded by [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) |
 | [0085](0085-desktop-storage-platform-primitives.md) | Desktop storage on SQLDelight 2.4.1 and sqlite-jdbc, its files and connection settings | Accepted |
 | [0086](0086-storage-open-and-write-details.md) | How the store prepares a new file, stores booleans and counts lost writes | Accepted |
 | [0087](0087-exchange-search-queries.md) | Exchange search is one WHERE built from the filters that are set | Accepted |
@@ -156,4 +156,5 @@ Rules:
 | [0136](0136-desktop-view-models-are-wired-by-a-koin-dsl-module-per-window.md) | Desktop view models are wired by a Koin DSL module per window | Accepted |
 | [0137](0137-what-desktop-features-share-lives-in-desktop-ui.md) | What desktop features share lives in desktop/ui | Accepted |
 | [0138](0138-mcp-reads-through-a-paged-query-repository.md) | MCP reads through a paged query repository beside the window's | Accepted |
-| [0139](0139-live-traffic-by-default-and-runs-as-recordings.md) | The window shows live traffic by default; a run is a recording started and stopped by hand | Accepted |
+| [0139](0139-live-traffic-by-default-and-runs-as-recordings.md) | The window shows live traffic by default; a run is a recording started and stopped by hand | Superseded by [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) |
+| [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) | Live traffic stays in memory; only recordings and what the user saves are stored | Accepted |

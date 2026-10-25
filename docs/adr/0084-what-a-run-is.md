@@ -3,7 +3,7 @@ id: ADR-0084
 title: What a run is for the developer, and what the window shows by default
 status: Superseded
 date: 2026-10-24
-superseded_by: ADR-0139
+superseded_by: ADR-0140
 ---
 
 # ADR-0084 — What a run is for the developer, and what the window shows by default
