@@ -44,7 +44,7 @@ record of how the milestone was actually built once it is done.
 | [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Done |
 | [0007](0007-mcp-server.md) | M6 | MCP server | Done |
 | [0008](0008-issues-benchmarks-export.md) | M7 | Issues, benchmarks, export | Done |
-| [0009](0009-ios-deep-capture.md) | M8 | iOS deep capture | Active |
+| [0009](0009-ios-deep-capture.md) | M8 | iOS deep capture | Done |
 
 ## Roadmap
 

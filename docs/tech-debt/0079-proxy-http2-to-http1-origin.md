@@ -3,7 +3,7 @@ id: DEBT-0079
 title: An HTTP/2 client cannot reach an HTTP/1.1-only origin through the proxy
 status: Open
 date: 2026-10-25
-trigger: A developer's HTTPS origin without HTTP/2 answering 502 through the proxy to a client that cannot be told to use HTTP/1.1, or PLAN-0009's milestone review, whichever comes first
+trigger: "A developer's HTTPS origin without HTTP/2 answering 502 through the proxy to a client that cannot be told to use HTTP/1.1"
 paid_date:
 ---
 
@@ -27,9 +27,9 @@ around it.
 
 ## Trigger
 
-A developer's HTTPS origin without HTTP/2 answering 502 through the proxy
-to a client that cannot be told to use HTTP/1.1, or PLAN-0009's
-milestone review, whichever comes first.
+A developer's HTTPS origin without HTTP/2 answering 502 through the proxy to a client that cannot be told to use HTTP/1.1.
+
+Fired by the PLAN-0009 milestone review. Not paid: no such origin has been reported. Re-triggered on that event alone.
 
 ## How it was paid
 

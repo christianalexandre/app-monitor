@@ -3,7 +3,7 @@ id: DEBT-0076
 title: The connection layer does not rebind nw_connection_*
 status: Open
 date: 2026-10-25
-trigger: The owner's Instruments finding (ADR-0100 D) names an SDK that calls Network.framework's `nw_connection_*` itself, or the PLAN-0009 milestone review, whichever comes first
+trigger: "The owner's Instruments finding (ADR-0100 D) names an SDK that calls Network.framework's `nw_connection_*` itself, or a developer's connection made through Network.framework missing from the list"
 paid_date:
 ---
 
@@ -28,9 +28,9 @@ Instruments finding of ADR-0100 D says whether one does.
 
 ## Trigger
 
-The owner's Instruments finding (ADR-0100 D) names an SDK that calls
-`nw_connection_*` itself, or the PLAN-0009 milestone review, whichever
-comes first.
+The owner's Instruments finding (ADR-0100 D) names an SDK that calls Network.framework's `nw_connection_*` itself, or a developer's connection made through Network.framework missing from the list.
+
+Fired by the PLAN-0009 milestone review. Not paid: the owner's Instruments finding (ADR-0100 D) is still not in, and nothing in the plan calls `nw_connection_*`. Re-triggered on the events that show the gap.
 
 ## How it was paid
 

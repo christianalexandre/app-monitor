@@ -3,7 +3,7 @@ id: DEBT-0077
 title: The proxy does not capture what crosses an upgraded connection
 status: Open
 date: 2026-10-25
-trigger: PLAN-0009's milestone review, or a developer's WebSocket through the proxy shown with no frames, whichever comes first
+trigger: "A developer's WebSocket through the proxy shown with no frames, or the next PR that changes how `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt` handles a `101`"
 paid_date:
 ---
 
@@ -26,12 +26,14 @@ per direction: M8.6 touches the same handler for HTTP/2.
 
 ## Trigger
 
-PLAN-0009's milestone review, or a developer's WebSocket through the proxy shown with no frames, whichever comes first.
+A developer's WebSocket through the proxy shown with no frames, or the next PR that changes how `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt` handles a `101`.
 
 Fired by PLAN-0009 M8.6, which touches `ClientHandler.kt` only to hand a
 tunnel that opens with the HTTP/2 preface to `Http2Relay.kt`; the `101`
 path is unchanged. Re-triggered on the milestone review, which weighs it with the
 rest of the plan's open items.
+
+Fired by the PLAN-0009 milestone review. Not paid: no developer has reported a WebSocket through the proxy; an app's WebSockets reach the desktop through the SDKs' capture. Re-triggered on that event or on a change to the `101` path.
 
 ## How it was paid
 

@@ -3,7 +3,7 @@ id: DEBT-0078
 title: No pass-through list for hosts the proxy should not intercept
 status: Open
 date: 2026-10-25
-trigger: PLAN-0009's milestone review, or a developer's pinned host that keeps failing through the proxy, whichever comes first
+trigger: "A developer's pinned host that keeps failing through the proxy"
 paid_date:
 ---
 
@@ -26,12 +26,14 @@ pipeline (raw tunnel) and a test of its own.
 
 ## Trigger
 
-PLAN-0009's milestone review, or a developer's pinned host that keeps failing through the proxy, whichever comes first.
+A developer's pinned host that keeps failing through the proxy.
 
 Fired by PLAN-0009 M8.6, which touches `ClientHandler.kt` only to hand
 HTTP/2 tunnels to `Http2Relay.kt`; a pinned client still fails at the
 TLS step, before HTTP/1.1 or HTTP/2 matters, so the list is the same
 work as before. Re-triggered on the milestone review.
+
+Fired by the PLAN-0009 milestone review. Not paid: no developer has reported a pinned host; the failed exchange is shown, not hidden. Re-triggered on that event alone.
 
 ## How it was paid
 
