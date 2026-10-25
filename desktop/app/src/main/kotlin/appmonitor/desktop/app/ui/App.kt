@@ -21,6 +21,7 @@ import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.AppSurface
 import appmonitor.desktop.domain.AnsweredDeviceRepository
 import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.DeviceConnectionRepository
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.McpRepository
@@ -58,8 +59,8 @@ import org.koin.dsl.koinApplication
 import java.io.File
 
 /**
- * The traffic panes under the device to approve ([approvals] when given), the runs or the settings ([answered], [mcp] and [proxy] when
- * given). Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
+ * The traffic panes under the device to approve ([approvals] when given) with Disconnect ([connections] when given), the runs or the
+ * settings ([answered], [mcp] and [proxy] when given). Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -67,6 +68,7 @@ internal fun AppMonitorApp(
     status: String,
     approvals: ApprovalRepository? = null,
     answered: AnsweredDeviceRepository? = null,
+    connections: DeviceConnectionRepository? = null,
     onClearAll: () -> Unit = {},
     mcp: McpRepository? = null,
     proxy: ProxyRepository? = null,
@@ -87,12 +89,13 @@ internal fun AppMonitorApp(
             heldCalls,
             approvals,
             answered,
+            connections,
             mcp,
             proxy,
         ) {
             koinApplication {
                 modules(
-                    appModule(storage, live, runRepository, traffic, replays, heldCalls, approvals, answered, mcp, proxy),
+                    appModule(storage, live, runRepository, traffic, replays, heldCalls, approvals, answered, connections, mcp, proxy),
                 )
             }
         }

@@ -88,7 +88,7 @@ fun TrafficScreen(
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize()) {
-            DeviceList(state, links, Modifier.width(240.dp).fillMaxHeight(), onRuns = { runsOpen = true }, viewModel::selectSession)
+            DeviceList(state, links, viewModel, Modifier.width(240.dp).fillMaxHeight(), onRuns = { runsOpen = true })
             VerticalDivider()
             RequestList(state, links, viewModel, Modifier.weight(1f).fillMaxHeight())
             VerticalDivider()
@@ -204,10 +204,11 @@ private fun RunList(
 private fun DeviceList(
     state: TrafficState,
     links: TrafficLinks,
+    viewModel: TrafficViewModel,
     modifier: Modifier,
     onRuns: () -> Unit,
-    onSelect: (Long?) -> Unit,
 ) {
+    val onSelect = viewModel::selectSession
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(
@@ -259,9 +260,33 @@ private fun DeviceList(
                 ) {
                     Text(hello.device_name, role = TextRole.BodyStrong)
                     Text("${hello.app_id} ${hello.app_version}", role = TextRole.Caption)
+                    val refused = state.refuses(session)
                     Text(
-                        "${hello.os_version} · ${if (session.disconnectedAtMs == null) "connected" else "disconnected"}",
+                        "${hello.os_version} · ${when {
+                            refused -> "refused until Reconnect"
+                            session.disconnectedAtMs == null -> "connected"
+                            else -> "disconnected"
+                        }}",
                         role = TextRole.Caption,
+                    )
+                    if (state.canDisconnect && state.runs.shownRunId == null && !refused && session.disconnectedAtMs == null) {
+                        TextButton("Disconnect", onClick = { viewModel.disconnect(session) }, Modifier.testTag(DISCONNECT + session.id))
+                    }
+                }
+            }
+            if (state.disconnected.isNotEmpty()) {
+                item { Text("Disconnected", Modifier.padding(Spacing.lg), role = TextRole.Caption) }
+            }
+            items(state.disconnected, key = { "disconnected-${it.deviceId}-${it.appId}" }) { device ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(device.hello.device_name, role = TextRole.BodyStrong)
+                        Text(device.appId, role = TextRole.Caption)
+                    }
+                    TextButton(
+                        "Reconnect",
+                        onClick = { viewModel.reconnect(device) },
+                        Modifier.testTag(RECONNECT + device.deviceId + "-" + device.appId),
                     )
                 }
             }

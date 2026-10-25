@@ -98,6 +98,7 @@ fun main() {
                                 status,
                                 approvals,
                                 answered = approvals,
+                                connections = approvals,
                                 onClearAll = {
                                     scope.launch {
                                         approvals.forgetAll()

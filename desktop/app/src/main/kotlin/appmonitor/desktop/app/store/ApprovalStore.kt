@@ -3,16 +3,19 @@ package appmonitor.desktop.app.store
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.AnsweredDeviceRepository
 import appmonitor.desktop.domain.ApprovalRepository
+import appmonitor.desktop.domain.DeviceConnectionRepository
+import appmonitor.desktop.domain.DisconnectedDevice
 import appmonitor.desktop.domain.PendingApproval
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.storage.Storage
+import appmonitor.v1.Hello
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * The developer's answers per (`device_id`, `app_id`), kept in [storage] across restarts (ADR-0083). [disconnect]
- * closes the open sessions of a pair that was approved and is forgotten.
+ * The developer's answers per (`device_id`, `app_id`), kept in [storage] across restarts (ADR-0083), and the pairs
+ * disconnected, in memory (ADR-0144). [disconnect] closes the open sessions of a pair.
  */
 internal class ApprovalStore private constructor(
     private val storage: Storage,
@@ -20,7 +23,8 @@ internal class ApprovalStore private constructor(
     val approvals: DeviceApprovals,
     private val disconnect: (DeviceKey) -> Unit,
 ) : ApprovalRepository,
-    AnsweredDeviceRepository {
+    AnsweredDeviceRepository,
+    DeviceConnectionRepository {
     override val pending: Flow<List<PendingApproval>> =
         approvals.pending.map { list -> list.map { PendingApproval(it.key.deviceId, it.key.appId, it.hello) } }
 
@@ -28,6 +32,17 @@ internal class ApprovalStore private constructor(
         storage.observeApprovals().map { list ->
             list.map { AnsweredDevice(it.deviceId, it.appId, it.approved, it.decidedAtMs, it.deviceName, it.osVersion, it.appVersion) }
         }
+
+    override val disconnected: Flow<List<DisconnectedDevice>> =
+        approvals.disconnected.map { map -> map.map { (key, hello) -> DisconnectedDevice(key.deviceId, key.appId, hello) } }
+
+    // Refused before the close: a Hello racing it is not admitted.
+    override suspend fun disconnect(hello: Hello) = disconnect.invoke(approvals.disconnect(hello))
+
+    override suspend fun reconnect(
+        deviceId: String,
+        appId: String,
+    ) = approvals.reconnect(DeviceKey(deviceId, appId))
 
     override suspend fun decide(
         device: PendingApproval,

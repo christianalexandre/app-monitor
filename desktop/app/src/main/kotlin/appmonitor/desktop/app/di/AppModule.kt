@@ -13,6 +13,7 @@ import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.AskedReplayRepository
 import appmonitor.desktop.domain.BenchmarkRepository
 import appmonitor.desktop.domain.BreakpointRepository
+import appmonitor.desktop.domain.DeviceConnectionRepository
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HarRepository
 import appmonitor.desktop.domain.HeldCallRepository
@@ -44,6 +45,7 @@ internal fun appModule(
     heldCalls: HeldCallRepository?,
     approvals: ApprovalRepository?,
     answered: AnsweredDeviceRepository?,
+    connections: DeviceConnectionRepository?,
     mcp: McpRepository?,
     proxy: ProxyRepository?,
 ): Module =
@@ -66,6 +68,7 @@ internal fun appModule(
         if (approvals != null) single<ApprovalRepository> { approvals }
         if (heldCalls != null) single<HeldCallRepository> { heldCalls }
         if (answered != null) single<AnsweredDeviceRepository> { answered }
+        if (connections != null) single<DeviceConnectionRepository> { connections }
         if (mcp != null) single<McpRepository> { mcp }
         if (proxy != null) single<ProxyRepository> { proxy }
     }

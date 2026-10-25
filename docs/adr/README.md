@@ -161,3 +161,4 @@ Rules:
 | [0141](0141-the-live-list-is-held-as-the-store-s-rows-in-memory.md) | The live list is held as the store's rows in memory, its ids apart from the store's | Accepted |
 | [0142](0142-a-recorder-sink-stores-what-starts-while-recording.md) | A Recorder sink stores what starts while recording, one session row per run | Accepted |
 | [0143](0143-save-copies-live-exchanges-into-one-saved-run.md) | Save copies live exchanges into one "Saved" run, marked by a column | Accepted |
+| [0144](0144-disconnect-refuses-a-pair-in-memory-until-reconnect.md) | Disconnect refuses a pair in memory, before approval, until Reconnect | Accepted |

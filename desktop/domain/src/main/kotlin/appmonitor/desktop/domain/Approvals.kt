@@ -21,3 +21,25 @@ interface ApprovalRepository {
         approved: Boolean,
     )
 }
+
+/** One app on one device the developer disconnected; [hello] is the one of the session it was disconnected from. */
+data class DisconnectedDevice(
+    val deviceId: String,
+    val appId: String,
+    val hello: Hello,
+)
+
+/** Devices the developer disconnected: refused without a prompt until reconnected, until the desktop quits (ADR-0144). */
+interface DeviceConnectionRepository {
+    /** In disconnect order, again after each change. */
+    val disconnected: Flow<List<DisconnectedDevice>>
+
+    /** Closes the sessions of [hello]'s app on its device and refuses its next connections. */
+    suspend fun disconnect(hello: Hello)
+
+    /** Lets the device in again as its answer says. */
+    suspend fun reconnect(
+        deviceId: String,
+        appId: String,
+    )
+}
