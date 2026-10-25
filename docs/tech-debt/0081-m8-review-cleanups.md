@@ -74,3 +74,7 @@ The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy
 `scripts/e2e_ios.sh` paid in `feat/ios-sdk-mocks`: the gRPC and proxy ports
 are read by `logged`, which waits up to 10 s for their line as `listen` does
 for `Listening on port`. The other items are open.
+
+`ConnectionCapture.swift` paid in `fix/ios-skip-kmp-desktop-socket`: a
+closed connection's `ResponseReceived` no longer sets `body_truncated`,
+as `protocol/fixtures/connection_closed.bin` already showed.

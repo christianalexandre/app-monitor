@@ -75,6 +75,18 @@ func freePort() throws -> UInt16 {
     return UInt16(bigEndian: address.sin_port)
 }
 
+/// Answers one desktop on TEST-NET-1 with its path at once.
+struct AnsweringBrowser: MdnsBrowser {
+    func browse(
+        on queue: DispatchQueue,
+        onAnswer: @escaping @Sendable (DesktopAnswer) -> Void,
+        onFailure: @escaping @Sendable (String) -> Void
+    ) -> @Sendable () -> Void {
+        queue.async { onAnswer(DesktopAnswer(name: "AppMonitor", host: "192.0.2.1", path: "/")) }
+        return {}
+    }
+}
+
 // `ConnectionCapture.sink` is process-wide: one test at a time owns it.
 @Suite(.serialized)
 final class ConnectionCaptureTests {
@@ -152,7 +164,7 @@ final class ConnectionCaptureTests {
         #expect(end.type == "ResponseReceived")
         let response = try Appmonitor_V1_ResponseReceived(serializedBytes: end.payload)
         #expect(response.statusCode == 0)
-        #expect(response.body.isEmpty && response.bodyTruncated)
+        #expect(response.body.isEmpty && !response.bodyTruncated)
         #expect(response.sentSize == 8)
         #expect(response.bodySize == Int64(received) && received == 7)
         #expect(end.timestampMs - startedEnvelope.timestampMs >= 20)
@@ -227,6 +239,36 @@ final class ConnectionCaptureTests {
         client.send(envelope)
         #expect(await eventually { desktop.events.count == 1 })
         #expect(sink.all.isEmpty)
+    }
+
+    /// Another SDK's socket to a desktop this one found, as `sdk/core`'s on a physical iPhone: non-loopback
+    /// addresses (TEST-NET-1), one answered by mDNS, one set as the manual host.
+    @Test func aDesktopFoundIsNotReportedOnAnyAddress() async throws {
+        let manualPort = try freePort()
+        let otherPort = try freePort()
+        let queue = DispatchQueue(label: "test.discovery")
+        for options in [AppMonitorOptions(), AppMonitorOptions(host: "192.0.2.2", port: Int(manualPort))] {
+            let discover = discovery(options, mdns: AnsweringBrowser(), onSimulator: false) { _ in }
+            let cancel = queue.sync { discover(queue) { _ in } }
+            try await Task.sleep(nanoseconds: 50_000_000)
+            queue.sync { cancel() }
+        }
+        let peers = [
+            ("192.0.2.1", ProtocolConstants.defaultPort), ("192.0.2.2", manualPort), ("192.0.2.1", otherPort),
+        ]
+        for (host, port) in peers {
+            var address = loopback(port: port)
+            address.sin_addr.s_addr = inet_addr(host)
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+            _ = connect(fd, address)
+            Darwin.close(fd)
+        }
+
+        _ = try await connection(otherPort)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let started = sink.all.filter { $0.type == "RequestStarted" }.compactMap(startedURL)
+        #expect(started == ["tcp://192.0.2.1:\(otherPort)"])
     }
 
     @Test func urlSessionTrafficIsLeftToItsOwnCapture() async throws {
