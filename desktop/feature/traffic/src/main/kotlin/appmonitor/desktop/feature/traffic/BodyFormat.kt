@@ -1,4 +1,4 @@
-package appmonitor.desktop.app.ui
+package appmonitor.desktop.feature.traffic
 
 import appmonitor.v1.Header
 import kotlinx.serialization.SerializationException
@@ -11,7 +11,6 @@ import okio.ByteString
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
-import java.util.Locale
 
 internal enum class BodyFormat(
     val label: String,
@@ -24,7 +23,7 @@ internal enum class BodyFormat(
 private val JSON_LITERAL = Regex("true|false|null|-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?")
 
 /** UTF-8 text of [body], or null when it is not valid UTF-8. */
-internal fun utf8OrNull(body: ByteString): String? =
+fun utf8OrNull(body: ByteString): String? =
     try {
         Charsets.UTF_8
             .newDecoder()
@@ -233,5 +232,3 @@ internal fun render(
         BodyFormat.Json -> body.prettyJson ?: "Not a JSON document"
         BodyFormat.Hex -> hexDump(body.bytes)
     }
-
-internal fun formatDuration(ms: Long): String = if (ms < 1_000) "$ms ms" else String.format(Locale.ROOT, "%.2f s", ms / 1_000.0)

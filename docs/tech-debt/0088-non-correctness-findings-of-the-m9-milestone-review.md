@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt` (or its request detail moving to `desktop/feature/traffic`, PLAN-0012 H2.2b), `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`"
 paid_date:
 ---
 
@@ -33,12 +33,15 @@ not hit (ADR-0094):
 - **One query per replay row.** `Storage.replayOriginals` looks up each
   row's original with its own `idOf` query. A join would do it in the
   page query.
-- **"Show original" can show nothing.** In `App.kt`, the original is
-  selected by id, but the detail pane finds only loaded rows. An
-  original older than the loaded pages shows "Select a request".
 - **Comment blocks longer than four lines** (guidelines 02): `parseArgs`
   in `Main.kt`, `TrafficStore` in `TrafficStore.kt` and `readMockRules`
   in `MockFile.kt`.
+
+Paid in PLAN-0012 H2.2b's PR (`refactor/desktop-traffic-feature`):
+"Show original" read only loaded rows, so an original older than the
+loaded pages showed "Select a request"; `TrafficViewModel` now reads it
+by id (`TrafficViewModelTest`, "show original reads an original past the
+loaded pages").
 
 Paid in M9.R2's PR: an empty OkHttp response (`Content-Length: 0`) is
 now held at a response breakpoint, as in Ktor and iOS
@@ -48,8 +51,7 @@ now held at a response breakpoint, as in Ktor and iOS
 
 Each one needs an edited streamed body, a session of hundreds of large
 uploads, an edited URL that carries a masked token, a Ktor body that is
-not a `ByteArrayContent`, a page made mostly of replays, or an original
-past the loaded pages. None
+not a `ByteArrayContent`, or a page made mostly of replays. None
 of them is wrong stored data, a crash or a hang in a normal debug
 session. The plan's two review tasks, M9.R1 and M9.R2, cover the
 findings that normal use does hit.
@@ -64,7 +66,6 @@ items in its file:
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
 - `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`
-- `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or the PR that moves its request detail into `desktop/feature/traffic` (PLAN-0012 H2.2b)
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/TrafficStore.kt`

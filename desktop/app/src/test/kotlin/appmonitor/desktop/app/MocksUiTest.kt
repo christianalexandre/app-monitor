@@ -10,11 +10,11 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.CONFIRM_MOCK
-import appmonitor.desktop.app.ui.MOCKS
 import appmonitor.desktop.app.ui.MOCK_BODY
 import appmonitor.desktop.app.ui.MOCK_STATUS
-import appmonitor.desktop.app.ui.MOCK_THIS
 import appmonitor.desktop.app.ui.SAVE_MOCK
+import appmonitor.desktop.feature.traffic.MOCKS
+import appmonitor.desktop.feature.traffic.MOCK_THIS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.MockSource

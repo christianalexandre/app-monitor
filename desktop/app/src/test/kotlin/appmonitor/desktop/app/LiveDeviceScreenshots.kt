@@ -17,7 +17,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.RUNS
+import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.Storage

@@ -6,11 +6,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.COMPARE_RUNS
 import appmonitor.desktop.app.ui.DIFF_BASE
 import appmonitor.desktop.app.ui.DIFF_RUN
 import appmonitor.desktop.app.ui.DiffRow
-import appmonitor.desktop.app.ui.RUNS
+import appmonitor.desktop.feature.traffic.COMPARE_RUNS
+import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.diffEndpoints

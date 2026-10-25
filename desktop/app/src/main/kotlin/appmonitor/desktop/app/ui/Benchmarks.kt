@@ -33,6 +33,7 @@ import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
+import appmonitor.desktop.feature.traffic.formatDuration
 import appmonitor.desktop.storage.EndpointGroups
 import appmonitor.desktop.storage.EndpointTally
 import appmonitor.desktop.storage.ExchangeFilter
@@ -205,8 +206,6 @@ private fun bytesOf(bytes: Long): String =
         bytes >= 1L shl 10 -> String.format(Locale.ROOT, "%.1f KiB", bytes / (1L shl 10).toDouble())
         else -> "$bytes B"
     }
-
-internal const val BENCHMARKS = "benchmarks"
 
 internal const val BENCHMARK_LIST = "benchmark-list"
 

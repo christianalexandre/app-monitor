@@ -9,7 +9,6 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.ABORT_HELD
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.BREAKPOINTS
 import appmonitor.desktop.app.ui.BREAKPOINT_HOST
 import appmonitor.desktop.app.ui.BREAKPOINT_NAME
 import appmonitor.desktop.app.ui.BREAKPOINT_PATH
@@ -20,6 +19,7 @@ import appmonitor.desktop.app.ui.NEW_BREAKPOINT
 import appmonitor.desktop.app.ui.RESUME_HELD
 import appmonitor.desktop.app.ui.SAVE_BREAKPOINT
 import appmonitor.desktop.app.ui.TOGGLE_BREAKPOINT
+import appmonitor.desktop.feature.traffic.BREAKPOINTS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.protocol.Protocol

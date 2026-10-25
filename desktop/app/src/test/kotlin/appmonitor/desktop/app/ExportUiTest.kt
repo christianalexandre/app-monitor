@@ -10,8 +10,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.COPY_CURL
-import appmonitor.desktop.app.ui.EXPORT_HAR
+import appmonitor.desktop.feature.traffic.COPY_CURL
+import appmonitor.desktop.feature.traffic.EXPORT_HAR
 import appmonitor.desktop.mcp.assertHar12
 import appmonitor.desktop.mcp.runCurl
 import appmonitor.v1.Header

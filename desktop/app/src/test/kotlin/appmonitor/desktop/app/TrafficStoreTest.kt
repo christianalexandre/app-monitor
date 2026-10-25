@@ -7,8 +7,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.REQUEST_LIST
-import appmonitor.desktop.app.ui.RUNS
+import appmonitor.desktop.feature.traffic.REQUEST_LIST
+import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.storage.Storage
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.RequestStarted

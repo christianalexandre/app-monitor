@@ -7,12 +7,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.BENCHMARKS
 import appmonitor.desktop.app.ui.BENCHMARK_COLUMN
 import appmonitor.desktop.app.ui.BenchmarkColumn
 import appmonitor.desktop.app.ui.BenchmarkRow
-import appmonitor.desktop.app.ui.SEARCH
 import appmonitor.desktop.app.ui.sortBenchmarks
+import appmonitor.desktop.feature.traffic.BENCHMARKS
+import appmonitor.desktop.feature.traffic.SEARCH
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.groupByEndpoint

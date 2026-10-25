@@ -7,7 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.BENCHMARKS
+import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.RequestStarted

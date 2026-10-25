@@ -21,10 +21,10 @@ import appmonitor.desktop.app.ui.CONFIRM_CLEAR
 import appmonitor.desktop.app.ui.MCP_STATUS
 import appmonitor.desktop.app.ui.MCP_SWITCH
 import appmonitor.desktop.app.ui.McpSettings
-import appmonitor.desktop.app.ui.RUNS
-import appmonitor.desktop.app.ui.RUN_NAME
-import appmonitor.desktop.app.ui.SEARCH
 import appmonitor.desktop.app.ui.claudeMcpAdd
+import appmonitor.desktop.feature.traffic.RUNS
+import appmonitor.desktop.feature.traffic.RUN_NAME
+import appmonitor.desktop.feature.traffic.SEARCH
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals

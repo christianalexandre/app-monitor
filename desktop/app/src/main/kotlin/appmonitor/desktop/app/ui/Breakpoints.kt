@@ -41,6 +41,9 @@ import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
+import appmonitor.desktop.feature.traffic.METHODS
+import appmonitor.desktop.feature.traffic.formatDuration
+import appmonitor.desktop.feature.traffic.utf8OrNull
 import appmonitor.desktop.storage.BreakpointChange
 import appmonitor.desktop.storage.BreakpointWrite
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
@@ -389,8 +392,6 @@ internal fun breakpointsLabel(held: Int): String = if (held == 0) "Breakpoints" 
 private const val DEFAULT_TIMEOUT_MS = 60_000L
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
-
-internal const val BREAKPOINTS = "breakpoints"
 
 internal const val NEW_BREAKPOINT = "new-breakpoint"
 
