@@ -105,7 +105,7 @@ header serializer copied, durations sorted per read). None was rejected.
   on, while the store says off, so the next launch is off.
   Accept: `./gradlew :desktop:app:test` with a test that turns the switch
   off while `start`'s read is held, and the server stays off.
-- [ ] **M6.R2 `diff_runs` racing close names a run that exists as unknown.**
+- [x] **M6.R2 `diff_runs` racing close names a run that exists as unknown.** (`fix/mcp-diff-runs-closing`; the check moved after `runs()`, as SDD 10 already said, the read injectable for the test)
   `DiffRuns.call` checks `isClosing` before `storage.runs()`, which returns
   an empty list once the store closes, so the tool answers
   "no run with id N" instead of "App Monitor is closing".
