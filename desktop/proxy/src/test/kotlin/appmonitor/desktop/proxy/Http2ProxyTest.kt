@@ -1,5 +1,7 @@
 package appmonitor.desktop.proxy
 
+import appmonitor.desktop.storage.ExchangeFilter
+import appmonitor.desktop.storage.groupByEndpoint
 import appmonitor.v1.WebSocketFrame
 import io.grpc.CallOptions
 import io.grpc.Grpc
@@ -25,6 +27,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class Http2ProxyTest {
@@ -102,6 +105,8 @@ class Http2ProxyTest {
                 assertEquals("POST", detail.exchange.method)
                 assertEquals("http://127.0.0.1:${echo.port}/test.Echo/Unary", detail.exchange.url)
                 assertEquals(200, detail.exchange.statusCode)
+                assertEquals(0, detail.exchange.grpcStatus)
+                assertFalse(detail.exchange.isError)
                 assertEquals(
                     "application/grpc",
                     detail.request!!
@@ -159,14 +164,21 @@ class Http2ProxyTest {
                         }
                     assertEquals(Status.Code.NOT_FOUND, error.status.code)
                 }
-                val headers =
-                    ended(1)
-                        .single()
-                        .response!!
-                        .headers
-                        .associate { it.name to it.value_ }
+                val detail = ended(1).single()
+                val headers = detail.response!!.headers.associate { it.name to it.value_ }
                 assertEquals("5", headers["grpc-status"])
                 assertEquals("no such thing", headers["grpc-message"])
+                assertEquals(200, detail.exchange.statusCode)
+                assertEquals(5, detail.exchange.grpcStatus)
+                assertTrue(detail.exchange.isError)
+                assertEquals(
+                    1L,
+                    storage
+                        .groupByEndpoint(ExchangeFilter())
+                        .endpoints
+                        .single()
+                        .errors,
+                )
             }
         }
     }

@@ -201,7 +201,8 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
   `MonitorClient` (DEBT-0023).
 - The desktop shows a gRPC message as bytes; it has no `.proto` to decode
   fields (ADR-0099 C.1). A status other than OK after the server accepted
-  the call is still status 200, the code only in `grpc-status` (DEBT-0075).
+  the call is status 200 with `grpc-status`, which the desktop reads as an
+  error (ADR-0107, SDD 09).
 - A connection the app keeps open shows as pending until it closes; one
   reset after bytes moved is `RequestFailed` without its counts
   (ADR-0103). A non-blocking connect whose error the app already read

@@ -390,7 +390,7 @@ internal class Ingest(
                 val id = exchange(session, event.request_id)
                 val meta = event.copy(body = ByteString.EMPTY).encode()
                 // ADR-0104: status 0 is no status, as a closed `CONNECTION` sends.
-                queries.responded(event.status_code.takeIf { it != 0 }?.toLong(), at, meta, id)
+                queries.responded(event.status_code.takeIf { it != 0 }?.toLong(), grpcStatusOf(event), at, meta, id)
                 putBody(id, PART_RESPONSE, event.body)
             }
 
@@ -454,6 +454,14 @@ internal class Ingest(
         } catch (_: URISyntaxException) {
             null
         }
+
+    // ADR-0107: the last one, as trailers come after the headers (ADR-0102, ADR-0106).
+    private fun grpcStatusOf(event: ResponseReceived): Long? =
+        event.headers
+            .lastOrNull { it.name.equals("grpc-status", ignoreCase = true) }
+            ?.value_
+            ?.trim()
+            ?.toLongOrNull()
 
     companion object {
         const val PART_REQUEST = 0L

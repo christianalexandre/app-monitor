@@ -72,6 +72,7 @@ internal fun JsonObjectBuilder.putExchangeRow(exchange: StoredExchange) {
     put("method", exchange.method.json())
     put("url", exchange.url.json())
     put("status_code", exchange.statusCode?.toLong().json())
+    put("grpc_status", exchange.grpcStatus?.toLong().json())
     put("failed", exchange.failed)
     put("error", exchange.error.json())
     put("started_at", time(exchange.startedAtMs))
