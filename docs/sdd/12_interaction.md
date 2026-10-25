@@ -10,8 +10,9 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 `desktop/app` (`ui/Mocks.kt`, ADR-0114) and the `create_mock` tool in
 `desktop/mcp` (`Mocks.kt`, SDD 10). Breakpoints in `desktop/storage`
 (`Breakpoints.kt`, `Breakpoint.sq`), their push in `desktop/app`
-(`store/BreakpointPush.kt`) and the held calls in `store/HeldCalls.kt`;
-no window and no SDK holds a call yet (PLAN-0010). The Kotlin SDKs list the channel and
+(`store/BreakpointPush.kt`), the held calls in `store/HeldCalls.kt` and
+the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
+(ADR-0119); no SDK holds a call yet (PLAN-0010). The Kotlin SDKs list the channel and
 serve the rules (SDD 04, 05, 08, ADR-0115), and so does the Swift SDK
 (SDD 06, 07, ADR-0117).
 
@@ -109,6 +110,7 @@ replaces the older one. The envelope is still stored raw (SDD 09).
 | --- | --- | --- |
 | Window, Mocks panel ("New rule", a rule opened, "Turn on" / "Turn off", "Confirm", "Delete") | create, edit, confirm, delete | `createMock(…, WINDOW)`, `updateMock`, `confirmMock`, `deleteMock` |
 | Window, "Mock this" on a request | create, after the editor's "Save" | `createMock(…, WINDOW)` |
+| Window, Breakpoints panel ("New breakpoint", one opened, "Turn on" / "Turn off", "Delete") | breakpoints: create, edit, delete | `createBreakpoint`, `updateBreakpoint`, `deleteBreakpoint` |
 | MCP `create_mock` (SDD 10) | create, pending | `createMock(…, MCP)` |
 | "Clear all data" | deletes every rule | SDD 09 |
 
@@ -140,6 +142,29 @@ does. The editor sends the name and the whole rule; "Turn on" and
   host, a path from `/`, a delay and a status 100–599 as numbers, a header
   line `Name: value`, a body within `Protocol.MAX_BODY_BYTES`), the same
   checks `Storage` makes.
+
+### Breakpoints in the window (ADR-0119)
+
+- "Breakpoints" sits beside "Mocks"; it reads "Breakpoints (N held)"
+  while N calls are held. The panel lists every app's breakpoints in
+  match order, each as `<app> · <method or Any> <host><path> · holds the
+  <request, response, or request and response> · <timeout>`, "Off" under
+  a disabled one, with "Turn on" / "Turn off". A breakpoint opened, or
+  "New breakpoint" (for the first known app), shows the form: name, app
+  (fixed once made), method, host, path, "Hold the request", "Hold the
+  response", and a timeout in whole seconds, 1 to 600, 60 by default. It
+  says what is wrong before "Save" is enabled, as `Storage` checks.
+- A held call opens a dialog on its own, the oldest first, with "N more
+  held" under it: "Request held" or "Response held", the app, the
+  original method and URL, and the time it goes on unchanged. It edits
+  the held side: method and URL at the request stage, the status at the
+  response stage, headers one `Name: value` per line, the body as UTF-8
+  text, or a binary body kept or cleared. A body the device cut says so.
+  "Resume" sends `resumeOf` of the form, so an untouched form resumes
+  unchanged and a `██` header left alone keeps the device's value;
+  "Abort" sends the message in its field ("Aborted from App Monitor").
+  The dialog goes when its call does: resumed, aborted, timed out or its
+  session ended.
 
 ### The push
 
@@ -195,13 +220,16 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | Breakpoints per app in order, enabled only, a new list only on a change, kept, cleared, refused | `BreakpointsTest` in `desktop/storage` |
 | A stand-in device gets its breakpoints after `HelloAck` and on a change; its hit held, resumed with only the changed fields (the masked header not sent back), aborted, let go at its timeout and when its session ends; a malformed hit not held | `HeldCallsTest` in `desktop/app`, against a real server |
 | A response resume's headers set and removed by name; a truncated body left alone not sent | `HeldCallsTest` |
+| A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 
 ## Limits
 
-- A rule cannot be moved in its app's match order (DEBT-0082).
+- A rule or a breakpoint cannot be moved in its app's match order
+  (DEBT-0082).
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
-- No window shows a held call or a breakpoint yet, and no SDK holds a
-  call: both read `BreakpointRules` as an envelope they drop (PLAN-0010
-  M9.8, M9.10, M9.11).
+- No SDK holds a call yet: both read `BreakpointRules` as an envelope
+  they drop (PLAN-0010 M9.10, M9.11).
+- The held call's dialog covers the window while the call waits
+  (ADR-0119).
