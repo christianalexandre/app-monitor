@@ -63,7 +63,7 @@ the lifecycle table lists every call class against each store state.
   Accept: `./gradlew :desktop:app:test` — two crafted runs with known
   differences shown as `DiffRunsTest` computes them, an offscreen
   screenshot `diff.png`.
-- [ ] **M7.6 HAR and cURL export in the window.** "Export HAR" for the
+- [x] **M7.6 HAR and cURL export in the window.** "Export HAR" for the
   selected run or the filter to a file the developer picks, "Copy as
   cURL" on one exchange, both with `export_har`'s and `to_curl`'s code.
   Accept: `./gradlew :desktop:app:test` — the exported file passes the

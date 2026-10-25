@@ -83,6 +83,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -104,6 +105,7 @@ internal fun AppMonitorApp(
     mcp: McpSettings? = null,
     onMcpEnabled: (Boolean) -> Unit = {},
     onRegenerateToken: () -> Unit = {},
+    pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
 ) {
     val currentRun by storage.currentRun.collectAsState()
     val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
@@ -133,6 +135,7 @@ internal fun AppMonitorApp(
     // Exchanges ticked for "Save as issue", from any session or run (ADR-0095 A.1).
     var marked by remember { mutableStateOf(emptyMap<Long, StoredExchange>()) }
     var saving by remember { mutableStateOf<Map<Long, StoredExchange>?>(null) }
+    var exportNote by remember { mutableStateOf<String?>(null) }
     val runTitle = if (shownRunId == null) "All runs" else runs.firstOrNull { it.id == shownRunId }?.let(::titleOf) ?: ""
 
     MaterialTheme {
@@ -163,6 +166,13 @@ internal fun AppMonitorApp(
                     onMark = { exchange, on -> marked = if (on) marked + (exchange.id to exchange) else marked - exchange.id },
                     onSaveAsIssue = { saving = marked.ifEmpty { row?.let { mapOf(it.id to it) }.orEmpty() } },
                     onBenchmarks = { benchmarksOpen = true },
+                    onExportHar = {
+                        pickHarFile(harFileName(shownRunId))?.let { file ->
+                            exportNote = "Exporting…"
+                            scope.launch { exportNote = exportHar(storage, filter.copy(runId = shownRunId), file) }
+                        }
+                    },
+                    exportNote = exportNote,
                 ) {
                     selectedRequest = it.id
                 }
@@ -333,7 +343,22 @@ private fun StoredRequestDetail(
     val exchange by produceState<HttpExchange?>(null, row, frameLimit) {
         value = storage.exchange(row.id)?.let { HttpExchange(it, storage.frames(row.id, limit = frameLimit)) }
     }
-    exchange?.let { RequestDetail(it) { frameLimit += Storage.PAGE_SIZE } } ?: Placeholder("Loading…")
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    var copyNote by remember { mutableStateOf<String?>(null) }
+    val onCopyCurl: () -> Unit = {
+        scope.launch {
+            copyNote =
+                curlOf(storage, row.id).fold(
+                    { command ->
+                        clipboard.setText(AnnotatedString(command))
+                        "Copied"
+                    },
+                    { it.message },
+                )
+        }
+    }
+    exchange?.let { RequestDetail(it, onCopyCurl, copyNote) { frameLimit += Storage.PAGE_SIZE } } ?: Placeholder("Loading…")
 }
 
 @Composable
@@ -653,6 +678,8 @@ private fun RequestList(
     onMark: (StoredExchange, Boolean) -> Unit,
     onSaveAsIssue: () -> Unit,
     onBenchmarks: () -> Unit,
+    onExportHar: () -> Unit,
+    exportNote: String?,
     onSelect: (StoredExchange) -> Unit,
 ) {
     val exchanges = pages.rows
@@ -671,12 +698,14 @@ private fun RequestList(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Requests") }
             TextButton(onClick = onBenchmarks, Modifier.testTag(BENCHMARKS)) { Text("Benchmarks") }
+            TextButton(onClick = onExportHar, Modifier.testTag(EXPORT_HAR)) { Text("Export HAR") }
             TextButton(
                 onClick = onSaveAsIssue,
                 Modifier.testTag(SAVE_AS_ISSUE),
                 enabled = marked.isNotEmpty() || selected != null,
             ) { Text(if (marked.isEmpty()) "Save as issue" else "Save ${marked.size} as issue") }
         }
+        exportNote?.let { Text(it, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.caption) }
         FilterBar(filter, onFilter)
         if (exchanges.isEmpty()) Placeholder(if (filter == ExchangeFilter()) "No requests yet" else "No requests match")
         LazyColumn(Modifier.testTag(REQUEST_LIST), state = list) {
@@ -797,6 +826,8 @@ private fun labelOf(status: StatusClass): String = "${status.from / 100}xx"
 @Composable
 private fun RequestDetail(
     exchange: HttpExchange,
+    onCopyCurl: () -> Unit,
+    copyNote: String?,
     onMoreFrames: () -> Unit,
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
@@ -806,7 +837,15 @@ private fun RequestDetail(
     SelectionContainer {
         LazyColumn(Modifier.fillMaxSize().padding(12.dp)) {
             item {
-                Text("${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}", fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}",
+                        Modifier.weight(1f),
+                        fontWeight = FontWeight.Medium,
+                    )
+                    copyNote?.let { Text(it, style = MaterialTheme.typography.caption) }
+                    TextButton(onClick = onCopyCurl, Modifier.testTag(COPY_CURL)) { Text("Copy as cURL") }
+                }
                 Text(
                     listOfNotNull(
                         "Status ${statusOf(exchange)}",

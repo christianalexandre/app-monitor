@@ -115,3 +115,4 @@ Rules:
 | [0095](0095-what-an-issue-keeps-and-who-writes-it.md) | What an issue keeps, how long, and who may write it | Accepted |
 | [0096](0096-issue-rows-and-their-writers.md) | Issue rows, their writers' order, and what retention trims | Accepted |
 | [0097](0097-endpoint-grouping-in-storage.md) | The endpoint grouping lives in desktop/storage | Accepted |
+| [0098](0098-window-exports-through-desktop-mcp.md) | The window's HAR and cURL exports call desktop/mcp's code | Accepted |

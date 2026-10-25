@@ -3,7 +3,7 @@ id: DEBT-0073
 title: Non-correctness findings of the third M6 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The first PR after PLAN-0007 closes that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt`, `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt` or `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`, or a `setEnabled` called off the UI dispatcher"
+trigger: "The first PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt` or `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt`, or a `setEnabled` called off the UI dispatcher"
 paid_date:
 ---
 
@@ -48,6 +48,14 @@ The first PR after PLAN-0007 closes that touches
 `desktop/app/src/test/kotlin/appmonitor/desktop/app/McpWiringTest.kt` or
 `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ToCurl.kt`, or a
 `setEnabled` called off the UI dispatcher.
+
+Fired by PLAN-0008 M7.6 (`feat/har-curl-export-in-window`), which splits
+`ToCurl.command` out for the window. It paid the three `to_curl` parts:
+one `sent` filter keeps the first zero `Content-Length`, however written
+(`ToCurlTest.oneZeroLengthIsKeptHoweverWritten`), under one
+`keepZeroLength` flag, and the description says "when no body is sent".
+Left: the two `McpController` parts, in files this PR does not change;
+the trigger is narrowed to them.
 
 ## How it was paid
 
