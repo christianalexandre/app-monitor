@@ -1,5 +1,7 @@
 package appmonitor.desktop.proxy
 
+import io.netty.handler.ssl.ApplicationProtocolConfig
+import io.netty.handler.ssl.ApplicationProtocolNames
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
@@ -49,14 +51,29 @@ class ProxyCa private constructor(
 ) {
     private val leaves = ConcurrentHashMap<String, SslContext>()
 
-    /** A TLS server context presenting a leaf for [host], a DNS name or an IP literal. */
-    internal fun serverContext(host: String): SslContext =
-        leaves.computeIfAbsent(host.lowercase()) { name ->
+    /** A TLS server context presenting a leaf for [host], a DNS name or an IP literal; with [alpn], offering `h2` then `http/1.1`. */
+    internal fun serverContext(
+        host: String,
+        alpn: Boolean = true,
+    ): SslContext =
+        leaves.computeIfAbsent("$alpn ${host.lowercase()}") {
+            val name = host.lowercase()
             val keys = newKeyPair()
-            SslContextBuilder
-                .forServer(keys.private, leaf(name, keys), certificate)
-                .sslProvider(SslProvider.JDK)
-                .build()
+            val builder =
+                SslContextBuilder
+                    .forServer(keys.private, leaf(name, keys), certificate)
+                    .sslProvider(SslProvider.JDK)
+            if (!alpn) return@computeIfAbsent builder.build()
+            builder
+                .applicationProtocolConfig(
+                    ApplicationProtocolConfig(
+                        ApplicationProtocolConfig.Protocol.ALPN,
+                        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                        ApplicationProtocolNames.HTTP_2,
+                        ApplicationProtocolNames.HTTP_1_1,
+                    ),
+                ).build()
         }
 
     private fun leaf(

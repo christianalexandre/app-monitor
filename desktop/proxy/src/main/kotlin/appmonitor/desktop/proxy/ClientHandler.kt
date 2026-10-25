@@ -53,6 +53,7 @@ internal data class Target(
 internal class ClientHandler(
     private val ca: ProxyCa,
     private val upstreamTls: SslContext,
+    private val upstreamHttp2Tls: SslContext,
     private val record: (Envelope) -> Unit,
     private val clock: () -> Long,
 ) : ChannelInboundHandlerAdapter() {
@@ -118,7 +119,7 @@ internal class ClientHandler(
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: send an absolute URL or CONNECT", close = true)
         }
         val path = if (tunnel != null) msg.uri() else originForm(msg.uri())
-        val capture = Capture(msg.method().name(), target.origin + path, msg.headers().copy(), record, clock)
+        val capture = Capture(msg.method().name(), target.origin + path, headersOf(msg.headers()), record, clock)
         exchange = Exchange(capture, HttpUtil.isKeepAlive(msg))
         msg.uri = path
         msg.headers().remove("Proxy-Connection")
@@ -157,14 +158,23 @@ internal class ClientHandler(
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: CONNECT needs host:port", close = true)
         }
         tunnel = target
-        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, msg.headers().copy(), record, clock)
+        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, headersOf(msg.headers()), record, clock)
         ReferenceCountUtil.release(msg)
         val established = DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus(200, "Connection Established"))
         client.writeAndFlush(established)
         val pipeline = client.pipeline()
         pipeline.remove(ProxyServer.CODEC)
         pipeline.addBefore(client.name(), "tls", OptionalSslHandler(ca.serverContext(target.host)))
+        pipeline.addBefore(client.name(), "preface", PrefaceDetector(::http2))
         pipeline.addBefore(client.name(), ProxyServer.CODEC, HttpServerCodec())
+    }
+
+    // ADR-0106: a tunnel that opens with the HTTP/2 preface is relayed stream by stream from here on.
+    private fun http2() {
+        val target = tunnel ?: return
+        connectCapture = null
+        client.pipeline().remove(ProxyServer.CODEC)
+        Http2Session(target, upstreamHttp2Tls, record, clock).install(client.pipeline(), client.name())
     }
 
     override fun userEventTriggered(
@@ -261,7 +271,7 @@ internal class ClientHandler(
     }
 
     private fun responseEnded(current: Exchange) {
-        current.capture.responded(current.status, current.response!!.headers(), current.body)
+        current.capture.responded(current.status, headersOf(current.response!!.headers()), current.body)
         exchange = null
         if (!current.keepAlive || !HttpUtil.isKeepAlive(current.response!!)) {
             client.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE)
@@ -338,7 +348,7 @@ internal class ClientHandler(
                 }
 
                 last && current.status == 101 -> {
-                    current.capture.responded(101, current.response!!.headers(), current.body)
+                    current.capture.responded(101, headersOf(current.response!!.headers()), current.body)
                     exchange = null
                     upgrade(ctx)
                 }

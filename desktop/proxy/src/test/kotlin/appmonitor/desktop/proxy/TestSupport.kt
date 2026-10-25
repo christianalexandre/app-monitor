@@ -6,6 +6,7 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel
 import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.MultiThreadIoEventLoopGroup
 import io.netty.channel.SimpleChannelInboundHandler
@@ -19,6 +20,15 @@ import io.netty.handler.codec.http.HttpResponseStatus
 import io.netty.handler.codec.http.HttpServerCodec
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http2.DefaultHttp2DataFrame
+import io.netty.handler.codec.http2.DefaultHttp2Headers
+import io.netty.handler.codec.http2.DefaultHttp2HeadersFrame
+import io.netty.handler.codec.http2.Http2DataFrame
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder
+import io.netty.handler.codec.http2.Http2Headers
+import io.netty.handler.codec.http2.Http2HeadersFrame
+import io.netty.handler.codec.http2.Http2MultiplexHandler
+import io.netty.handler.codec.http2.Http2StreamChannel
 import io.netty.handler.ssl.SslContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -150,4 +160,77 @@ internal class Proxy(
         }
 
     fun file(name: String): Path = scratch.resolve(name).also { Files.deleteIfExists(it) }
+}
+
+/**
+ * An HTTP/2 origin on `127.0.0.1`: over TLS with ALPN when [tls] is given, else with prior knowledge. Each stream gets
+ * `200` with `method path body` and the trailer `x-trailer: done`.
+ */
+internal class Http2Origin(
+    tls: SslContext?,
+) : AutoCloseable {
+    private val group = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
+    private val channel: Channel =
+        ServerBootstrap()
+            .group(group)
+            .channel(NioServerSocketChannel::class.java)
+            .childHandler(
+                object : ChannelInitializer<SocketChannel>() {
+                    override fun initChannel(ch: SocketChannel) {
+                        tls?.let { ch.pipeline().addLast(it.newHandler(ch.alloc())) }
+                        ch.pipeline().addLast(Http2FrameCodecBuilder.forServer().build())
+                        ch.pipeline().addLast(
+                            Http2MultiplexHandler(
+                                object : ChannelInitializer<Http2StreamChannel>() {
+                                    override fun initChannel(ch: Http2StreamChannel) {
+                                        ch.pipeline().addLast(Answer())
+                                    }
+                                },
+                            ),
+                        )
+                    }
+                },
+            ).bind(InetSocketAddress("127.0.0.1", 0))
+            .sync()
+            .channel()
+
+    val port: Int get() = (channel.localAddress() as InetSocketAddress).port
+
+    override fun close() {
+        channel.close().sync()
+        group.shutdownGracefully(0, 1, TimeUnit.SECONDS).sync()
+    }
+
+    private class Answer : ChannelInboundHandlerAdapter() {
+        private var request: Http2Headers? = null
+        private val body = StringBuilder()
+
+        override fun channelRead(
+            ctx: ChannelHandlerContext,
+            msg: Any,
+        ) {
+            val end =
+                when (msg) {
+                    is Http2HeadersFrame -> {
+                        request = msg.headers()
+                        msg.isEndStream
+                    }
+
+                    is Http2DataFrame -> {
+                        body.append(msg.content().toString(Charsets.UTF_8))
+                        msg.release()
+                        msg.isEndStream
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
+            if (!end) return
+            val text = "${request?.method()} ${request?.path()} $body"
+            ctx.write(DefaultHttp2HeadersFrame(DefaultHttp2Headers().status("200").set("content-type", "text/plain")))
+            ctx.write(DefaultHttp2DataFrame(Unpooled.copiedBuffer(text, Charsets.UTF_8)))
+            ctx.writeAndFlush(DefaultHttp2HeadersFrame(DefaultHttp2Headers().set("x-trailer", "done"), true))
+        }
+    }
 }

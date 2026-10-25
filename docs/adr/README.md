@@ -123,3 +123,4 @@ Rules:
 | [0103](0103-connection-events.md) | How a rebound socket maps onto the network events | Accepted |
 | [0104](0104-connection-exchanges-in-the-desktop.md) | How the desktop reads a connection exchange | Accepted |
 | [0105](0105-proxy-and-certificate-libraries.md) | Netty and Bouncy Castle for the desktop proxy | Accepted |
+| [0106](0106-proxy-http2-and-grpc.md) | How the desktop proxy relays HTTP/2 and stores gRPC | Accepted |

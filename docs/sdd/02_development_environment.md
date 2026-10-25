@@ -247,7 +247,7 @@ with `make desktop` running:
   `Proxy` session.
 - **A simulator app** (ADR-0101 B.1): the CA in the simulator's root store
   (`xcrun simctl keychain booted add-root-cert "<data dir>/proxy-ca.pem"`
-  until M8.6's button), then `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476
+  until M8.8's button), then `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476
   xcrun simctl launch booted <bundle id>`; from Xcode, `grpc_proxy` in the
   scheme's environment. Only gRPC-Core reads it; `URLSession` stays on the
   SDK's capture.

@@ -3,7 +3,7 @@ id: DEBT-0075
 title: The desktop does not read grpc-status
 status: Open
 date: 2026-10-25
-trigger: "The PR of PLAN-0009 M8.6 (gRPC stored through the proxy)"
+trigger: "The PR of PLAN-0009 M8.7 (the desktop reads grpc-status)"
 paid_date:
 ---
 
@@ -24,12 +24,17 @@ once, when both writers exist, tests it with what both really send.
 
 ## Trigger
 
-The PR of PLAN-0009 M8.6 (gRPC stored through the proxy).
+The PR of PLAN-0009 M8.7 (the desktop reads grpc-status).
 
 Fired by PLAN-0009 M8.4, which touches `HttpExchange.kt` to carry a
 connection's bytes. Reading `grpc-status` spans the list, issues,
 benchmarks and MCP, and M8.6 stores gRPC from the proxy with the same
 header: paid once there. Narrowed to M8.6.
+
+Fired by PLAN-0009 M8.6, which stores the proxy's gRPC calls with
+`grpc-status` among the response headers (ADR-0106). Reading it across
+the list, issues, benchmarks and MCP is its own task now that both
+writers exist: M8.7, so M8.6's PR stays the proxy's.
 
 ## How it was paid
 

@@ -11,6 +11,8 @@ import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.codec.http.HttpServerCodec
+import io.netty.handler.ssl.ApplicationProtocolConfig
+import io.netty.handler.ssl.ApplicationProtocolNames
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
@@ -32,13 +34,8 @@ class ProxyServer(
     upstreamTrust: TrustManagerFactory? = null,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val upstreamTls: SslContext =
-        SslContextBuilder
-            .forClient()
-            .sslProvider(SslProvider.JDK)
-            .trustManager(upstreamTrust)
-            .endpointIdentificationAlgorithm("HTTPS")
-            .build()
+    private val upstreamTls: SslContext = upstreamContext(upstreamTrust, alpn = null)
+    private val upstreamHttp2Tls: SslContext = upstreamContext(upstreamTrust, alpn = ApplicationProtocolNames.HTTP_2)
     private val lock = Any()
     private var group: EventLoopGroup? = null
     private var channel: Channel? = null
@@ -65,7 +62,7 @@ class ProxyServer(
                                 override fun initChannel(ch: SocketChannel) {
                                     clients.add(ch)
                                     ch.pipeline().addLast(CODEC, HttpServerCodec())
-                                    ch.pipeline().addLast(ClientHandler(ca, upstreamTls, record, clock))
+                                    ch.pipeline().addLast(ClientHandler(ca, upstreamTls, upstreamHttp2Tls, record, clock))
                                 }
                             },
                         ).bind(InetSocketAddress(HOST, port))
@@ -103,6 +100,30 @@ class ProxyServer(
         /** How long [stop] waits for the event loops at most. */
         val STOP_TIMEOUT: Duration = 2.seconds
     }
+}
+
+/** Verifies origins against [trust] (the JVM's when null) with hostname checks; [alpn] is the one protocol offered. */
+private fun upstreamContext(
+    trust: TrustManagerFactory?,
+    alpn: String?,
+): SslContext {
+    val builder =
+        SslContextBuilder
+            .forClient()
+            .sslProvider(SslProvider.JDK)
+            .trustManager(trust)
+            .endpointIdentificationAlgorithm("HTTPS")
+    if (alpn != null) {
+        builder.applicationProtocolConfig(
+            ApplicationProtocolConfig(
+                ApplicationProtocolConfig.Protocol.ALPN,
+                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                alpn,
+            ),
+        )
+    }
+    return builder.build()
 }
 
 /** `APPMONITOR_PROXY_PORT` when it is a port number, else [ProxyServer.DEFAULT_PORT]. */

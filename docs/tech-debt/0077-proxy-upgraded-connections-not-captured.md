@@ -3,7 +3,7 @@ id: DEBT-0077
 title: The proxy does not capture what crosses an upgraded connection
 status: Open
 date: 2026-10-25
-trigger: The next PR that changes `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, or a developer's WebSocket through the proxy shown with no frames, whichever comes first
+trigger: PLAN-0009's milestone review, or a developer's WebSocket through the proxy shown with no frames, whichever comes first
 paid_date:
 ---
 
@@ -26,10 +26,12 @@ per direction: M8.6 touches the same handler for HTTP/2.
 
 ## Trigger
 
-The next PR that changes
-`desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`
-(M8.6), or a developer's WebSocket through the proxy shown with no
-frames, whichever comes first.
+PLAN-0009's milestone review, or a developer's WebSocket through the proxy shown with no frames, whichever comes first.
+
+Fired by PLAN-0009 M8.6, which touches `ClientHandler.kt` only to hand a
+tunnel that opens with the HTTP/2 preface to `Http2Relay.kt`; the `101`
+path is unchanged. Re-triggered on the milestone review, which weighs it with the
+rest of the plan's open items.
 
 ## How it was paid
 

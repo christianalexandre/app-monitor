@@ -76,13 +76,25 @@ evidence before the code.
   in the store; a host with a pinned or refused certificate shows as a
   failed exchange, not a hang; port taken; an offscreen screenshot of the
   settings.
-- [ ] **M8.6 Proxy HTTP/2, gRPC and the simulator.** HTTP/2 through the
-  proxy with gRPC messages decoded as frames, "Install CA on booted
-  simulators" per ADR-0101, an iOS sample button that makes a gRPC call
-  through it.
+- [x] **M8.6 Proxy HTTP/2 and gRPC.** (`feat/desktop-proxy-http2`; split from the plan's M8.6, whose simulator half is M8.8 and whose DEBT-0075 is M8.7; ADR-0106; grpc-java plaintext through a `CONNECT` tunnel, TLS HTTP/2 by curl; DEBT-0079) HTTP/2 through the
+  proxy with gRPC messages decoded as frames.
   Accept: `./gradlew :desktop:proxy:test` — curl `--http2` and a grpc-java
   client through the proxy, a unary and a streaming call stored with
-  their messages and `grpc-status`; `make e2e-ios` with the proxy on.
+  their messages and `grpc-status`.
+- [ ] **M8.7 The desktop reads grpc-status.** DEBT-0075: a call with
+  `grpc-status` other than 0 in its response headers counts as an error
+  wherever `status_code` decides one (list, issues, benchmarks, run diff,
+  MCP), from both writers: the `AppMonitorGRPC` adapter's fixture and
+  the proxy's.
+  Accept: `./gradlew :desktop:storage:test :desktop:mcp:test :desktop:app:test`
+  — a failed gRPC call from each writer shows as an error in every
+  reader above.
+- [ ] **M8.8 The proxy and the simulator.** "Install CA on booted
+  simulators" per ADR-0101 D.1, an iOS sample button that makes a gRPC
+  call through it.
+  Accept: `./gradlew :desktop:app:test` (the button against a fake
+  `simctl`) and `make e2e-ios` with the proxy on — the sample's gRPC
+  call stored as a `PROXY` exchange with its messages.
 
 ## Outcome
 
