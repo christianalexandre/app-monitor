@@ -83,6 +83,7 @@ internal fun JsonObjectBuilder.putExchangeRow(exchange: StoredExchange) {
         exchange.captureLayer.wireName("CAPTURE_LAYER_"),
     )
     put("frame_count", exchange.frameCount)
+    put("mock_rule_id", exchange.mockRuleId.json())
 }
 
 internal fun StoredExchange.toRowJson(): JsonObject = buildJsonObject { putExchangeRow(this@toRowJson) }

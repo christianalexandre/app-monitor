@@ -45,6 +45,8 @@ internal data class HttpExchange(
     val frameCount: Long = 0,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
     val connection: ConnectionBytes? = null,
+    val mockRuleId: Long? = null,
+    val mockRuleName: String? = null,
 ) {
     val durationMs: Long? get() = durationOf(startedAtMs, endedAtMs)
 }
@@ -88,5 +90,7 @@ internal fun HttpExchange(
         frameCount = row.frameCount,
         captureLayer = row.captureLayer,
         connection = detail.connectionBytes,
+        mockRuleId = row.mockRuleId,
+        mockRuleName = detail.mockRuleName,
     )
 }

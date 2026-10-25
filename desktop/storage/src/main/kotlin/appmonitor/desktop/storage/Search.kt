@@ -128,11 +128,11 @@ internal fun exchangeSizeSearch(
     limit: Long,
 ) = SearchQuery(driver, filter, afterId, limit, SIZE_COLUMNS) { cursor ->
     val exchange = toStoredExchange(cursor)
-    val closed = cursor.getBytes(16)?.let { ResponseReceived.ADAPTER.decode(it) }
+    val closed = cursor.getBytes(17)?.let { ResponseReceived.ADAPTER.decode(it) }
     if (exchange.isConnection) {
         ExchangeSizes(exchange, requestBytes = closed?.sent_size ?: 0, responseBytes = closed?.body_size ?: 0)
     } else {
-        ExchangeSizes(exchange, requestBytes = cursor.getLong(14)!!, responseBytes = cursor.getLong(15)!!)
+        ExchangeSizes(exchange, requestBytes = cursor.getLong(15)!!, responseBytes = cursor.getLong(16)!!)
     }
 }
 
@@ -146,7 +146,7 @@ data class ExchangeSizes(
 private const val COLUMNS =
     "exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host, " +
         "exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer, " +
-        "exchanges.error, exchanges.frame_count, exchanges.grpc_status"
+        "exchanges.error, exchanges.frame_count, exchanges.grpc_status, exchanges.mock_rule_id"
 
 // CaptureLayer.CAPTURE_LAYER_CONNECTION, which is not a constant to Kotlin.
 private const val CONNECTION_LAYER = 3
@@ -175,4 +175,5 @@ private fun toStoredExchange(cursor: SqlCursor) =
         cursor.getString(11),
         cursor.getLong(12)!!,
         cursor.getLong(13),
+        cursor.getLong(14),
     )

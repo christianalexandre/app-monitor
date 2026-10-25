@@ -66,6 +66,7 @@ private fun Sample(
             SampleButton("404") { calls.notFound() },
             SampleButton("Timeout") { calls.timeout() },
             SampleButton("WebSocket echo") { calls.webSocketEcho() },
+            SampleButton("418, or a mock") { calls.teapot() },
         )
     LaunchedEffect(Unit) {
         if (!runAll) return@LaunchedEffect

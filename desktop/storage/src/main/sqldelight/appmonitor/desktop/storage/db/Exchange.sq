@@ -16,6 +16,7 @@ CREATE TABLE exchanges (
   error TEXT,
   frame_count INTEGER NOT NULL DEFAULT 0,
   grpc_status INTEGER,
+  mock_rule_id INTEGER,
   UNIQUE (session_ref, request_id)
 );
 
@@ -32,7 +33,8 @@ SELECT id FROM exchanges WHERE session_ref = ? AND request_id = ?;
 
 started:
 UPDATE exchanges
-SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_layer = :captureLayer, request_meta = :meta
+SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_layer = :captureLayer, request_meta = :meta,
+  mock_rule_id = :mockRuleId
 WHERE id = :id;
 
 responded:
@@ -46,7 +48,7 @@ UPDATE exchanges SET frame_count = frame_count + 1 WHERE id = :id;
 
 -- Pages by key (SDD 09): the next page starts after the last id of the previous one.
 pageOfSession:
-SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count, grpc_status
+SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count, grpc_status, mock_rule_id
 FROM exchanges
 WHERE session_ref = :sessionRef AND id > :afterId
 ORDER BY id
@@ -58,7 +60,7 @@ SELECT count(*) FROM exchanges JOIN sessions ON sessions.id = exchanges.session_
 pageOfRun:
 SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
   exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
-  exchanges.error, exchanges.frame_count, exchanges.grpc_status
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status, exchanges.mock_rule_id
 FROM exchanges
 JOIN sessions ON sessions.id = exchanges.session_ref
 WHERE sessions.run_id = :runId AND exchanges.id > :afterId
@@ -74,7 +76,7 @@ SELECT count(*) FROM exchanges WHERE id = ?;
 ofIssue:
 SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
   exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
-  exchanges.error, exchanges.frame_count, exchanges.grpc_status
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status, exchanges.mock_rule_id
 FROM exchanges
 JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
 WHERE issue_exchanges.issue_ref = ?

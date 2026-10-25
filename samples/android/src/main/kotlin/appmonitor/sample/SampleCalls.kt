@@ -45,6 +45,9 @@ class SampleCalls(
 
     fun notFound(): String = call(Request.Builder().url("$http/status/404").build())
 
+    /** 418 from the network; a desktop mock rule for the path answers it instead (ADR-0110). */
+    fun teapot(): String = call(Request.Builder().url("$http/status/418").build())
+
     fun timeout(): String =
         call(
             Request.Builder().url("$http/delay/10").build(),

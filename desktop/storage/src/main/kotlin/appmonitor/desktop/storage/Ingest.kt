@@ -435,7 +435,16 @@ internal class Ingest(
                 val event = RequestStarted.ADAPTER.decode(envelope.payload)
                 val id = exchange(session, event.request_id)
                 val meta = event.copy(body = ByteString.EMPTY).encode()
-                queries.started(event.method, event.url, hostOf(event.url), at, event.capture_layer.value.toLong(), meta, id)
+                queries.started(
+                    event.method,
+                    event.url,
+                    hostOf(event.url),
+                    at,
+                    event.capture_layer.value.toLong(),
+                    meta,
+                    event.mock_rule_id,
+                    id,
+                )
                 putBody(id, PART_REQUEST, event.body)
             }
 

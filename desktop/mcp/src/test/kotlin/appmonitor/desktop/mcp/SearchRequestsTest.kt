@@ -63,6 +63,7 @@ class SearchRequestsTest {
                     "duration_ms",
                     "capture_layer",
                     "frame_count",
+                    "mock_rule_id",
                 ),
                 first.keys,
             )

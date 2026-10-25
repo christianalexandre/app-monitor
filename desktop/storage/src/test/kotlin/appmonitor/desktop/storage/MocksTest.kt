@@ -79,6 +79,7 @@ class MocksTest {
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
                     it.execute("DROP TABLE mock_rules")
+                    it.execute("ALTER TABLE exchanges DROP COLUMN mock_rule_id")
                     it.execute("PRAGMA user_version = 3")
                 }
             }
@@ -88,7 +89,7 @@ class MocksTest {
                 assertEquals(1, storage.observeActiveMocks(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(4, dir.queryLong("PRAGMA user_version"))
+            assertEquals(5, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

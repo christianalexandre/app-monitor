@@ -101,6 +101,24 @@ does. The editor sends the name and the whole rule; "Turn on" and
 order while the envelope fits `Protocol.MAX_FRAME_BYTES`; the first that
 does not, and every one after it, are left out (ADR-0113 C.1).
 
+### A mocked exchange
+
+The SDK captures a mocked call as usual, with `RequestStarted.mock_rule_id`
+set (ADR-0110 E.1). The store keeps the id (SDD 09); the request list marks
+the row `mocked`, the detail's summary line ends `Mocked by rule "<name>"`,
+or `Mocked by deleted rule <id>` once the rule is gone, and MCP rows carry
+`mock_rule_id`, `get_request` also `mock_rule_name` (SDD 10, ADR-0116).
+
+### The headless server's rules
+
+`make server ARGS="--mocks FILE"` reads a JSON file of rules, named as in
+`interaction.proto` (`id`, `method`, `host`, `path`, `delay_ms`, and
+`response` with `status_code`, `headers` and a UTF-8 `body`, or `failure`
+with `message`), and sends the set once to every session that accepted
+`interaction`, logging `sent N mock rules`. A mocked `RequestStarted` is
+logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
+`Main.kt`); `make e2e-android` uses it (SDD 02, ADR-0116).
+
 ### Tests that drive it
 
 | Case | Test |
@@ -119,11 +137,14 @@ does not, and every one after it, are left out (ADR-0113 C.1).
 | Which rule answers a request, one vector for every SDK | `protocol/fixtures/mock_matching.json`, `MockMatchingVectorTest` in `sdk/core` |
 | A device keeps the last set, empties it when the session ends | `MonitorClientMocksTest` in `sdk/core` |
 | OkHttp and Ktor answer a matching call without the network | `MockAnswerTest` in `sdk/android-okhttp` and `sdk/ktor` |
+| A mocked exchange stored with its rule, marked in the list, named in the detail and `get_request` | `MockedExchangeTest` in `desktop/storage`, `MockedExchangeUiTest` (`mocked.png`), `GetRequestTest` |
+| The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `desktop/server` |
+| A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |
 
 ## Limits
 
 - A rule cannot be moved in its app's match order (DEBT-0082).
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The Swift SDK does not list the channel yet (PLAN-0010).
-- A mocked exchange carries `RequestStarted.mock_rule_id`, but the
-  desktop neither stores nor shows it yet (PLAN-0010).
+- The headless server sends its file's rules once per session; it does not
+  reread the file.

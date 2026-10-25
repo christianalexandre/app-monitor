@@ -27,12 +27,20 @@ cat >"$server_log" <<LOG
 [s1] network/RequestStarted c GET ws://127.0.0.1:9/ws
 [s1] network/WebSocketFrame c DIRECTION_SENT OPCODE_TEXT, 5 bytes
 [s1] network/RequestStarted d GET https://httpbin.org/json
+[s1] network/RequestStarted m GET $t/status/418 mock 1
+[s1] network/ResponseReceived m 200, 6 bytes
+[s1] network/RequestStarted n GET $t/status/404
+[s1] network/ResponseReceived n 404, 0 bytes
 LOG
 
 check "nothing missing" "" "$(missing dev.app "GET $t/json ResponseReceived")"
 check "missing terminal and frame" "GET ws://127.0.0.1:9/ws: no ResponseReceived for c
 GET ws://127.0.0.1:9/ws: no WebSocketFrame DIRECTION_RECEIVED OPCODE_TEXT for c" \
   "$(missing dev.app "GET ws://127.0.0.1:9/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT")"
+check "answered by its mock rule" "" "$(missing dev.app "GET $t/status/418 ResponseReceived mock:1")"
+check "another rule or none" "GET $t/status/418: not answered by mock rule 2
+GET $t/status/404: not answered by mock rule 1" "$(missing dev.app "GET $t/status/418 ResponseReceived mock:2
+GET $t/status/404 ResponseReceived mock:1")"
 check "missing request and device" "no device connected with app id other.app
 POST $t/post: no RequestStarted" "$(missing other.app "POST $t/post ResponseReceived")"
 check "captured twice" "GET $t/json: 2 RequestStarted" "$(repeated "GET $t/json ResponseReceived

@@ -51,7 +51,7 @@ so a rule's id is never reused, ADR-0113 B.1); children reference their parent w
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
 | `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms` | `run_id`; `last_envelope_at_ms` |
-| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
+| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
 | `bodies` | `exchange_ref`, `part` (request or response), `codec`, `data`, `size` | primary key (`exchange_ref`, `part`) |
 | `frames` | `exchange_ref`, `at_ms`, `direction`, `opcode`, `payload_truncated`, `payload_size`, `stored_size` | (`exchange_ref`, `id`) |
 | `frame_payloads` | `frame_ref`, `codec`, `data` | primary key `frame_ref` |
@@ -93,7 +93,7 @@ so a rule's id is never reused, ADR-0113 B.1); children reference their parent w
 Migrations are `.sqm` files in `src/main/sqldelight/migrations/`, one per
 schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
 (version 2 to 3) `exchanges.grpc_status`, `3.sqm` (version 3 to 4)
-`mock_rules`. The `.sq`
+`mock_rules`, `4.sqm` (version 4 to 5) `exchanges.mock_rule_id`. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -129,6 +129,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `grpc_status`, null without one; rows written before version 3 keep null
   (ADR-0107). `StoredExchange.isError` is failed, status 400 and up, or
   `grpc_status` other than 0: what endpoint tallies count as errors.
+- A `RequestStarted` stores its `mock_rule_id` (ADR-0110 E.1), null when
+  the network answered; rows written before version 5 keep null. The id is
+  kept as the device sent it, and outlives its rule: `exchange(id)` gives
+  `ExchangeDetail.mockRuleName` from `mock_rules`, null once the rule is
+  deleted (ADR-0116).
 - `peer_address` is the device's remote address, which `DeviceSession`
   exposes from M5.3 on.
 - Runs take the same queue (ADR-0084): `newRun()` ends the current run and
@@ -362,6 +367,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | One case per filter and their combination, pages under a filter, observed search follows commits | `SearchTest` (M5.7) |
 | Stored body sizes per row under a filter, 0 without a body | `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` (M6.5) |
 | The `CONNECTION` fixtures: no status, byte counts in the detail and the sizes, text search, no status class; endpoints per host and port, a refused one as failed, the run diff | `ConnectionTest` (M8.4) |
+| A mocked exchange: `mock_rule_id` in every list reader, its rule's name in the detail and null once deleted, a version-4 file migrates | `MockedExchangeTest` (M9.5); the list mark and detail line in `MockedExchangeUiTest` (`mocked.png`) |
 | A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
 | Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |

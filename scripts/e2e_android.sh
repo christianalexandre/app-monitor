@@ -21,7 +21,12 @@ serial=$ANDROID_SERIAL
 ./gradlew -q :samples:android:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
 trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
-start_server
+# One rule for the last call of runAll, by then connected (ADR-0110); the target would answer 418.
+mkdir -p "$out" && cat >"$out/mocks.json" <<JSON
+{"rules": [{"id": 1, "method": "GET", "host": "$host", "path": "/status/418",
+  "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}}]}
+JSON
+start_server --mocks "$out/mocks.json"
 start_target
 target="http://$host:$target_port"
 
@@ -38,6 +43,7 @@ expected="GET $target/json ResponseReceived
 POST $target/post ResponseReceived
 GET $target/status/404 ResponseReceived
 GET $target/delay/10 RequestFailed
-GET $target/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE"
+GET $target/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE
+GET $target/status/418 ResponseReceived mock:1"
 
 assert_envelopes "$app" "$expected" "$timeout" "logcat in $out/logcat.txt" "$host:$target_port"

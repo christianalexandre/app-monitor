@@ -843,6 +843,9 @@ private fun RequestList(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (exchange.mockRuleId != null) {
+                        Text("mocked", Modifier.testTag(MOCKED + exchange.requestId), style = MaterialTheme.typography.caption)
+                    }
                     Text(statusOf(exchange), Modifier.width(56.dp))
                     Text(durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "", Modifier.width(72.dp))
                 }
@@ -975,6 +978,7 @@ private fun RequestDetail(
                         "Status ${statusOf(exchange)}",
                         exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
                         layerOf(exchange.captureLayer),
+                        exchange.mockRuleId?.let { mockedBy(exchange) },
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.caption,
                 )
@@ -1195,6 +1199,12 @@ internal fun statusOf(exchange: StoredExchange): String =
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
+
+// ADR-0110 E.1: the device names the rule; a deleted one is left with its id.
+private fun mockedBy(exchange: HttpExchange): String =
+    exchange.mockRuleName?.let { "Mocked by rule \"$it\"" } ?: "Mocked by deleted rule ${exchange.mockRuleId}"
+
+internal const val MOCKED = "mocked-"
 
 private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
 
