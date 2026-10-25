@@ -5,9 +5,11 @@ import appmonitor.desktop.storage.StorageHealth
 import appmonitor.protocol.Protocol
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
+import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
+import appmonitor.v1.ResponseReceived
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.sse.SSE
@@ -21,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import okio.ByteString
 import java.net.Socket
 import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
@@ -173,3 +176,48 @@ internal fun raw(
 internal val CallToolResult.text: String get() = (content.single() as TextContent).text
 
 internal val CallToolResult.json: JsonObject get() = Json.parseToJsonElement(text).jsonObject
+
+internal fun envelope(
+    message: com.squareup.wire.Message<*, *>,
+    atMs: Long = 1_000,
+) = Envelope(
+    channel = Protocol.CHANNEL_NETWORK,
+    type = message::class.simpleName!!,
+    payload = message.encodeByteString(),
+    timestamp_ms = atMs,
+)
+
+internal fun request(
+    requestId: String,
+    method: String = "GET",
+    url: String = "https://api.example.com/items/$requestId",
+    headers: List<Header> = listOf(Header("Accept", "application/json")),
+    body: ByteString = ByteString.EMPTY,
+    bodyTruncated: Boolean = false,
+    bodySize: Long? = null,
+) = RequestStarted(
+    request_id = requestId,
+    method = method,
+    url = url,
+    headers = headers,
+    body = body,
+    body_truncated = bodyTruncated,
+    body_size = bodySize,
+    capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
+)
+
+internal fun response(
+    requestId: String,
+    status: Int = 200,
+    headers: List<Header> = listOf(Header("Content-Type", "application/json")),
+    body: ByteString = ByteString.EMPTY,
+    bodyTruncated: Boolean = false,
+    bodySize: Long? = null,
+) = ResponseReceived(
+    request_id = requestId,
+    status_code = status,
+    headers = headers,
+    body = body,
+    body_truncated = bodyTruncated,
+    body_size = bodySize,
+)

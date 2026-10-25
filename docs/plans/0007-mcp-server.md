@@ -54,7 +54,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   Accept: `./gradlew :desktop:mcp:test` (in `make build`) — an MCP client
   connects over HTTP to a server on a temporary store and lists its runs;
   M6.2's lifecycle cases; a request with a foreign `Origin` refused.
-- [ ] **M6.4 `search_requests` and `get_request`.** Search over the stored
+- [x] **M6.4 `search_requests` and `get_request`.** (`feat/mcp-search-get-request`; DEBT-0063 re-triggered: its MCP clause dropped, the two measured triggers kept; an empty body cut by the device is an object, not `null`, SDD 10.) Search over the stored
   exchanges with M5.7's filters (text, method, status class, failed only,
   device, app, run) and paging; one exchange with its headers, bodies
   and frames per M6.1 (a). DEBT-0063 fires: paid or re-triggered.
