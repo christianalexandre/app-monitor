@@ -52,7 +52,7 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   reaches the stand-in desktop at completion.
   Deviation: the start time is the real one, from the task's metrics,
   rather than marked unknown (ADR-0131).
-- [x] **H1.R1 The setup steps a real app needs are in the README.** (#NN) The
+- [x] **H1.R1 The setup steps a real app needs are in the README.** (#258) The
   README's Android setup omits the debug `network-security-config` with
   `<debug-overrides>` and the runtime `ACCESS_LOCAL_NETWORK` request; the
   iOS one names the Run Script but not its input and output files under
