@@ -315,6 +315,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Storage (SDD 
   sorts by it, again reverses. The numbers are `endpoint_stats`' (SDD 10),
   read once when opened and on "Refresh", not on each commit: a read pages
   through up to 100 000 exchanges, and says so when it stops there.
+- Run diff (ADR-0097): "Compare runs" in the run list (two runs or more)
+  opens a base and a run picked from every run (the previous and the
+  newest first), each by title and id, under the request filter for both.
+  It shows the counts added, gone, changed and unchanged, then the changed
+  endpoints (count, error rate, p50, p95 as `base → run`), the added and
+  the gone ones (the one side's numbers). The comparison is `diff_runs`'
+  (`diffEndpoints`, SDD 09), read on each pick and on "Refresh".
 - Approval: `DeviceApprovals.pending` drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call
