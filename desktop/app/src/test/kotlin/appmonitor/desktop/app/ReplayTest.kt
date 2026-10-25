@@ -109,7 +109,8 @@ class ReplayTest {
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { sessionsNow().size == 2 }
+                // The live list gets the session before Replays does; its exchange is read only after.
+                device.await { sessionsNow().size == 2 && searchNow().size == 2 }
                 assertEquals(ReplaySent.SESSION_ENDED, store.replays.send(sessionId, "req-1"))
                 val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplaySent.SENT, store.replays.send(live, "req-1"))
@@ -193,7 +194,8 @@ class ReplayTest {
             }
             withDevice(storage, INTERACTION) { store, device ->
                 device.send("RequestStarted", original)
-                device.await { sessionsNow().size == 2 }
+                // The live list gets the session before Replays does; its exchange is read only after.
+                device.await { sessionsNow().size == 2 && searchNow().size == 2 }
                 assertEquals(ReplayAnswer.SESSION_ENDED, store.replays.ask(asked(ended, 1)))
                 val live = sessionsNow().single { it.disconnectedAtMs == null }.serverSessionId
                 assertEquals(ReplayAnswer.WAITING, store.replays.ask(asked(live, 1)))
