@@ -44,12 +44,14 @@ DEBTs (DEBT-0049 … DEBT-0088 cleanups) stay out.
   Accept: `swift test --package-path sdk/ios` — a held task whose
   delegate rejects a challenge fails as without the breakpoint, and a
   redirect the delegate refuses is not followed.
-- [ ] **H1.4 Background tasks from before `start`.** DEBT-0039: a
+- [x] **H1.4 Background tasks from before `start`.** (#257) DEBT-0039: a
   background transfer resumed before `AppMonitor.start`, or in an earlier
   launch, is captured when it completes, with its start time marked as
   unknown rather than invented.
   Accept: `make swift-sim` — a background task resumed before `start`
   reaches the stand-in desktop at completion.
+  Deviation: the start time is the real one, from the task's metrics,
+  rather than marked unknown (ADR-0131).
 - [ ] **H1.R1 The setup steps a real app needs are in the README.** The
   README's Android setup omits the debug `network-security-config` with
   `<debug-overrides>` and the runtime `ACCESS_LOCAL_NETWORK` request; the

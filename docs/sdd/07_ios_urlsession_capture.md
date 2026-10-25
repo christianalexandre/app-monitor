@@ -21,7 +21,8 @@ app ── any URLSession ── task.resume() ──────────►
   hooks stay for the life of the process. Each task reads `sink.options`
   when it first resumes: nil (not started, stopped) → the task is never
   captured, even if the monitor starts before it ends. Hence a session
-  created before `start()` is captured, a task resumed before it is not.
+  created before `start()` is captured, a task resumed before it is not;
+  a background task is the exception (ADR-0131).
 - **Hooks** (ADR-0043): `NSURLSessionTask.resume`; on
   `__NSCFURLLocalSessionConnection`, `_didReceiveResponse:sniff:`,
   `_didReceiveData:` and `_didFinishWithError:`, which find their task
@@ -182,6 +183,16 @@ table kept on that session. The app's delegate is never replaced.
 | `ResponseReceived` | `backgroundTask:didCompleteWithError:taskMetrics:info:reply:` with the task's `response`, before the app's `didCompleteWithError` | Download: the file of `backgroundDownloadTask:didFinishDownloadingToURL:response:reply:`, read up to `maxBodyBytes` before the app's `didFinishDownloadingTo` can move it, `body_size` the file size. Data and upload: each `backgroundDataTask:didReceiveData:withReply:` chunk, as `_didReceiveData:`. |
 | `RequestFailed` | The same completion without a response | As for a local task. |
 
+A task the table lacks at one of the three callbacks, resumed before
+`start()` or in an earlier launch, is adopted while the monitor runs
+(ADR-0131): a `TaskCapture` is made there, and at completion
+`RequestStarted` is sent from the first transaction's request of the
+task's metrics (the `__CFN_TaskMetrics` argument wrapped in a
+`URLSessionTaskMetrics` through its `__metrics` ivar), stamped
+`taskInterval.start`, then the response. Not `http(s)` or carrying
+`sdk/ktor`'s capture header → nothing is sent. Its request body is not
+seen: truncated unless `GET` or `HEAD`.
+
 Missing one of the three session methods leaves background tasks with only
 `RequestStarted` and logs one line. Background sessions cannot run in a bare
 `xctest` process, so these cases are tested hosted in an app on the
@@ -286,8 +297,8 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 - An iOS WebSocket that drops after the upgrade sends no event; a peer's
   close without a pending `receive` and a bare `cancel()` record no close
   frame (DEBT-0038). Ping and pong frames are not seen (DEBT-0029).
-- A background task resumed before `start()` or in an earlier launch of
-  the app is not captured (DEBT-0039).
+- An adopted background task's request body is not captured, and no test
+  relaunches the app to adopt an earlier launch's task (ADR-0131).
 - The hooks are private CFNetwork names, proven by `swift test` on the
   macOS host and, for background sessions, on the iOS simulator; the rest
   on iOS by M2.12 and M2.13.

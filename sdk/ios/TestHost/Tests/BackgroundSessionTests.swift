@@ -232,6 +232,52 @@ final class BackgroundSessionTests {
         #expect(delegate.callbacks.last == "didComplete")
     }
 
+    @Test func aDownloadResumedBeforeStartIsCapturedAtCompletion() async throws {
+        _ = capture(nil)
+        let sink = Sink(AppMonitorOptions())
+        var request = URLRequest(url: server.url("/slow"))
+        request.setValue("Bearer t0k", forHTTPHeaderField: "Authorization")
+        let resumed = Int64(Date().timeIntervalSince1970 * 1000)
+
+        await delegate.wait {
+            session.downloadTask(with: request).resume()
+            URLSessionCapture.sink = sink
+        }
+
+        // ConnectionCaptureTests runs beside this suite: its local calls reach this sink too.
+        let (envelope, started) = try #require(
+            sink.all.lazy.filter { $0.type == "RequestStarted" }
+                .map { ($0, try! Appmonitor_V1_RequestStarted(serializedBytes: $0.payload)) }
+                .first { $0.1.url == server.url("/slow").absoluteString })
+        #expect(envelope.timestampMs >= resumed && envelope.timestampMs < resumed + 1000)
+        #expect(started.method == "GET")
+        #expect(started.headers.contains { $0.name == "Authorization" && $0.value == "██" })
+        #expect(!started.bodyTruncated)
+        #expect(sink.replays.replay(started.requestID) == "A background session's task is not sent again")
+        let response = try #require(
+            sink.all.filter { $0.type == "ResponseReceived" }
+                .map { try Appmonitor_V1_ResponseReceived(serializedBytes: $0.payload) }
+                .first { $0.requestID == started.requestID })
+        #expect(response.statusCode == 200)
+        #expect(String(decoding: response.body, as: UTF8.self) == "hello" && response.bodySize == 5)
+        #expect(String(decoding: delegate.file, as: UTF8.self) == "hello")
+    }
+
+    @Test func aTaskSdkKtorMarkedBeforeStartStaysSkipped() async throws {
+        _ = capture(nil)
+        let sink = Sink(AppMonitorOptions())
+        var request = URLRequest(url: server.url("/slow"))
+        request.setValue("1", forHTTPHeaderField: ProtocolConstants.captureHeader)
+
+        await delegate.wait {
+            session.downloadTask(with: request).resume()
+            URLSessionCapture.sink = sink
+        }
+
+        #expect(!sink.all.contains { $0.type == "RequestStarted" && $0.payload.range(of: Data("/slow".utf8)) != nil })
+        #expect(String(decoding: delegate.file, as: UTF8.self) == "hello")
+    }
+
     @Test func nothingIsCapturedBeforeStart() async throws {
         let sink = capture(nil)
 

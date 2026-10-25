@@ -1,10 +1,10 @@
 ---
 id: DEBT-0039
 title: Background tasks resumed before start() or in an earlier launch are not captured
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: M2.12's background download is missing from the desktop after the sample is relaunched, or a developer reports a background transfer missing
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0039 — Background tasks resumed before start() or in an earlier launch are not captured
@@ -30,4 +30,9 @@ relaunched, or a developer reports a background transfer missing.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0011 H1.4, ADR-0131. The first background callback for a task the
+`resume` hook never registered, while the monitor runs, adopts it; at
+completion `RequestStarted` is sent from the task's metrics, stamped with
+the start `nsurlsessiond` recorded, then the response. Left: no test
+relaunches the app, so an earlier launch's task is covered by the same
+path only; an adopted upload's request body is not seen.
