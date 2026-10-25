@@ -4,19 +4,28 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import appmonitor.desktop.app.store.McpController
+import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.CLEAR_ALL
 import appmonitor.desktop.app.ui.CONFIRM_CLEAR
+import appmonitor.desktop.app.ui.MCP_STATUS
+import appmonitor.desktop.app.ui.MCP_SWITCH
+import appmonitor.desktop.app.ui.McpSettings
 import appmonitor.desktop.app.ui.RUNS
 import appmonitor.desktop.app.ui.RUN_NAME
 import appmonitor.desktop.app.ui.SEARCH
+import appmonitor.desktop.app.ui.claudeMcpAdd
+import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
@@ -238,20 +247,61 @@ class AppMonitorAppTest {
                 )
             val forgotten = mutableListOf<DeviceKey?>()
 
+            val mcp = McpSettings(McpStatus.Running(47475), enabled = true, port = 47475, token = "3q2-7w")
+            val switched = mutableListOf<Boolean>()
+
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", answered = answered, onForget = { forgotten += it }) }
+                setContent {
+                    AppMonitorApp(
+                        storage,
+                        "Listening",
+                        answered = answered,
+                        onForget = { forgotten += it },
+                        mcp = mcp,
+                        onMcpEnabled = { switched += it },
+                    )
+                }
 
                 onNodeWithText("Settings").performClick()
+                onNodeWithTag(MCP_STATUS, useUnmergedTree = true).assertTextEquals("Listening on http://127.0.0.1:47475/mcp")
+                onNodeWithText(claudeMcpAdd(47475, "3q2-7w")).assertExists()
                 onNodeWithText("Pixel — app.a").assertExists()
                 onNodeWithText("iPhone — app.a").assertExists()
                 screenshot("settings.png")
                 onAllNodesWithText("Forget")[1].performClick()
                 onNodeWithText("Forget all").performClick()
+                onNodeWithTag(MCP_SWITCH).performClick()
                 onNodeWithText("Close").performClick()
                 onNodeWithText("Pixel — app.a").assertDoesNotExist()
             }
 
             assertEquals(listOf(DeviceKey("d2", "app.a"), null), forgotten)
+            assertEquals(listOf(false), switched)
+        }
+
+    @Test
+    fun `a taken MCP port shows a status and the rest of the app keeps running`() =
+        withStorage { storage ->
+            storage.record(envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://a.example/login")))
+            ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
+                val controller = McpController(storage, runBlocking { McpAccess.open(storage) }, taken.localPort)
+                runBlocking { controller.start() }
+
+                runDesktopComposeUiTest(width = 1280, height = 800) {
+                    setContent {
+                        val status by controller.status.collectAsState()
+                        val enabled by controller.enabled.collectAsState()
+                        val token by controller.token.collectAsState()
+                        AppMonitorApp(storage, "Listening", mcp = McpSettings(status, enabled, controller.port, token))
+                    }
+
+                    awaitText("Pixel")
+                    onNodeWithText("Settings").performClick()
+                    onNodeWithTag(MCP_STATUS, useUnmergedTree = true).assertTextContains("Port ${taken.localPort} in use", substring = true)
+                    screenshot("mcp-port-taken.png")
+                }
+                runBlocking { controller.close() }
+            }
         }
 
     @Test

@@ -15,12 +15,15 @@ import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import io.modelcontextprotocol.kotlin.sdk.types.ToolAnnotations
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import java.net.BindException
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -69,6 +72,8 @@ class McpServer internal constructor(
             check(!stopped) { "MCP server is single use: create a new instance" }
             check(!started) { "MCP server already started" }
             started = true
+            // CIO also reports a taken port as an uncaught exception on Dispatchers.IO: refuse it before CIO sees it.
+            if (port != 0) withContext(Dispatchers.IO) { ServerSocket().use { it.bind(InetSocketAddress(LOOPBACK, port)) } }
             val server = embeddedServer(CIO, host = LOOPBACK, port = port) { module() }
             try {
                 server.startSuspend(wait = false)

@@ -24,13 +24,13 @@ results, crashes, hangs, leaks, races or privacy issues (ADR-0016):
   three `PRAGMA`s of `liveBytes()` on each iteration, unlike the chunked
   age loop. Delete chunks in one transaction, then measure again.
 - **Comment blocks over 4 lines** (guidelines 02): `WriteQueue.kt` above
-  the class, `App.kt` at line 85. (The two in `Storage.kt` were paid by
-  M6.3.)
+  the class. (The two in `Storage.kt` were paid by M6.3, the one in
+  `App.kt` by M6.8.)
 - **Mappings written twice.** `Storage.exchange()` builds
-  `StoredExchange` field by field, `App.kt`'s `durationOf` repeats
-  `HttpExchange.durationMs`, and `Frame.sq`, `Run.sq` and `Session.sq`
-  each define `lastId`. (`Storage.sessions()`'s hand copy of the session
-  mapping was paid by M6.3.)
+  `StoredExchange` field by field, and `Frame.sq`, `Run.sq` and
+  `Session.sq` each define `lastId`. (`Storage.sessions()`'s hand copy of
+  the session mapping was paid by M6.3; `App.kt`'s `durationOf`, now the
+  one `HttpExchange.durationMs` uses, by M6.8.)
 
 ## Why it was accepted
 
@@ -42,7 +42,7 @@ lines.
 
 ## Trigger
 
-The first PR after PLAN-0007 M6.5 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/ui/App.kt`, or changes `Storage.applyRetention`.
+The first PR after PLAN-0007 M6.8 that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, or changes `Storage.applyRetention`.
 
 Re-triggered three times during PLAN-0006 because its review tasks
 rewrote the code these findings name. Fired again by PLAN-0007 M6.3,
@@ -57,6 +57,10 @@ Fired by PLAN-0007 M6.5 (`feat/mcp-endpoint-stats`), which touches
 `sessions` only when a filter joins it). The rest names `Ingest`,
 `WriteQueue`, `applyRetention`, `App.kt` and the `.sq` files, which it
 does not touch; the trigger is narrowed to them.
+
+Fired by PLAN-0007 M6.8 (`feat/mcp-app-wiring`), which adds the MCP
+settings to `App.kt`: it paid the two parts in that file (the long comment
+and `durationOf`); `App.kt` leaves the trigger.
 
 ## How it was paid
 

@@ -47,7 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.CapturedFrame
 import appmonitor.desktop.app.store.HttpExchange
+import appmonitor.desktop.app.store.McpStatus
+import appmonitor.desktop.app.store.durationOf
+import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.PendingDevice
 import appmonitor.desktop.storage.ExchangeFilter
@@ -83,9 +88,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * The shown run's sessions, then the selected one's requests, then the selected request; above them, the first device
- * to approve, the runs, or the settings: retention, [onClearAll], and the [answered] pairs. [onForget] gets null for
- * every pair. Every pane reads [storage] and follows its commits (SDD 09).
+ * The shown run's sessions, requests and request, under the device to approve, the runs or the settings ([mcp] when
+ * given; [onForget] gets null for every pair). Every pane reads [storage] and follows its commits (SDD 09).
  */
 @Composable
 internal fun AppMonitorApp(
@@ -96,6 +100,9 @@ internal fun AppMonitorApp(
     answered: List<StoredApproval> = emptyList(),
     onForget: (DeviceKey?) -> Unit = {},
     onClearAll: () -> Unit = {},
+    mcp: McpSettings? = null,
+    onMcpEnabled: (Boolean) -> Unit = {},
+    onRegenerateToken: () -> Unit = {},
 ) {
     val currentRun by storage.currentRun.collectAsState()
     val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
@@ -164,6 +171,9 @@ internal fun AppMonitorApp(
                     },
                     answered,
                     onForget,
+                    mcp,
+                    onMcpEnabled,
+                    onRegenerateToken,
                 ) { settingsOpen = false }
             }
             if (runsOpen) {
@@ -336,7 +346,7 @@ private fun RunList(
                     Modifier.fillMaxWidth().selectable(shownRunId == null) { onShow(null) }.padding(vertical = 8.dp),
                     fontWeight = FontWeight.Medium,
                 )
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(runs, key = { it.id }) { run ->
                         Row(
                             Modifier.fillMaxWidth().selectable(run.id == shownRunId) { onShow(run.id) }.padding(vertical = 4.dp),
@@ -370,9 +380,23 @@ private fun RunList(
     }
 }
 
+/** What the settings show of the MCP server: its [status], the switch, and the address and [token] to paste. */
+internal data class McpSettings(
+    val status: McpStatus,
+    val enabled: Boolean,
+    val port: Int,
+    val token: String,
+)
+
+/** The command the settings show; [McpServer.PATH] and the header are what the server checks (ADR-0090). */
+internal fun claudeMcpAdd(
+    port: Int,
+    token: String,
+): String = "claude mcp add --transport http app-monitor http://127.0.0.1:$port${McpServer.PATH} --header \"Authorization: Bearer $token\""
+
 /**
- * "Retention": the age and size bounds, the file's size and "Clear all data" behind a confirmation (ADR-0082). "Devices":
- * every answered pair, each with "Forget", and "Forget all" (ADR-0083 C.1).
+ * Retention with "Clear all data" behind a confirmation (ADR-0082), the MCP server's switch, state and command
+ * (ADR-0090), and every answered pair with "Forget" and "Forget all" (ADR-0083 C.1).
  */
 @Composable
 private fun Settings(
@@ -382,6 +406,9 @@ private fun Settings(
     onClearAll: () -> Unit,
     answered: List<StoredApproval>,
     onForget: (DeviceKey?) -> Unit,
+    mcp: McpSettings?,
+    onMcpEnabled: (Boolean) -> Unit,
+    onRegenerateToken: () -> Unit,
     onClose: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
@@ -418,10 +445,14 @@ private fun Settings(
                 } else {
                     TextButton(onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL)) { Text("Clear all data") }
                 }
+                if (mcp != null) {
+                    Divider()
+                    McpSection(mcp, onMcpEnabled, onRegenerateToken)
+                }
                 Divider()
                 Text("Devices", style = MaterialTheme.typography.subtitle2)
                 if (answered.isEmpty()) Text("No device answered yet", style = MaterialTheme.typography.caption)
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(answered, key = { "${it.deviceId}/${it.appId}" }) { pair ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -448,6 +479,50 @@ private fun Settings(
         }
     }
 }
+
+@Composable
+private fun McpSection(
+    mcp: McpSettings,
+    onEnabled: (Boolean) -> Unit,
+    onRegenerateToken: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val command = claudeMcpAdd((mcp.status as? McpStatus.Running)?.port ?: mcp.port, mcp.token)
+    Text("MCP server", style = MaterialTheme.typography.subtitle2)
+    Row(
+        Modifier.toggleable(mcp.enabled, onValueChange = onEnabled).testTag(MCP_SWITCH),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(mcp.enabled, onCheckedChange = null)
+        Text("Serve the stored traffic to AI agents over MCP")
+    }
+    val (state, error) = mcpStateOf(mcp.status)
+    Text(
+        state,
+        Modifier.testTag(MCP_STATUS),
+        color = if (error) MaterialTheme.colors.error else Color.Unspecified,
+        style = MaterialTheme.typography.caption,
+    )
+    if (mcp.enabled) {
+        Text("Add it to Claude Code:", style = MaterialTheme.typography.caption)
+        SelectionContainer {
+            Text(command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.caption)
+        }
+        Row {
+            TextButton(onClick = { clipboard.setText(AnnotatedString(command)) }) { Text("Copy command") }
+            TextButton(onClick = onRegenerateToken) { Text("Regenerate token") }
+        }
+    }
+}
+
+private fun mcpStateOf(status: McpStatus): Pair<String, Boolean> =
+    when (status) {
+        McpStatus.Off -> "Off" to false
+        McpStatus.Starting -> "Starting…" to false
+        is McpStatus.Running -> "Listening on http://127.0.0.1:${status.port}${McpServer.PATH}" to false
+        is McpStatus.PortTaken -> "Port ${status.port} in use: quit what holds it, or set APPMONITOR_MCP_PORT" to true
+        is McpStatus.Failed -> "Failed: ${status.message}" to true
+    }
 
 /** Dims the window and takes its clicks; [content] is centred. */
 @Composable
@@ -833,6 +908,10 @@ internal const val CLEAR_ALL = "clear-all"
 
 internal const val CONFIRM_CLEAR = "confirm-clear"
 
+internal const val MCP_SWITCH = "mcp-switch"
+
+internal const val MCP_STATUS = "mcp-status"
+
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50
 
@@ -858,11 +937,6 @@ private fun statusOf(exchange: StoredExchange): String =
         exchange.statusCode != null -> exchange.statusCode.toString()
         else -> "…"
     }
-
-private fun durationOf(
-    startedAtMs: Long?,
-    endedAtMs: Long?,
-): Long? = if (startedAtMs != null && endedAtMs != null) endedAtMs - startedAtMs else null
 
 private fun Modifier.selectable(
     selected: Boolean,

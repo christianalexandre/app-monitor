@@ -74,7 +74,7 @@ handled (DEBT-0063 fires on M6.4, DEBT-0058 on M6.5).
   Accept: `./gradlew :desktop:mcp:test` — the HAR validated against the
   HAR 1.2 field list, the cURL command run against a local server
   reproducing the stored request.
-- [ ] **M6.8 Desktop app wiring.** The app starts the server per M6.1 (b),
+- [x] **M6.8 Desktop app wiring.** (`feat/mcp-app-wiring`; `McpServer.start` probes the port with a plain `ServerSocket` first, since CIO also reports a taken port as an uncaught exception; "Clear all data" keeps the switch off when it was off; the packaged app checked: no new JDK module, ADR-0092.) The app starts the server per M6.1 (b),
   the settings show its state and address (and the switch, if M6.1 asks
   for one), a port already taken shows a status, not a crash.
   Accept: `./gradlew :desktop:app:test` with an offscreen screenshot of

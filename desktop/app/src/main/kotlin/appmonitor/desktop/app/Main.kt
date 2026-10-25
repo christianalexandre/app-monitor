@@ -11,9 +11,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.ApprovalStore
+import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.app.ui.McpSettings
 import appmonitor.desktop.app.ui.StorageUnavailable
+import appmonitor.desktop.mcp.McpAccess
+import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
@@ -45,10 +49,9 @@ import kotlin.time.Duration
 fun main() {
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
-    val (storage, approvals) =
+    val (storage, approvals, access) =
         try {
-            val storage = Storage.open(directory)
-            storage to openApprovals(storage) { server.disconnect(it) }
+            openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
             exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
             return
@@ -56,19 +59,23 @@ fun main() {
     val store = TrafficStore(storage)
     var status by mutableStateOf("Starting server…")
     server = AppMonitorServer(approval = approvals.approvals)
+    val mcp = McpController(storage, access)
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
-    addStopHook(timeout = STOP_TIMEOUT * 2) {
-        try {
-            stopServer()
-        } finally {
-            closeStorage()
-        }
+    addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT) {
+        stopAll(mcp::close, stopServer, closeStorage)
     }
     exitAfter {
         runBlocking {
             try {
-                runUntilExit(serve = { runServer(server, store::collect, stop = stopServer) { status = it } }) {
+                runUntilExit(
+                    serve = {
+                        coroutineScope {
+                            launch { mcp.start() }
+                            runServer(server, store::collect, stop = stopServer) { status = it }
+                        }
+                    },
+                ) {
                     awaitApplication {
                         Window(
                             onCloseRequest = ::exitApplication,
@@ -78,6 +85,9 @@ fun main() {
                             val scope = rememberCoroutineScope()
                             val pending by approvals.pending.collectAsState()
                             val answered by remember { approvals.stored }.collectAsState(emptyList())
+                            val mcpStatus by mcp.status.collectAsState()
+                            val mcpEnabled by mcp.enabled.collectAsState()
+                            val mcpToken by mcp.token.collectAsState()
                             AppMonitorApp(
                                 storage,
                                 status,
@@ -89,30 +99,59 @@ fun main() {
                                     scope.launch {
                                         approvals.forgetAll()
                                         storage.clearAll()
+                                        mcp.afterClearAll()
                                     }
                                 },
+                                mcp = McpSettings(mcpStatus, mcpEnabled, mcp.port, mcpToken),
+                                onMcpEnabled = { scope.launch { mcp.setEnabled(it) } },
+                                onRegenerateToken = { scope.launch { mcp.regenerate() } },
                             )
                         }
                     }
                 }
             } finally {
-                withContext(NonCancellable) { closeStorage() }
+                withContext(NonCancellable) { stopAll(mcp::close, stopServer, closeStorage) }
             }
         }
     }
 }
 
-// The store is closed again when its answers cannot be read: the failure window runs no server.
-private fun openApprovals(
-    storage: Storage,
+internal data class Services(
+    val storage: Storage,
+    val approvals: ApprovalStore,
+    val access: McpAccess,
+)
+
+/** Opens the store, its device answers and the MCP token; on a failure the store is closed again and no server starts. */
+internal fun openServices(
+    directory: Path,
     disconnect: (DeviceKey) -> Unit,
-): ApprovalStore =
-    try {
-        runBlocking { ApprovalStore.open(storage, disconnect) }
+): Services {
+    val storage = Storage.open(directory)
+    return try {
+        runBlocking { Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(storage)) }
     } catch (e: Exception) {
         runBlocking { storage.close(STOP_TIMEOUT) }
         throw e
     }
+}
+
+/** Stops [mcp], then [server], each even when the other fails, and only then runs [closeStorage] (SDD 10). */
+internal suspend fun stopAll(
+    mcp: suspend () -> Unit,
+    server: suspend () -> Unit,
+    closeStorage: suspend () -> Unit,
+) {
+    try {
+        try {
+            mcp()
+        } finally {
+            server()
+        }
+    } finally {
+        closeStorage()
+    }
+}
 
 private suspend fun showStorageFailure(
     file: String,
