@@ -7,11 +7,13 @@ plugins {
 dependencies {
     implementation(project(":desktop:data"))
     implementation(project(":desktop:designsystem"))
+    implementation(project(":desktop:feature:traffic"))
     implementation(project(":desktop:mcp"))
     implementation(project(":desktop:proxy"))
     implementation(project(":desktop:server"))
     implementation(project(":desktop:storage"))
     implementation(compose.desktop.currentOs)
+    implementation(libs.koin.compose.viewmodel)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.kotlinx.serialization.json)
 

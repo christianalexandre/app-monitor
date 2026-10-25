@@ -34,4 +34,11 @@ for bad in 'Color(0x1F2196F3)' 'MaterialTheme.typography.caption' 'import androi
   check "names the file of $bad" grep -q 'desktop/app/src/main/kotlin/Screen.kt:1' "$tmp/out"
 done
 
+rm -f "$tmp/desktop/app/src/main/kotlin/Screen.kt"
+mkdir -p "$tmp/desktop/feature/traffic/src/main/kotlin"
+printf '%s\n' 'Modifier.padding(horizontal = 12.dp)' >"$tmp/desktop/feature/traffic/src/main/kotlin/Pane.kt"
+run
+check "rejects a feature module's screen" test $? -eq 1
+check "names the feature's file" grep -q 'desktop/feature/traffic/src/main/kotlin/Pane.kt:1' "$tmp/out"
+
 ((failures == 0)) || { echo "$failures failure(s)" >&2; exit 1; }

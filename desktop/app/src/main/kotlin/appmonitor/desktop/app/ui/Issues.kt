@@ -36,6 +36,7 @@ import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
+import appmonitor.desktop.feature.traffic.statusOf
 import appmonitor.desktop.storage.IssueChange
 import appmonitor.desktop.storage.IssueFilter
 import appmonitor.desktop.storage.IssueSource
@@ -244,8 +245,6 @@ private fun labelOf(status: IssueStatus): String =
         IssueStatus.RESOLVED -> "Resolved"
     }
 
-internal const val SAVE_AS_ISSUE = "save-as-issue"
-
 internal const val SAVE_ISSUE = "save-issue"
 
 internal const val ISSUE_TITLE = "issue-title"
@@ -255,7 +254,3 @@ internal const val ISSUE_NOTE = "issue-note"
 internal const val ISSUE_TAGS = "issue-tags"
 
 internal const val CONFIRM_DELETE_ISSUE = "confirm-delete-issue"
-
-internal const val ISSUES = "issues"
-
-internal const val MARK = "mark-"

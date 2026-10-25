@@ -153,3 +153,4 @@ Rules:
 | [0133](0133-desktop-clean-architecture-and-design-system.md) | The desktop app is split into a design system, core layers and feature modules | Accepted |
 | [0134](0134-the-design-system-wraps-material-and-is-checked-by-a-script.md) | The design system wraps Compose Material and is checked by a script | Accepted |
 | [0135](0135-desktop-domain-models-mirror-the-store-and-keep-protocol-messages.md) | Desktop domain models mirror the store's and keep the protocol's messages | Accepted |
+| [0136](0136-desktop-view-models-are-wired-by-a-koin-dsl-module-per-window.md) | Desktop view models are wired by a Koin DSL module per window | Accepted |

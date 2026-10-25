@@ -1,5 +1,6 @@
 package appmonitor.desktop.app.ui
 
+import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.mcp.ExportRefused
 import appmonitor.desktop.mcp.Exports
 import appmonitor.desktop.storage.ExchangeFilter
@@ -56,7 +57,11 @@ internal suspend fun curlOf(
         Result.failure(e)
     }
 
-internal fun harFileName(runId: Long?) = if (runId == null) "app-monitor-all-runs.har" else "app-monitor-run-$runId.har"
+/** [ExportRepository] over the MCP tools' exports of [storage]. */
+internal class StorageExports(
+    private val storage: Storage,
+) : ExportRepository {
+    override suspend fun curl(id: Long): Result<String> = curlOf(storage, id)
+}
 
-internal const val EXPORT_HAR = "export-har"
-internal const val COPY_CURL = "copy-curl"
+internal fun harFileName(runId: Long?) = if (runId == null) "app-monitor-all-runs.har" else "app-monitor-run-$runId.har"

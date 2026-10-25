@@ -38,6 +38,9 @@ import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.feature.traffic.METHODS
+import appmonitor.desktop.feature.traffic.formatDuration
+import appmonitor.desktop.feature.traffic.utf8OrNull
 import appmonitor.desktop.storage.MockChange
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
@@ -425,10 +428,6 @@ private fun failureOf(write: MockWrite): String =
 
 /** "Mocks", with the rules waiting for the developer's confirmation counted. */
 internal fun mocksLabel(pending: Int): String = if (pending == 0) "Mocks" else "Mocks ($pending to confirm)"
-
-internal const val MOCKS = "mocks"
-
-internal const val MOCK_THIS = "mock-this"
 
 internal const val NEW_MOCK = "new-mock"
 

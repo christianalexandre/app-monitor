@@ -1,15 +1,5 @@
-package appmonitor.desktop.app
+package appmonitor.desktop.feature.traffic
 
-import appmonitor.desktop.app.ui.BodyFormat
-import appmonitor.desktop.app.ui.CHUNK_CHARS
-import appmonitor.desktop.app.ui.CHUNK_LINES
-import appmonitor.desktop.app.ui.DecodedBody
-import appmonitor.desktop.app.ui.MAX_RENDERED_CHARS
-import appmonitor.desktop.app.ui.chunked
-import appmonitor.desktop.app.ui.defaultFormat
-import appmonitor.desktop.app.ui.formatDuration
-import appmonitor.desktop.app.ui.render
-import appmonitor.desktop.app.ui.renderBody
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
 import okio.ByteString

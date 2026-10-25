@@ -14,7 +14,7 @@ in `desktop/storage` (`Mocks.kt`, `Mock.sq`); the push in `desktop/app`
 (`store/BreakpointPush.kt`), the held calls in `store/HeldCalls.kt` and
 the window's Breakpoints panel and held call dialog in `ui/Breakpoints.kt`
 (ADR-0119). Replays in `store/Replays.kt`, sent from the request
-detail in `ui/App.kt` or asked by MCP's `replay_request` and confirmed in
+detail in `desktop/feature/traffic` or asked by MCP's `replay_request` and confirmed in
 its dialog (ADR-0121). The Kotlin SDKs list the channel, serve the
 rules (SDD 04, 05, 08, ADR-0115), send a request again (ADR-0122) and
 hold a call at a breakpoint (ADR-0123); the Swift SDK serves the rules

@@ -10,13 +10,13 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.app.ui.CONFIRM_DELETE_ISSUE
-import appmonitor.desktop.app.ui.ISSUES
 import appmonitor.desktop.app.ui.ISSUE_NOTE
 import appmonitor.desktop.app.ui.ISSUE_TAGS
 import appmonitor.desktop.app.ui.ISSUE_TITLE
-import appmonitor.desktop.app.ui.MARK
-import appmonitor.desktop.app.ui.SAVE_AS_ISSUE
 import appmonitor.desktop.app.ui.SAVE_ISSUE
+import appmonitor.desktop.feature.traffic.ISSUES
+import appmonitor.desktop.feature.traffic.MARK
+import appmonitor.desktop.feature.traffic.SAVE_AS_ISSUE
 import appmonitor.desktop.storage.IssueSource
 import appmonitor.desktop.storage.IssueStatus
 import appmonitor.desktop.storage.Storage

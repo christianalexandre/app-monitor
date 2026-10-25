@@ -14,7 +14,7 @@ rules=(
 
 found=0
 dirs=()
-for dir in "$root"/desktop/*/src/main; do
+for dir in "$root"/desktop/*/src/main "$root"/desktop/feature/*/src/main; do
   [[ -d "$dir" && "$dir" != "$root/desktop/designsystem/src/main" ]] && dirs+=("$dir")
 done
 if ((${#dirs[@]})); then

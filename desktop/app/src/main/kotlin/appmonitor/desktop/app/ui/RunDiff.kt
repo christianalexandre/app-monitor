@@ -35,6 +35,8 @@ import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.domain.Run
+import appmonitor.desktop.feature.traffic.formatDuration
+import appmonitor.desktop.feature.traffic.titleOf
 import appmonitor.desktop.storage.EndpointChange
 import appmonitor.desktop.storage.EndpointDiff
 import appmonitor.desktop.storage.EndpointTally
@@ -206,8 +208,6 @@ private fun RowScope.DiffCell(
         role = if (bold) TextRole.SmallStrong else TextRole.Small,
     )
 }
-
-internal const val COMPARE_RUNS = "compare-runs"
 
 internal const val DIFF_BASE = "diff-base-"
 

@@ -6,10 +6,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
-import appmonitor.desktop.app.ui.BENCHMARKS
-import appmonitor.desktop.app.ui.CONNECTION_BYTES
-import appmonitor.desktop.app.ui.COPY_CURL
-import appmonitor.desktop.app.ui.EXPORT_HAR
+import appmonitor.desktop.feature.traffic.BENCHMARKS
+import appmonitor.desktop.feature.traffic.CONNECTION_BYTES
+import appmonitor.desktop.feature.traffic.COPY_CURL
+import appmonitor.desktop.feature.traffic.EXPORT_HAR
 import appmonitor.tools.fakeclient.Fixtures
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.RequestFailed

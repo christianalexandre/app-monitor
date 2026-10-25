@@ -1,5 +1,8 @@
 package appmonitor.desktop.app.store
 
+import appmonitor.desktop.domain.ReplayKey
+import appmonitor.desktop.domain.ReplayRepository
+import appmonitor.desktop.domain.ReplaySent
 import appmonitor.desktop.mcp.AskedReplay
 import appmonitor.desktop.mcp.ReplayAnswer
 import appmonitor.desktop.mcp.ReplayAsks
@@ -15,36 +18,19 @@ import kotlinx.coroutines.flow.update
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
-/** What "Send again" did; the device runs the call later, or answers with a refusal (ADR-0111 D.1, ADR-0120). */
-internal enum class ReplaySent {
-    SENT,
-
-    /** The exchange's session is over: a replay goes through the app, so only a live one can take it. */
-    SESSION_ENDED,
-
-    /** The device did not accept `interaction`. */
-    NOT_TAKEN,
-}
-
-/** A request of [sessionId] (the server's session id) the desktop asked a device to send again. */
-internal data class ReplayKey(
-    val sessionId: String,
-    val requestId: String,
-)
-
 /**
  * Sends `ReplayRequest` to a connected device and keeps, in memory until its session ends, the reason of each
  * `ReplayRefused` and each replay an agent [ask]ed that waits for the developer (ADR-0121 A.1).
  */
 internal class Replays(
     private val clock: () -> Long = System::currentTimeMillis,
-) : ReplayAsks {
+) : ReplayAsks,
+    ReplayRepository {
     private val sessions = ConcurrentHashMap<String, DeviceSession>()
 
     private val mutableRefused = MutableStateFlow<Map<ReplayKey, String>>(emptyMap())
 
-    /** The device's reason, by the request it did not send again; a new [send] of the same request clears it. */
-    val refused: StateFlow<Map<ReplayKey, String>> = mutableRefused.asStateFlow()
+    override val refused: StateFlow<Map<ReplayKey, String>> = mutableRefused.asStateFlow()
 
     private val mutableAsked = MutableStateFlow<List<AskedReplay>>(emptyList())
 
@@ -91,8 +77,7 @@ internal class Replays(
         return if (waited && send) send(replay.sessionId, replay.requestId) else null
     }
 
-    /** Asks [sessionId]'s device to send [requestId] again. */
-    fun send(
+    override fun send(
         sessionId: String,
         requestId: String,
     ): ReplaySent {

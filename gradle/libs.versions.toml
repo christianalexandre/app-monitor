@@ -22,6 +22,8 @@ sqldelight = "2.4.1" # ADR-0085
 mcp-kotlin-sdk = "0.15.0" # ADR-0092
 netty = "4.2.19.Final" # ADR-0105
 bouncycastle = "1.86" # ADR-0105
+koin = "4.2.2" # ADR-0136
+androidx-lifecycle = "2.11.0" # ADR-0136, JetBrains' multiplatform build
 grpc-java = "1.85.1" # ADR-0106, desktop/proxy tests and tools/e2e-target (ADR-0109)
 
 [libraries]
@@ -67,5 +69,8 @@ netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty"
 netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
 netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "netty" }
 bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
+lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc-java" }
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc-java" }

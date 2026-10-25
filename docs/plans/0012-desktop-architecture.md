@@ -57,15 +57,30 @@ task that lands each module.
   panes call no `Storage` function but curl's.
   Deviation: done before H2.F1, which H2.1 added above it while this was
   under way; H2.F1 is next.
-- [ ] **H2.2b The traffic feature.** Koin and view models;
-  `desktop/feature/traffic` (devices, approvals, requests, detail, runs,
-  replay) moved out of `ui/App.kt`; `desktop/app` keeps the window and the
+- [x] **H2.2b The traffic feature.** Koin and view models;
+  `desktop/feature/traffic` (devices, requests, detail, runs, replay)
+  moved out of `ui/App.kt`; `desktop/app` keeps the window and the
   wiring.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   the traffic tests pass against a view model over fake repositories and
   against the real store; no feature imports `desktop/storage`.
+  Deviation: split (too large for one PR); the approval dialog and the
+  agent's replay dialog went to H2.2c. `statusOf`, `titleOf`,
+  `formatDuration`, `METHODS` and `utf8OrNull` are public in the traffic
+  feature while `desktop/app`'s other screens use them. Paid DEBT-0088's
+  "Show original" item: the view model reads an original past the
+  loaded pages by id.
+- [ ] **H2.2c Approvals and an agent's replays.** The device approval
+  dialog and the dialog of a replay an agent asked move to
+  `desktop/feature/traffic`, behind domain interfaces implemented in
+  `desktop/app` (`ApprovalStore`, `Replays`).
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
+  `approval.png` and `replay-asked.png` unchanged; `ui/App.kt` holds no
+  `PendingDevice` or `AskedReplay`.
 - [ ] **H2.3 Mocks and breakpoints.** `desktop/feature/mocks` and
-  `desktop/feature/breakpoints` on the same layers.
+  `desktop/feature/breakpoints` on the same layers; the labels they share
+  with the traffic feature (`formatDuration`, `METHODS`, `utf8OrNull`)
+  move to a module both depend on, as no feature depends on another.
   Accept: their moved UI tests, `MockPushTest` and `HeldCallsTest` pass.
 - [ ] **H2.4 Insights and settings.** `desktop/feature/insights` (issues,
   benchmarks, run diff, export) and `desktop/feature/settings`
