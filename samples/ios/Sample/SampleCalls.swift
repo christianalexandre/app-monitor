@@ -8,15 +8,22 @@ struct SampleButton: Sendable {
 /// The calls behind the sample's buttons, against public services the sample does not control;
 /// `-target URL` at launch replaces them, as `make e2e-ios` does (ADR-0074).
 enum SampleCalls {
-    static let buttons = [
-        SampleButton(label: "GET JSON") { await data(URLRequest(url: httpbin("json"))) },
-        SampleButton(label: "POST") { await post() },
-        SampleButton(label: "404") { await data(URLRequest(url: httpbin("status/404"))) },
-        SampleButton(label: "Timeout") { await timeout() },
-        SampleButton(label: "Upload") { await upload() },
-        SampleButton(label: "WebSocket echo") { await webSocketEcho() },
-        SampleButton(label: "Background download") { await BackgroundDownload.shared.run() },
-    ]
+    static let buttons: [SampleButton] =
+        [
+            SampleButton(label: "GET JSON") { await data(URLRequest(url: httpbin("json"))) },
+            SampleButton(label: "POST") { await post() },
+            SampleButton(label: "404") { await data(URLRequest(url: httpbin("status/404"))) },
+            SampleButton(label: "Timeout") { await timeout() },
+            SampleButton(label: "Upload") { await upload() },
+            SampleButton(label: "WebSocket echo") { await webSocketEcho() },
+            SampleButton(label: "Background download") { await BackgroundDownload.shared.run() },
+        ] + grpc
+
+    #if DEBUG
+    private static let grpc = [SampleButton(label: "gRPC-Core unary") { await GrpcCoreCall.run() }]
+    #else
+    private static let grpc: [SampleButton] = []
+    #endif
 
     private static let target = UserDefaults.standard.string(forKey: "target")
 

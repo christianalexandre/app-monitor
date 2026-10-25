@@ -119,8 +119,8 @@ xcrun simctl launch booted dev.appmonitor.sample -runAll YES
 
 For the screenshots, run
 `./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=7`
-in the background instead of the server (the seven buttons, one exchange
-each), wait for "waiting for a device", then install and launch as above.
+in the background instead of the server (the seven `URLSession` buttons, one
+exchange each; the eighth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
 Calls made before the approval wait in the SDK's buffer, so `-runAll` can
 start before the click. `-host H -port N` pin the SDK to that desktop, as
 `make e2e-ios` does.
@@ -128,20 +128,29 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 ### The iOS sample end to end, scripted
 
 `make e2e-ios` (ADR-0057) needs macOS with Xcode and XcodeGen; the
-internet only for the first build. It uses the booted iPhone simulator, or boots the first available
+internet only for the first build (gRPC-Core's makes it about four
+minutes cold, ADR-0109). It uses the booted iPhone simulator, or boots the first available
 one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample's Debug app
 for it (Release and its SDK name scan are `make ios-sample`'s, in
 `make samples`; ADR-0075) and the `installDist` of the server and of
-`tools/e2e-target`, starts both on free ports and launches the Debug app:
+`tools/e2e-target`, starts the target with its TLS gRPC origin
+(`--grpc-trust`) and the server with its proxy (`--proxy`, trusting that
+origin), all on free ports, and launches the Debug app through the proxy
+(ADR-0108, ADR-0109):
 
 ```sh
-xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
-  -target http://127.0.0.1:<target port> -runAll YES
+SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
+  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=<repo>/build/e2e-ios/proxy/proxy-ca.pem \
+  xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
 ```
 
 It then waits up to `E2E_TIMEOUT` seconds (120) for the seven calls as
 `make e2e-android` does (the upload's `PUT` and the background download
-included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
+included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
+and for the gRPC-Core call in the `[proxy]` session: `POST
+https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`, its request and
+response messages, its response.
 Server log, target log, the sample's simulator log and `build.log` in `build/e2e-ios/`. The three
 end to end scripts source `scripts/e2e_lib.sh` (device pick, server and target, assertions),
 whose assertions `scripts/test_e2e_lib.sh` tests on a crafted log in `make scripts-test`.
@@ -245,12 +254,15 @@ with `make desktop` running:
 - **curl**: `curl --proxy http://127.0.0.1:47476 --cacert "<data
   dir>/proxy-ca.pem" https://example.com` — the exchange shows in the
   `Proxy` session.
-- **A simulator app** (ADR-0101 B.1): the CA in the simulator's root store
-  (`xcrun simctl keychain booted add-root-cert "<data dir>/proxy-ca.pem"`
-  until M8.8's button), then `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476
-  xcrun simctl launch booted <bundle id>`; from Xcode, `grpc_proxy` in the
-  scheme's environment. Only gRPC-Core reads it; `URLSession` stays on the
-  SDK's capture.
+- **A simulator app** (ADR-0108): the settings' launch command,
+  `SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476
+  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="<data dir>/proxy-ca.pem"
+  xcrun simctl launch booted <bundle id>`; from Xcode, `grpc_proxy` and
+  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in the scheme's environment. Only
+  gRPC-Core reads them; `URLSession` stays on the SDK's capture. The iOS
+  sample's `gRPC-Core unary` button calls `grpcb.in:9001` over TLS
+  (`-grpcTarget host:port` replaces it), so launching it this way shows
+  the call in the `Proxy` session.
 
 ## SDK publication dry-run
 

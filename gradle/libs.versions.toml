@@ -22,7 +22,7 @@ sqldelight = "2.4.1" # ADR-0085
 mcp-kotlin-sdk = "0.15.0" # ADR-0092
 netty = "4.2.19.Final" # ADR-0105
 bouncycastle = "1.86" # ADR-0105
-grpc-java = "1.85.1" # ADR-0106, desktop/proxy tests only
+grpc-java = "1.85.1" # ADR-0106, desktop/proxy tests and tools/e2e-target (ADR-0109)
 
 [libraries]
 # Gradle plugins, consumed by build-logic convention plugins

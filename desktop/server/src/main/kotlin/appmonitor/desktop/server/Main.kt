@@ -1,5 +1,7 @@
 package appmonitor.desktop.server
 
+import appmonitor.desktop.proxy.ProxyCa
+import appmonitor.desktop.proxy.ProxyServer
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.RequestFailed
@@ -10,15 +12,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.PrintStream
+import java.nio.file.Path
 import kotlin.system.exitProcess
 
 /** Headless server: logs every session and envelope to stdout until the process is stopped. */
 fun main(args: Array<String>) {
-    val port = parsePort(args, System.err) ?: exitProcess(2)
-    val server = AppMonitorServer(ServerConfig(port = port))
+    val options = parseArgs(args, System.err) ?: exitProcess(2)
+    val server = AppMonitorServer(ServerConfig(port = options.port))
     runBlocking {
         val bound = startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook)
         println("Listening on port $bound, path ${Protocol.WEBSOCKET_PATH}; mDNS on ${server.advertisedAddresses}")
+        options.proxyDirectory?.let { directory ->
+            val proxy = ProxyServer(ProxyCa.loadOrCreate(directory), { println("[proxy] ${describe(it)}") }, port = 0)
+            Runtime.getRuntime().addShutdownHook(shutdownHook { proxy.stop() })
+            println("Proxy on port ${proxy.start()}, CA in ${directory.resolve(ProxyCa.CERTIFICATE_FILE)}")
+        }
         server.sessions.collect { session ->
             launch {
                 val device = session.hello
@@ -41,22 +49,39 @@ internal suspend fun startWithShutdownHook(
     return server.start()
 }
 
-/** The `--port` value, or [Protocol.DEFAULT_PORT]; on a bad argument prints one line on [err] and returns null. */
-internal fun parsePort(
+internal data class ServerArgs(
+    val port: Int = Protocol.DEFAULT_PORT,
+    val proxyDirectory: Path? = null,
+)
+
+/**
+ * `--port` (default [Protocol.DEFAULT_PORT]) and `--proxy DIR`, which also runs the proxy of SDD 11 with its CA in DIR
+ * and logs its exchanges as the `proxy` session; on a bad argument prints one line on [err] and returns null.
+ */
+internal fun parseArgs(
     args: Array<String>,
     err: PrintStream,
-): Int? {
-    val port =
-        when {
-            args.isEmpty() -> return Protocol.DEFAULT_PORT
-            args.size == 2 && args[0] == "--port" -> args[1].toIntOrNull()?.takeIf { it in 0..MAX_PORT }
-            else -> null
-        }
-    if (port == null) err.println(USAGE)
-    return port
+): ServerArgs? {
+    val options = serverArgs(args)
+    if (options == null) err.println(USAGE)
+    return options
 }
 
-private const val USAGE = "Usage: server [--port PORT], PORT from 0 (ephemeral) to 65535"
+private fun serverArgs(args: Array<String>): ServerArgs? {
+    if (args.size % 2 != 0) return null
+    var options = ServerArgs()
+    for ((name, value) in args.toList().chunked(2)) {
+        options =
+            when (name) {
+                "--port" -> options.copy(port = value.toIntOrNull()?.takeIf { it in 0..MAX_PORT } ?: return null)
+                "--proxy" -> options.copy(proxyDirectory = Path.of(value))
+                else -> return null
+            }
+    }
+    return options
+}
+
+private const val USAGE = "Usage: server [--port PORT] [--proxy DIR], PORT from 0 (ephemeral) to 65535, DIR the proxy's CA directory"
 
 private const val MAX_PORT = 65_535
 

@@ -148,7 +148,8 @@ device                         AppMonitorServer
 
 `desktop/server` has a headless `main` (`make server`) that prints one line
 per session connect/disconnect and per envelope, decoded for the `network`
-messages. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
+messages; with `--proxy <dir>` it also runs the proxy (SDD 11) and prints
+its exchanges as the `[proxy]` session. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
 the desktop over mDNS on every LAN IPv4 address, skipping one where JmDNS
 cannot open (or at `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
@@ -220,7 +221,8 @@ a stack trace (DEBT-0010). See ADR-0010.
   (ADR-0048). The package gets `DEBUG` only in an app configuration whose
   name contains `Debug`. SwiftProtobuf is still linked in release
   (DEBT-0040).
-- `samples/ios` uses the same product in both configurations; its Release
+- `samples/ios` uses the same product, from the root `Package.swift`
+  (ADR-0109), in both configurations; its Release
   app names nothing of the `AppMonitor` module but the two stubs, and only
   its Debug app has the local network keys (`make ios-sample`, ADR-0050).
 - `samples/kmp` (Compose Multiplatform, Android and iOS) calls through Ktor

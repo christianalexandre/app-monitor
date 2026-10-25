@@ -5,7 +5,10 @@ options:
     iOS: "15.0"
 packages:
   AppMonitor:
-    path: ../../sdk/ios
+    path: ../..
+  gRPC:
+    url: https://github.com/grpc/grpc-ios
+    exactVersion: 1.84.0
 targets:
   Sample:
     type: application
@@ -13,12 +16,15 @@ targets:
     sources: [Sample]
     dependencies:
       - package: AppMonitor
+      - package: gRPC
+        product: gRPC-Core
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: dev.appmonitor.sample
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_CFBundleDisplayName: AppMonitor Sample
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
       SWIFT_VERSION: "6.0"
+      SWIFT_OBJC_BRIDGING_HEADER: Sample/Sample-Bridging-Header.h
       ENABLE_USER_SCRIPT_SANDBOXING: YES
     postBuildScripts:
       - name: AppMonitor local network keys

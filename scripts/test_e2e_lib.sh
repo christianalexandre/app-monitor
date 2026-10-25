@@ -58,6 +58,18 @@ check "a session per SDK, empty app version" "1 1" "$(
   echo "[s5] connected: iPhone18,1 Simulator (PLATFORM_IOS) other.app 1.0 kotlin" >>"$server_log"
   echo "$(sessions other.app kotlin) $(sessions other.app swift)"
 )"
+check "an app id in the device name is not the app's" "1" "$(
+  echo "[s6] connected: other.app (PLATFORM_ANDROID) third.app 1.0 kotlin" >>"$server_log"
+  sessions other.app kotlin
+)"
+check "the proxy's exchanges are not off the target" "GET https://httpbin.org/json
+GET wss://h/ws
+GET https://h/ws
+GET http://h/x
+GET https://h/x" "$(
+  echo "[proxy] network/RequestStarted k POST https://127.0.0.1:10/grpcbin.GRPCBin/DummyUnary" >>"$server_log"
+  foreign_urls 127.0.0.1:9
+)"
 
 if ((failures > 0)); then
   echo "e2e_lib: $failures failure(s)" >&2

@@ -89,7 +89,7 @@ evidence before the code.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test :desktop:app:test`
   — a failed gRPC call from each writer shows as an error in every
   reader above.
-- [ ] **M8.8 The proxy and the simulator.** (ADR-0108 option 1, replacing ADR-0101 D.1) First check that a
+- [x] **M8.8 The proxy and the simulator.** (`feat/ios-sample-grpc-proxy`; ADR-0108 option 1, replacing ADR-0101 D.1; ADR-0109: gRPC-Core's C API through a bridging header, `make server --proxy`, a TLS gRPC origin in `tools/e2e-target`; the Release app links part of gRPC-Core; DEBT-0080) First check that a
   simulator app reads a file under the Mac's data directory. Then the
   settings' proxy command sets `grpc_proxy` and
   `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` through `SIMCTL_CHILD_`, and an iOS

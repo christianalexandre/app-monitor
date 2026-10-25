@@ -39,3 +39,8 @@ The next PR that touches `sdk/core/src/commonTest/kotlin/appmonitor/sdk/core/Mon
 ## How it was paid
 
 > Filled when closing.
+
+`scripts/e2e_lib.sh`'s item paid in `feat/ios-sample-grpc-proxy`:
+`sessions` reads the app id from the field after `(PLATFORM_…)`, tested
+with an app id as the device name in `scripts/test_e2e_lib.sh`. The
+`MonitorClientTest` item is open.

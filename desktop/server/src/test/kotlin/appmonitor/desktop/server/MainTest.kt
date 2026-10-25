@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,8 +30,21 @@ class MainTest {
     }
 
     @Test
+    fun `the proxy directory is read with the port in any order`() {
+        assertEquals(ServerArgs(0, Path.of("ca")), parseOptions("--proxy", "ca", "--port", "0").first)
+        assertNull(parseOptions("--port", "0").first?.proxyDirectory)
+    }
+
+    @Test
     fun `a bad port is a one-line error`() {
-        listOf(arrayOf("--port", "abc"), arrayOf("--port"), arrayOf("--port", "70000"), arrayOf("--prot", "1")).forEach { args ->
+        listOf(
+            arrayOf("--port", "abc"),
+            arrayOf("--port"),
+            arrayOf("--port", "70000"),
+            arrayOf("--prot", "1"),
+            arrayOf("--port", "1", "--proxy"),
+            arrayOf("--port", "abc", "--proxy", "ca"),
+        ).forEach { args ->
             val (port, err) = parse(*args)
 
             assertNull(port, args.joinToString(" "))
@@ -68,10 +82,12 @@ class MainTest {
             ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
         }
 
-    private fun parse(vararg args: String): Pair<Int?, String> {
+    private fun parse(vararg args: String): Pair<Int?, String> = parseOptions(*args).let { (options, err) -> options?.port to err }
+
+    private fun parseOptions(vararg args: String): Pair<ServerArgs?, String> {
         val err = ByteArrayOutputStream()
-        val port = parsePort(arrayOf(*args), PrintStream(err))
-        return port to err.toString()
+        val options = parseArgs(arrayOf(*args), PrintStream(err))
+        return options to err.toString()
     }
 
     private companion object {

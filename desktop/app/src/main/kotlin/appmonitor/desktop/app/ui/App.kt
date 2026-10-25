@@ -627,9 +627,13 @@ internal data class ProxySettings(
     val caFile: String,
 )
 
-/** The launch command of ADR-0101 B.1: gRPC-Core in the app reads `grpc_proxy`. */
-internal fun simulatorLaunch(port: Int): String =
-    "SIMCTL_CHILD_grpc_proxy=http://${ProxyServer.HOST}:$port xcrun simctl launch booted <bundle id>"
+/** The launch command of ADR-0108: gRPC-Core in the app reads `grpc_proxy`, and its TLS roots from [caFile]. */
+internal fun simulatorLaunch(
+    port: Int,
+    caFile: String,
+): String =
+    "SIMCTL_CHILD_grpc_proxy=http://${ProxyServer.HOST}:$port SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=\"$caFile\" " +
+        "xcrun simctl launch booted <bundle id>"
 
 internal fun curlThroughProxy(
     port: Int,
@@ -661,17 +665,19 @@ private fun ProxySection(
     )
     if (proxy.enabled) {
         Text("Launch a simulator app through it, or try it with curl:", style = MaterialTheme.typography.caption)
-        listOf(simulatorLaunch(port), curlThroughProxy(port, proxy.caFile)).forEach { command ->
+        listOf(simulatorLaunch(port, proxy.caFile), curlThroughProxy(port, proxy.caFile)).forEach { command ->
             SelectionContainer {
                 Text(command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.caption)
             }
         }
         Row {
-            TextButton(onClick = { clipboard.setText(AnnotatedString(simulatorLaunch(port))) }) { Text("Copy launch command") }
+            TextButton(
+                onClick = { clipboard.setText(AnnotatedString(simulatorLaunch(port, proxy.caFile))) },
+            ) { Text("Copy launch command") }
             TextButton(onClick = onResetCa, Modifier.testTag(PROXY_RESET_CA)) { Text("Reset proxy CA") }
         }
         Text(
-            "After a reset, run xcrun simctl keychain booted reset on simulators that trusted the old one.",
+            "After a reset, relaunch the apps started with the old CA.",
             style = MaterialTheme.typography.caption,
         )
     }

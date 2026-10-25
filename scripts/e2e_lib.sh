@@ -54,11 +54,11 @@ build_ios_debug() {
     || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
 }
 
-# $1 an installDist launcher that prints `Listening on port N`, $2 its log; starts it on port 0,
-# sets listener_pid and listener_port.
+# $1 an installDist launcher that prints `Listening on port N`, $2 its log, more arguments passed on;
+# starts it on port 0, sets listener_pid and listener_port.
 listen() {
   : >"$2"
-  "$1" --port 0 >"$2" 2>&1 &
+  "$1" --port 0 "${@:3}" >"$2" 2>&1 &
   listener_pid=$!
   listener_port=
   for _ in $(seq 1 60); do
@@ -70,22 +70,23 @@ listen() {
   fail "$1 did not print its port, log in $2"
 }
 
-# Starts desktop/server's installDist, built by the caller; sets server_pid and port.
+# Starts desktop/server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
 start_server() {
-  listen desktop/server/build/install/server/bin/server "$server_log"
+  listen desktop/server/build/install/server/bin/server "$server_log" "$@"
   server_pid=$listener_pid port=$listener_port
 }
 
 # Starts tools/e2e-target's installDist (ADR-0074), built by the caller, logging to $target_log;
-# sets target_pid and target_port.
+# its arguments passed on; sets target_pid and target_port.
 start_target() {
-  listen tools/e2e-target/build/install/e2e-target/bin/e2e-target "$target_log"
+  listen tools/e2e-target/build/install/e2e-target/bin/e2e-target "$target_log" "$@"
   target_pid=$listener_pid target_port=$listener_port
 }
 
 # $1 the authority every request must go to (e.g. 10.0.2.2:N); prints the RequestStarted URLs elsewhere.
+# The proxy's session (`--proxy`) is left out: it records whatever an app sends through it.
 foreign_urls() {
-  awk -v a="//$1/" '$2 == "network/RequestStarted" && index($5 "/", a) == 0 { print $4, $5 }' "$server_log"
+  awk -v a="//$1/" '$1 != "[proxy]" && $2 == "network/RequestStarted" && index($5 "/", a) == 0 { print $4, $5 }' "$server_log"
 }
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
@@ -120,9 +121,11 @@ repeated() {
   done <<<"$1"
 }
 
-# $1 app id, $2 an SDK name (`Hello.sdk_name`, ADR-0077): prints how many sessions it opened for the app.
+# $1 app id, $2 an SDK name (`Hello.sdk_name`, ADR-0077): prints how many sessions it opened for the app,
+# the app id being the field after `(PLATFORM_…)`.
 sessions() {
-  awk -v a="$1" -v s="$2" '$2 == "connected:" && $NF == s { for (i = 3; i < NF; i++) if ($i == a) { n++; break } }
+  awk -v a="$1" -v s="$2" '$2 == "connected:" && $NF == s {
+      for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) n++; break } }
     END { print n + 0 }' "$server_log"
 }
 
