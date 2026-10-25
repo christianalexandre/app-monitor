@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.store.CapturedBody
 import appmonitor.desktop.app.store.CapturedFrame
+import appmonitor.desktop.app.store.HeldCalls
 import appmonitor.desktop.app.store.HttpExchange
 import appmonitor.desktop.app.store.McpStatus
 import appmonitor.desktop.app.store.ProxyStatus
@@ -112,6 +113,7 @@ internal fun AppMonitorApp(
     onProxyEnabled: (Boolean) -> Unit = {},
     onResetProxyCa: () -> Unit = {},
     pickHarFile: (suggested: String) -> File? = ::saveHarDialog,
+    heldCalls: HeldCalls? = null,
 ) {
     val currentRun by storage.currentRun.collectAsState()
     val runs by remember(storage) { storage.observeRuns() }.collectAsState(emptyList())
@@ -140,6 +142,8 @@ internal fun AppMonitorApp(
     var mocksOpen by remember { mutableStateOf<MockDraft?>(null) }
     var mocksShown by remember { mutableStateOf(false) }
     val mocks by remember(storage) { storage.observeMocks() }.collectAsState(emptyList())
+    var breakpointsOpen by remember { mutableStateOf(false) }
+    val held by remember(heldCalls) { heldCalls?.held ?: MutableStateFlow(emptyList()) }.collectAsState()
     val everySession by remember(storage) { storage.observeSessions(null) }.collectAsState(emptyList())
     val appIds = remember(everySession) { everySession.map { it.hello.app_id }.distinct().sorted() }
     var benchmarksOpen by remember { mutableStateOf(false) }
@@ -169,6 +173,8 @@ internal fun AppMonitorApp(
                         mocksOpen = null
                         mocksShown = true
                     },
+                    breakpointsLabel = breakpointsLabel(held.size),
+                    onBreakpoints = { breakpointsOpen = true },
                 ) {
                     selectedSession = it.id
                 }
@@ -277,6 +283,7 @@ internal fun AppMonitorApp(
                     mocksOpen = null
                 }
             }
+            if (breakpointsOpen) BreakpointList(storage, appIds) { breakpointsOpen = false }
             if (benchmarksOpen) {
                 val devices = if (shownRunId == null) "Every run and device" else "Every device of $runTitle"
                 val scope = devices + if (filter == ExchangeFilter()) "" else ", under the request filter"
@@ -292,6 +299,10 @@ internal fun AppMonitorApp(
                         "Every device of each run, under the request filter"
                     }
                 RunDiff(storage, runs, filter, scope) { diffOpen = false }
+            }
+            if (heldCalls != null) {
+                // A newer hit under the same request and stage is a new form, not the old one's edits.
+                held.firstOrNull()?.let { call -> key(call) { HeldCallDialog(call, held.size - 1, heldCalls) } }
             }
             pending.firstOrNull()?.let { ApprovalDialog(it, waiting = pending.size - 1, onDecide) }
         }
@@ -741,6 +752,8 @@ private fun DeviceList(
     onIssues: () -> Unit,
     mocksLabel: String,
     onMocks: () -> Unit,
+    breakpointsLabel: String,
+    onBreakpoints: () -> Unit,
     onSelect: (StoredSession) -> Unit,
 ) {
     Column(modifier) {
@@ -750,7 +763,10 @@ private fun DeviceList(
             }
             TextButton(onClick = onIssues, Modifier.testTag(ISSUES)) { Text("Issues") }
         }
-        TextButton(onClick = onMocks, Modifier.padding(horizontal = 4.dp).testTag(MOCKS)) { Text(mocksLabel) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onMocks, Modifier.padding(horizontal = 4.dp).testTag(MOCKS)) { Text(mocksLabel) }
+            TextButton(onClick = onBreakpoints, Modifier.testTag(BREAKPOINTS)) { Text(breakpointsLabel) }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PaneTitle("Devices") }
             TextButton(onClick = onSettings) { Text("Settings") }

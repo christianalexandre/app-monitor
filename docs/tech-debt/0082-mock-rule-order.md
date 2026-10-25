@@ -28,6 +28,13 @@ and making it again puts it last (ADR-0114).
 The first PR that adds a query on `Mock.sq`'s `position`, or the first
 time a developer needs a rule ahead of an earlier one.
 
+## Breakpoints too
+
+M9.8 (ADR-0119): the Breakpoints panel has no order either, and
+`Breakpoint.sq` no query that changes `position`; the first enabled
+breakpoint that matches holds the call. Paid with the mocks, by the same
+trigger.
+
 ## How it was paid
 
 > Filled when closing.

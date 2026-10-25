@@ -374,7 +374,7 @@ private fun buildRule(
         answer.copy(method = method.orEmpty(), host = host.trim(), path = path.trim(), delay_ms = delayMs)
     }
 
-private fun headersOf(text: String): List<Header> =
+internal fun headersOf(text: String): List<Header> =
     text.lines().filter { it.isNotBlank() }.map { line ->
         val colon = line.indexOf(':')
         require(colon > 0) { "A header line is \"Name: value\"" }

@@ -86,7 +86,7 @@ needs its own decision is split as soon as that shows.
   Accept: `./gradlew :protocol:allTests :desktop:storage:test :desktop:server:test :desktop:app:test`.
   A stand-in device gets the rules after `HelloAck` and on a change; its
   hit is held, and a resume carries only the changed fields.
-- [ ] **M9.8 Breakpoints in the window.** Rules made and turned on and
+- [x] **M9.8 Breakpoints in the window.** (`feat/breakpoint-window`; ADR-0119: the oldest held call opens a dialog on its own, the held side edited as text as in the mock editor, a timeout in whole seconds; DEBT-0082 widened to breakpoints) Rules made and turned on and
   off in the window; a held call shown, edited, resumed or aborted.
   Accept: `./gradlew :desktop:app:test`. A call held by a stand-in device
   resumed edited from the window; offscreen screenshot `breakpoint.png`.

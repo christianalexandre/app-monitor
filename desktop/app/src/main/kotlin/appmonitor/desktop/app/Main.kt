@@ -116,6 +116,7 @@ fun main() {
                                 proxy = ProxySettings(proxyStatus, proxyEnabled, proxy.port, proxy.caFile.toString()),
                                 onProxyEnabled = { scope.launch { proxy.setEnabled(it) } },
                                 onResetProxyCa = { scope.launch { proxy.resetCa() } },
+                                heldCalls = store.heldCalls,
                             )
                         }
                     }
