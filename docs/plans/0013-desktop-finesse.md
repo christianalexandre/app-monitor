@@ -68,10 +68,12 @@ task too large for one PR is split at once.
   until Reconnect. Held in memory (ADR-0144); disconnected devices get
   their own "Disconnected" section, since a session without exchanges
   leaves the live list; screenshot in light only until H3.5.
-- [ ] **H3.5 Light and dark.** Full token set with both values, System /
+- [x] **H3.5 Light and dark.** Full token set with both values, System /
   Light / Dark in the settings.
   Accept: `make check` (the design system script) and the gallery and
-  screen screenshots in both themes.
+  screen screenshots in both themes. Stored as `ui.theme` (ADR-0145);
+  every `desktop/app` screenshot has a `-dark.png` twin; the script also
+  refuses named colors; `liveScreenshots` stays light.
 - [ ] **H3.6 Layout finesse.** ADR-0140 G: three panes, toolbar, request
   row, detail tabs with copy actions, filter sheet, empty states.
   Accept: `./gradlew :desktop:app:test` — screenshots of every screen

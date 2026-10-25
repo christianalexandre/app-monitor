@@ -6,6 +6,7 @@ root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 rules=(
   'Color\(0x @@ raw color: add a token to desktop/designsystem'
+  'Color\.(Black|White|Red|Green|Blue|Gray|LightGray|DarkGray|Yellow|Cyan|Magenta)\b @@ named color: add a token to desktop/designsystem'
   'MaterialTheme\. @@ Material theme: use AppMonitorTheme, TextRole or a component'
   '^import androidx\.compose\.material3?\. @@ Material import: use the design system component'
   '(padding|spacedBy|RoundedCornerShape)\([^)]*[0-9]\.dp @@ raw spacing or radius: use Spacing or Radius'

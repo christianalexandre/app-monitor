@@ -93,7 +93,7 @@ class BenchmarksUiTest {
             val live = LiveTraffic()
             live.record(*seed())
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://api.example.com/search?q=1")
                 onNodeWithTag(BENCHMARKS).performClick()
@@ -133,7 +133,7 @@ class BenchmarksUiTest {
                 storage.flush()
             }
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
                 onNodeWithTag(RUNS).performClick()
                 awaitText("Checkout")

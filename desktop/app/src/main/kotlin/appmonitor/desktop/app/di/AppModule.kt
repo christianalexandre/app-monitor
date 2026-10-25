@@ -9,6 +9,7 @@ import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.data.retentionRepository
 import appmonitor.desktop.data.trafficQueryRepository
 import appmonitor.desktop.domain.AnsweredDeviceRepository
+import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ApprovalRepository
 import appmonitor.desktop.domain.AskedReplayRepository
 import appmonitor.desktop.domain.BenchmarkRepository
@@ -48,6 +49,7 @@ internal fun appModule(
     connections: DeviceConnectionRepository?,
     mcp: McpRepository?,
     proxy: ProxyRepository?,
+    appearance: AppearanceRepository?,
 ): Module =
     module {
         includes(trafficModule, mocksModule, breakpointsModule, insightsModule, settingsModule)
@@ -71,4 +73,5 @@ internal fun appModule(
         if (connections != null) single<DeviceConnectionRepository> { connections }
         if (mcp != null) single<McpRepository> { mcp }
         if (proxy != null) single<ProxyRepository> { proxy }
+        if (appearance != null) single<AppearanceRepository> { appearance }
     }

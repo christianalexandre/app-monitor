@@ -13,9 +13,11 @@ import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.data.appearanceRepository
 import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
+import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
@@ -53,7 +55,7 @@ import kotlin.time.Duration
 fun main() {
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
-    val (storage, approvals, access) =
+    val (storage, approvals, access, appearance) =
         try {
             openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
@@ -103,6 +105,7 @@ fun main() {
                                     scope.launch {
                                         approvals.forgetAll()
                                         storage.clearAll()
+                                        appearance.setTheme(appearance.theme.value)
                                         recorder.forget()
                                         live.clear()
                                         mcp.afterClearAll()
@@ -113,6 +116,7 @@ fun main() {
                                 proxy = proxy,
                                 heldCalls = store.heldCalls,
                                 replays = store.replays,
+                                appearance = appearance,
                                 live = live,
                                 runRepository = runRepository,
                                 traffic = traffic,
@@ -131,16 +135,20 @@ internal data class Services(
     val storage: Storage,
     val approvals: ApprovalStore,
     val access: McpAccess,
+    val appearance: AppearanceRepository,
 )
 
-/** Opens the store, its device answers and the MCP token; on a failure the store is closed again and no server starts. */
+/** Opens the store, its device answers, the MCP token and the theme; on a failure the store is closed again and no server starts. */
 internal fun openServices(
     directory: Path,
     disconnect: (DeviceKey) -> Unit,
 ): Services {
     val storage = Storage.open(directory, startRun = false)
     return try {
-        runBlocking { Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(storage.settingRepository())) }
+        runBlocking {
+            val settings = storage.settingRepository()
+            Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(settings), settings.appearanceRepository())
+        }
     } catch (e: Exception) {
         runBlocking { storage.close(STOP_TIMEOUT) }
         throw e

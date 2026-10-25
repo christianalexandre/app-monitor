@@ -39,6 +39,8 @@ class GalleryTest {
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 assertEquals("POST", chosen)
+                val corner = onRoot().captureToImage().toAwtImage().getRGB(1, 1) and 0xFFFFFF
+                assertEquals(if (dark) 0x121212 else 0xFFFFFF, corner, "the surface's color")
                 screenshot(if (dark) "gallery-dark.png" else "gallery-light.png")
             }
         }

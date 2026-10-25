@@ -72,6 +72,7 @@ class LiveDeviceScreenshots {
                     AppMonitorApp(
                         storage,
                         "Listening on port $port",
+                        appearance = TestAppearance,
                         approvals = approvals,
                         answered = approvals,
                         live = live,
@@ -105,7 +106,7 @@ class LiveDeviceScreenshots {
         val storage = Storage.open(dir, startRun = false)
         try {
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Reopened") }
+                setContent { AppMonitorApp(storage, "Reopened", appearance = TestAppearance) }
                 println("liveScreenshots: store reopened, opening the recording")
                 onNodeWithTag(RUNS).performClick()
                 onAllNodesWithText(" – ", substring = true).onFirst().performClick()

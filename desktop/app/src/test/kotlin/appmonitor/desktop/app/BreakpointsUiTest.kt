@@ -102,7 +102,15 @@ class BreakpointsUiTest {
 
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                        setContent { AppMonitorApp(storage, "Listening", heldCalls = store.heldCalls, live = live) }
+                        setContent {
+                            AppMonitorApp(
+                                storage,
+                                "Listening",
+                                appearance = TestAppearance,
+                                heldCalls = store.heldCalls,
+                                live = live,
+                            )
+                        }
                         awaitText("Pixel")
                         onNodeWithTag(BREAKPOINTS).performClick()
                         onNodeWithTag(NEW_BREAKPOINT).performClick()

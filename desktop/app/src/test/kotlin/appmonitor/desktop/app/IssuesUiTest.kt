@@ -51,7 +51,7 @@ class IssuesUiTest {
             }
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening") }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
                 // Until the live list saves (PLAN-0013 H3.2), an issue links stored exchanges only.
                 onNodeWithTag(RUNS).performClick()
@@ -116,7 +116,7 @@ class IssuesUiTest {
                     issue,
                 )
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent { AppMonitorApp(reopened, "Listening") }
+                    setContent { AppMonitorApp(reopened, "Listening", appearance = TestAppearance) }
                     onNodeWithTag(ISSUES).performClick()
                     awaitText("Cart fails then succeeds")
                 }
@@ -135,7 +135,7 @@ class IssuesUiTest {
                 runBlocking { storage.createIssue("Feed times out", "", listOf("timeout, retry"), listOf(feed), IssueSource.MCP) }
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {
-                    setContent { AppMonitorApp(storage, "Listening") }
+                    setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
                     onNodeWithTag(ISSUES).performClick()
                     awaitText("Feed times out")
                     onNodeWithText("Feed times out").performClick()

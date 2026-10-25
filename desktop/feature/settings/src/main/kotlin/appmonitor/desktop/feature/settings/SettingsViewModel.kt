@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.AnsweredDeviceRepository
+import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.McpRepository
 import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,21 +38,23 @@ data class ProxySettings(
     val caFile: String,
 )
 
-/** [retention] null until the store's is read; [mcp] and [proxy] null when the window runs neither. */
+/** [retention] null until the store's is read; [mcp], [proxy] and [theme] null when the window has none. */
 data class SettingsState(
     val retention: Retention? = null,
     val retentionState: RetentionState = RetentionState(),
     val answered: List<AnsweredDevice> = emptyList(),
     val mcp: McpSettings? = null,
     val proxy: ProxySettings? = null,
+    val theme: ThemeMode? = null,
 )
 
-/** Retention, the answered devices, and the MCP server's and proxy's switches (ADR-0082, ADR-0083, ADR-0090, ADR-0101). */
+/** Retention, the answered devices, the MCP server's and proxy's switches, the theme (ADR-0082, ADR-0083, ADR-0090, ADR-0101, ADR-0145). */
 class SettingsViewModel(
     private val retention: RetentionRepository,
     private val answered: AnsweredDeviceRepository? = null,
     private val mcp: McpRepository? = null,
     private val proxy: ProxyRepository? = null,
+    private val appearance: AppearanceRepository? = null,
 ) : ViewModel() {
     private val mcpSettings: Flow<McpSettings?> =
         mcp?.let { mcp ->
@@ -72,6 +76,7 @@ class SettingsViewModel(
             mcpSettings,
             proxySettings,
         ) { retention, retentionState, answered, mcp, proxy -> SettingsState(retention, retentionState, answered, mcp, proxy) }
+            .combine(appearance?.theme ?: flowOf(null)) { state, theme -> state.copy(theme = theme) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsState())
 
     fun setRetention(retention: Retention) {
@@ -102,5 +107,10 @@ class SettingsViewModel(
     fun resetProxyCa() {
         val proxy = proxy ?: return
         viewModelScope.launch { proxy.resetCa() }
+    }
+
+    fun setTheme(theme: ThemeMode) {
+        val appearance = appearance ?: return
+        viewModelScope.launch { appearance.setTheme(theme) }
     }
 }

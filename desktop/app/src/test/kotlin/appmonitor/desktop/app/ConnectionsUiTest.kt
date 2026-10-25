@@ -40,7 +40,7 @@ class ConnectionsUiTest {
             )
             val file = File(createTempDirectory("har").toFile(), "run.har")
             runDesktopComposeUiTest(width = 1280, height = 800) {
-                setContent { AppMonitorApp(storage, "Listening", live = live, pickHarFile = { file }) }
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, pickHarFile = { file }) }
 
                 awaitText("tcp://push.example.com:5223")
                 onNodeWithText("closed").assertExists()

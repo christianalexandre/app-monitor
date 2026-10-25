@@ -36,12 +36,54 @@ enum class DialogWidth(
     Table(1180.dp),
 }
 
-/** The colors the theme adds to Material's: the row a list shows as selected, and what dims the window under a dialog. */
+/** Every color a component paints, with a light and a dark value; Material's colors are built from them. */
 data class AppColors(
+    val background: Color,
+    val surface: Color,
+    val onSurface: Color,
+    val primary: Color,
+    val primaryVariant: Color,
+    val onPrimary: Color,
+    val secondary: Color,
+    val secondaryVariant: Color,
+    val onSecondary: Color,
+    val error: Color,
+    val onError: Color,
+    // The row a list shows as selected, and what dims the window under a dialog.
     val selected: Color,
     val scrim: Color,
 )
 
-internal val LightAppColors = AppColors(selected = Color(0x1F2196F3), scrim = Color(0x66000000))
+internal val LightAppColors =
+    AppColors(
+        background = Color(0xFFFFFFFF),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF000000),
+        primary = Color(0xFF6200EE),
+        primaryVariant = Color(0xFF3700B3),
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFF03DAC6),
+        secondaryVariant = Color(0xFF018786),
+        onSecondary = Color(0xFF000000),
+        error = Color(0xFFB00020),
+        onError = Color(0xFFFFFFFF),
+        selected = Color(0x1F2196F3),
+        scrim = Color(0x66000000),
+    )
 
-internal val DarkAppColors = AppColors(selected = Color(0x3390CAF9), scrim = Color(0x99000000))
+internal val DarkAppColors =
+    AppColors(
+        background = Color(0xFF121212),
+        surface = Color(0xFF121212),
+        onSurface = Color(0xFFFFFFFF),
+        primary = Color(0xFFBB86FC),
+        primaryVariant = Color(0xFF3700B3),
+        onPrimary = Color(0xFF000000),
+        secondary = Color(0xFF03DAC6),
+        secondaryVariant = Color(0xFF03DAC6),
+        onSecondary = Color(0xFF000000),
+        error = Color(0xFFCF6679),
+        onError = Color(0xFF000000),
+        selected = Color(0x3390CAF9),
+        scrim = Color(0x99000000),
+    )

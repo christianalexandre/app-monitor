@@ -120,3 +120,18 @@ interface ProxyRepository {
     /** Deletes the CA; a running proxy restarts with a new one. */
     suspend fun resetCa()
 }
+
+/** Which theme the window paints; [System] follows the OS. */
+enum class ThemeMode {
+    System,
+    Light,
+    Dark,
+}
+
+/** The theme the settings choose, kept across launches. */
+interface AppearanceRepository {
+    val theme: StateFlow<ThemeMode>
+
+    /** In memory at once, in the store through its queue. */
+    suspend fun setTheme(theme: ThemeMode)
+}

@@ -84,7 +84,9 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   needed no migration. `settings` holds `retention.max_age_days` (days, or
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
   default. `mcp.token` is the MCP server's bearer token and `mcp.enabled`
-  its switch (SDD 10), read with
+  its switch (SDD 10); `ui.theme` is the window's theme (`system`, `light`
+  or `dark`, missing or unreadable = `system`, ADR-0145), read at launch and
+  written back after "Clear all data" so clearing keeps it; all read with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).
@@ -479,6 +481,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | "Clear all data" leaves one new run, no row and no deleted byte in the files | `RetentionTest.clearAllDeletesEverythingAndRewritesTheFile` (M5.8) |
 | A pass stops when the bound is raised under it, and leaves a failed `clearAll()`'s error | `RetentionTest.aRaisedBoundStopsAPassAlreadyRunning`, `RetentionTest.aClearAllFailingDuringAPassKeepsItsError` (M5.R5) |
 | The settings change retention and clear after a confirmation | `AppMonitorAppTest` in `desktop/app`, `settings.png` (M5.8) |
+| The theme follows the system until chosen, is read back after a restart, and repaints the window | `StoredAppearanceTest` in `desktop/data`, `AppMonitorAppTest` "the theme chosen in the settings repaints the window and is stored" in `desktop/app`, `settings-dark.png` (H3.5) |
 | A linked exchange kept past the age and the size bound with its body, the rest of its session deleted, released by deleting the issue | `IssuesTest.aLinkedExchangeIsKeptPastBothRetentionBounds` (M7.2) |
 | An issue survives a reopen; edits change only their fields, in queue order; status and tag filters | `IssuesTest.anIssueSurvivesAReopen`, `IssuesTest.editsChangeOnlyTheFieldsTheyCarryInQueueOrder` (M7.2) |
 | Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |

@@ -73,7 +73,7 @@ class ReplayTest {
                 device.send("ResponseReceived", ResponseReceived(request_id = "req-1", status_code = 200))
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                    setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
+                    setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, replays = store.replays, live = list) }
                     awaitText(original.url)
                     onNodeWithText(original.url).performClick()
                     onNodeWithTag(SEND_AGAIN).performClick()
@@ -145,7 +145,15 @@ class ReplayTest {
                     assertEquals(ReplayRequest("marker"), ReplayRequest.ADAPTER.decode(device.next("ReplayRequest").payload))
                     runDesktopComposeUiTest(width = 1280, height = 800) {
                         device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
-                        setContent { AppMonitorApp(storage, "Listening", replays = store.replays, live = list) }
+                        setContent {
+                            AppMonitorApp(
+                                storage,
+                                "Listening",
+                                appearance = TestAppearance,
+                                replays = store.replays,
+                                live = list,
+                            )
+                        }
                         awaitText("An agent asks to send this request again")
                         awaitText("GET ${original.url}")
                         screenshot("replay-asked.png")
