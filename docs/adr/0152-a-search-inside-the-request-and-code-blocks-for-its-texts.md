@@ -58,7 +58,9 @@ Option 1, with the reference's header layout and code box.
   since indented JSON never splits a string over lines.
 - The search: `searchedTexts` and `matchCounts` count matches per tab,
   cURL left out as it repeats the URL, headers and body; the field keeps
-  its text while another request is picked; "Clear" empties it.
+  its text while another request is picked; "Clear" empties it. The
+  counts are computed off the UI thread, as rendering is (ADR-0029): a
+  body's text can reach 16 MiB.
 
 ## Consequences
 

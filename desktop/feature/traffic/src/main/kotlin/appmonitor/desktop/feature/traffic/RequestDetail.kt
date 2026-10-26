@@ -68,8 +68,16 @@ internal fun RequestDetail(
     val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     val tabs = tabsOf(exchange)
     val tab = detail.tab.takeIf { it in tabs } ?: DetailTab.Summary
-    val bodies = listOfNotNull(requestBody.rendered, responseBody.rendered).flatMap { it.chunks }
-    val counts = matchCounts(searchedTexts(exchange, bodies), query)
+    val requestRendered = requestBody.rendered
+    val responseRendered = responseBody.rendered
+    // ADR-0029: a body can hold 16 MiB of text, too much to scan on the UI thread at each key.
+    val counts by produceState(emptyMap<DetailTab, Int>(), exchange, requestRendered, responseRendered, query) {
+        value =
+            withContext(Dispatchers.Default) {
+                val bodies = listOfNotNull(requestRendered, responseRendered).flatMap { it.chunks }
+                matchCounts(searchedTexts(exchange, bodies), query)
+            }
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
             SelectionContainer(Modifier.weight(1f)) {
@@ -171,7 +179,7 @@ private fun LazyListScope.summary(
             ).joinToString(" · "),
             role = TextRole.Caption,
         )
-        exchange.error?.let { CodeText(it, query = query) }
+        exchange.error?.let { CodeText(it, query = query, role = TextRole.Body, error = true) }
         replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
         exchange.replayOf?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {

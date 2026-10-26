@@ -42,7 +42,7 @@ fun matchesOf(
     }
 }
 
-/** Monospaced [text]: [syntax] in its colors, each [query] match on the highlight color, all of it [muted] when asked (ADR-0152). */
+/** Monospaced [text]: [syntax] in its colors, each [query] match on the highlight color, all of it [muted] or [error] when asked (ADR-0152). */
 @Composable
 fun CodeText(
     text: String,
@@ -51,6 +51,7 @@ fun CodeText(
     syntax: List<SyntaxSpan> = emptyList(),
     role: TextRole = TextRole.Code,
     muted: Boolean = false,
+    error: Boolean = false,
     softWrap: Boolean = true,
 ) {
     val colors = AppMonitorTheme.colors
@@ -65,7 +66,12 @@ fun CodeText(
     MaterialText(
         annotated,
         modifier,
-        color = if (muted) colors.neutral else Color.Unspecified,
+        color =
+            when {
+                error -> colors.error
+                muted -> colors.neutral
+                else -> Color.Unspecified
+            },
         softWrap = softWrap,
         style = styleOf(role),
     )
