@@ -84,7 +84,7 @@ private fun Gallery(
             Text("Selected item", Modifier.fillMaxWidth().selectableItem(selected = true) {}.padding(Spacing.md))
             Text("Item", Modifier.fillMaxWidth().selectableItem(selected = false) {}.padding(Spacing.md))
         }
-        VerticalDivider()
+        PaneDivider(onDrag = {})
         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             Toolbar {
                 TextButton("Record", onClick = {})
@@ -118,6 +118,10 @@ private fun Gallery(
                 }
             }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
+            StatusBar {
+                Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)
+                TextButton("Settings", onClick = {})
+            }
         }
         VerticalDivider()
         Box(Modifier.weight(1f).fillMaxSize()) {

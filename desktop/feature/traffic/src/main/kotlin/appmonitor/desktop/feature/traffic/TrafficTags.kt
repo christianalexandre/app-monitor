@@ -6,6 +6,12 @@ const val DETAIL_SEARCH = "detail-search"
 
 const val DETAIL_MATCHES = "detail-matches"
 
+const val DEVICES_TOGGLE = "devices-toggle"
+
+const val DEVICES_DIVIDER = "devices-divider"
+
+const val REQUESTS_DIVIDER = "requests-divider"
+
 const val RUN_NAME = "run-name"
 
 const val SEARCH = "search"
