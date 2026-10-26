@@ -78,6 +78,8 @@ internal class LiveTrafficRepository(
 
     override fun clear() = live.clear()
 
+    override fun isLive(exchangeId: Long): Boolean = LiveTraffic.isLive(exchangeId)
+
     override suspend fun save(exchangeIds: Collection<Long>): Map<Long, Long> =
         storage.save(live.copies(exchangeIds.filter(LiveTraffic::isLive)))
 }

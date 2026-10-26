@@ -3,7 +3,7 @@ id: DEBT-0093
 title: Findings of the H3 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficViewModel.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
+trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
 paid_date:
 ---
 
@@ -54,9 +54,20 @@ H3.R1.
 
 ## Trigger
 
-The next PR that touches one of the six files named in the frontmatter.
+The next PR that touches one of the files named in the frontmatter.
 That PR fixes the items about the file it touches, or says why it does
 not.
+
+`TrafficViewModel.kt` paid in the field test polish PR
+(`feat/desktop-polish`, ADR-0153), which touches it for the panes' layout
+and the copy note: the detail combines the sessions, so a request picked
+before they change gets its app (`TrafficViewModelTest`, "the detail's
+app follows its session…", fails with the old snapshot); Clear and Save
+tell live ids from stored ones through `TrafficRepository.isLive`, so a
+trimmed session's mark goes on Clear and stored marks are neither saved
+nor counted as failures ("Clear empties…", "Save with only stored…",
+"Save stores the marked live requests…"); `TrafficState`'s KDoc is four
+lines. The file leaves the trigger.
 
 ## How it was paid
 

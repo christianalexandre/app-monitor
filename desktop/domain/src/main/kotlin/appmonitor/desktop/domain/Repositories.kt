@@ -53,6 +53,9 @@ interface TrafficRepository {
     /** Empties the live list (ADR-0140 A); the sessions still connected stay, stored runs are untouched. */
     fun clear()
 
+    /** Whether [exchangeId] is one of the live list's, not the store's (ADR-0141); a store-only repository has none. */
+    fun isLive(exchangeId: Long): Boolean = false
+
     /**
      * Stores the live exchanges among [exchangeIds] in "Saved" (ADR-0140 C); returns each one's stored id by its live id.
      * Stored ids, and live ones gone from the list or not written, are left out.

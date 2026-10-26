@@ -68,10 +68,9 @@ data class RunsState(
 }
 
 /**
- * The shown list's sessions, the first [rows] that [filter] matches of the picked [session] or, when null, of every
- * device, the picked [row] and its [detail], the exchanges [marked] for "Save as issue" (ADR-0095 A.1) and the devices
- * [disconnected] (ADR-0144); [canDisconnect] is false with nobody to ask. [hosts] are the shown list's, and the
- * filter's own ones gone from it, for the filter sheet.
+ * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), the
+ * picked [row] and its [detail], the [marked] exchanges (ADR-0095 A.1), the [disconnected] devices (ADR-0144); [hosts]
+ * are the shown list's and the filter's own, for the filter sheet.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -204,13 +203,21 @@ class TrafficViewModel(
                 if (id != null) emit(exports.curl(id))
             }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    // The sessions are an input, so a request picked before they load gets its app once they do.
     private val detail =
-        combine(exchange, picked, copyNote, sent, refused) { (readId, read), id, copyNote, sent, refused ->
-            val session = pickedSessionOf()
+        combine(combine(exchange, picked, ::Pair), copyNote, sent, refused, combine(sessions, pickedSession, ::Pair)) {
+            (read, id),
+            copyNote,
+            sent,
+            refused,
+            (sessions, pickedId),
+            ->
+            val (readId, exchange) = read
+            val session = sessions.firstOrNull { it.id == pickedId }
             val sessionId = session?.serverSessionId.orEmpty()
-            val shown = read?.takeIf { it.id == id }
+            val shown = exchange?.takeIf { it.id == id }
             DetailState(
-                id = id.takeUnless { it != null && it == readId && read == null },
+                id = id.takeUnless { it != null && it == readId && exchange == null },
                 appId = session?.hello?.app_id.orEmpty(),
                 exchange = shown,
                 copyNote = copyNote,
@@ -281,14 +288,19 @@ class TrafficViewModel(
     /** The marked exchanges, or the picked one when none is. */
     fun toSave(): Map<Long, Exchange> = marked.value.ifEmpty { row.value?.let { mapOf(it.id to it) }.orEmpty() }
 
-    /** Stores what [toSave] gives in "Saved" (ADR-0140 C); the saved ones are unmarked. */
+    /** Stores the live ones of what [toSave] gives in "Saved" (ADR-0140 C); the saved ones are unmarked, stored ones kept. */
     fun save() {
         val ids = toSave().keys
         if (ids.isEmpty()) return
+        val live = ids.filter(traffic::isLive)
+        if (live.isEmpty()) {
+            saveNote.value = "Already stored: nothing to save"
+            return
+        }
         viewModelScope.launch {
-            val saved = traffic.save(ids)
+            val saved = traffic.save(live)
             marked.update { it - saved.keys }
-            saveNote.value = if (saved.size == ids.size) "Saved ${saved.size} to Saved" else "Saved ${saved.size} of ${ids.size} to Saved"
+            saveNote.value = if (saved.size == live.size) "Saved ${saved.size} to Saved" else "Saved ${saved.size} of ${live.size} to Saved"
         }
     }
 
@@ -310,8 +322,7 @@ class TrafficViewModel(
         if (shown.value == ShownRun.Live) {
             selectedRequest.value = null
             original.value = null
-            val live = sessions.value.map { it.id }.toSet()
-            marked.update { kept -> kept.filterValues { it.sessionId !in live } }
+            marked.update { kept -> kept.filterKeys { !traffic.isLive(it) } }
         }
     }
 
