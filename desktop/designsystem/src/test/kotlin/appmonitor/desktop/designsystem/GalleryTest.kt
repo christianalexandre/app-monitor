@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsOff
@@ -49,7 +50,8 @@ class GalleryTest {
                 onNodeWithText("Headers").performClick()
                 assertEquals(1, tab)
                 val corner = onRoot().captureToImage().toAwtImage().getRGB(1, 1) and 0xFFFFFF
-                assertEquals(if (dark) 0x121212 else 0xFFFFFF, corner, "the surface's color")
+                val surface = (if (dark) DarkAppColors else LightAppColors).surface.toArgb() and 0xFFFFFF
+                assertEquals(surface, corner, "the surface's color")
                 screenshot(if (dark) "gallery-dark.png" else "gallery-light.png")
             }
         }
