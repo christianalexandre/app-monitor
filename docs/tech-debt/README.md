@@ -113,3 +113,4 @@ Rules:
 | [0093](0093-non-correctness-findings-of-the-h3-milestone-review.md) | Findings of the H3 milestone review that normal use does not hit | The next PR that touches one of the six files it names | Open |
 | [0094](0094-server-lifecycle-tests-failed-once-on-a-taken-port.md) | Two server lifecycle tests failed once on a taken port | A test in `desktop/server/src/test/` fails again with `BindException`, locally or on CI | Open |
 | [0095](0095-title-bar-follows-a-picked-theme-only-after-relaunch.md) | The macOS title bar follows a theme picked in Settings only after a relaunch | Someone reports the title bar's color not matching after picking Light or Dark in Settings | Open |
+| [0097](0097-issues-ui-test-missed-its-filter-chip-once.md) | The issues UI test missed its "Resolved" chip once | `IssuesUiTest` fails again, locally or on CI | Open |

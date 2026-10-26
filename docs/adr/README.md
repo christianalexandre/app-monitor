@@ -168,3 +168,4 @@ Rules:
 | [0148](0148-a-filter-sheet-keeps-any-of-the-picked-status-classes-and-hosts.md) | A filter sheet keeps any of the picked status classes and hosts | Accepted |
 | [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Accepted |
 | [0150](0150-the-macos-title-bar-takes-the-stored-theme-at-launch.md) | The macOS title bar takes the stored theme at launch | Accepted |
+| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Accepted |

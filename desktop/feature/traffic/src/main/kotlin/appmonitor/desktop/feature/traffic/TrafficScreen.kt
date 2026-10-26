@@ -2,6 +2,7 @@ package appmonitor.desktop.feature.traffic
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -41,15 +42,17 @@ import appmonitor.desktop.designsystem.DialogWidth
 import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.EmptyState
 import appmonitor.desktop.designsystem.MiddleEllipsisText
+import appmonitor.desktop.designsystem.PaneDivider
+import appmonitor.desktop.designsystem.PaneDividerWidth
 import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.StatusBar
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.Toolbar
-import appmonitor.desktop.designsystem.VerticalDivider
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
@@ -95,42 +98,64 @@ fun TrafficScreen(
     val state by viewModel.state.collectAsState()
     var runsOpen by remember { mutableStateOf(false) }
     var filtersOpen by remember { mutableStateOf(false) }
+    var devicesShown by remember { mutableStateOf(true) }
+    var devicesWidth by remember { mutableStateOf(DEVICES_WIDTH) }
+    var requestsWidth by remember { mutableStateOf(REQUESTS_WIDTH) }
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            TrafficToolbar(state, links, viewModel, onRuns = { runsOpen = true }, onFilters = { filtersOpen = true })
+            TrafficToolbar(
+                state,
+                links,
+                viewModel,
+                devicesShown,
+                onDevices = { devicesShown = !devicesShown },
+                onRuns = { runsOpen = true },
+                onFilters = { filtersOpen = true },
+            )
             val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
             notes.forEach { (note, tag) ->
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
             }
-            Row(Modifier.weight(1f).fillMaxWidth()) {
-                DeviceList(state, links, viewModel, Modifier.width(240.dp).fillMaxHeight())
-                VerticalDivider()
-                RequestList(state, viewModel, Modifier.weight(REQUESTS_WEIGHT).fillMaxHeight())
-                VerticalDivider()
-                Box(Modifier.weight(1f).fillMaxHeight()) {
-                    val picked = state.detail.id
-                    if (picked == null) {
-                        EmptyState("Select a request", "Its headers, body and timing show here")
-                    } else {
-                        // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
-                        key(picked) {
-                            state.detail.exchange?.let {
-                                RequestDetail(
-                                    it,
-                                    state.detail,
-                                    onTab = viewModel::selectTab,
-                                    onCopy = { part -> viewModel.copy(part) { text -> clipboard.setText(AnnotatedString(text)) } },
-                                    onMock = { links.onMock(it) },
-                                    onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
-                                    viewModel::showOriginal,
-                                    viewModel::moreFrames,
-                                )
-                            } ?: Placeholder("Loading…")
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val shownDevices = if (devicesShown) devicesWidth + PaneDividerWidth else 0.dp
+                val maxRequests = (maxWidth - shownDevices - PaneDividerWidth - DETAIL_MIN).coerceAtLeast(REQUESTS_MIN)
+                val requests = requestsWidth.coerceIn(REQUESTS_MIN, maxRequests)
+                Row(Modifier.fillMaxSize()) {
+                    if (devicesShown) {
+                        DeviceList(state, links, viewModel, Modifier.width(devicesWidth).fillMaxHeight())
+                        PaneDivider(
+                            { devicesWidth = (devicesWidth + it).coerceIn(DEVICES_MIN, DEVICES_MAX) },
+                            Modifier.testTag(DEVICES_DIVIDER),
+                        )
+                    }
+                    RequestList(state, viewModel, showClock = requests >= CLOCK_FROM, Modifier.width(requests).fillMaxHeight())
+                    PaneDivider({ requestsWidth = (requests + it).coerceIn(REQUESTS_MIN, maxRequests) }, Modifier.testTag(REQUESTS_DIVIDER))
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        val picked = state.detail.id
+                        if (picked == null) {
+                            EmptyState("Select a request", "Its headers, body and timing show here")
+                        } else {
+                            // Body state (format, scroll) belongs to one exchange, even if another has the same bytes.
+                            key(picked) {
+                                state.detail.exchange?.let {
+                                    RequestDetail(
+                                        it,
+                                        state.detail,
+                                        onTab = viewModel::selectTab,
+                                        onCopy = { part -> viewModel.copy(part) { text -> clipboard.setText(AnnotatedString(text)) } },
+                                        onMock = { links.onMock(it) },
+                                        onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
+                                        viewModel::showOriginal,
+                                        viewModel::moreFrames,
+                                    )
+                                } ?: Placeholder("Loading…")
+                            }
                         }
                     }
                 }
             }
+            TrafficStatusBar(state, links)
         }
         if (filtersOpen) {
             FilterSheet(state.filter, state.hosts, viewModel::setFilter) { filtersOpen = false }
@@ -158,12 +183,15 @@ private fun TrafficToolbar(
     state: TrafficState,
     links: TrafficLinks,
     viewModel: TrafficViewModel,
+    devicesShown: Boolean,
+    onDevices: () -> Unit,
     onRuns: () -> Unit,
     onFilters: () -> Unit,
 ) {
     val marked = state.marked.keys
     val canSave = marked.isNotEmpty() || state.row != null
     Toolbar {
+        TextButton(if (devicesShown) "◂ Devices" else "▸ Devices", onClick = onDevices, Modifier.testTag(DEVICES_TOGGLE))
         TextButton("${state.runs.title} ▾", onClick = onRuns, Modifier.widthIn(max = 200.dp).testTag(RUNS), singleLine = true)
         if (state.runs.shownRunId == null) {
             if (state.runs.recording == null) {
@@ -275,18 +303,6 @@ private fun DeviceList(
     val onSelect = viewModel::selectSession
     Column(modifier) {
         PaneTitle("Devices")
-        Text(links.status, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption)
-        state.health.lastError?.let {
-            Text(
-                "${state.health.notSaved} events not saved: $it",
-                Modifier.padding(horizontal = Spacing.lg),
-                error = true,
-                role = TextRole.Caption,
-            )
-        }
-        links.retentionWarning?.let {
-            Text(it, Modifier.padding(horizontal = Spacing.lg), error = true, role = TextRole.Caption)
-        }
         LazyColumn(Modifier.weight(1f)) {
             item {
                 Text(
@@ -348,27 +364,29 @@ private fun DeviceList(
                 }
             }
         }
-        Divider()
-        Links(links)
     }
 }
 
-/** The screens this one opens, two to a row under the devices. */
+/** The server's status and what went wrong storing, then the screens this one opens; shown whether the devices pane is or not. */
 @Composable
-private fun Links(links: TrafficLinks) {
-    Column(Modifier.padding(Spacing.xs)) {
-        Row {
-            TextButton("Issues", onClick = links.onIssues, Modifier.weight(1f).testTag(ISSUES))
-            TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.weight(1f).testTag(BENCHMARKS))
+private fun TrafficStatusBar(
+    state: TrafficState,
+    links: TrafficLinks,
+) {
+    StatusBar {
+        Column(Modifier.weight(1f)) {
+            Text(links.status, role = TextRole.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            state.health.lastError?.let {
+                Text("${state.health.notSaved} events not saved: $it", error = true, role = TextRole.Caption, maxLines = 1)
+            }
+            links.retentionWarning?.let { Text(it, error = true, role = TextRole.Caption, maxLines = 1) }
         }
-        Row {
-            TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.weight(1f).testTag(MOCKS), singleLine = true)
-            TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.weight(1f).testTag(BREAKPOINTS), singleLine = true)
-        }
-        Row {
-            TextButton("Export HAR", onClick = links.onExportHar, Modifier.weight(1f).testTag(EXPORT_HAR))
-            TextButton("Settings", onClick = links.onSettings, Modifier.weight(1f))
-        }
+        TextButton("Issues", onClick = links.onIssues, Modifier.testTag(ISSUES))
+        TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
+        TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.testTag(MOCKS), singleLine = true)
+        TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.testTag(BREAKPOINTS), singleLine = true)
+        TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
+        TextButton("Settings", onClick = links.onSettings)
     }
 }
 
@@ -376,6 +394,7 @@ private fun Links(links: TrafficLinks) {
 private fun RequestList(
     state: TrafficState,
     viewModel: TrafficViewModel,
+    showClock: Boolean,
     modifier: Modifier,
 ) {
     val exchanges = state.rows
@@ -406,6 +425,7 @@ private fun RequestList(
                     exchange,
                     selected = exchange.id == state.row?.id,
                     marked = exchange.id in marked,
+                    showClock,
                     onSelect = { viewModel.selectRequest(exchange.id) },
                     onMark = { viewModel.mark(exchange, it) },
                 )
@@ -414,12 +434,13 @@ private fun RequestList(
     }
 }
 
-/** A colored status, the method, the URL cut in its middle, when it started and how long it took (ADR-0140 G). */
+/** A colored status, the method, the URL cut in its middle, when it started ([showClock]) and how long it took (ADR-0140 G). */
 @Composable
 private fun RequestRow(
     exchange: Exchange,
     selected: Boolean,
     marked: Boolean,
+    showClock: Boolean,
     onSelect: () -> Unit,
     onMark: (Boolean) -> Unit,
 ) {
@@ -434,7 +455,9 @@ private fun RequestRow(
         MiddleEllipsisText(exchange.url ?: exchange.requestId, Modifier.weight(1f))
         if (exchange.mockRuleId != null) Badge("mocked", BadgeTone.Info, Modifier.testTag(MOCKED + exchange.requestId))
         if (exchange.replayOf != null) Badge("replay", BadgeTone.Neutral, Modifier.testTag(REPLAYED + exchange.requestId))
-        Text(exchange.startedAtMs?.let(::formatClock) ?: "", Modifier.width(96.dp), role = TextRole.CodeCaption, maxLines = 1)
+        if (showClock) {
+            Text(exchange.startedAtMs?.let(::formatClock) ?: "", Modifier.width(96.dp), role = TextRole.CodeCaption, maxLines = 1)
+        }
         Text(
             durationOf(exchange.startedAtMs, exchange.endedAtMs)?.let(::formatDuration) ?: "",
             Modifier.width(64.dp),
@@ -464,8 +487,16 @@ internal fun formatClock(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(m
 
 private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).withZone(ZoneId.systemDefault())
 
-// The request list's share of the width beside the detail's 1.
-private const val REQUESTS_WEIGHT = 1.5f
+// ADR-0151: each pane's width at launch and the bounds a drag keeps it in; the detail takes the rest.
+private val DEVICES_WIDTH = 240.dp
+private val DEVICES_MIN = 240.dp
+private val DEVICES_MAX = 400.dp
+private val REQUESTS_WIDTH = 480.dp
+private val REQUESTS_MIN = 360.dp
+private val DETAIL_MIN = 360.dp
+
+// Narrower than this, a request row leaves out its start time so the URL keeps room.
+private val CLOCK_FROM = 560.dp
 
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50

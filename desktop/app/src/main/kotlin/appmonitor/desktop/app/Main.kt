@@ -1,5 +1,6 @@
 package appmonitor.desktop.app
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.awt.Dimension
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -97,6 +99,8 @@ fun main() {
                             title = "App Monitor",
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
+                            // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
+                            LaunchedEffect(window) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
                             val scope = rememberCoroutineScope()
                             AppMonitorApp(
                                 storage,
@@ -134,6 +138,9 @@ fun main() {
     }
 }
 
+// The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
+private const val MIN_WIDTH = 1000
+private const val MIN_HEIGHT = 600
 internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
 
 /** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
