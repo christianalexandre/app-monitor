@@ -8,6 +8,8 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.PaneLayout
+import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.ReplaySent
@@ -18,6 +20,8 @@ import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.ui.titleOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +35,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 
 /** What the window shows (ADR-0140): the live list, or one stored run read-only. */
 sealed interface ShownRun {
@@ -63,10 +68,9 @@ data class RunsState(
 }
 
 /**
- * The shown list's sessions, the first [rows] that [filter] matches of the picked [session] or, when null, of every
- * device, the picked [row] and its [detail], the exchanges [marked] for "Save as issue" (ADR-0095 A.1) and the devices
- * [disconnected] (ADR-0144); [canDisconnect] is false with nobody to ask. [hosts] are the shown list's, and the
- * filter's own ones gone from it, for the filter sheet.
+ * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), the
+ * picked [row] and its [detail], the [marked] exchanges (ADR-0095 A.1), the [disconnected] devices (ADR-0144); [hosts]
+ * are the shown list's and the filter's own, for the filter sheet.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -109,7 +113,18 @@ class TrafficViewModel(
     private val exports: ExportRepository,
     private val replays: ReplayRepository? = null,
     private val connections: DeviceConnectionRepository? = null,
+    private val layout: PaneLayoutRepository? = null,
 ) : ViewModel() {
+    private val localPanes = MutableStateFlow(PaneLayout())
+
+    /** How the panes were left (ADR-0153); the defaults, kept in memory only, without a [PaneLayoutRepository]. */
+    val panes: StateFlow<PaneLayout> = layout?.layout ?: localPanes
+
+    fun setPanes(panes: PaneLayout) {
+        localPanes.value = panes
+        layout?.let { viewModelScope.launch { it.setLayout(panes) } }
+    }
+
     private val shown = MutableStateFlow<ShownRun>(ShownRun.Live)
     private val selectedSession = MutableStateFlow<Long?>(null)
     private val selectedRequest = MutableStateFlow<Long?>(null)
@@ -124,6 +139,7 @@ class TrafficViewModel(
     private val limit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val frameLimit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val copyNote = MutableStateFlow<String?>(null)
+    private var noteShown: Job? = null
     private val tab = MutableStateFlow(DetailTab.Summary)
     private val sent = MutableStateFlow<ReplaySent?>(null)
     private val saveNote = MutableStateFlow<String?>(null)
@@ -187,13 +203,21 @@ class TrafficViewModel(
                 if (id != null) emit(exports.curl(id))
             }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    // The sessions are an input, so a request picked before they load gets its app once they do.
     private val detail =
-        combine(exchange, picked, copyNote, sent, refused) { (readId, read), id, copyNote, sent, refused ->
-            val session = pickedSessionOf()
+        combine(combine(exchange, picked, ::Pair), copyNote, sent, refused, combine(sessions, pickedSession, ::Pair)) {
+            (read, id),
+            copyNote,
+            sent,
+            refused,
+            (sessions, pickedId),
+            ->
+            val (readId, exchange) = read
+            val session = sessions.firstOrNull { it.id == pickedId }
             val sessionId = session?.serverSessionId.orEmpty()
-            val shown = read?.takeIf { it.id == id }
+            val shown = exchange?.takeIf { it.id == id }
             DetailState(
-                id = id.takeUnless { it != null && it == readId && read == null },
+                id = id.takeUnless { it != null && it == readId && exchange == null },
                 appId = session?.hello?.app_id.orEmpty(),
                 exchange = shown,
                 copyNote = copyNote,
@@ -264,14 +288,19 @@ class TrafficViewModel(
     /** The marked exchanges, or the picked one when none is. */
     fun toSave(): Map<Long, Exchange> = marked.value.ifEmpty { row.value?.let { mapOf(it.id to it) }.orEmpty() }
 
-    /** Stores what [toSave] gives in "Saved" (ADR-0140 C); the saved ones are unmarked. */
+    /** Stores the live ones of what [toSave] gives in "Saved" (ADR-0140 C); the saved ones are unmarked, stored ones kept. */
     fun save() {
         val ids = toSave().keys
         if (ids.isEmpty()) return
+        val live = ids.filter(traffic::isLive)
+        if (live.isEmpty()) {
+            saveNote.value = "Already stored: nothing to save"
+            return
+        }
         viewModelScope.launch {
-            val saved = traffic.save(ids)
+            val saved = traffic.save(live)
             marked.update { it - saved.keys }
-            saveNote.value = if (saved.size == ids.size) "Saved ${saved.size} to Saved" else "Saved ${saved.size} of ${ids.size} to Saved"
+            saveNote.value = if (saved.size == live.size) "Saved ${saved.size} to Saved" else "Saved ${saved.size} of ${live.size} to Saved"
         }
     }
 
@@ -293,8 +322,7 @@ class TrafficViewModel(
         if (shown.value == ShownRun.Live) {
             selectedRequest.value = null
             original.value = null
-            val live = sessions.value.map { it.id }.toSet()
-            marked.update { kept -> kept.filterValues { it.sessionId !in live } }
+            marked.update { kept -> kept.filterKeys { !traffic.isLive(it) } }
         }
     }
 
@@ -358,7 +386,7 @@ class TrafficViewModel(
                         ?.let { textOf(it, part) }
                         ?.let { Result.success(it) } ?: Result.failure(IllegalStateException("Nothing to copy"))
                 }
-            copyNote.value =
+            val note =
                 text.fold(
                     { copied ->
                         copy(copied)
@@ -366,6 +394,13 @@ class TrafficViewModel(
                     },
                     { it.message },
                 )
+            copyNote.value = note
+            noteShown?.cancel()
+            noteShown =
+                viewModelScope.launch {
+                    delay(NOTE_SHOWN)
+                    copyNote.compareAndSet(note, null)
+                }
         }
     }
 
@@ -398,3 +433,6 @@ private fun noteOf(sent: ReplaySent): String =
         ReplaySent.SESSION_ENDED -> "Not sent: the app's session ended, and a replay goes through the app"
         ReplaySent.NOT_TAKEN -> "Not sent: this app's SDK does not take replays"
     }
+
+// How long a copy's note shows before it goes (ADR-0153).
+internal val NOTE_SHOWN = 2.seconds

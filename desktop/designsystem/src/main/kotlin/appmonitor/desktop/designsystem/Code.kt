@@ -9,8 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material.Text as MaterialText
 
 /** What a [SyntaxSpan] marks, each kind in its own color in light and dark. */
@@ -42,7 +44,10 @@ fun matchesOf(
     }
 }
 
-/** Monospaced [text]: [syntax] in its colors, each [query] match on the highlight color, all of it [muted] or [error] when asked (ADR-0152). */
+/**
+ * Monospaced [text]: [syntax] in its colors, each [query] match on the highlight color and the [current] one (its index
+ * among them) stronger, all of it [muted] or [error] when asked (ADR-0152).
+ */
 @Composable
 fun CodeText(
     text: String,
@@ -53,14 +58,18 @@ fun CodeText(
     muted: Boolean = false,
     error: Boolean = false,
     softWrap: Boolean = true,
+    current: Int? = null,
 ) {
     val colors = AppMonitorTheme.colors
     val annotated =
-        remember(text, query, syntax, colors) {
+        remember(text, query, syntax, colors, current) {
             buildAnnotatedString {
                 append(text)
                 syntax.forEach { addStyle(SpanStyle(color = colorOf(it.kind, colors)), it.start, it.end) }
-                matchesOf(text, query).forEach { addStyle(SpanStyle(background = colors.highlight), it.first, it.last + 1) }
+                matchesOf(text, query).forEachIndexed { index, match ->
+                    val background = if (index == current) colors.highlightCurrent else colors.highlight
+                    addStyle(SpanStyle(background = background), match.first, match.last + 1)
+                }
             }
         }
     MaterialText(
@@ -117,3 +126,7 @@ private fun colorOf(
         SyntaxKind.String -> colors.syntaxString
         SyntaxKind.Value -> colors.syntaxValue
     }
+
+/** How tall one line of [role] is, so a list can scroll to the line a match is on. */
+@Composable
+fun lineHeightOf(role: TextRole): Dp = with(LocalDensity.current) { styleOf(role).lineHeight.toDp() }

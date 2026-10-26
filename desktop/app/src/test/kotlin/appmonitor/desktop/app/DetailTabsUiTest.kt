@@ -10,12 +10,15 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.designsystem.SEARCH_CLEAR
 import appmonitor.desktop.feature.traffic.COPY
 import appmonitor.desktop.feature.traffic.COPY_NOTE
 import appmonitor.desktop.feature.traffic.CURL
 import appmonitor.desktop.feature.traffic.DETAIL_MATCHES
 import appmonitor.desktop.feature.traffic.DETAIL_SEARCH
 import appmonitor.desktop.feature.traffic.DetailPart
+import appmonitor.desktop.feature.traffic.NEXT_MATCH
+import appmonitor.desktop.feature.traffic.PREVIOUS_MATCH
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Header
 import appmonitor.v1.RequestStarted
@@ -107,6 +110,18 @@ class DetailTabsUiTest {
                 onNodeWithTag(DETAIL_SEARCH).performTextReplacement("")
                 onNodeWithTag(DETAIL_MATCHES).assertDoesNotExist()
                 showTab("Headers")
+
+                showTab("Body")
+                onNodeWithTag(DETAIL_SEARCH).performTextInput("\"")
+                awaitText("1 of 6")
+                onNodeWithTag(NEXT_MATCH).performClick()
+                awaitText("2 of 6")
+                onNodeWithTag(PREVIOUS_MATCH).performClick()
+                onNodeWithTag(PREVIOUS_MATCH).performClick()
+                awaitText("6 of 6")
+                screenshot("detail-jump.png")
+                onNodeWithTag(SEARCH_CLEAR).performClick()
+                onNodeWithTag(DETAIL_MATCHES).assertDoesNotExist()
             }
         }
 }

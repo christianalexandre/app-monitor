@@ -15,10 +15,12 @@ import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.appearanceRepository
+import appmonitor.desktop.data.paneLayoutRepository
 import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
+import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
@@ -58,7 +60,7 @@ import kotlin.time.Duration
 fun main() {
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
-    val (storage, approvals, access, appearance) =
+    val (storage, approvals, access, appearance, panes) =
         try {
             openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
@@ -113,6 +115,7 @@ fun main() {
                                         approvals.forgetAll()
                                         storage.clearAll()
                                         appearance.setTheme(appearance.theme.value)
+                                        panes.setLayout(panes.layout.value)
                                         recorder.forget()
                                         live.clear()
                                         mcp.afterClearAll()
@@ -124,6 +127,7 @@ fun main() {
                                 heldCalls = store.heldCalls,
                                 replays = store.replays,
                                 appearance = appearance,
+                                panes = panes,
                                 live = live,
                                 runRepository = runRepository,
                                 traffic = traffic,
@@ -138,9 +142,6 @@ fun main() {
     }
 }
 
-// The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
-private const val MIN_WIDTH = 1000
-private const val MIN_HEIGHT = 600
 internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
 
 /** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
@@ -151,14 +152,19 @@ internal fun macAppearanceOf(theme: ThemeMode): String =
         ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
     }
 
+// The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
+private const val MIN_WIDTH = 1000
+private const val MIN_HEIGHT = 600
+
 internal data class Services(
     val storage: Storage,
     val approvals: ApprovalStore,
     val access: McpAccess,
     val appearance: AppearanceRepository,
+    val panes: PaneLayoutRepository,
 )
 
-/** Opens the store, its device answers, the MCP token and the theme; on a failure the store is closed again and no server starts. */
+/** Opens the store, its device answers, the MCP token, the theme and the panes' layout; on a failure the store is closed again and no server starts. */
 internal fun openServices(
     directory: Path,
     disconnect: (DeviceKey) -> Unit,
@@ -167,7 +173,13 @@ internal fun openServices(
     return try {
         runBlocking {
             val settings = storage.settingRepository()
-            Services(storage, ApprovalStore.open(storage, disconnect), McpAccess.open(settings), settings.appearanceRepository())
+            Services(
+                storage,
+                ApprovalStore.open(storage, disconnect),
+                McpAccess.open(settings),
+                settings.appearanceRepository(),
+                settings.paneLayoutRepository(),
+            )
         }
     } catch (e: Exception) {
         runBlocking { storage.close(STOP_TIMEOUT) }

@@ -117,7 +117,11 @@ fun CheckboxRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(Modifier.toggleable(checked, onValueChange = onCheckedChange).then(modifier), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.toggleable(checked, onValueChange = onCheckedChange).then(modifier),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         MaterialCheckbox(checked, onCheckedChange = null)
         Text(label)
     }

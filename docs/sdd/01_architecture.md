@@ -394,7 +394,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   "▸ Devices" brings it back; the rule after the devices and after the
   requests is dragged to resize them (devices 240–400 dp, requests from
   360 dp, the detail at least 360 dp; the window keeps at least
-  1000 × 600 px), kept for the window's life only (ADR-0151). The toolbar holds the run picker, Record /
+  1000 × 600 px); the hidden pane and both widths are kept across launches
+  in `ui.panes` (ADR-0153). The toolbar holds the run picker, Record /
   "Stop recording", Save and Clear (live list only), "Save as issue", the
   URL search and "Filters", which opens the filter sheet (method, status
   classes, "Failed only", hosts, ADR-0148); Save's and
@@ -419,18 +420,24 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   case-insensitive match in the shown tab and counts them per tab
   ("Headers · 2", "2 matches"); cURL is highlighted but not counted, as it
   repeats the others; the text stays while another request is picked
-  (ADR-0152). Headers show one per row, the name small and muted above the
+  (ADR-0152). On the Body tab "N of M" with "↑" and "↓" walks the body
+  matches in reading order, request then response, scrolling to the
+  line of each; the current one is drawn stronger (ADR-0153). The search
+  field is one compact line with "×" to empty it, as is the toolbar's.
+  The detail's heading starts with the status badge the request row
+  shows; a request row leaves out `https://` (a plain `http://` stays). Headers show one per row, the name small and muted above the
   value, in the order sent, each heading with its count. The URL, bodies
   and cURL sit in a code block; a JSON body colors its keys, strings and
   literals. Each part has "Copy": the URL, headers as `Name: value`
   lines, a body whole as the device sent it (UTF-8, else its hex dump,
-  not the indented view), the timing lines, the cURL command; the note
-  says "Copied", "Nothing to copy" or why not. The
+  not the indented view), the timing lines, the cURL command; a note
+  at the pane's bottom says "Copied", "Nothing to copy" or why not, and
+  goes after two seconds (ADR-0153). The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
   when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
-  user can switch. The chosen format belongs to the exchange: another
+  user can switch with the Text / JSON / Hex chips, the shown one lit. The chosen format belongs to the exchange: another
   exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
   pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each

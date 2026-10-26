@@ -135,3 +135,18 @@ interface AppearanceRepository {
     /** In memory at once, in the store through its queue. */
     suspend fun setTheme(theme: ThemeMode)
 }
+
+/** How the traffic panes were left: the devices pane shown or not, its width and the request list's, in dp (ADR-0153). */
+data class PaneLayout(
+    val devicesShown: Boolean = true,
+    val devicesWidth: Int = 240,
+    val requestsWidth: Int = 480,
+)
+
+/** The panes' layout, kept across launches. */
+interface PaneLayoutRepository {
+    val layout: StateFlow<PaneLayout>
+
+    /** In memory at once, in the store through its queue. */
+    suspend fun setLayout(layout: PaneLayout)
+}

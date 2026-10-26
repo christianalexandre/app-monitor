@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -34,6 +35,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrafficViewModelTest {
@@ -263,6 +265,8 @@ class TrafficViewModelTest {
             assertEquals("Copied", viewModel.state.value.detail.copyNote)
             viewModel.copy(DetailPart.RequestHeaders) { copied = it }
             assertEquals("Nothing to copy", viewModel.state.value.detail.copyNote)
+            advanceTimeBy(NOTE_SHOWN + 1.milliseconds)
+            assertNull(viewModel.state.value.detail.copyNote, "the note goes after a moment")
             viewModel.selectTab(DetailTab.Curl)
             assertEquals(
                 "curl one",
@@ -300,11 +304,45 @@ class TrafficViewModelTest {
             viewModel.showRun(null)
             viewModel.selectRequest(1)
             viewModel.mark(viewModel.state.value.rows[1], true)
+            traffic.sessions.value += session(11)
+            traffic.exchanges.value += exchange(4, session = 11)
+            viewModel.mark(
+                viewModel.state.value.rows
+                    .first { it.id == 4L },
+                true,
+            )
+            traffic.sessions.value = traffic.sessions.value.filter { it.id != 11L }
+            traffic.exchanges.value = traffic.exchanges.value.filter { it.id != 4L }
             viewModel.clear()
             val state = viewModel.state.value
             assertEquals(emptyList(), state.rows)
             assertNull(state.row)
-            assertEquals(setOf(3L), state.marked.keys)
+            assertEquals(setOf(3L), state.marked.keys, "a trimmed session's mark goes too")
+        }
+
+    @Test
+    fun `Save with only stored requests marked saves nothing and says so`() =
+        runTest {
+            traffic.sessions.value = listOf(session(20, run = 2))
+            traffic.exchanges.value = listOf(exchange(3, session = 20))
+            val viewModel = viewModel()
+            viewModel.showRun(2)
+            viewModel.mark(viewModel.state.value.rows[0], true)
+            viewModel.save()
+            assertEquals("Already stored: nothing to save", viewModel.state.value.runs.saveNote)
+            assertEquals(setOf(3L), viewModel.state.value.marked.keys)
+        }
+
+    @Test
+    fun `the detail's app follows its session when the sessions change after the pick`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value = listOf(exchange(1, session = 10))
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            assertEquals("app", viewModel.state.value.detail.appId)
+            traffic.sessions.value = listOf(session(10, app = "other"))
+            assertEquals("other", viewModel.state.value.detail.appId)
         }
 
     @Test
@@ -321,7 +359,7 @@ class TrafficViewModelTest {
             viewModel.save()
             val state = viewModel.state.value
             assertEquals(setOf(3L), state.marked.keys, "a stored one is not saved again")
-            assertEquals("Saved 2 of 3 to Saved", state.runs.saveNote)
+            assertEquals("Saved 2 to Saved", state.runs.saveNote, "nor counted as one that failed")
 
             runs.save()
             assertEquals(
@@ -433,6 +471,16 @@ class TrafficViewModelTest {
             return exchanges.value.filter { it.id in exchangeIds && it.sessionId in live }.associate { it.id to it.id + 1_000 }
         }
 
+        // Stored: in a session of a run; anything else, gone from the list included, was live.
+        override fun isLive(exchangeId: Long): Boolean {
+            val stored =
+                sessions.value
+                    .filter { it.runId != 0L }
+                    .map { it.id }
+                    .toSet()
+            return exchanges.value.none { it.id == exchangeId && it.sessionId in stored }
+        }
+
         override fun clear() {
             val live =
                 sessions.value
@@ -461,7 +509,8 @@ private fun session(
     id: Long,
     run: Long = 0,
     device: String = "",
-) = Session(id, run, "server-$id", Hello(device_id = device, device_name = "Device $id", app_id = "app"), null, 0, null, null)
+    app: String = "app",
+) = Session(id, run, "server-$id", Hello(device_id = device, device_name = "Device $id", app_id = app), null, 0, null, null)
 
 private class FakeConnections : DeviceConnectionRepository {
     override val disconnected = MutableStateFlow(emptyList<DisconnectedDevice>())

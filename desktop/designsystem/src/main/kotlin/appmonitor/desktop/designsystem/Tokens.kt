@@ -58,9 +58,10 @@ data class AppColors(
     val info: Color,
     val warning: Color,
     val neutral: Color,
-    // A code block's background, a search match behind its text, and JSON's keys, strings and values ([CodeText]).
+    // A code block's background, a search match behind its text (the current one stronger), and JSON's keys, strings and values ([CodeText]).
     val code: Color,
     val highlight: Color,
+    val highlightCurrent: Color,
     val syntaxKey: Color,
     val syntaxString: Color,
     val syntaxValue: Color,
@@ -87,6 +88,7 @@ internal val LightAppColors =
         neutral = AppGray.gray600,
         code = AppGray.gray100,
         highlight = AppAmber.amber300.copy(alpha = 0.5f),
+        highlightCurrent = AppAmber.amber300,
         syntaxKey = AppBlue.blue600,
         syntaxString = AppGreen.green700,
         syntaxValue = AppAmber.amber700,
@@ -113,6 +115,7 @@ internal val DarkAppColors =
         neutral = AppGray.gray400,
         code = AppGray.gray900,
         highlight = AppAmber.amber300.copy(alpha = 0.35f),
+        highlightCurrent = AppAmber.amber300.copy(alpha = 0.8f),
         syntaxKey = AppBlue.blue200,
         syntaxString = AppGreen.green300,
         syntaxValue = AppAmber.amber300,
