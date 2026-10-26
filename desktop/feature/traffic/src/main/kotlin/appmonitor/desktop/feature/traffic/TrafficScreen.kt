@@ -459,7 +459,7 @@ private fun RequestRow(
     onMark: (Boolean) -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().selectableItem(selected, onSelect).padding(horizontal = Spacing.lg, vertical = Spacing.md),
+        Modifier.fillMaxWidth().selectableItem(selected, onSelect).padding(horizontal = Spacing.lg, vertical = Spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {

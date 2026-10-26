@@ -23,8 +23,9 @@ pass over the layout:
   (ADR-0151 kept them in `remember` state).
 - The search inside a request had no jump to the next match (DEBT-0096).
 
-The layout pass found three more, read on the screenshots of
-`./gradlew :desktop:app:test`: "↑" and "↓" as `TextButton`s took 64 dp
+The layout pass found four more, read on the screenshots of
+`./gradlew :desktop:app:test`: request rows 40 dp tall where Proxyman
+and Charles use 24–28 dp; "↑" and "↓" as `TextButton`s took 64 dp
 each (Material's minimum width); a request row spent its URL's room on
 `https://`; the detail's heading did not show the status (the reference
 client shows it beside the URL, `LogDetailView.swift`).
@@ -69,7 +70,8 @@ Option 1.
   the match's line minus three; the heading starts with the status
   badge (`statusTone`, shared with the rows); a request row shows its URL
   without `https://` (a plain `http://` stays: it says no TLS), its
-  semantics keep the whole URL.
+  semantics keep the whole URL; a request row's vertical padding is
+  `Spacing.xs`, not `md` (about 32 dp a row, not 40: a fifth more rows).
 - This replaces ADR-0151's "widths kept for the window's life only".
 
 ## Consequences
