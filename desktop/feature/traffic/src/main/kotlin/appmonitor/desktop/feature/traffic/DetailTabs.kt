@@ -92,3 +92,25 @@ internal fun matchCounts(
     texts: Map<DetailTab, List<String>>,
     query: String,
 ): Map<DetailTab, Int> = if (query.isBlank()) emptyMap() else texts.mapValues { (_, shown) -> shown.sumOf { matchesOf(it, query).size } }
+
+/** A search match in a body: its side, its chunk, its index among that chunk's matches and the chunk's line it is on. */
+internal data class BodyMatch(
+    val response: Boolean,
+    val chunk: Int,
+    val inChunk: Int,
+    val line: Int,
+)
+
+/** Every match of [query] in the request's then the response's rendered chunks, in reading order (DEBT-0096). */
+internal fun bodyMatches(
+    request: List<String>,
+    response: List<String>,
+    query: String,
+): List<BodyMatch> =
+    listOf(false to request, true to response).flatMap { (side, chunks) ->
+        chunks.flatMapIndexed { chunk, text ->
+            matchesOf(text, query).mapIndexed { inChunk, range ->
+                BodyMatch(side, chunk, inChunk, text.substring(0, range.first).count { it == '\n' })
+            }
+        }
+    }

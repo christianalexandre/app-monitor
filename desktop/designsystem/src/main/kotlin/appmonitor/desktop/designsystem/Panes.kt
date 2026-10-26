@@ -108,21 +108,23 @@ fun ToggleChip(
 /** How wide a [PaneDivider] is, for a row that shares its width between panes. */
 val PaneDividerWidth: Dp = Spacing.sm
 
-/** The rule between two panes of a row, dragged sideways to move it: [onDrag] gets each move, in dp (ADR-0151). */
+/** The rule between two panes of a row, dragged sideways to move it: [onDrag] gets each move, in dp, [onDragStopped] the end (ADR-0151). */
 @Composable
 fun PaneDivider(
     onDrag: (Dp) -> Unit,
     modifier: Modifier = Modifier,
+    onDragStopped: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val drag by rememberUpdatedState(onDrag)
+    val stopped by rememberUpdatedState(onDragStopped)
     val state = rememberDraggableState { px -> drag(with(density) { px.toDp() }) }
     Box(
         modifier
             .fillMaxHeight()
             .width(PaneDividerWidth)
             .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
-            .draggable(state, Orientation.Horizontal),
+            .draggable(state, Orientation.Horizontal, onDragStopped = { stopped() }),
         contentAlignment = Alignment.Center,
     ) {
         VerticalDivider()
@@ -227,10 +229,11 @@ fun MiddleEllipsisText(
     text: String,
     modifier: Modifier = Modifier,
     role: TextRole = TextRole.Body,
+    semantics: String = text,
 ) {
     val measurer = rememberTextMeasurer()
     val style = styleOf(role)
-    BoxWithConstraints(modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }) {
+    BoxWithConstraints(modifier.clearAndSetSemantics { this.text = AnnotatedString(semantics) }) {
         val width = constraints.maxWidth
         val shown =
             remember(text, width, style) {

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -34,6 +35,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrafficViewModelTest {
@@ -263,6 +265,8 @@ class TrafficViewModelTest {
             assertEquals("Copied", viewModel.state.value.detail.copyNote)
             viewModel.copy(DetailPart.RequestHeaders) { copied = it }
             assertEquals("Nothing to copy", viewModel.state.value.detail.copyNote)
+            advanceTimeBy(NOTE_SHOWN + 1.milliseconds)
+            assertNull(viewModel.state.value.detail.copyNote, "the note goes after a moment")
             viewModel.selectTab(DetailTab.Curl)
             assertEquals(
                 "curl one",

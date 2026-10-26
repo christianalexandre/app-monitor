@@ -87,7 +87,10 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   its switch (SDD 10); `ui.theme` is the window's theme (`system`, `light`
   or `dark`, missing or unreadable = `system`, ADR-0145), read at launch (also
   macOS's title bar appearance, ADR-0150) and
-  written back after "Clear all data" so clearing keeps it; all read with
+  written back after "Clear all data" so clearing keeps it; `ui.panes` is
+  the traffic panes' layout (`shown` or `hidden`, the devices pane's and
+  the request list's widths in dp, as `shown,240,480`; missing or
+  unreadable = those defaults, ADR-0153), kept the same way; all read with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
   touches them; "Clear all data" does (ADR-0082 D, ADR-0083).

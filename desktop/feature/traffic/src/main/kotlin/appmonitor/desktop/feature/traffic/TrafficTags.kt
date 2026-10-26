@@ -6,6 +6,10 @@ const val DETAIL_SEARCH = "detail-search"
 
 const val DETAIL_MATCHES = "detail-matches"
 
+const val NEXT_MATCH = "next-match"
+
+const val PREVIOUS_MATCH = "previous-match"
+
 const val DEVICES_TOGGLE = "devices-toggle"
 
 const val DEVICES_DIVIDER = "devices-divider"

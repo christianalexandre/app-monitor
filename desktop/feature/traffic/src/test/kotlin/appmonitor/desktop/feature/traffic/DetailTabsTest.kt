@@ -60,4 +60,19 @@ class DetailTabsTest {
         assertEquals(emptyList(), searchedTexts(exchange, emptyList())[DetailTab.Curl])
         assertEquals(listOf("No match", "1 match", "2 matches"), listOf(0, 1, 2).map(::matchSummary))
     }
+
+    @Test
+    fun `body matches run through the request then the response, each with its chunk and line`() {
+        val request = listOf("{\n    \"id\": 1\n}")
+        val response = listOf("[", "    {\"id\": 2},\n    {\"ID\": 3}")
+        assertEquals(
+            listOf(
+                BodyMatch(response = false, chunk = 0, inChunk = 0, line = 1),
+                BodyMatch(response = true, chunk = 1, inChunk = 0, line = 0),
+                BodyMatch(response = true, chunk = 1, inChunk = 1, line = 1),
+            ),
+            bodyMatches(request, response, "\"id\""),
+        )
+        assertEquals(emptyList(), bodyMatches(request, response, ""))
+    }
 }

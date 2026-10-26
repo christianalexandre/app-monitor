@@ -8,6 +8,8 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.PaneLayout
+import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.ReplaySent
@@ -18,6 +20,8 @@ import appmonitor.desktop.domain.StoreHealth
 import appmonitor.desktop.domain.TrafficRepository
 import appmonitor.desktop.ui.titleOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +35,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 
 /** What the window shows (ADR-0140): the live list, or one stored run read-only. */
 sealed interface ShownRun {
@@ -109,7 +114,18 @@ class TrafficViewModel(
     private val exports: ExportRepository,
     private val replays: ReplayRepository? = null,
     private val connections: DeviceConnectionRepository? = null,
+    private val layout: PaneLayoutRepository? = null,
 ) : ViewModel() {
+    private val localPanes = MutableStateFlow(PaneLayout())
+
+    /** How the panes were left (ADR-0153); the defaults, kept in memory only, without a [PaneLayoutRepository]. */
+    val panes: StateFlow<PaneLayout> = layout?.layout ?: localPanes
+
+    fun setPanes(panes: PaneLayout) {
+        localPanes.value = panes
+        layout?.let { viewModelScope.launch { it.setLayout(panes) } }
+    }
+
     private val shown = MutableStateFlow<ShownRun>(ShownRun.Live)
     private val selectedSession = MutableStateFlow<Long?>(null)
     private val selectedRequest = MutableStateFlow<Long?>(null)
@@ -124,6 +140,7 @@ class TrafficViewModel(
     private val limit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val frameLimit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val copyNote = MutableStateFlow<String?>(null)
+    private var noteShown: Job? = null
     private val tab = MutableStateFlow(DetailTab.Summary)
     private val sent = MutableStateFlow<ReplaySent?>(null)
     private val saveNote = MutableStateFlow<String?>(null)
@@ -358,7 +375,7 @@ class TrafficViewModel(
                         ?.let { textOf(it, part) }
                         ?.let { Result.success(it) } ?: Result.failure(IllegalStateException("Nothing to copy"))
                 }
-            copyNote.value =
+            val note =
                 text.fold(
                     { copied ->
                         copy(copied)
@@ -366,6 +383,13 @@ class TrafficViewModel(
                     },
                     { it.message },
                 )
+            copyNote.value = note
+            noteShown?.cancel()
+            noteShown =
+                viewModelScope.launch {
+                    delay(NOTE_SHOWN)
+                    copyNote.compareAndSet(note, null)
+                }
         }
     }
 
@@ -398,3 +422,6 @@ private fun noteOf(sent: ReplaySent): String =
         ReplaySent.SESSION_ENDED -> "Not sent: the app's session ended, and a replay goes through the app"
         ReplaySent.NOT_TAKEN -> "Not sent: this app's SDK does not take replays"
     }
+
+// How long a copy's note shows before it goes (ADR-0153).
+internal val NOTE_SHOWN = 2.seconds

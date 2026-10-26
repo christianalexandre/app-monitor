@@ -46,6 +46,7 @@ import appmonitor.desktop.designsystem.PaneDivider
 import appmonitor.desktop.designsystem.PaneDividerWidth
 import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.Placeholder
+import appmonitor.desktop.designsystem.SearchField
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.StatusBar
 import appmonitor.desktop.designsystem.Text
@@ -67,6 +68,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * What the traffic panes show of other screens and open there: the server's [status], a [retentionWarning], the
@@ -100,9 +102,13 @@ fun TrafficScreen(
     var filtersOpen by remember { mutableStateOf(false) }
     // Kept while another request is picked, so the same text is looked for in each.
     var detailQuery by remember { mutableStateOf("") }
-    var devicesShown by remember { mutableStateOf(true) }
-    var devicesWidth by remember { mutableStateOf(DEVICES_WIDTH) }
-    var requestsWidth by remember { mutableStateOf(REQUESTS_WIDTH) }
+    val saved by viewModel.panes.collectAsState()
+    val devicesShown = saved.devicesShown
+    var devicesWidth by remember { mutableStateOf(saved.devicesWidth.dp.coerceIn(DEVICES_MIN, DEVICES_MAX)) }
+    var requestsWidth by remember { mutableStateOf(saved.requestsWidth.dp.coerceAtLeast(REQUESTS_MIN)) }
+    val keepWidths = {
+        viewModel.setPanes(saved.copy(devicesWidth = devicesWidth.value.roundToInt(), requestsWidth = requestsWidth.value.roundToInt()))
+    }
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -111,7 +117,7 @@ fun TrafficScreen(
                 links,
                 viewModel,
                 devicesShown,
-                onDevices = { devicesShown = !devicesShown },
+                onDevices = { viewModel.setPanes(saved.copy(devicesShown = !devicesShown)) },
                 onRuns = { runsOpen = true },
                 onFilters = { filtersOpen = true },
             )
@@ -129,10 +135,15 @@ fun TrafficScreen(
                         PaneDivider(
                             { devicesWidth = (devicesWidth + it).coerceIn(DEVICES_MIN, DEVICES_MAX) },
                             Modifier.testTag(DEVICES_DIVIDER),
+                            onDragStopped = keepWidths,
                         )
                     }
                     RequestList(state, viewModel, showClock = requests >= CLOCK_FROM, Modifier.width(requests).fillMaxHeight())
-                    PaneDivider({ requestsWidth = (requests + it).coerceIn(REQUESTS_MIN, maxRequests) }, Modifier.testTag(REQUESTS_DIVIDER))
+                    PaneDivider(
+                        { requestsWidth = (requests + it).coerceIn(REQUESTS_MIN, maxRequests) },
+                        Modifier.testTag(REQUESTS_DIVIDER),
+                        onDragStopped = keepWidths,
+                    )
                     Box(Modifier.weight(1f).fillMaxHeight()) {
                         val picked = state.detail.id
                         if (picked == null) {
@@ -217,12 +228,11 @@ private fun TrafficToolbar(
             Modifier.testTag(SAVE_AS_ISSUE),
             enabled = canSave,
         )
-        TextField(
+        SearchField(
             state.filter.text.orEmpty(),
             { viewModel.setFilter(state.filter.copy(text = it.ifEmpty { null })) },
+            "Search URL",
             Modifier.weight(1f).testTag(SEARCH),
-            placeholder = "Search URL",
-            singleLine = true,
         )
         val count = state.filter.count
         TextButton(if (count == 0) "Filters" else "Filters ($count)", onClick = onFilters, Modifier.testTag(FILTERS))
@@ -456,7 +466,8 @@ private fun RequestRow(
         Checkbox(marked, onCheckedChange = onMark, Modifier.size(20.dp).testTag(MARK + exchange.requestId))
         Box(Modifier.width(64.dp)) { Badge(statusOf(exchange), toneOf(exchange)) }
         Text(exchange.method ?: "—", Modifier.width(56.dp), role = TextRole.SmallStrong, maxLines = 1)
-        MiddleEllipsisText(exchange.url ?: exchange.requestId, Modifier.weight(1f))
+        val url = exchange.url ?: exchange.requestId
+        MiddleEllipsisText(url.removePrefix("https://"), Modifier.weight(1f), semantics = url)
         if (exchange.mockRuleId != null) Badge("mocked", BadgeTone.Info, Modifier.testTag(MOCKED + exchange.requestId))
         if (exchange.replayOf != null) Badge("replay", BadgeTone.Neutral, Modifier.testTag(REPLAYED + exchange.requestId))
         if (showClock) {
@@ -472,30 +483,34 @@ private fun RequestRow(
     }
 }
 
+internal fun toneOf(exchange: Exchange): BadgeTone =
+    statusTone(exchange.failed, exchange.grpcStatus, exchange.isConnection, exchange.statusCode)
+
 /** Green 2xx, blue 3xx, amber 4xx, red 5xx, a failure or a gRPC error; neutral while pending or for a socket. */
-internal fun toneOf(exchange: Exchange): BadgeTone {
-    val code = exchange.statusCode
-    return when {
-        exchange.failed || (exchange.grpcStatus ?: 0) != 0 -> BadgeTone.Error
-        exchange.isConnection || code == null -> BadgeTone.Neutral
+internal fun statusTone(
+    failed: Boolean,
+    grpcStatus: Int?,
+    connection: Boolean,
+    code: Int?,
+): BadgeTone =
+    when {
+        failed || (grpcStatus ?: 0) != 0 -> BadgeTone.Error
+        connection || code == null -> BadgeTone.Neutral
         code >= 500 -> BadgeTone.Error
         code >= 400 -> BadgeTone.Warning
         code >= 300 -> BadgeTone.Info
         code >= 200 -> BadgeTone.Success
         else -> BadgeTone.Neutral
     }
-}
 
 /** A start time to the millisecond, in this machine's zone, as the request rows show it. */
 internal fun formatClock(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(ms))
 
 private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).withZone(ZoneId.systemDefault())
 
-// ADR-0151: each pane's width at launch and the bounds a drag keeps it in; the detail takes the rest.
-private val DEVICES_WIDTH = 240.dp
+// ADR-0151: the bounds a drag keeps each pane in, the widths at launch are PaneLayout's; the detail takes the rest.
 private val DEVICES_MIN = 240.dp
 private val DEVICES_MAX = 400.dp
-private val REQUESTS_WIDTH = 480.dp
 private val REQUESTS_MIN = 360.dp
 private val DETAIL_MIN = 360.dp
 

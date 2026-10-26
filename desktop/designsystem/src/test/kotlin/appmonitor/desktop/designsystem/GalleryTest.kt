@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toAwtImage
@@ -118,6 +119,12 @@ private fun Gallery(
                 }
             }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
+            Row(Modifier.padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                SearchField("", {}, "Search field", Modifier.weight(1f))
+                SearchField("query", {}, "Search field", Modifier.weight(1f))
+                GlyphButton("↓", "Next", onClick = {})
+            }
+            Toast("Toast", Modifier.padding(horizontal = Spacing.lg))
             StatusBar {
                 Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)
                 TextButton("Settings", onClick = {})
