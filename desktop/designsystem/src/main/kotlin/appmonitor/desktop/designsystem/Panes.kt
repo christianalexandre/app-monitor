@@ -146,6 +146,23 @@ fun Toolbar(
     }
 }
 
+/** The window's status and the screens it opens, in one row ruled above, along its bottom edge (ADR-0151). */
+@Composable
+fun StatusBar(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Column(modifier.fillMaxWidth()) {
+        Divider()
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+}
+
 /** Text tabs in one row ruled below, the [selected] one strong and underlined in the primary color. */
 @Composable
 fun Tabs(

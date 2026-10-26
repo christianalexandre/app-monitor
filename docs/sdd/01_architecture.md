@@ -398,9 +398,11 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   "Stop recording", Save and Clear (live list only), "Save as issue", the
   URL search and "Filters", which opens the filter sheet (method, status
   classes, "Failed only", hosts, ADR-0148); Save's and
-  the HAR export's notes show under it. The devices pane ends with the
-  screens it opens: Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
-  Settings. A request row shows its status as a badge colored by class
+  the HAR export's notes show under it. A status bar along the bottom
+  holds the server's status, what failed to be stored and the retention
+  warning, then the screens the window opens: Issues, Benchmarks, Mocks,
+  Breakpoints, Export HAR, Settings; it stays while the devices pane is
+  hidden (ADR-0151). A request row shows its status as a badge colored by class
   (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
   pending or a socket neutral), the method, the URL cut in its middle,
   "mocked" and "replay" badges, the start time to the millisecond (left

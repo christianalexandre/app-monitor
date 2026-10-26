@@ -100,6 +100,10 @@ private fun Gallery(
                 MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")
             }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
+            StatusBar {
+                Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)
+                TextButton("Settings", onClick = {})
+            }
         }
         VerticalDivider()
         Box(Modifier.weight(1f).fillMaxSize()) {

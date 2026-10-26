@@ -50,6 +50,11 @@ Option 1.
   360 dp up to what leaves the detail 360 dp; the detail takes the rest.
   Under 560 dp a request row leaves out its start time so the URL keeps
   room.
+- The server's status, the storage and retention warnings and the links
+  to the other screens (Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
+  Settings) leave the devices pane for a `StatusBar` along the window's
+  bottom: hiding the pane must not hide them. In one row the links also
+  stop being cut ("Mocks (1 t…").
 - Widths and the hidden pane live in the screen's `remember` state: a
   relaunch starts from the defaults.
 - The window keeps at least 1000 × 600 px, so the three minimums and the

@@ -11,8 +11,13 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.feature.traffic.BENCHMARKS
+import appmonitor.desktop.feature.traffic.BREAKPOINTS
 import appmonitor.desktop.feature.traffic.DEVICES_DIVIDER
 import appmonitor.desktop.feature.traffic.DEVICES_TOGGLE
+import appmonitor.desktop.feature.traffic.EXPORT_HAR
+import appmonitor.desktop.feature.traffic.ISSUES
+import appmonitor.desktop.feature.traffic.MOCKS
 import appmonitor.desktop.feature.traffic.REQUESTS_DIVIDER
 import appmonitor.desktop.feature.traffic.REQUEST_LIST
 import appmonitor.desktop.storage.LiveTraffic
@@ -21,7 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-// ADR-0151: the devices pane hides and comes back, each divider moves and stops at its bound.
+// ADR-0151: the devices pane hides and comes back, the status bar stays, each divider moves and stops at its bound.
 @OptIn(ExperimentalTestApi::class)
 class PanesUiTest {
     @Test
@@ -50,6 +55,9 @@ class PanesUiTest {
                 onNodeWithText("Devices").assertDoesNotExist()
                 onNodeWithTag(DEVICES_DIVIDER).assertDoesNotExist()
                 assertEquals(0.dp, requests().left)
+                onNodeWithText("Listening").assertExists()
+                listOf(ISSUES, BENCHMARKS, MOCKS, BREAKPOINTS, EXPORT_HAR).forEach { onNodeWithTag(it).assertExists() }
+                onNodeWithText("Settings").assertExists()
                 screenshot("devices-hidden.png")
 
                 onNodeWithTag(DEVICES_TOGGLE).performClick()

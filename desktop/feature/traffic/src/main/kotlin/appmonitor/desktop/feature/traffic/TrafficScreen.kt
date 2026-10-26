@@ -47,6 +47,7 @@ import appmonitor.desktop.designsystem.PaneDividerWidth
 import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Spacing
+import appmonitor.desktop.designsystem.StatusBar
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
@@ -154,6 +155,7 @@ fun TrafficScreen(
                     }
                 }
             }
+            TrafficStatusBar(state, links)
         }
         if (filtersOpen) {
             FilterSheet(state.filter, state.hosts, viewModel::setFilter) { filtersOpen = false }
@@ -301,18 +303,6 @@ private fun DeviceList(
     val onSelect = viewModel::selectSession
     Column(modifier) {
         PaneTitle("Devices")
-        Text(links.status, Modifier.padding(horizontal = Spacing.lg), role = TextRole.Caption)
-        state.health.lastError?.let {
-            Text(
-                "${state.health.notSaved} events not saved: $it",
-                Modifier.padding(horizontal = Spacing.lg),
-                error = true,
-                role = TextRole.Caption,
-            )
-        }
-        links.retentionWarning?.let {
-            Text(it, Modifier.padding(horizontal = Spacing.lg), error = true, role = TextRole.Caption)
-        }
         LazyColumn(Modifier.weight(1f)) {
             item {
                 Text(
@@ -374,27 +364,29 @@ private fun DeviceList(
                 }
             }
         }
-        Divider()
-        Links(links)
     }
 }
 
-/** The screens this one opens, two to a row under the devices. */
+/** The server's status and what went wrong storing, then the screens this one opens; shown whether the devices pane is or not. */
 @Composable
-private fun Links(links: TrafficLinks) {
-    Column(Modifier.padding(Spacing.xs)) {
-        Row {
-            TextButton("Issues", onClick = links.onIssues, Modifier.weight(1f).testTag(ISSUES))
-            TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.weight(1f).testTag(BENCHMARKS))
+private fun TrafficStatusBar(
+    state: TrafficState,
+    links: TrafficLinks,
+) {
+    StatusBar {
+        Column(Modifier.weight(1f)) {
+            Text(links.status, role = TextRole.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            state.health.lastError?.let {
+                Text("${state.health.notSaved} events not saved: $it", error = true, role = TextRole.Caption, maxLines = 1)
+            }
+            links.retentionWarning?.let { Text(it, error = true, role = TextRole.Caption, maxLines = 1) }
         }
-        Row {
-            TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.weight(1f).testTag(MOCKS), singleLine = true)
-            TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.weight(1f).testTag(BREAKPOINTS), singleLine = true)
-        }
-        Row {
-            TextButton("Export HAR", onClick = links.onExportHar, Modifier.weight(1f).testTag(EXPORT_HAR))
-            TextButton("Settings", onClick = links.onSettings, Modifier.weight(1f))
-        }
+        TextButton("Issues", onClick = links.onIssues, Modifier.testTag(ISSUES))
+        TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
+        TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.testTag(MOCKS), singleLine = true)
+        TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.testTag(BREAKPOINTS), singleLine = true)
+        TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
+        TextButton("Settings", onClick = links.onSettings)
     }
 }
 
