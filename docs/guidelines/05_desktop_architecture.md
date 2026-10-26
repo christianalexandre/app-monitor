@@ -65,7 +65,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   `GalleryTest`, which renders it in light and dark
   (`desktop/designsystem/build/screenshots/gallery-*.png`).
 - **Every color is a token with a light and a dark value** in `AppColors`
-  (ADR-0145); a screen reads it through `AppMonitorTheme.colors` or a
+  (ADR-0145), built from a tone in `Palette.kt` (ADR-0149); a screen reads it through `AppMonitorTheme.colors` or a
   component, never `Color(0x…)` or `Color.White`. A screen test's
   `screenshot("x.png")` writes `x.png` and `x-dark.png` when the window
   gets `TestAppearance`.
