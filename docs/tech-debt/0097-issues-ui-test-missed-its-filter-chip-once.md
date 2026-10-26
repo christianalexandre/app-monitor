@@ -1,10 +1,10 @@
 ---
 id: DEBT-0097
 title: The issues UI test missed its "Resolved" chip once
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-26
 trigger: "`IssuesUiTest` fails again, locally or on CI"
-paid_date:
+paid_date: 2026-10-26
 ---
 
 # DEBT-0097 — The issues UI test missed its "Resolved" chip once
@@ -28,3 +28,11 @@ Seen once in four runs, unrelated to the change, every rerun green.
 ## Trigger
 
 `IssuesUiTest` fails again, locally or on CI.
+
+## How it was paid
+
+Fired by the release gate of #293 on `windows-latest`: the same "could not
+find any node … 'Resolved'" at `IssuesUiTest.kt:85`. The test clicked a
+menu's item right after the click that opens the menu; on a slow runner
+the menu had not opened yet. It now waits for each menu item ("checkout",
+"Resolved", "Any") before clicking it.

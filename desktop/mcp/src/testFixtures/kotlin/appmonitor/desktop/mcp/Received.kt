@@ -16,7 +16,10 @@ class Received(
     val body: ByteString,
 )
 
-/** Runs [command] with `sh` against a local server, in place of the stored URL's port 1, and returns what it received. */
+/**
+ * Runs [command] with `sh` against a local server, in place of the stored URL's port 1, and returns what it received. The
+ * command goes in on stdin: Windows joins a process's arguments into one line and mangles its quotes and line breaks.
+ */
 fun runCurl(command: String): Received {
     val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     var received: Received? = null
@@ -33,7 +36,8 @@ fun runCurl(command: String): Received {
     }
     server.start()
     try {
-        val process = ProcessBuilder("sh", "-c", command.replace(":1/", ":${server.address.port}/")).redirectErrorStream(true).start()
+        val process = ProcessBuilder("sh", "-s").redirectErrorStream(true).start()
+        process.outputStream.use { it.write(command.replace(":1/", ":${server.address.port}/").toByteArray()) }
         assertTrue(process.waitFor(30, TimeUnit.SECONDS), "curl did not finish")
         val output = process.inputStream.readBytes().decodeToString()
         assertEquals(0, process.exitValue(), output)
