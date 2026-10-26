@@ -49,11 +49,16 @@ jobs:
           cache-provider: basic # ADR-0012
       - name: Curl for the proxy tests
         if: runner.os == 'Windows'
-        # Windows' own curl (Schannel) has no HTTP/2 and fails the test CA's revocation check; Git for Windows' has both.
+        # Windows' own curl (Schannel) has no HTTP/2 and fails the test CA's revocation check: take the first one with HTTP/2.
         run: |
-          echo 'APPMONITOR_CURL=C:\Program Files\Git\mingw64\bin\curl.exe' >> "$GITHUB_ENV"
-          echo 'CURL_SSL_BACKEND=openssl' >> "$GITHUB_ENV"
-          '/c/Program Files/Git/mingw64/bin/curl.exe' --version
+          { which -a curl; ls /c/msys64/mingw64/bin/curl.exe /c/msys64/usr/bin/curl.exe 2>/dev/null; } | while IFS= read -r c; do
+            if "$c" --version | grep -q HTTP2; then
+              "$c" --version
+              echo "APPMONITOR_CURL=$(cygpath -w "$c")" >> "$GITHUB_ENV"
+              echo 'CURL_SSL_BACKEND=openssl' >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done && grep -q APPMONITOR_CURL "$GITHUB_ENV" || { echo "No curl with HTTP/2 among:"; which -a curl; exit 1; }
       - name: Desktop app tests
         run: ./gradlew :desktop:app:test
       - name: Desktop proxy tests
