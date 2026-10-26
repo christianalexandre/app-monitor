@@ -82,7 +82,7 @@ private fun Gallery(
             Text("Selected item", Modifier.fillMaxWidth().selectableItem(selected = true) {}.padding(Spacing.md))
             Text("Item", Modifier.fillMaxWidth().selectableItem(selected = false) {}.padding(Spacing.md))
         }
-        VerticalDivider()
+        PaneDivider(onDrag = {})
         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             Toolbar {
                 TextButton("Record", onClick = {})

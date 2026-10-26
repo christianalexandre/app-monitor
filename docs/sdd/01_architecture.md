@@ -390,7 +390,11 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   handshake wait the first time; its fixture `Hello` is always the same
   pair, so later runs are admitted with no dialog (DEBT-0028).
 - UI (ADR-0146): a toolbar over three panes (devices, requests of the
-  selected device, detail). The toolbar holds the run picker, Record /
+  selected device, detail). "◂ Devices" hides the devices pane and
+  "▸ Devices" brings it back; the rule after the devices and after the
+  requests is dragged to resize them (devices 240–400 dp, requests from
+  360 dp, the detail at least 360 dp), kept for the window's life only
+  (ADR-0151). The toolbar holds the run picker, Record /
   "Stop recording", Save and Clear (live list only), "Save as issue", the
   URL search and "Filters", which opens the filter sheet (method, status
   classes, "Failed only", hosts, ADR-0148); Save's and
@@ -399,8 +403,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   Settings. A request row shows its status as a badge colored by class
   (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
   pending or a socket neutral), the method, the URL cut in its middle,
-  "mocked" and "replay" badges, the start time to the millisecond and the
-  duration. An empty pane says why and what to do next: "No requests yet"
+  "mocked" and "replay" badges, the start time to the millisecond (left
+  out while the list is under 560 dp) and the duration. An empty pane says why and what to do next: "No requests yet"
   (live, recording or a stored run, each with its hint), "No requests
   match" (a filter is set), "Select a request".
 - Request detail (ADR-0147): the method and URL, a copy note, "Mock this"
