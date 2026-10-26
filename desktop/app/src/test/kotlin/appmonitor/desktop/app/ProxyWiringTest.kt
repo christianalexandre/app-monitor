@@ -106,7 +106,13 @@ class ProxyWiringTest {
                     proxy.afterClearAll()
                 }
                 assertNotEquals(second, Files.readString(proxy.caPath))
-                assertEquals(true.toString(), runBlocking { storage.setting(ProxyController.KEY_ENABLED) })
+                assertEquals(
+                    true.toString(),
+                    runBlocking {
+                        storage.flush()
+                        storage.setting(ProxyController.KEY_ENABLED)
+                    },
+                )
                 assertEquals(
                     1,
                     runBlocking { withTimeout(TIMEOUT_MS) { sessionsAfterFlush() } }.size,
