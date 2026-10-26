@@ -47,6 +47,17 @@ race, fixed there; the settings timeout still has one sample. Then keep the
 test report (the `test-reports` artifact, line and node of the failed
 assertion) and decide between a longer bound and a fix.
 
+Fired again by #293's release gate re-runs on `windows-latest` (run
+40421416933): the same test timed out, this time at line 432, waiting for
+the stored retention to be 30 days and 2 GiB. Cause found and fixed in #295:
+the dialog built each choice from the retention it showed, so a second
+choice made before the store echoed the first one wrote the first one back
+(`Keep` lost). `SettingsViewModel.changeRetention` now applies each change
+to the newest value, chosen or stored (`SettingsViewModelTest`, "a second
+retention choice keeps the first one…", fails with the old base); the test
+also waits for each menu item before clicking it. The first timeout, at
+`awaitText("Pixel")`, has not shown again: the DEBT stays open on it.
+
 ## How it was paid
 
 > Filled when closing.

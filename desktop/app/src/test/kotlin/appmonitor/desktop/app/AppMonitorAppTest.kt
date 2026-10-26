@@ -426,8 +426,10 @@ class AppMonitorAppTest {
                 awaitText("Pixel")
                 onNodeWithText("Settings").performClick()
                 onNodeWithText("Keep: 7 days ▾").performClick()
+                awaitText("30 days")
                 onNodeWithText("30 days").performClick()
                 onNodeWithText("Up to: 1 GiB ▾").performClick()
+                awaitText("2 GiB")
                 onNodeWithText("2 GiB").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { storage.retention.value == RetentionSettings(30, 2L shl 30) }
                 awaitText("Keep: 30 days ▾")
