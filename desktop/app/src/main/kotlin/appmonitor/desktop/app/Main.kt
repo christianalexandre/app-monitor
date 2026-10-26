@@ -147,6 +147,7 @@ internal fun macAppearanceOf(theme: ThemeMode): String =
         ThemeMode.Light -> "NSAppearanceNameAqua"
         ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
     }
+
 // The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
 private const val MIN_WIDTH = 1000
 private const val MIN_HEIGHT = 600
