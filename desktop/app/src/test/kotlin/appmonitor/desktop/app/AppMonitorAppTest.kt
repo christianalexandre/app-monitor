@@ -119,7 +119,7 @@ class AppMonitorAppTest {
                 awaitText("Adapter layer", substring = true)
                 onAllNodesWithText(URL, substring = true).assertCountEquals(3)
                 showTab("Headers")
-                awaitText("Content-Type: application/json")
+                awaitText("application/json")
                 showTab("Body")
                 awaitText("{\n    \"name\": \"café\"\n}")
                 awaitText("00000000  00 7f 80 ff", substring = true)

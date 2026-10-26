@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.designsystem.SyntaxKind
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
@@ -157,4 +158,24 @@ class BodyFormatTest {
     }
 
     private fun decoded(body: ByteString) = DecodedBody(body)
+
+    @Test
+    fun `indented JSON marks its keys, strings and literals, escapes and a chunk's cut included`() {
+        val chunk = "{\n    \"k\\\"ey\": \"v\",\n    \"n\": -1.5e3,\n    \"t\": true, \"z\": null\n}"
+        val spans = jsonSyntax(chunk).map { chunk.substring(it.start, it.end) to it.kind }
+        assertEquals(
+            listOf(
+                "\"k\\\"ey\"" to SyntaxKind.Key,
+                "\"v\"" to SyntaxKind.String,
+                "\"n\"" to SyntaxKind.Key,
+                "-1.5e3" to SyntaxKind.Value,
+                "\"t\"" to SyntaxKind.Key,
+                "true" to SyntaxKind.Value,
+                "\"z\"" to SyntaxKind.Key,
+                "null" to SyntaxKind.Value,
+            ),
+            spans,
+        )
+        assertEquals(listOf("\"open" to SyntaxKind.String), jsonSyntax("\"open").map { "\"open" to it.kind })
+    }
 }

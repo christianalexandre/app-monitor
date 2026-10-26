@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
@@ -26,12 +26,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.BlockEdge
+import appmonitor.desktop.designsystem.CodeBlock
+import appmonitor.desktop.designsystem.CodeText
+import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Section
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Tabs
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.CapturedBody
@@ -54,6 +59,8 @@ internal fun RequestDetail(
     onReplay: (() -> Unit)?,
     onShowOriginal: (Long) -> Unit,
     onMoreFrames: () -> Unit,
+    query: String,
+    onQuery: (String) -> Unit,
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
@@ -61,6 +68,8 @@ internal fun RequestDetail(
     val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     val tabs = tabsOf(exchange)
     val tab = detail.tab.takeIf { it in tabs } ?: DetailTab.Summary
+    val bodies = listOfNotNull(requestBody.rendered, responseBody.rendered).flatMap { it.chunks }
+    val counts = matchCounts(searchedTexts(exchange, bodies), query)
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
             SelectionContainer(Modifier.weight(1f)) {
@@ -74,29 +83,45 @@ internal fun RequestDetail(
                 }
             }
         }
-        Tabs(tabs.map { it.label }, tabs.indexOf(tab), { onTab(tabs[it]) }, Modifier.padding(horizontal = Spacing.lg))
+        Tabs(
+            tabs.map { t -> counts[t]?.takeIf { it > 0 }?.let { "${t.label} · $it" } ?: t.label },
+            tabs.indexOf(tab),
+            { onTab(tabs[it]) },
+            Modifier.padding(horizontal = Spacing.lg),
+        )
+        Row(Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+            TextField(query, onQuery, Modifier.weight(1f).testTag(DETAIL_SEARCH), placeholder = "Search in this request", singleLine = true)
+            if (query.isNotBlank()) {
+                Text(
+                    matchSummary(counts.values.sum()),
+                    Modifier.padding(start = Spacing.md).testTag(DETAIL_MATCHES),
+                    role = TextRole.Caption,
+                )
+                TextButton("Clear", onClick = { onQuery("") })
+            }
+        }
         SelectionContainer(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.lg).padding(bottom = Spacing.lg)) {
                 when (tab) {
                     DetailTab.Summary -> {
-                        summary(exchange, detail.replayNote, onCopy, onShowOriginal)
+                        summary(exchange, detail.replayNote, query, onCopy, onShowOriginal)
                     }
 
                     DetailTab.Headers -> {
                         item {
-                            CopyHeading("Request headers", DetailPart.RequestHeaders, onCopy)
-                            Headers(exchange.requestHeaders)
-                            CopyHeading("Response headers", DetailPart.ResponseHeaders, onCopy)
-                            Headers(exchange.responseHeaders)
+                            CopyHeading(countedTitle("Request headers", exchange.requestHeaders), DetailPart.RequestHeaders, onCopy)
+                            Headers(exchange.requestHeaders, query)
+                            CopyHeading(countedTitle("Response headers", exchange.responseHeaders), DetailPart.ResponseHeaders, onCopy)
+                            Headers(exchange.responseHeaders, query)
                         }
                     }
 
                     DetailTab.Body -> {
                         item { CopyHeading("Request body", DetailPart.RequestBody, onCopy) }
-                        body(requestBody)
+                        body(requestBody, query)
                         item { CopyHeading("Response body", DetailPart.ResponseBody, onCopy) }
-                        body(responseBody)
-                        frames(exchange, openFrame, frameBody, { openFrame = if (it == openFrame) null else it }, onMoreFrames)
+                        body(responseBody, query)
+                        frames(exchange, openFrame, frameBody, query, { openFrame = if (it == openFrame) null else it }, onMoreFrames)
                     }
 
                     DetailTab.Timing -> {
@@ -105,7 +130,7 @@ internal fun RequestDetail(
                             timingOf(exchange).forEach { (name, value) ->
                                 Row {
                                     Text(name, Modifier.width(96.dp), role = TextRole.Caption)
-                                    Text(value, role = TextRole.Code)
+                                    CodeText(value, query = query)
                                 }
                             }
                         }
@@ -114,11 +139,11 @@ internal fun RequestDetail(
                     DetailTab.Curl -> {
                         item {
                             CopyHeading("cURL", DetailPart.Curl, onCopy)
-                            val curl = detail.curl
+                            val command = detail.curl
                             when {
-                                curl == null -> Placeholder("Loading…")
-                                curl.isSuccess -> Text(curl.getOrThrow(), Modifier.testTag(CURL), role = TextRole.Code)
-                                else -> Text(curl.exceptionOrNull()?.message.orEmpty(), role = TextRole.Caption)
+                                command == null -> Placeholder("Loading…")
+                                command.isSuccess -> CodeBlock { CodeText(command.getOrThrow(), Modifier.testTag(CURL), query = query) }
+                                else -> Text(command.exceptionOrNull()?.message.orEmpty(), role = TextRole.Caption)
                             }
                         }
                     }
@@ -131,6 +156,7 @@ internal fun RequestDetail(
 private fun LazyListScope.summary(
     exchange: HttpExchange,
     replayNote: String?,
+    query: String,
     onCopy: (DetailPart) -> Unit,
     onShowOriginal: (Long) -> Unit,
 ) {
@@ -145,7 +171,7 @@ private fun LazyListScope.summary(
             ).joinToString(" · "),
             role = TextRole.Caption,
         )
-        exchange.error?.let { Text(it, error = true) }
+        exchange.error?.let { CodeText(it, query = query) }
         replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
         exchange.replayOf?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -161,7 +187,7 @@ private fun LazyListScope.summary(
         }
         exchange.url?.let {
             CopyHeading("URL", DetailPart.Url, onCopy)
-            Text(it, role = TextRole.Code)
+            CodeBlock { CodeText(it, query = query) }
         }
         exchange.connection?.let { bytes ->
             Section("Connection") {
@@ -176,6 +202,7 @@ private fun LazyListScope.frames(
     exchange: HttpExchange,
     openFrame: Int?,
     frameBody: BodyView?,
+    query: String,
     onFrame: (Int) -> Unit,
     onMoreFrames: () -> Unit,
 ) {
@@ -183,7 +210,7 @@ private fun LazyListScope.frames(
     item { Section("WebSocket frames (${exchange.frameCount})") {} }
     exchange.frames.forEachIndexed { index, frame ->
         item { FrameRow(frame, exchange.startedAtMs, open = index == openFrame) { onFrame(index) } }
-        if (index == openFrame && frameBody != null) body(frameBody)
+        if (index == openFrame && frameBody != null) body(frameBody, query)
     }
     if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
 }
@@ -201,11 +228,26 @@ private fun CopyHeading(
     }
 }
 
+/** One header a row: its name small and muted above its value, a rule between rows, in the order sent. */
 @Composable
-private fun Headers(headers: List<Header>) {
+private fun Headers(
+    headers: List<Header>,
+    query: String,
+) {
     if (headers.isEmpty()) Text("None", role = TextRole.Caption)
-    headers.forEach { Text("${it.name}: ${it.value_}", role = TextRole.Code) }
+    headers.forEachIndexed { index, header ->
+        if (index > 0) Divider()
+        Column(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
+            CodeText(header.name, query = query, role = TextRole.CodeCaption, muted = true)
+            CodeText(header.value_, query = query)
+        }
+    }
 }
+
+private fun countedTitle(
+    title: String,
+    headers: List<Header>,
+): String = if (headers.isEmpty()) title else "$title (${headers.size})"
 
 /** One captured body and its rendering, which is null while it runs off the UI thread (ADR-0029). */
 private class BodyView(
@@ -228,7 +270,10 @@ private fun rememberBodyView(
     return BodyView(captured, rendered) { chosen = it }
 }
 
-private fun LazyListScope.body(view: BodyView) {
+private fun LazyListScope.body(
+    view: BodyView,
+    query: String,
+) {
     val captured = view.captured
     item {
         if (captured.truncated) Text(truncationNote(captured), role = TextRole.Caption)
@@ -242,11 +287,22 @@ private fun LazyListScope.body(view: BodyView) {
         }
     }
     if (captured.bytes.size == 0) return
-    val chunks = view.rendered?.chunks
-    if (chunks == null) {
+    val rendered = view.rendered
+    if (rendered == null) {
         item { Placeholder("Rendering…") }
     } else {
-        items(chunks) { Text(it, Modifier.horizontalScroll(rememberScrollState()), role = TextRole.Code, softWrap = false) }
+        val json = rendered.format == BodyFormat.Json
+        itemsIndexed(rendered.chunks) { index, chunk ->
+            CodeBlock(edgeOf(index, rendered.chunks.size)) {
+                CodeText(
+                    chunk,
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    query = query,
+                    syntax = if (json) remember(chunk) { jsonSyntax(chunk) } else emptyList(),
+                    softWrap = false,
+                )
+            }
+        }
     }
 }
 
@@ -270,6 +326,24 @@ private fun FrameRow(
         framePreview(frame)?.let { Text(it, role = TextRole.Code, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }
+
+internal fun matchSummary(total: Int): String =
+    when (total) {
+        0 -> "No match"
+        1 -> "1 match"
+        else -> "$total matches"
+    }
+
+private fun edgeOf(
+    index: Int,
+    count: Int,
+): BlockEdge =
+    when {
+        count == 1 -> BlockEdge.Only
+        index == 0 -> BlockEdge.First
+        index == count - 1 -> BlockEdge.Last
+        else -> BlockEdge.Middle
+    }
 
 private fun truncationNote(captured: CapturedBody): String =
     when (val size = captured.originalSize) {

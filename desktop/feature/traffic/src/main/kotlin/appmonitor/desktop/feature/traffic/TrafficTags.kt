@@ -2,6 +2,10 @@ package appmonitor.desktop.feature.traffic
 
 const val REQUEST_LIST = "requests"
 
+const val DETAIL_SEARCH = "detail-search"
+
+const val DETAIL_MATCHES = "detail-matches"
+
 const val RUN_NAME = "run-name"
 
 const val SEARCH = "search"

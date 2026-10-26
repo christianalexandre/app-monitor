@@ -409,7 +409,14 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   and response bodies, then WebSocket frames), Timing (started and ended
   to the millisecond in this machine's zone, duration, frames: the
   protocol carries no finer phase) and cURL. The tab picked stays for the
-  next request. Each part has "Copy": the URL, headers as `Name: value`
+  next request. Under the tabs, "Search in this request" highlights every
+  case-insensitive match in the shown tab and counts them per tab
+  ("Headers · 2", "2 matches"); cURL is highlighted but not counted, as it
+  repeats the others; the text stays while another request is picked
+  (ADR-0152). Headers show one per row, the name small and muted above the
+  value, in the order sent, each heading with its count. The URL, bodies
+  and cURL sit in a code block; a JSON body colors its keys, strings and
+  literals. Each part has "Copy": the URL, headers as `Name: value`
   lines, a body whole as the device sent it (UTF-8, else its hex dump,
   not the indented view), the timing lines, the cURL command; the note
   says "Copied", "Nothing to copy" or why not. The

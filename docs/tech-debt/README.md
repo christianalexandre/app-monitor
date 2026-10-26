@@ -112,3 +112,4 @@ Rules:
 | [0092](0092-non-correctness-findings-of-the-h2-milestone-review.md) | Findings of the H2 milestone review that normal use does not hit | The next PR that touches one of the seven files it names | Open |
 | [0093](0093-non-correctness-findings-of-the-h3-milestone-review.md) | Findings of the H3 milestone review that normal use does not hit | The next PR that touches one of the six files it names | Open |
 | [0094](0094-server-lifecycle-tests-failed-once-on-a-taken-port.md) | Two server lifecycle tests failed once on a taken port | A test in `desktop/server/src/test/` fails again with `BindException`, locally or on CI | Open |
+| [0096](0096-no-jump-to-the-next-match-in-the-request-search.md) | The search inside a request has no jump to the next match | Someone searches a body longer than the detail pane and asks to be taken to the matches | Open |

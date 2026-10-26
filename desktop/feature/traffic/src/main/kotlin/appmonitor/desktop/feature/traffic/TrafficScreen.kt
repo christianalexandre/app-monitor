@@ -95,6 +95,8 @@ fun TrafficScreen(
     val state by viewModel.state.collectAsState()
     var runsOpen by remember { mutableStateOf(false) }
     var filtersOpen by remember { mutableStateOf(false) }
+    // Kept while another request is picked, so the same text is looked for in each.
+    var detailQuery by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -125,6 +127,8 @@ fun TrafficScreen(
                                     onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
                                     viewModel::showOriginal,
                                     viewModel::moreFrames,
+                                    detailQuery,
+                                    { detailQuery = it },
                                 )
                             } ?: Placeholder("Loading…")
                         }
