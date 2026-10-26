@@ -52,6 +52,8 @@ Option 1.
   room.
 - Widths and the hidden pane live in the screen's `remember` state: a
   relaunch starts from the defaults.
+- The window keeps at least 1000 × 600 px, so the three minimums and the
+  two 6 dp rules (`PaneDividerWidth`) always fit.
 
 ## Consequences
 

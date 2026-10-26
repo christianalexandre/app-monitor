@@ -105,6 +105,9 @@ fun ToggleChip(
     }
 }
 
+/** How wide a [PaneDivider] is, for a row that shares its width between panes. */
+val PaneDividerWidth: Dp = Spacing.sm
+
 /** The rule between two panes of a row, dragged sideways to move it: [onDrag] gets each move, in dp (ADR-0151). */
 @Composable
 fun PaneDivider(
@@ -117,7 +120,7 @@ fun PaneDivider(
     Box(
         modifier
             .fillMaxHeight()
-            .width(Spacing.sm)
+            .width(PaneDividerWidth)
             .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
             .draggable(state, Orientation.Horizontal),
         contentAlignment = Alignment.Center,

@@ -393,8 +393,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   selected device, detail). "◂ Devices" hides the devices pane and
   "▸ Devices" brings it back; the rule after the devices and after the
   requests is dragged to resize them (devices 240–400 dp, requests from
-  360 dp, the detail at least 360 dp), kept for the window's life only
-  (ADR-0151). The toolbar holds the run picker, Record /
+  360 dp, the detail at least 360 dp; the window keeps at least
+  1000 × 600 px), kept for the window's life only (ADR-0151). The toolbar holds the run picker, Record /
   "Stop recording", Save and Clear (live list only), "Save as issue", the
   URL search and "Filters", which opens the filter sheet (method, status
   classes, "Failed only", hosts, ADR-0148); Save's and

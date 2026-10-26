@@ -43,6 +43,7 @@ import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.EmptyState
 import appmonitor.desktop.designsystem.MiddleEllipsisText
 import appmonitor.desktop.designsystem.PaneDivider
+import appmonitor.desktop.designsystem.PaneDividerWidth
 import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.Spacing
@@ -116,8 +117,8 @@ fun TrafficScreen(
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
             }
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val shownDevices = if (devicesShown) devicesWidth else 0.dp
-                val maxRequests = (maxWidth - shownDevices - DETAIL_MIN).coerceAtLeast(REQUESTS_MIN)
+                val shownDevices = if (devicesShown) devicesWidth + PaneDividerWidth else 0.dp
+                val maxRequests = (maxWidth - shownDevices - PaneDividerWidth - DETAIL_MIN).coerceAtLeast(REQUESTS_MIN)
                 val requests = requestsWidth.coerceIn(REQUESTS_MIN, maxRequests)
                 Row(Modifier.fillMaxSize()) {
                     if (devicesShown) {
@@ -500,10 +501,10 @@ private val DEVICES_MIN = 240.dp
 private val DEVICES_MAX = 400.dp
 private val REQUESTS_WIDTH = 480.dp
 private val REQUESTS_MIN = 360.dp
+private val DETAIL_MIN = 360.dp
 
 // Narrower than this, a request row leaves out its start time so the URL keeps room.
 private val CLOCK_FROM = 560.dp
-private val DETAIL_MIN = 360.dp
 
 // Rows from the end of the loaded ones at which the request list asks for the next page.
 private const val LOAD_AHEAD = 50
