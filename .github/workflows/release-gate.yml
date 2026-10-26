@@ -49,15 +49,13 @@ jobs:
           cache-provider: basic # ADR-0012
       - name: Curl for the proxy tests
         if: runner.os == 'Windows'
-        # Windows' own curl (Schannel) has no HTTP/2 and fails the test CA's revocation check: take the first one with HTTP/2.
+        # Windows' own curl has no HTTP/2 and fails the test CA's revocation check; MSYS2's runtime curl expands the tests'
+        # `-w '%{http_code}'`. MSYS2's native curl does neither.
         run: |
-          found=
-          while IFS= read -r c; do
-            if "$c" --version 2>/dev/null | grep HTTP2 >/dev/null; then found=$c; break; fi
-          done < <(which -a curl; ls /c/msys64/mingw64/bin/curl.exe /c/msys64/usr/bin/curl.exe 2>/dev/null || true)
-          if [ -z "$found" ]; then echo "No curl with HTTP/2 among:"; which -a curl; exit 1; fi
-          echo "Using $found"
+          /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-curl
+          found=/c/msys64/mingw64/bin/curl.exe
           "$found" --version
+          "$found" --version | grep HTTP2 >/dev/null || { echo "$found has no HTTP/2"; exit 1; }
           echo "APPMONITOR_CURL=$(cygpath -w "$found")" >> "$GITHUB_ENV"
           echo 'CURL_SSL_BACKEND=openssl' >> "$GITHUB_ENV"
       - name: Desktop app tests
