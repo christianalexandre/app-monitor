@@ -41,6 +41,7 @@
           { "context": "package (windows-latest, msi, packageMsi)" },
           { "context": "contract" },
           { "context": "samples" },
+          { "context": "samples-ios" },
           { "context": "e2e-android" },
           { "context": "e2e-ios" },
           { "context": "e2e-kmp-android" },

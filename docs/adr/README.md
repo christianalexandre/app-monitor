@@ -171,3 +171,4 @@ Rules:
 | [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Accepted |
 | [0152](0152-a-search-inside-the-request-and-code-blocks-for-its-texts.md) | A search inside the request, header rows, and code blocks with JSON colors | Accepted |
 | [0153](0153-field-test-polish-of-the-traffic-window.md) | Field test polish of the traffic window, the panes kept across launches | Accepted |
+| [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |

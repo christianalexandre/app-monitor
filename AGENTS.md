@@ -122,7 +122,7 @@ Full rule: `docs/guidelines/03_git_and_pull_requests.md`.
 | List make targets | `make help` | active; default goal |
 | Fast suite, what PRs to `dev` run | `make check` | active: `docs-check` + `designsystem-check` + `lint` + `scripts-test` + `build` (sample apps excluded) + `swift` (host only); ADR-0076 |
 | Fast suite plus simulator tests and sample apps (end to ends separate) | `make check-full` | active; `make check` + `make swift-sim` + `make samples`; simulator parts macOS with Xcode and XcodeGen; ADR-0076 |
-| Every sample app, debug and release, release checks | `make samples` | active; `android-samples` (`./gradlew :samples:android:build :gradle-plugin:functionalTest`) + `ios-sample` + `kmp-sample`; release gate `samples` job; ADR-0076 |
+| Every sample app, debug and release, release checks | `make samples` | active; `android-samples` (`./gradlew :samples:android:build :gradle-plugin:functionalTest`) + `ios-sample` + `kmp-sample`; release gate `samples` (Android, KMP) and `samples-ios` jobs; ADR-0076, ADR-0154 |
 | Docs consistency | `make docs-check` | active |
 | Desktop screens use only the design system (no Material, raw or named color, spacing or radius outside `desktop/designsystem`) | `make designsystem-check` | active; in `make check`; `scripts/designsystem_check.sh`, its test in `make scripts-test`; ADR-0133, ADR-0134, guideline 05 |
 | Design system gallery (every component in light and dark) | `./gradlew :desktop:designsystem:test` | active; JVM, in `make build`; screenshots `gallery-light.png` and `gallery-dark.png` in `desktop/designsystem/build/screenshots/`; ADR-0134, ADR-0145 |
