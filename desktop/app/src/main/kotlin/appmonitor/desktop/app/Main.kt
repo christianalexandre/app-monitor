@@ -1,5 +1,6 @@
 package appmonitor.desktop.app
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -18,6 +19,7 @@ import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
+import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
@@ -45,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.awt.Dimension
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -62,6 +65,8 @@ fun main() {
             exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
             return
         }
+    // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
+    System.setProperty(MAC_APPEARANCE, macAppearanceOf(appearance.theme.value))
     val live = LiveTraffic()
     val recorder = Recorder(live, storage)
     val store = TrafficStore(storage, recorder)
@@ -94,6 +99,8 @@ fun main() {
                             title = "App Monitor",
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
+                            // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
+                            LaunchedEffect(window) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
                             val scope = rememberCoroutineScope()
                             AppMonitorApp(
                                 storage,
@@ -130,6 +137,19 @@ fun main() {
         }
     }
 }
+
+// The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
+private const val MIN_WIDTH = 1000
+private const val MIN_HEIGHT = 600
+internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
+
+/** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
+internal fun macAppearanceOf(theme: ThemeMode): String =
+    when (theme) {
+        ThemeMode.System -> "system"
+        ThemeMode.Light -> "NSAppearanceNameAqua"
+        ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
+    }
 
 internal data class Services(
     val storage: Storage,

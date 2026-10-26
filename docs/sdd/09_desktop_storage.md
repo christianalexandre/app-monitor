@@ -85,7 +85,8 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
   default. `mcp.token` is the MCP server's bearer token and `mcp.enabled`
   its switch (SDD 10); `ui.theme` is the window's theme (`system`, `light`
-  or `dark`, missing or unreadable = `system`, ADR-0145), read at launch and
+  or `dark`, missing or unreadable = `system`, ADR-0145), read at launch (also
+  macOS's title bar appearance, ADR-0150) and
   written back after "Clear all data" so clearing keeps it; all read with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
