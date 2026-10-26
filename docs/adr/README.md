@@ -166,3 +166,4 @@ Rules:
 | [0146](0146-a-toolbar-over-the-panes-and-request-rows-with-a-status-badge.md) | A toolbar over the panes, request rows with a status badge, the URL cut in its middle | Accepted |
 | [0147](0147-request-detail-tabs-with-copy-actions.md) | Request detail in tabs, each part copied as the device sent it | Accepted |
 | [0148](0148-a-filter-sheet-keeps-any-of-the-picked-status-classes-and-hosts.md) | A filter sheet keeps any of the picked status classes and hosts | Accepted |
+| [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Accepted |

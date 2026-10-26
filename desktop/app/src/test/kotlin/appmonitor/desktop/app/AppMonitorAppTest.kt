@@ -334,7 +334,7 @@ class AppMonitorAppTest {
                 waitForIdle()
 
                 assertEquals(ThemeMode.Dark, appearance.theme.value)
-                assertTrue(cornerLuminance() < 0.1, "dark window")
+                assertTrue(cornerLuminance() < 0.2, "dark window")
             }
             runBlocking {
                 storage.flush()
