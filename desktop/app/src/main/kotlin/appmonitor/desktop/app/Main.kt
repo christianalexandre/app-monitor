@@ -18,6 +18,7 @@ import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
+import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
@@ -62,6 +63,8 @@ fun main() {
             exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
             return
         }
+    // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
+    System.setProperty(MAC_APPEARANCE, macAppearanceOf(appearance.theme.value))
     val live = LiveTraffic()
     val recorder = Recorder(live, storage)
     val store = TrafficStore(storage, recorder)
@@ -130,6 +133,16 @@ fun main() {
         }
     }
 }
+
+internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
+
+/** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
+internal fun macAppearanceOf(theme: ThemeMode): String =
+    when (theme) {
+        ThemeMode.System -> "system"
+        ThemeMode.Light -> "NSAppearanceNameAqua"
+        ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
+    }
 
 internal data class Services(
     val storage: Storage,
