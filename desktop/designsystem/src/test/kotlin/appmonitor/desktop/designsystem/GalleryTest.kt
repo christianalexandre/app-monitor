@@ -101,6 +101,22 @@ private fun Gallery(
             Box(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
                 MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")
             }
+            Column(Modifier.padding(horizontal = Spacing.lg)) {
+                CodeText("content-type", role = TextRole.CodeCaption, muted = true)
+                CodeBlock {
+                    CodeText(
+                        "{\"key\": \"value\", \"n\": 1}",
+                        query = "VALUE",
+                        syntax =
+                            listOf(
+                                SyntaxSpan(1, 6, SyntaxKind.Key),
+                                SyntaxSpan(8, 15, SyntaxKind.String),
+                                SyntaxSpan(17, 20, SyntaxKind.Key),
+                                SyntaxSpan(22, 23, SyntaxKind.Value),
+                            ),
+                    )
+                }
+            }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
             StatusBar {
                 Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)

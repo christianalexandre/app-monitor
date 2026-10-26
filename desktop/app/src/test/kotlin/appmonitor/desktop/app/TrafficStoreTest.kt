@@ -71,7 +71,7 @@ class TrafficStoreTest {
                     awaitText(URL)
                     onNodeWithText(URL).performClick()
                     showTab("Headers")
-                    awaitText("Content-Type: application/json")
+                    awaitText("application/json")
                     screenshot("reopen.png")
                 }
             } finally {

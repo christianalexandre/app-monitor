@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.designsystem.matchesOf
 import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.ui.formatDuration
@@ -69,3 +70,25 @@ internal fun textOf(
     }
 
 private fun bodyText(body: CapturedBody): String? = body.bytes.takeIf { it.size > 0 }?.let { utf8OrNull(it) ?: hexDump(it) }
+
+/** What a search inside the request counts in each tab (ADR-0152); cURL repeats the others, so it is highlighted, not counted. */
+internal fun searchedTexts(
+    exchange: HttpExchange,
+    bodies: List<String>,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Map<DetailTab, List<String>> =
+    tabsOf(exchange).associateWith { tab ->
+        when (tab) {
+            DetailTab.Summary -> listOfNotNull(exchange.url, exchange.error)
+            DetailTab.Headers -> (exchange.requestHeaders + exchange.responseHeaders).flatMap { listOf(it.name, it.value_) }
+            DetailTab.Body -> bodies
+            DetailTab.Timing -> timingOf(exchange, zone).map { it.second }
+            DetailTab.Curl -> emptyList()
+        }
+    }
+
+/** How many times [query] shows in each tab's [texts]; empty for a blank one. */
+internal fun matchCounts(
+    texts: Map<DetailTab, List<String>>,
+    query: String,
+): Map<DetailTab, Int> = if (query.isBlank()) emptyMap() else texts.mapValues { (_, shown) -> shown.sumOf { matchesOf(it, query).size } }

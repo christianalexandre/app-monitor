@@ -98,6 +98,8 @@ fun TrafficScreen(
     val state by viewModel.state.collectAsState()
     var runsOpen by remember { mutableStateOf(false) }
     var filtersOpen by remember { mutableStateOf(false) }
+    // Kept while another request is picked, so the same text is looked for in each.
+    var detailQuery by remember { mutableStateOf("") }
     var devicesShown by remember { mutableStateOf(true) }
     var devicesWidth by remember { mutableStateOf(DEVICES_WIDTH) }
     var requestsWidth by remember { mutableStateOf(REQUESTS_WIDTH) }
@@ -148,6 +150,8 @@ fun TrafficScreen(
                                         onReplay = if (state.detail.canReplay) viewModel::sendAgain else null,
                                         viewModel::showOriginal,
                                         viewModel::moreFrames,
+                                        detailQuery,
+                                        { detailQuery = it },
                                     )
                                 } ?: Placeholder("Loading…")
                             }

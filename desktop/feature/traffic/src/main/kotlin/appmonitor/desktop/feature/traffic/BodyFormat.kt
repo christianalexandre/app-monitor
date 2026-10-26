@@ -1,5 +1,7 @@
 package appmonitor.desktop.feature.traffic
 
+import appmonitor.desktop.designsystem.SyntaxKind
+import appmonitor.desktop.designsystem.SyntaxSpan
 import appmonitor.desktop.ui.utf8OrNull
 import appmonitor.v1.Header
 import kotlinx.serialization.SerializationException
@@ -217,3 +219,34 @@ internal fun render(
         BodyFormat.Json -> body.prettyJson ?: "Not a JSON document"
         BodyFormat.Hex -> hexDump(body.bytes)
     }
+
+/** Keys, strings and literals of a piece of indented JSON; a string never spans lines there, so any chunk of it works. */
+internal fun jsonSyntax(chunk: String): List<SyntaxSpan> {
+    val spans = ArrayList<SyntaxSpan>()
+    var index = 0
+    while (index < chunk.length) {
+        val c = chunk[index]
+        when {
+            c == '"' -> {
+                var end = index + 1
+                while (end < chunk.length && chunk[end] != '"' && chunk[end] != '\n') end += if (chunk[end] == '\\') 2 else 1
+                end = minOf(end + 1, chunk.length)
+                val key = chunk.nextSignificant(end) == ':'
+                spans += SyntaxSpan(index, end, if (key) SyntaxKind.Key else SyntaxKind.String)
+                index = end
+            }
+
+            c == '-' || c.isLetterOrDigit() -> {
+                var end = index + 1
+                while (end < chunk.length && (chunk[end].isLetterOrDigit() || chunk[end] in "+-.")) end++
+                if (chunk.substring(index, end).matches(JSON_LITERAL)) spans += SyntaxSpan(index, end, SyntaxKind.Value)
+                index = end
+            }
+
+            else -> {
+                index++
+            }
+        }
+    }
+    return spans
+}

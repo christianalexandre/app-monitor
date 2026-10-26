@@ -47,4 +47,17 @@ class DetailTabsTest {
         assertEquals(DetailTab.entries, tabsOf(exchange))
         assertEquals(listOf(DetailTab.Summary, DetailTab.Timing), tabsOf(exchange.copy(connection = ConnectionBytes(1, 2))))
     }
+
+    @Test
+    fun `a search counts its matches in each tab but cURL, in any case`() {
+        val texts =
+            searchedTexts(exchange, listOf("{", "    \"a\": 1", "}"), ZoneOffset.UTC)
+        val none = mapOf(DetailTab.Summary to 0, DetailTab.Headers to 0, DetailTab.Body to 0, DetailTab.Timing to 0, DetailTab.Curl to 0)
+        assertEquals(none + mapOf(DetailTab.Headers to 1), matchCounts(texts, "APPLICATION/json"))
+        assertEquals(none + mapOf(DetailTab.Body to 1), matchCounts(texts, "\"A\""))
+        assertEquals(none + mapOf(DetailTab.Timing to 1), matchCounts(texts, "42 ms"))
+        assertEquals(emptyMap(), matchCounts(texts, " "))
+        assertEquals(emptyList(), searchedTexts(exchange, emptyList())[DetailTab.Curl])
+        assertEquals(listOf("No match", "1 match", "2 matches"), listOf(0, 1, 2).map(::matchSummary))
+    }
 }

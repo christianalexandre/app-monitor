@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 
 /** Every gap and padding a screen uses; a value missing here is added here, not written in the screen. */
 object Spacing {
+    val none: Dp = 0.dp
     val xxs: Dp = 2.dp
     val xs: Dp = 4.dp
     val sm: Dp = 6.dp
@@ -57,6 +58,12 @@ data class AppColors(
     val info: Color,
     val warning: Color,
     val neutral: Color,
+    // A code block's background, a search match behind its text, and JSON's keys, strings and values ([CodeText]).
+    val code: Color,
+    val highlight: Color,
+    val syntaxKey: Color,
+    val syntaxString: Color,
+    val syntaxValue: Color,
 )
 
 internal val LightAppColors =
@@ -78,6 +85,11 @@ internal val LightAppColors =
         info = AppBlue.blue600,
         warning = AppAmber.amber700,
         neutral = AppGray.gray600,
+        code = AppGray.gray100,
+        highlight = AppAmber.amber300.copy(alpha = 0.5f),
+        syntaxKey = AppBlue.blue600,
+        syntaxString = AppGreen.green700,
+        syntaxValue = AppAmber.amber700,
     )
 
 internal val DarkAppColors =
@@ -99,4 +111,9 @@ internal val DarkAppColors =
         info = AppBlue.blue200,
         warning = AppAmber.amber300,
         neutral = AppGray.gray400,
+        code = AppGray.gray900,
+        highlight = AppAmber.amber300.copy(alpha = 0.35f),
+        syntaxKey = AppBlue.blue200,
+        syntaxString = AppGreen.green300,
+        syntaxValue = AppAmber.amber300,
     )

@@ -6,11 +6,15 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.COPY
 import appmonitor.desktop.feature.traffic.COPY_NOTE
 import appmonitor.desktop.feature.traffic.CURL
+import appmonitor.desktop.feature.traffic.DETAIL_MATCHES
+import appmonitor.desktop.feature.traffic.DETAIL_SEARCH
 import appmonitor.desktop.feature.traffic.DetailPart
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Header
@@ -71,7 +75,9 @@ class DetailTabsUiTest {
                 screenshot("detail-summary.png")
 
                 showTab("Headers")
-                awaitText("X-Request-Id: 42")
+                awaitText("X-Request-Id")
+                onNodeWithText("42").assertExists()
+                onNodeWithText("Response headers (2)").assertExists()
                 assertEquals("Content-Type: application/json", copy(DetailPart.RequestHeaders))
                 assertEquals("Content-Type: application/json\nX-Request-Id: 42", copy(DetailPart.ResponseHeaders))
                 screenshot("detail-headers.png")
@@ -80,6 +86,7 @@ class DetailTabsUiTest {
                 awaitText("{\n    \"id\": 7\n}")
                 assertEquals("{\"name\":\"a\"}", copy(DetailPart.RequestBody))
                 assertEquals("{\"id\":7}", copy(DetailPart.ResponseBody))
+                screenshot("detail-body.png")
 
                 showTab("Timing")
                 awaitText("120 ms")
@@ -92,6 +99,14 @@ class DetailTabsUiTest {
                 val command = copy(DetailPart.Curl)
                 assertTrue(command.startsWith("curl --globoff -X 'POST' '$URL'"), command)
                 screenshot("detail-curl.png")
+
+                onNodeWithTag(DETAIL_SEARCH).performTextInput("application")
+                awaitText("2 matches")
+                showTab("Headers · 2")
+                screenshot("detail-search.png")
+                onNodeWithTag(DETAIL_SEARCH).performTextReplacement("")
+                onNodeWithTag(DETAIL_MATCHES).assertDoesNotExist()
+                showTab("Headers")
             }
         }
 }
