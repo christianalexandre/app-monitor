@@ -166,7 +166,8 @@ class ProxyWiringTest {
     }
 
     private fun curl(vararg args: String) {
-        val process = ProcessBuilder(listOf("curl", "-sS", "--max-time", "10") + args).redirectErrorStream(true).start()
+        val curl = System.getenv("APPMONITOR_CURL")?.takeIf { it.isNotBlank() } ?: "curl"
+        val process = ProcessBuilder(listOf(curl, "-sS", "--max-time", "10") + args).redirectErrorStream(true).start()
         assertTrue(process.waitFor(20, TimeUnit.SECONDS), "curl did not finish")
     }
 }
