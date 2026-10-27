@@ -14,11 +14,16 @@ checkout fail in the last run?"* straight from the captured traffic.
 > **Status: pre-alpha.** Code lands milestone by milestone. Android apps
 > using OkHttp show their traffic in the desktop, on the emulator and on a
 > device; iOS apps show all their `URLSession` traffic, proven on the
-> simulator so far (DEBT-0041). Every PR to `main` passes a release gate:
-> desktop tests on three OSes, the Kotlin ↔ Swift contract, both samples end
-> to end, unsigned packages and an SDK publication dry-run. Everything below
-> marked *planned* does not exist yet. Current milestone:
-> [M3 — Release gate](docs/plans/0004-release-gate.md).
+> simulator so far (DEBT-0041); Kotlin Multiplatform apps show their Ktor
+> traffic from Android and iOS, and an iOS app running both SDKs shows each
+> exchange once. Every PR to `main` passes a release gate: desktop tests on
+> three OSes, the Kotlin ↔ Swift contract, every sample app, the Android, iOS
+> and KMP samples end to end, unsigned packages and an SDK publication
+> dry-run. The desktop keeps what it captured across restarts, grouped in
+> named runs, searchable and bounded by retention settings, and serves that
+> history to AI agents over a local MCP server. Everything below marked
+> *planned* does not exist yet. Current milestone:
+> [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md).
 
 ## Why
 
@@ -78,9 +83,10 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | --- | --- | --- | --- |
 | Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
 | iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
-| iOS | `sdk/ios` | gRPC and third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
-| KMP | `sdk-ktor` | Ktor `HttpClient`, all targets | planned — M4 |
-| Desktop | macOS · Linux · Windows | — | in-memory, device approval — M1 |
+| iOS | `sdk/ios` product `AppMonitorGRPC` (iOS 18) | gRPC Swift 2 calls in full, one interceptor | works in host tests, unpublished — M8 |
+| iOS | `sdk/ios` | Third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
+| KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
+| Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals, MCP server on `127.0.0.1` — M1, M5, M6 |
 
 ## Roadmap
 
@@ -90,12 +96,12 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M1 — Android SDK](docs/plans/0002-android-sdk.md) | Real Android apps on emulator and device |
 | [M2 — iOS SDK](docs/plans/0003-ios-sdk.md) | Real iOS apps, full `URLSession` coverage |
 | [M3 — Release gate](docs/plans/0004-release-gate.md) | CI proving desktop ×3 OS, contracts, Android and iOS e2e before every release |
-| M4 — KMP SDK | Ktor plugin for every KMP target |
-| M5 — Persistence | Runs, search, filters, retention |
-| M6 — MCP server | Traffic, runs and stats queryable by AI agents |
-| M7 — Insights | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
-| M8 — iOS deep capture | gRPC adapters, connection metadata, desktop MITM proxy mode |
-| M9 — Interaction | Mocks, breakpoints, replay |
+| [M4 — KMP SDK](docs/plans/0005-kmp-sdk.md) | Ktor plugin on Android and iOS, deduped with the Swift SDK |
+| [M5 — Persistence](docs/plans/0006-persistence-and-runs.md) | Runs, search, filters, retention |
+| [M6 — MCP server](docs/plans/0007-mcp-server.md) | Traffic, runs and stats queryable by AI agents |
+| [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md) | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
+| [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md) | gRPC adapters, connection metadata, desktop MITM proxy mode |
+| [M9 — Interaction](docs/plans/0010-interaction.md) | Mocks, breakpoints, replay, OkHttp injection by the Gradle plugin |
 | M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
@@ -105,7 +111,8 @@ Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 > [!IMPORTANT]
 > Not published yet (M10); the API may change before then. The Android API
 > is in [ADR-0017](docs/adr/0017-android-sdk-public-api.md), the iOS one in
-> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md).
+> [ADR-0035](docs/adr/0035-ios-sdk-public-api.md), the KMP one in
+> [ADR-0062](docs/adr/0062-kmp-sdk-public-api.md).
 
 ```kotlin
 // Android — Application.onCreate
@@ -117,9 +124,45 @@ val client = OkHttpClient.Builder()
 val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
 ```
 
-Debug builds depend on `sdk/android-okhttp`, release builds on `sdk/no-op`
-(same API, does nothing). A working app is in
+Debug builds depend on `sdk/android-okhttp`, release builds on
+`sdk/okhttp-no-op` (same API, does nothing). The Gradle plugin
+`io.github.christianalexandre.appmonitor` adds the interceptor to every
+client of a debug build instead, library clients included; it is
+published with the SDK in M10 ([SDD 05](docs/sdd/05_okhttp_capture.md)).
+A working app, with the plugin and without the line, is in
 [`samples/android`](samples/android).
+
+The desktop speaks plain `ws://` on the LAN, which Android blocks from
+API 28 on: a debug-only network security config allows it. Android 17
+also asks the user for `ACCESS_LOCAL_NETWORK`, which the SDK declares and
+the app requests from a debug-only source file, as the sample does:
+
+```xml
+<!-- src/debug/AndroidManifest.xml -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>
+
+<!-- src/debug/res/xml/network_security_config.xml -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
+```
+
+```kotlin
+// src/debug/…/LocalNetwork.kt, called from an Activity's onCreate;
+// src/release/ holds a no-op with the same signature
+fun ComponentActivity.requestLocalNetwork() {
+    if (Build.VERSION.SDK_INT < 37) return
+    val permission = "android.permission.ACCESS_LOCAL_NETWORK"
+    if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return
+    registerForActivityResult(ActivityResultContracts.RequestPermission()) {}.launch(permission)
+}
+```
+
+`<debug-overrides>` cannot carry `cleartextTrafficPermitted`, only trust
+anchors; an app with its own config adds the attribute to a debug copy of
+it.
 
 ```swift
 // iOS — App.init or application(_:didFinishLaunchingWithOptions:)
@@ -128,11 +171,154 @@ import AppMonitor
 AppMonitor.start(AppMonitorOptions(appName: "My App"))
 ```
 
-Every `URLSession` is captured without further code. The same `AppMonitor`
+Every `URLSession` is captured without further code, except a request
+carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it already
+captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
+other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
+port, bytes and timing, no content; `captureConnections: false` in the
+options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). The same `AppMonitor`
 product compiles to stubs in configurations whose name lacks `Debug`, and
 the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
 local network keys to debug builds only. A working app is in
 [`samples/ios`](samples/ios).
+
+The Run Script phase runs after *Copy Bundle Resources* and edits the
+built `Info.plist`. Under `ENABLE_USER_SCRIPT_SANDBOXING` (on by default in
+new Xcode projects) it needs these input and output files, or the
+sandbox denies the write and the Debug build fails:
+
+```text
+Script:        "$SRCROOT/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh"
+Input files:   $(SRCROOT)/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh
+               $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+               $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+```
+
+```swift
+// iOS with gRPC Swift 2 — add the AppMonitorGRPC product too
+import AppMonitorGRPC
+
+let client = GRPCClient(transport: transport, interceptors: [AppMonitorGRPCInterceptor()])
+```
+
+Each call shows as one exchange, messages as bytes
+([ADR-0099](docs/adr/0099-grpc-swift-adapter.md)); gRPC Swift 1 is not
+covered.
+
+```kotlin
+// KMP — commonMain, every HttpClient you want to see
+val client = HttpClient(engine) {
+    install(AppMonitorKtor)
+}
+
+// Android — Application.onCreate
+AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+
+// iOS — iosMain, called from the app's entry point
+fun startMonitor() = AppMonitor.start(AppMonitorOptions(appName = "My App"))
+```
+
+The shared module depends on `sdk/ktor` in debug and `sdk/ktor-no-op` in
+release; on iOS the Gradle script picks it from the configuration Xcode
+builds, on Android the release app substitutes both no-ops
+([ADR-0073](docs/adr/0073-kmp-sample-layout-and-release-swap.md)):
+
+```kotlin
+// shared/build.gradle.kts
+fun String?.nativeBuildType() = this?.lowercase()?.takeIf { it == "debug" || it == "release" }
+
+val xcodeBuildType =
+    providers.environmentVariable("CONFIGURATION").orNull.nativeBuildType()
+        ?: providers.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull.nativeBuildType()
+val sdkKtor = if (xcodeBuildType == "release") ":sdk:ktor-no-op" else ":sdk:ktor"
+kotlin { sourceSets { commonMain.dependencies { implementation(project(sdkKtor)) } } }
+
+// androidApp/build.gradle.kts
+dependencies {
+    debugImplementation(project(":sdk:core"))
+    releaseImplementation(project(":sdk:core-no-op"))
+}
+configurations.matching { it.name.startsWith("release") }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(project(":sdk:ktor")).using(project(":sdk:ktor-no-op"))
+        substitute(project(":sdk:core")).using(project(":sdk:core-no-op"))
+    }
+}
+```
+
+A configuration named neither `Debug` nor `Release`, `Staging` for one,
+sets `KOTLIN_FRAMEWORK_BUILD_TYPE` (`debug` or `release`) in its build
+settings, as Kotlin's `embedAndSignAppleFrameworkForXcode` already asks;
+without it that configuration links the real `sdk/ktor`. The Android app
+adds the same network security config and permission request as an
+Android app, the iOS app the same local network keys Run Script phase,
+with its input and output files, as a Swift app. Beside the Swift SDK, each exchange shows once: `sdk/ktor` marks what
+it captured and the Swift SDK skips it. A working app is in
+[`samples/kmp`](samples/kmp).
+
+### Ask your AI agent (MCP)
+
+The desktop app serves its history over MCP (Streamable HTTP) on
+`http://127.0.0.1:47475/mcp`, as soon as it starts. The server can only be
+reached from your own machine and needs a bearer token. Eight read-only
+tools: `list_runs`, `search_requests`, `get_request`, `endpoint_stats`,
+`diff_runs`, `export_har`, `to_curl`, `list_issues`; and `save_issue`,
+which creates and edits issues, the same ones the window shows; and
+`create_mock`, which makes a mock rule that reaches no device until you
+confirm it in the window's *Mocks* panel ([SDD 10](docs/sdd/10_desktop_mcp.md)). Bodies and headers are what the app
+sent: masked on the device unless the app turned masking off.
+
+**Claude Code.** Open the desktop's settings, *MCP server*, click *Copy
+command* and paste it into a terminal:
+
+```sh
+claude mcp add --transport http app-monitor http://127.0.0.1:47475/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+To share the server with a project without committing the token, put it in
+the project's `.mcp.json` and read the token from the environment
+(`export APPMONITOR_MCP_TOKEN=<token>` before starting `claude`):
+
+```json
+{
+  "mcpServers": {
+    "app-monitor": {
+      "type": "http",
+      "url": "http://127.0.0.1:47475/mcp",
+      "headers": { "Authorization": "Bearer ${APPMONITOR_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+Then ask, for example, *"why did a request fail in the current run, and which
+endpoints are new compared with run 1?"*.
+
+**Any other Streamable HTTP client.** URL `http://127.0.0.1:47475/mcp`,
+header `Authorization: Bearer <token>`. A client that sends an `Origin` must
+send `http://127.0.0.1:47475` or `http://localhost:47475`; anything else gets
+`403`, a missing or wrong token `401`.
+
+**Check it by hand** with the [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+(Node 22.19 or newer):
+
+```sh
+npx @modelcontextprotocol/inspector --cli http://127.0.0.1:47475/mcp \
+  --header "Authorization: Bearer <token>" --method tools/list
+npx @modelcontextprotocol/inspector --cli http://127.0.0.1:47475/mcp \
+  --header "Authorization: Bearer <token>" --method tools/call --tool-name list_runs
+```
+
+**A client that only speaks stdio** can reach it through
+[`mcp-remote`](https://github.com/geelen/mcp-remote) (not tested by this
+project): `npx mcp-remote http://127.0.0.1:47475/mcp --header-file <file>`,
+the file holding the `Authorization: Bearer <token>` line.
+
+*Regenerate token* in the settings, or *Clear all data*, replaces the token:
+paste the command again. The switch in the same section turns the server
+off; `APPMONITOR_MCP_PORT=<n>` moves it to another port.
 
 ## How this project is built
 
@@ -153,15 +339,17 @@ in a documented loop. The process is part of the portfolio:
   one PR template per change type, protected `dev` and `main`.
 - **Release gate** — `main` requires
   [`release-gate.yml`](.github/workflows/release-gate.yml) green: desktop
-  ×3 OS, contract tests, Android and iOS end to end, packages, SDK dry-run.
+  ×3 OS, contract tests, every sample app, Android, iOS and KMP end to end,
+  packages, SDK dry-run.
 
 ## Contributing
 
 The project is not open to contributions yet. To work on it locally:
 
 ```sh
-make help     # list commands
-make check    # run all gates
+make help        # list commands
+make check       # fast suite, what PRs to dev run
+make check-full  # plus simulator tests and every sample app
 ```
 
 Toolchain: [development environment](docs/sdd/02_development_environment.md).

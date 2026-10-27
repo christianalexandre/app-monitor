@@ -1,0 +1,12 @@
+CREATE TABLE breakpoint_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  app_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  rule BLOB NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX breakpoint_rules_app_id ON breakpoint_rules(app_id, position);

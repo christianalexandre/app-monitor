@@ -2,10 +2,15 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.BreakpointOutcome
 import appmonitor.sdk.core.MonitorBridge
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
+import appmonitor.v1.MockRule
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -31,12 +36,52 @@ internal interface CaptureSink {
     val options: AppMonitorOptions?
 
     fun send(envelope: Envelope)
+
+    /** The desktop's rule answering this call (ADR-0110 B.1), or null. */
+    fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = null
+
+    /** Keeps [replay] for the desktop's `ReplayRequest` of [requestId] (ADR-0111 D.1); null once sent, else why not. */
+    fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) = Unit
+
+    /** The desktop's breakpoint holding [stage] of this call (ADR-0118 A.1), or null. */
+    fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? = null
+
+    /** Sends [hit] and waits for the desktop's answer, at most its timeout (ADR-0111 B.1). */
+    suspend fun hold(hit: BreakpointHit): BreakpointOutcome = BreakpointOutcome.UNCHANGED
 }
 
 internal object MonitorSink : CaptureSink {
     override val options: AppMonitorOptions? get() = MonitorBridge.options
 
     override fun send(envelope: Envelope) = MonitorBridge.send(envelope)
+
+    override fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = MonitorBridge.mockFor(method, url)
+
+    override fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) = MonitorBridge.keepForReplay(requestId, replay)
+
+    override fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? = MonitorBridge.breakpointFor(method, url, stage)
+
+    override suspend fun hold(hit: BreakpointHit): BreakpointOutcome = MonitorBridge.hold(hit)
 }
 
 /** The value a masked header, query or fragment parameter, URL user name or password is sent with (ADR-0018). */
@@ -209,6 +254,8 @@ internal fun requestStarted(
     request: Request,
     masking: Masking,
     body: CapturedBody,
+    mockRuleId: Long? = null,
+    replayOf: String? = null,
 ): RequestStarted {
     var headers = request.headers
     val contentType = request.body?.contentType()
@@ -224,6 +271,8 @@ internal fun requestStarted(
         body_truncated = body.truncated,
         body_size = body.size,
         capture_layer = CaptureLayer.CAPTURE_LAYER_ADAPTER,
+        mock_rule_id = mockRuleId,
+        replay_of = replayOf,
     )
 }
 

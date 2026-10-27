@@ -1,0 +1,19 @@
+-- The last Hello seen from each device.
+CREATE TABLE devices (
+  id INTEGER PRIMARY KEY,
+  device_id TEXT NOT NULL UNIQUE,
+  platform INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  os_version TEXT NOT NULL
+);
+
+upsert:
+INSERT INTO devices(device_id, platform, name, os_version)
+VALUES (:deviceId, :platform, :name, :osVersion)
+ON CONFLICT(device_id) DO UPDATE SET platform = excluded.platform, name = excluded.name, os_version = excluded.os_version;
+
+idOf:
+SELECT id FROM devices WHERE device_id = ?;
+
+deleteUnused:
+DELETE FROM devices WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.device_ref = devices.id);

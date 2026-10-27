@@ -1,0 +1,55 @@
+package appmonitor.desktop.mcp
+
+import appmonitor.desktop.mcp.Filters.putFilterProperties
+import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+
+/** `search_requests` (SDD 10): the exchanges a filter matches, oldest first, without headers or bodies (ADR-0089 B.1). */
+internal object SearchRequests {
+    const val NAME = "search_requests"
+    private const val MAX_LIMIT = 200L
+    private const val DEFAULT_LIMIT = 50L
+
+    val description =
+        "Searches the stored HTTP and WebSocket exchanges, oldest first: method, URL, status, failure, timing, capture " +
+            "layer, frame count, and replay_of, the exchange a replay sent again; no headers or bodies (get_request has " +
+            "them). Unset filters match all. Page with next_after_id. $DATA_NOTE"
+
+    val inputSchema =
+        ToolSchema(
+            properties =
+                buildJsonObject {
+                    putFilterProperties()
+                    putJsonObject("after_id") {
+                        put("type", "integer")
+                        put("description", "The next_after_id of the previous page.")
+                    }
+                    putJsonObject("limit") {
+                        put("type", "integer")
+                        put("minimum", 1)
+                        put("maximum", MAX_LIMIT)
+                        put("default", DEFAULT_LIMIT)
+                        put("description", "Exchanges per page.")
+                    }
+                },
+        )
+
+    suspend fun call(
+        repositories: McpRepositories,
+        arguments: JsonObject?,
+    ): JsonObject {
+        val filter = Filters.filter(arguments)
+        val afterId = arguments.long("after_id", 0..Long.MAX_VALUE, 0)!!
+        val limit = arguments.long("limit", 1..MAX_LIMIT, DEFAULT_LIMIT)!!
+        val exchanges = repositories.queries.search(filter, afterId, limit)
+        val originals = repositories.queries.replayOriginals(exchanges)
+        return buildJsonObject {
+            put("requests", JsonArray(exchanges.map { it.toRowJson(originals[it.id]) }))
+            put("next_after_id", (if (exchanges.size.toLong() == limit) exchanges.last().id else null).json())
+        }
+    }
+}

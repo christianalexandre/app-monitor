@@ -1,0 +1,13 @@
+CREATE TABLE apps (
+  id INTEGER PRIMARY KEY,
+  app_id TEXT NOT NULL UNIQUE
+);
+
+insertIfAbsent:
+INSERT OR IGNORE INTO apps(app_id) VALUES (?);
+
+idOf:
+SELECT id FROM apps WHERE app_id = ?;
+
+deleteUnused:
+DELETE FROM apps WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.app_ref = apps.id);

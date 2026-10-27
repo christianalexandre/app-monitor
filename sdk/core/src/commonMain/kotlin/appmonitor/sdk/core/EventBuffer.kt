@@ -1,5 +1,7 @@
 package appmonitor.sdk.core
 
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.Channel
 
 /** One encoded envelope waiting to be written, with its channel for the `HelloAck` filter. */
@@ -16,7 +18,7 @@ internal class EventBuffer(
     private val maxCount: Int = MAX_COUNT,
     private val maxBytes: Long = MAX_BYTES,
 ) {
-    private val lock = Any()
+    private val lock = SynchronizedObject()
     private val frames = ArrayDeque<BufferedFrame>()
     private var bytes = 0L
     private val available = Channel<Unit>(Channel.CONFLATED)

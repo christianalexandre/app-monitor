@@ -1,9 +1,16 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.BreakpointAbort
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointResume
+import appmonitor.v1.BreakpointRules
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
+import appmonitor.v1.MockRules
+import appmonitor.v1.ReplayRefused
+import appmonitor.v1.ReplayRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
@@ -13,6 +20,8 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -32,9 +41,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.IOException
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.io.IOException
 import kotlin.random.Random
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,6 +80,8 @@ internal class MonitorClient(
     private val cleartextPermitted: (host: String) -> Boolean = ::isCleartextPermitted,
     private val log: (String) -> Unit = ::platformLog,
     random: Random = Random.Default,
+    private val openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
+        { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val buffer = EventBuffer(config.bufferCount, config.bufferBytes)
@@ -81,20 +92,29 @@ internal class MonitorClient(
     // Built on the client's scope, off the caller's thread: it may read storage.
     private val hello by lazy(hello)
 
-    private val lock = Any()
+    private val lock = SynchronizedObject()
     private var client: HttpClient? = null
     private var running: Job? = null
     private var releasing: Job? = null
 
-    // Under lock with stopRequested: stop leaves an open session to close itself with 1000.
-    private var inSession = false
+    // Under lock with stopRequested: stop must not cancel a connect or a session (ADR-0067 C).
+    private var inConnect = false
 
     val state: StateFlow<ClientState> = mutableState.asStateFlow()
 
-    /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
-    val dropped: Long get() = buffer.dropped + oversized.get()
+    /** The desktop's mock rules while a session that accepted `interaction` is up. */
+    val mocks: MockRuleSet = MockRuleSet()
 
-    private val oversized = AtomicLong()
+    /** The desktop's breakpoints and the calls they hold, while a session that accepted `interaction` is up. */
+    val breakpoints: Breakpoints = Breakpoints()
+
+    /** The requests a `ReplayRequest` can name, kept by the capture modules; emptied when a session ends. */
+    val replays: RecentRequests = RecentRequests()
+
+    /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
+    val dropped: Long get() = buffer.dropped + synchronized(lock) { oversized }
+
+    private var oversized = 0L
 
     private var connectFailureLogged = false
 
@@ -117,7 +137,7 @@ internal class MonitorClient(
         if (stopRequested.isCompleted) return
         val bytes = envelope.encode()
         if (bytes.size > Protocol.MAX_FRAME_BYTES) {
-            oversized.incrementAndGet()
+            synchronized(lock) { oversized++ }
             return
         }
         buffer.offer(BufferedFrame(envelope.channel, bytes))
@@ -125,11 +145,10 @@ internal class MonitorClient(
 
     /** Returns at once; the release runs on the client's scope, bounded by [ClientConfig.closeTimeout]. */
     fun stop() {
-        val run: Job?
         synchronized(lock) {
             if (!stopRequested.complete(Unit)) return
-            run = running
-            if (!inSession) run?.cancel()
+            val run = running
+            if (!inConnect) run?.cancel()
             releasing =
                 scope
                     .launch {
@@ -154,7 +173,8 @@ internal class MonitorClient(
                 if (!cleartextPermitted(endpoint.host)) {
                     log(
                         "cleartext ws:// to ${endpoint.host} is blocked by the app's network security policy; " +
-                            "allow it for debug builds with <debug-overrides> (see the SDK README)",
+                            "allow it in a debug-only network security config with cleartextTrafficPermitted " +
+                            "(README.md, Usage, at github.com/christianalexandre/app-monitor)",
                     )
                     stop()
                     return
@@ -162,7 +182,7 @@ internal class MonitorClient(
                 when (connect(endpoint)) {
                     Outcome.Stopped -> return
                     Outcome.Rejected -> backoff.exhaust()
-                    Outcome.Lost -> Unit
+                    Outcome.Lost -> if (stopRequested.isCompleted) return
                 }
             }
             mutableState.value = ClientState.BackingOff
@@ -171,9 +191,22 @@ internal class MonitorClient(
     }
 
     private suspend fun connect(endpoint: Endpoint): Outcome {
+        synchronized(lock) {
+            if (stopRequested.isCompleted) return Outcome.Stopped
+            inConnect = true
+        }
+        try {
+            return connectAndServe(endpoint)
+        } finally {
+            synchronized(lock) { inConnect = false }
+        }
+    }
+
+    private suspend fun connectAndServe(endpoint: Endpoint): Outcome {
         mutableState.value = ClientState.Connecting
         val http = checkNotNull(client)
         val upgraded = CompletableDeferred<Unit>()
+        val outcome = CompletableDeferred<Outcome>()
         return try {
             coroutineScope {
                 val watchdog =
@@ -181,55 +214,57 @@ internal class MonitorClient(
                         withTimeoutOrNull(config.connectTimeout) { upgraded.await() }
                             ?: throw IOException("No WebSocket upgrade within ${config.connectTimeout}")
                     }
-                var outcome = Outcome.Lost
-                http.webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path) {
-                    upgraded.complete(Unit)
-                    outcome = session(this)
+                val call =
+                    launch {
+                        http.openSession(endpoint) {
+                            upgraded.complete(Unit)
+                            outcome.complete(session(this))
+                        }
+                    }
+                select {
+                    call.onJoin { }
+                    outcome.onAwait { }
                 }
+                // Without the bound, a desktop that stopped answering keeps this call open forever (ADR-0067 D).
+                if (withTimeoutOrNull(config.closeTimeout) { call.join() } == null) call.cancel()
                 watchdog.cancel()
-                outcome
+                if (outcome.isCompleted) outcome.await() else Outcome.Lost
             }
         } catch (e: CancellationException) {
             // Ktor cancels the session's channels when the connection drops.
             currentCoroutineContext().ensureActive()
-            Outcome.Lost
+            settled(outcome)
         } catch (e: Exception) {
             if (!upgraded.isCompleted && !connectFailureLogged) {
                 connectFailureLogged = true
                 log(
                     "cannot reach the desktop at ${endpoint.host}:${endpoint.port} (${e.message ?: e::class.simpleName}); " +
-                        "retrying with backoff. On Android 17+ check ACCESS_LOCAL_NETWORK",
+                        "retrying with backoff. $CONNECT_FAILURE_HINT",
                 )
             }
-            Outcome.Lost
+            settled(outcome)
         }
     }
 
+    /** The session's outcome when it ended before the call's teardown failed, else [Outcome.Lost]. */
+    private suspend fun settled(outcome: CompletableDeferred<Outcome>): Outcome = if (outcome.isCompleted) outcome.await() else Outcome.Lost
+
     private suspend fun session(ws: DefaultClientWebSocketSession): Outcome {
-        val stopFirst =
-            synchronized(lock) {
-                inSession = true
-                stopRequested.isCompleted
-            }
-        try {
-            if (stopFirst) return closeNormally(ws)
-            mutableState.value = ClientState.Handshaking
-            return coroutineScope {
-                val stop = async { stopRequested.await() }
-                val serve = async { serveUntilClosed(ws) }
-                select {
-                    serve.onAwait { outcome ->
-                        stop.cancel()
-                        outcome
-                    }
-                    stop.onAwait {
-                        serve.cancel()
-                        closeNormally(ws)
-                    }
+        if (stopRequested.isCompleted) return closeNormally(ws)
+        mutableState.value = ClientState.Handshaking
+        return coroutineScope {
+            val stop = async { stopRequested.await() }
+            val serve = async { serveUntilClosed(ws) }
+            select {
+                serve.onAwait { outcome ->
+                    stop.cancel()
+                    outcome
+                }
+                stop.onAwait {
+                    serve.cancel()
+                    closeNormally(ws)
                 }
             }
-        } finally {
-            synchronized(lock) { inSession = false }
         }
     }
 
@@ -248,6 +283,7 @@ internal class MonitorClient(
         ws.send(Frame.Binary(true, helloEnvelope().encode()))
         val ack = awaitHelloAck(ws) ?: return closeOutcome(ws)
         backoff.reset()
+        connectFailureLogged = false
         mutableState.value = ClientState.Connected
         val accepted = ack.channels.toSet()
         coroutineScope {
@@ -258,11 +294,78 @@ internal class MonitorClient(
                         if (frame.channel in accepted) ws.send(Frame.Binary(true, frame.bytes))
                     }
                 }
-            // The desktop sends nothing after HelloAck; this ends with the connection.
-            for (frame in ws.incoming) Unit
+            try {
+                for (frame in ws.incoming) receive(frame, accepted)
+            } finally {
+                mocks.clear()
+                breakpoints.clear()
+                replays.clear()
+            }
             sender.cancel()
         }
         return closeOutcome(ws)
+    }
+
+    /** A desktop's envelope on an accepted channel; one this SDK does not know, or cannot decode, is ignored. */
+    private fun receive(
+        frame: Frame,
+        accepted: Set<String>,
+    ) {
+        val envelope = (frame as? Frame.Binary)?.let { runCatching { Envelope.ADAPTER.decode(it.readBytes()) }.getOrNull() } ?: return
+        if (envelope.channel !in accepted) return
+        if (envelope.channel != Protocol.CHANNEL_INTERACTION) return
+        when (envelope.type) {
+            "MockRules" -> {
+                runCatching { MockRules.ADAPTER.decode(envelope.payload) }.onSuccess { mocks.replace(it.rules) }
+            }
+
+            "BreakpointRules" -> {
+                runCatching {
+                    BreakpointRules.ADAPTER.decode(
+                        envelope.payload,
+                    )
+                }.onSuccess { breakpoints.replace(it.rules) }
+            }
+
+            "BreakpointResume" -> {
+                runCatching { BreakpointResume.ADAPTER.decode(envelope.payload) }.onSuccess { breakpoints.resume(it) }
+            }
+
+            "BreakpointAbort" -> {
+                runCatching { BreakpointAbort.ADAPTER.decode(envelope.payload) }.onSuccess { breakpoints.abort(it) }
+            }
+
+            "ReplayRequest" -> {
+                runCatching { ReplayRequest.ADAPTER.decode(envelope.payload) }.onSuccess { replay(it.request_id) }
+            }
+        }
+    }
+
+    /** Sends [hit] and waits for the desktop's answer (ADR-0111 A.1, B.1). */
+    @OptIn(InternalAppMonitorApi::class)
+    suspend fun hold(hit: BreakpointHit): BreakpointOutcome =
+        breakpoints.hold(hit) {
+            send(
+                Envelope(
+                    channel = Protocol.CHANNEL_INTERACTION,
+                    type = "BreakpointHit",
+                    payload = it.encodeByteString(),
+                    timestamp_ms = Clock.System.now().toEpochMilliseconds(),
+                ),
+            )
+        }
+
+    /** ADR-0120 A.1: a request not sent again is answered with `ReplayRefused`. */
+    private fun replay(requestId: String) {
+        val reason = replays.replay(requestId) ?: return
+        send(
+            Envelope(
+                channel = Protocol.CHANNEL_INTERACTION,
+                type = "ReplayRefused",
+                payload = ReplayRefused(request_id = requestId, reason = reason).encodeByteString(),
+                timestamp_ms = Clock.System.now().toEpochMilliseconds(),
+            ),
+        )
     }
 
     /** The `HelloAck`, or null when the connection ended or broke the handshake (then closed 1002). */
@@ -293,7 +396,7 @@ internal class MonitorClient(
             channel = Protocol.CHANNEL_CORE,
             type = "Hello",
             payload = hello.encodeByteString(),
-            timestamp_ms = System.currentTimeMillis(),
+            timestamp_ms = Clock.System.now().toEpochMilliseconds(),
         )
 
     private enum class Outcome { Lost, Rejected, Stopped }

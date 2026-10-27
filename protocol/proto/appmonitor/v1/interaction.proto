@@ -1,0 +1,127 @@
+// Channel "interaction": the desktop changes what the app's calls do
+// (ADR-0110, ADR-0113, ADR-0118, ADR-0120). Sent only to a device that listed
+// the channel in Hello.channels and got it back in HelloAck.channels.
+syntax = "proto3";
+
+package appmonitor.v1;
+
+import "appmonitor/v1/network.proto";
+
+// Desktop to device: every active rule for the device's app, in match
+// order. Each one replaces the set before it; an empty set means no mocks.
+message MockRules {
+  repeated MockRule rules = 1;
+}
+
+message MockRule {
+  // The desktop's id for the rule, never reused.
+  int64 id = 1;
+  // Matches the request's method exactly; empty matches any method.
+  string method = 2;
+  // Matches the URL's host, ignoring case.
+  string host = 3;
+  // Matches the URL's path segment by segment; a "*" segment matches any one
+  // segment. The query string is not matched.
+  string path = 4;
+  // Before the answer is given.
+  int64 delay_ms = 5;
+  oneof answer {
+    MockResponse response = 6;
+    MockFailure failure = 7;
+  }
+}
+
+message MockResponse {
+  int32 status_code = 1;
+  repeated Header headers = 2;
+  // At most Protocol.MAX_BODY_BYTES.
+  bytes body = 3;
+}
+
+// The call fails as the app's client reports a transport error.
+message MockFailure {
+  // Shown in the error the app receives.
+  string message = 1;
+}
+
+// Desktop to device: every enabled breakpoint for the device's app, in match
+// order (ADR-0111, ADR-0118). Each one replaces the set before it; an empty
+// set means no breakpoints.
+message BreakpointRules {
+  repeated BreakpointRule rules = 1;
+}
+
+message BreakpointRule {
+  // The desktop's id for the rule, never reused.
+  int64 id = 1;
+  // Matched as MockRule.method, host and path are.
+  string method = 2;
+  string host = 3;
+  string path = 4;
+  // Hold the request before it is sent; at least one of the two is set.
+  bool request = 5;
+  // Hold the response before the app reads it.
+  bool response = 6;
+  // After it the call goes on unchanged (ADR-0111 B.1); at least 1.
+  int64 timeout_ms = 7;
+}
+
+enum BreakpointStage {
+  BREAKPOINT_STAGE_UNSPECIFIED = 0;
+  BREAKPOINT_STAGE_REQUEST = 1;
+  BREAKPOINT_STAGE_RESPONSE = 2;
+}
+
+// Device to desktop: a call waits for BreakpointResume or BreakpointAbort.
+// (request.request_id, stage) names the hold; the device masks both messages
+// as it masks their captures.
+message BreakpointHit {
+  int64 rule_id = 1;
+  BreakpointStage stage = 2;
+  // The request as it would be sent; at the response stage, as it was sent.
+  RequestStarted request = 3;
+  // BREAKPOINT_STAGE_RESPONSE only: the response as the app would read it.
+  ResponseReceived response = 4;
+  // The rule's timeout, from when the device sent this.
+  int64 timeout_ms = 5;
+}
+
+// Desktop to device: the call goes on with only the fields the developer
+// changed; everything absent keeps the device's own value (ADR-0111 C.1).
+message BreakpointResume {
+  string request_id = 1;
+  BreakpointStage stage = 2;
+  // BREAKPOINT_STAGE_REQUEST only.
+  optional string method = 3;
+  optional string url = 4;
+  // BREAKPOINT_STAGE_RESPONSE only.
+  optional int32 status_code = 5;
+  // Every header of a name listed here is replaced by this list's ones.
+  repeated Header set_headers = 6;
+  // Every header of these names is removed; names ignore case.
+  repeated string removed_headers = 7;
+  // Replaces the body; at most Protocol.MAX_BODY_BYTES.
+  optional bytes body = 8;
+}
+
+// Desktop to device: the call fails as a MockFailure does (ADR-0111 A.1).
+message BreakpointAbort {
+  string request_id = 1;
+  BreakpointStage stage = 2;
+  string message = 3;
+}
+
+// Desktop to device: send the request of this session's request_id again
+// through the app's own client (ADR-0111 D.1). The new call is captured as
+// usual, its RequestStarted.replay_of set to this request_id.
+message ReplayRequest {
+  string request_id = 1;
+}
+
+// Device to desktop: the request of a ReplayRequest was not sent again, e.g.
+// it is no longer among the requests the SDK keeps.
+message ReplayRefused {
+  string request_id = 1;
+  // Shown to the developer.
+  string reason = 2;
+}

@@ -10,23 +10,51 @@ group_dir="$repo/io/github/christianalexandre"
 rm -rf "$repo"
 ./gradlew -q publishAllPublicationsToDryRunRepository
 
-fail=0
-for base in appmonitor-protocol appmonitor-core appmonitor-okhttp appmonitor-no-op; do
-  for suffix in "" -jvm -android; do
-    artifact="$base$suffix"
-    pom="$(find "$group_dir/$artifact" -name '*.pom' 2>/dev/null | head -1)"
-    if [[ -z "$pom" ]]; then
-      echo "publish: no POM for $artifact" >&2
-      fail=1
-      continue
+# Artifact base, then the targets it publishes besides its root (ADR-0062 C.1 and E.1).
+artifacts=(
+  "appmonitor-protocol jvm android ios"
+  "appmonitor-core jvm android ios"
+  "appmonitor-okhttp jvm android"
+  "appmonitor-ktor jvm android ios"
+  "appmonitor-core-no-op jvm android ios"
+  "appmonitor-okhttp-no-op jvm android"
+  "appmonitor-ktor-no-op jvm android ios"
+)
+expected=()
+for entry in "${artifacts[@]}"; do
+  read -r base targets <<<"$entry"
+  expected+=("$base")
+  for target in $targets; do
+    if [[ "$target" == ios ]]; then
+      expected+=("$base-iosarm64" "$base-iossimulatorarm64")
+    else
+      expected+=("$base-$target")
     fi
-    for tag in name description url license developer scm; do
-      if ! grep -q "<$tag>" "$pom"; then
-        echo "publish: $artifact POM has no <$tag>" >&2
-        fail=1
-      fi
-    done
   done
+done
+
+fail=0
+for artifact in "${expected[@]}"; do
+  pom="$(find "$group_dir/$artifact" -name '*.pom' 2>/dev/null | head -1)"
+  if [[ -z "$pom" ]]; then
+    echo "publish: no POM for $artifact" >&2
+    fail=1
+    continue
+  fi
+  for tag in name description url license developer scm; do
+    if ! grep -q "<$tag>" "$pom"; then
+      echo "publish: $artifact POM has no <$tag>" >&2
+      fail=1
+    fi
+  done
+  # ADR-0072: a release build that swaps in a no-op pulls no real SDK artifact.
+  if [[ "$artifact" == *-no-op* ]]; then
+    leaked="$(sed -n 's|.*<artifactId>\(appmonitor-[^<]*\)</artifactId>.*|\1|p' "$pom" | grep -v -- '-no-op' || true)"
+    if [[ -n "$leaked" ]]; then
+      echo "publish: $artifact depends on $leaked" >&2
+      fail=1
+    fi
+  fi
 done
 [[ $fail -eq 0 ]] || exit 1
 echo "publish: Maven files in $repo"
@@ -43,7 +71,7 @@ root="$PWD"
 identity="$(basename "$root" | tr '[:upper:]' '[:lower:]')"
 consumer=build/spm-consumer
 rm -rf "$consumer"
-mkdir -p "$consumer/Sources/Consumer"
+mkdir -p "$consumer/Sources/Consumer" "$consumer/Sources/GRPCConsumer"
 cat >"$consumer/Package.swift" <<EOF
 // swift-tools-version: 6.2
 import PackageDescription
@@ -53,7 +81,14 @@ let package = Package(
     platforms: [.macOS(.v12)],
     dependencies: [.package(path: "$root")],
     targets: [
-        .executableTarget(name: "Consumer", dependencies: [.product(name: "AppMonitor", package: "$identity")])
+        .executableTarget(name: "Consumer", dependencies: [.product(name: "AppMonitor", package: "$identity")]),
+        .executableTarget(
+            name: "GRPCConsumer",
+            dependencies: [
+                .product(name: "AppMonitor", package: "$identity"),
+                .product(name: "AppMonitorGRPC", package: "$identity"),
+            ]
+        ),
     ]
 )
 EOF
@@ -63,13 +98,30 @@ import AppMonitor
 AppMonitor.start(AppMonitorOptions(enabled: false))
 AppMonitor.stop()
 EOF
-for config in debug release; do
-  swift build --package-path "$consumer" -c "$config" >"build/spm-consumer-$config.log" 2>&1 || {
-    cat "build/spm-consumer-$config.log" >&2
-    echo "publish-swift: consumer $config build failed" >&2
-    exit 1
-  }
-  bin="$consumer/.build/$config/Consumer"
-  echo "publish-swift: $config Consumer $(wc -c <"$bin" | tr -d ' ') bytes," \
-    "$(nm "$bin" | grep -c SwiftProtobuf || true) SwiftProtobuf symbols (DEBT-0040)"
+cat >"$consumer/Sources/GRPCConsumer/main.swift" <<'EOF'
+import AppMonitor
+import AppMonitorGRPC
+
+AppMonitor.start(AppMonitorOptions(enabled: false))
+if #available(macOS 15.0, *) { print(AppMonitorGRPCInterceptor()) }
+AppMonitor.stop()
+EOF
+# One product at a time: without the adapter, no grpc-swift is linked (ADR-0099 B.1).
+for product in Consumer GRPCConsumer; do
+  for config in debug release; do
+    log="build/spm-consumer-$product-$config.log"
+    swift build --package-path "$consumer" -c "$config" --product "$product" >"$log" 2>&1 || {
+      cat "$log" >&2
+      echo "publish-swift: $product $config build failed" >&2
+      exit 1
+    }
+    bin="$consumer/.build/$config/$product"
+    grpc="$(nm "$bin" | grep -c GRPCCore || true)"
+    if [[ "$product" == Consumer && "$grpc" -ne 0 ]]; then
+      echo "publish-swift: Consumer $config links $grpc GRPCCore symbols without the adapter" >&2
+      exit 1
+    fi
+    echo "publish-swift: $config $product $(wc -c <"$bin" | tr -d ' ') bytes," \
+      "$(nm "$bin" | grep -c SwiftProtobuf || true) SwiftProtobuf symbols (DEBT-0040), $grpc GRPCCore symbols"
+  done
 done

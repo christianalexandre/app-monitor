@@ -21,18 +21,36 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      # ADR-0094: required on dev, so a docs-only PR passes without a build.
+      - name: Scope
+        id: scope
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -qvE '^docs/|\.md$'; then
+            echo "docs_only=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "docs_only=true" >>"$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-java@v6
+        if: steps.scope.outputs.docs_only != 'true'
         with:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.scope.outputs.docs_only != 'true'
         with:
           cache-provider: basic # ADR-0012
       - run: make check
+        if: steps.scope.outputs.docs_only != 'true'
+      # DEBT-0091: a timeout cancels the job, and a hung test's stack is in its XML result.
       - name: Test reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
-          path: '**/build/reports/tests/'
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
           retention-days: 7

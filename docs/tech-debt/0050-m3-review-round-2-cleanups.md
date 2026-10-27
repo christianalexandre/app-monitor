@@ -3,7 +3,7 @@ id: DEBT-0050
 title: Non-correctness findings of the second M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `pr-conventions.yml`, `debt_check.sh`, `e2e_ios.sh`, `Makefile` or `0049-m3-review-round-1-cleanups.md`, or the first `release/*` branch opened to `main`
+trigger: The next PR that touches `pr-conventions.yml` or `debt_check.sh`, or the first `release/*` branch opened to `main`
 paid_date:
 ---
 
@@ -28,15 +28,6 @@ today (ADR-0016):
   named like a type silences that type's triggers. Path names now match as
   whole segments anywhere, so a short path (`src/main`) fires on every
   module. Both err on the side of noise or silence, never on a wrong exit.
-- `scripts/e2e_ios.sh`: repeats the tool check and the simulator pick of
-  `scripts/ios_lib.sh`, with a second parse of `sim_list.sh`'s output
-  (`substr($0, 38)` against `cut -d' ' -f2-`).
-- `Makefile`, `.claude/commands/next.md` and the scripts row of SDD 03 cite
-  ADR-0051 for `debt-check`, superseded by ADR-0061, and do not say it can
-  exit 2.
-- DEBT-0049: the paid `debt_check.sh` item was removed from *What is
-  missing* while *How it was paid* still names it under the template
-  placeholder, and its index row still lists `debt_check.sh`.
 
 Rejected: `e2e_ios.sh` passes the simulator's name, not its UDID, to
 `ios_sample_check.sh`, but that script only builds for the simulator SDK;
@@ -51,11 +42,27 @@ use today; they are noise, duplication or stale references.
 
 ## Trigger
 
-The next PR that touches `pr-conventions.yml`, `debt_check.sh`,
-`e2e_ios.sh`, `Makefile` or `0049-m3-review-round-1-cleanups.md` pays that
+The next PR that touches `pr-conventions.yml` or `debt_check.sh` pays that
 file's item. The first `release/*` branch opened to `main` pays the
 squash-trailer item, or finds #132 merged.
 
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
+
+Partly paid. `feat/kmp-sample-app` (touching the `Makefile`) paid the
+`debt-check` item: the `Makefile`, `.claude/commands/next.md` and SDD 03's
+scripts row cite ADR-0061 and say it exits 2 on an unresolved base; the
+`Makefile` left the trigger with it (DEBT-0051).
+
+`test/hermetic-end-to-end` touched `e2e_ios.sh` without paying its item: the
+KMP end to end (PLAN-0005 M4.10) is a third caller of the simulator pick, so
+the shared helper is written there, for all three at once. It paid the
+DEBT-0049 item: that DEBT's index row no longer lists `debt_check.sh`, and its
+paid items no longer sit under the template placeholder.
+
+`test/kmp-end-to-end` (PLAN-0005 M4.10, ADR-0075) paid the `e2e_ios.sh` item:
+`e2e_lib.sh`'s `boot_simulator` picks and boots the simulator for
+`e2e_ios.sh` and `e2e_kmp.sh`, one parse of `sim_list.sh`'s output.
+`ios_lib.sh`'s `ios_device` stays: it names a simulator for `xcodebuild`
+without booting it, for the `make swift` scripts.

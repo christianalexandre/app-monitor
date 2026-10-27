@@ -1,0 +1,30 @@
+-- Not under a session: retention never touches it (ADR-0083).
+CREATE TABLE approvals (
+  device_id TEXT NOT NULL,
+  app_id TEXT NOT NULL,
+  approved INTEGER NOT NULL,
+  decided_at_ms INTEGER NOT NULL,
+  device_name TEXT NOT NULL,
+  os_version TEXT NOT NULL,
+  app_version TEXT NOT NULL,
+  PRIMARY KEY (device_id, app_id)
+);
+
+upsert:
+INSERT INTO approvals(device_id, app_id, approved, decided_at_ms, device_name, os_version, app_version)
+VALUES (:deviceId, :appId, :approved, :decidedAtMs, :deviceName, :osVersion, :appVersion)
+ON CONFLICT(device_id, app_id) DO UPDATE SET
+  approved = excluded.approved,
+  decided_at_ms = excluded.decided_at_ms,
+  device_name = excluded.device_name,
+  os_version = excluded.os_version,
+  app_version = excluded.app_version;
+
+forget:
+DELETE FROM approvals WHERE device_id = :deviceId AND app_id = :appId;
+
+forgetAll:
+DELETE FROM approvals;
+
+all:
+SELECT * FROM approvals ORDER BY decided_at_ms, device_id, app_id;

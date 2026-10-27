@@ -1,0 +1,51 @@
+-- Mock rules per app (ADR-0110 F.1, ADR-0113): not under a session, so retention never touches one.
+-- AUTOINCREMENT: an id is never reused, as an exchange will name the rule that answered it.
+CREATE TABLE mock_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  app_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  pending INTEGER NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('window', 'mcp')),
+  rule BLOB NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX mock_rules_app_id ON mock_rules(app_id, position);
+
+-- Last in its app's match order.
+insert:
+INSERT INTO mock_rules(app_id, position, name, enabled, pending, source, rule, created_at_ms, updated_at_ms)
+VALUES (:appId, (SELECT coalesce(max(position), -1) + 1 FROM mock_rules WHERE app_id = :appId), :name, 1, :pending, :source, :rule, :atMs, :atMs);
+
+lastId:
+SELECT last_insert_rowid();
+
+exists:
+SELECT count(*) FROM mock_rules WHERE id = ?;
+
+nameOf:
+SELECT name FROM mock_rules WHERE id = ?;
+
+update:
+UPDATE mock_rules
+SET name = coalesce(:name, name), enabled = coalesce(:enabled, enabled), rule = coalesce(:rule, rule), updated_at_ms = :atMs
+WHERE id = :id;
+
+confirm:
+UPDATE mock_rules SET pending = 0, updated_at_ms = :atMs WHERE id = :id;
+
+all:
+SELECT * FROM mock_rules ORDER BY app_id, position, id;
+
+-- What a device of :appId is sent, in match order.
+activeOf:
+SELECT id, rule FROM mock_rules WHERE app_id = ? AND enabled = 1 AND pending = 0 ORDER BY position, id;
+
+delete:
+DELETE FROM mock_rules WHERE id = ?;
+
+deleteAll:
+DELETE FROM mock_rules;

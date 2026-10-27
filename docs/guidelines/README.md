@@ -16,3 +16,4 @@ Rules:
 | 02 | [Comments](02_comments.md) |
 | 03 | [Git and pull requests](03_git_and_pull_requests.md) |
 | 04 | [Testing and verification](04_testing_and_verification.md) |
+| 05 | [Desktop architecture](05_desktop_architecture.md) |

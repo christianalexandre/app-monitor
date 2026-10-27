@@ -1,10 +1,10 @@
 ---
 id: DEBT-0004
 title: TrafficState ingest is linear per event
-status: Open
+status: Paid
 date: 2026-10-21
 trigger: M5 replaces the in-memory store with SQLDelight, or a session over 10k requests is measured to lag the UI
-paid_date:
+paid_date: 2026-10-24
 ---
 
 # DEBT-0004 — TrafficState ingest is linear per event
@@ -34,4 +34,9 @@ requests is measured to lag the UI — whichever comes first.
 
 ## How it was paid
 
-> Filled when closing.
+Paid in M5.4 (`feat/desktop-app-on-storage`): `TrafficState` is gone. The
+app writes through `desktop/storage`, where an event is one indexed upsert
+by `(session_ref, request_id)` and a frame one insert, and the window
+observes one page of rows instead of the whole history. `TrafficStoreTest`
+stores 10 000 requests over a real session in 0.7 s. Decoding moved to
+the storage writer thread, so no compare-and-set retries it.

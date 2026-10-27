@@ -10,8 +10,9 @@ struct Endpoint: Equatable, Sendable {
     var port: UInt16 = ProtocolConstants.defaultPort
     var path: String = ProtocolConstants.websocketPath
 
+    /// An IPv6 zone id is sent as `%25` (RFC 6874), which older Foundation requires.
     var url: URL? {
-        let bracketed = host.contains(":") ? "[\(host)]" : host
+        let bracketed = host.contains(":") ? "[\(host.replacingOccurrences(of: "%", with: "%25"))]" : host
         return URL(string: "ws://\(bracketed):\(port)\(path)")
     }
 }
@@ -96,6 +97,15 @@ final class MonitorClient: @unchecked Sendable {
     }
 
     var state: ClientState { queue.sync { current } }
+
+    /// The desktop's mock rules while a session that accepted `interaction` is up (ADR-0115 A.1).
+    let mocks = MockRuleSet()
+
+    /// The requests a `ReplayRequest` can name, kept by the capture; emptied when a session ends (ADR-0122 A.1).
+    let replays = RecentRequests()
+
+    /// The desktop's breakpoints and the tasks they hold; every held task goes on when a session ends (ADR-0118).
+    let breakpoints = Breakpoints()
 
     /// Envelopes dropped by the buffer or for their size (DEBT-0023).
     var dropped: Int { buffer.dropped + oversized.value }
@@ -274,6 +284,8 @@ final class MonitorClient: @unchecked Sendable {
             }
             if self.current == .handshaking {
                 self.handleAck(data, on: connection)
+            } else {
+                self.read(data)
             }
             if self.current == .connected { self.receive(connection) }
         }
@@ -298,6 +310,41 @@ final class MonitorClient: @unchecked Sendable {
         accepted = Set(ack.channels)
         setState(.connected)
         pump()
+    }
+
+    /// After `HelloAck` only the `interaction` messages below are read; anything else is dropped.
+    private func read(_ data: Data?) {
+        guard let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data),
+            envelope.channel == ProtocolConstants.channelInteraction
+        else { return }
+        switch envelope.type {
+        case "MockRules":
+            guard let rules = try? Appmonitor_V1_MockRules(serializedBytes: envelope.payload) else { return }
+            mocks.replace(rules.rules)
+        case "ReplayRequest":
+            guard let request = try? Appmonitor_V1_ReplayRequest(serializedBytes: envelope.payload) else { return }
+            replay(request.requestID)
+        case "BreakpointRules":
+            guard let rules = try? Appmonitor_V1_BreakpointRules(serializedBytes: envelope.payload) else { return }
+            breakpoints.replace(rules.rules)
+        case "BreakpointResume":
+            guard let resume = try? Appmonitor_V1_BreakpointResume(serializedBytes: envelope.payload) else { return }
+            breakpoints.resume(resume)
+        case "BreakpointAbort":
+            guard let abort = try? Appmonitor_V1_BreakpointAbort(serializedBytes: envelope.payload) else { return }
+            breakpoints.abort(abort)
+        default:
+            break
+        }
+    }
+
+    /// ADR-0120 A.1: a request not sent again is answered with `ReplayRefused`.
+    private func replay(_ requestID: String) {
+        guard let reason = replays.replay(requestID) else { return }
+        var refused = Appmonitor_V1_ReplayRefused()
+        refused.requestID = requestID
+        refused.reason = reason
+        send(interactionEnvelope("ReplayRefused", refused))
     }
 
     /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
@@ -363,6 +410,9 @@ final class MonitorClient: @unchecked Sendable {
         pingTimer = nil
         pongTimer = nil
         sending = false
+        mocks.clear()
+        replays.clear()
+        breakpoints.clear()
         defer { connection = nil }
         return connection
     }

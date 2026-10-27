@@ -5,15 +5,28 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":desktop:data"))
+    implementation(project(":desktop:designsystem"))
+    implementation(project(":desktop:feature:breakpoints"))
+    implementation(project(":desktop:feature:insights"))
+    implementation(project(":desktop:feature:mocks"))
+    implementation(project(":desktop:feature:settings"))
+    implementation(project(":desktop:feature:traffic"))
+    implementation(project(":desktop:mcp"))
+    implementation(project(":desktop:proxy"))
     implementation(project(":desktop:server"))
+    implementation(project(":desktop:storage"))
+    implementation(project(":desktop:ui"))
     implementation(compose.desktop.currentOs)
-    implementation(libs.compose.material)
+    implementation(libs.koin.compose.viewmodel)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)
     testImplementation(project(":tools:fake-client"))
+    testImplementation(libs.ktor.client.cio)
+    testImplementation(testFixtures(project(":desktop:mcp")))
 }
 
 compose.desktop {
@@ -23,7 +36,8 @@ compose.desktop {
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            modules("java.instrument", "java.management", "jdk.unsupported")
+            // ADR-0105: jdk.crypto.ec holds JDK 21's EC provider, which the proxy's keys and TLS need; jdeps cannot see it.
+            modules("java.instrument", "java.management", "java.sql", "jdk.crypto.ec", "jdk.unsupported")
             packageName = "App Monitor"
             packageVersion = "1.0.0"
             description = "Network monitor and debug toolkit for mobile apps"
@@ -66,7 +80,7 @@ tasks.register<Test>("liveScreenshots") {
     outputs.upToDateWhen { false }
     testLogging.showStandardStreams = true
     systemProperty("liveScreenshotDir", rootProject.file("docs/screenshots").absolutePath)
-    listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise").forEach { key ->
+    listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise", "liveDataDir").forEach { key ->
         providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
     }
 }

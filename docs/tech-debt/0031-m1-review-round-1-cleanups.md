@@ -1,10 +1,10 @@
 ---
 id: DEBT-0031
 title: Non-correctness findings of the first M1 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR that touches one of the files listed below
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0031 — Non-correctness findings of the first M1 milestone review
@@ -39,3 +39,14 @@ The next PR that touches `AppMonitorInterceptor.kt`, `TrafficState.kt` or
 ## How it was paid
 
 > Filled when closing.
+
+Partly paid: the `TrafficState.kt` item in `feat/desktop-app-on-storage`
+(M5.4): the file is gone, a frame is one row insert (DEBT-0004).
+
+Partly paid: the `MonitorClient.kt` item in `feat/sdk-core-ios-targets`;
+the flag resets when a session reaches connected, test
+`anOutageAfterAConnectionIsLoggedAgain`.
+
+Paid: the `AppMonitorInterceptor.kt` item in `feat/kotlin-sdk-mocks`
+(M9.4); the KDoc recommends `addInterceptor` and says a network
+interceptor captures bodies still compressed. Nothing is left.

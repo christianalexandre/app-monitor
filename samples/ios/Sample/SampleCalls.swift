@@ -5,20 +5,35 @@ struct SampleButton: Sendable {
     let call: @Sendable () async -> String
 }
 
-/// The calls behind the sample's buttons, against public services the sample does not control.
+/// The calls behind the sample's buttons, against public services the sample does not control;
+/// `-target URL` at launch replaces them, as `make e2e-ios` does (ADR-0074).
 enum SampleCalls {
-    static let buttons = [
-        SampleButton(label: "GET JSON") { await data(URLRequest(url: httpbin("json"))) },
-        SampleButton(label: "POST") { await post() },
-        SampleButton(label: "404") { await data(URLRequest(url: httpbin("status/404"))) },
-        SampleButton(label: "Timeout") { await timeout() },
-        SampleButton(label: "Upload") { await upload() },
-        SampleButton(label: "WebSocket echo") { await webSocketEcho() },
-        SampleButton(label: "Background download") { await BackgroundDownload.shared.run() },
-    ]
+    static let buttons: [SampleButton] =
+        [
+            SampleButton(label: "GET JSON") { await data(URLRequest(url: httpbin("json"))) },
+            SampleButton(label: "POST") { await post() },
+            SampleButton(label: "404") { await data(URLRequest(url: httpbin("status/404"))) },
+            SampleButton(label: "Timeout") { await timeout() },
+            SampleButton(label: "Upload") { await upload() },
+            SampleButton(label: "WebSocket echo") { await webSocketEcho() },
+            SampleButton(label: "Background download") { await BackgroundDownload.shared.run() },
+            SampleButton(label: "418, or a mock") { await data(URLRequest(url: httpbin("status/418"))) },
+        ] + grpc
 
-    private static func httpbin(_ path: String) -> URL {
-        URL(string: "https://httpbin.org/\(path)")!
+    #if DEBUG
+    private static let grpc = [SampleButton(label: "gRPC-Core unary") { await GrpcCoreCall.run() }]
+    #else
+    private static let grpc: [SampleButton] = []
+    #endif
+
+    private static let target = UserDefaults.standard.string(forKey: "target")
+
+    static func httpbin(_ path: String) -> URL {
+        URL(string: "\(target ?? "https://httpbin.org")/\(path)")!
+    }
+
+    private static var echo: URL {
+        URL(string: target.map { "ws\($0.dropFirst(4))/ws" } ?? "wss://echo.websocket.org")!
     }
 
     private static func data(_ request: URLRequest, session: URLSession = .shared) async -> String {
@@ -60,7 +75,7 @@ enum SampleCalls {
     /// echo.websocket.org greets first, so frames are read until the echo comes back.
     private static func webSocketEcho() async -> String {
         let message = "hello from the sample"
-        let task = URLSession.shared.webSocketTask(with: URL(string: "wss://echo.websocket.org")!)
+        let task = URLSession.shared.webSocketTask(with: echo)
         task.resume()
         defer { task.cancel(with: .normalClosure, reason: nil) }
         do {
@@ -91,8 +106,9 @@ final class BackgroundDownload: NSObject, URLSessionDownloadDelegate, @unchecked
             lock.withLock {
                 waiting?.resume(returning: "superseded")
                 waiting = continuation
+                bytes = 0
             }
-            session.downloadTask(with: URL(string: "https://httpbin.org/bytes/4096")!).resume()
+            session.downloadTask(with: SampleCalls.httpbin("bytes/4096")).resume()
         }
     }
 

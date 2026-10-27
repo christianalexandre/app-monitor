@@ -456,6 +456,43 @@ class AppMonitorInterceptorTest {
         assertEquals(0, sink.pending)
     }
 
+    // ADR-0129: what the Ktor plugin captured on Ktor's OkHttp engine.
+    @Test
+    fun aRequestMarkedByTheKtorPluginIsNotCapturedAndLosesTheMark() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val request =
+            Request
+                .Builder()
+                .url(server.url("/"))
+                .header("X-AppMonitor-Capture", "ktor")
+                .build()
+
+        val body = client(sink).newCall(request).execute().use { it.body.string() }
+
+        assertEquals("ok", body)
+        assertEquals(0, sink.pending)
+        assertNull(server.takeRequest().headers["X-AppMonitor-Capture"])
+    }
+
+    @Test
+    fun aRequestMarkedByTheKtorPluginLosesTheMarkInANetworkInterceptor() {
+        val sink = RecordingSink()
+        server.enqueue(MockResponse.Builder().body("ok").build())
+        val client = OkHttpClient.Builder().addNetworkInterceptor(AppMonitorInterceptor(sink)).build()
+        val request =
+            Request
+                .Builder()
+                .url(server.url("/"))
+                .header("X-AppMonitor-Capture", "ktor")
+                .build()
+
+        client.newCall(request).execute().use { it.body.string() }
+
+        assertEquals(0, sink.pending)
+        assertNull(server.takeRequest().headers["X-AppMonitor-Capture"])
+    }
+
     @Test
     fun aRequestWithoutBodyHasNoSize() {
         val sink = RecordingSink()

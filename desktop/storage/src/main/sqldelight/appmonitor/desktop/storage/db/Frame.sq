@@ -1,0 +1,36 @@
+CREATE TABLE frames (
+  id INTEGER PRIMARY KEY,
+  exchange_ref INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  at_ms INTEGER NOT NULL,
+  direction INTEGER NOT NULL,
+  opcode INTEGER NOT NULL,
+  payload_truncated INTEGER NOT NULL,
+  payload_size INTEGER,
+  stored_size INTEGER NOT NULL
+);
+
+CREATE INDEX frames_exchange_ref_id ON frames(exchange_ref, id);
+
+CREATE TABLE frame_payloads (
+  frame_ref INTEGER NOT NULL PRIMARY KEY REFERENCES frames(id) ON DELETE CASCADE,
+  codec TEXT NOT NULL,
+  data BLOB NOT NULL
+);
+
+insert:
+INSERT INTO frames(exchange_ref, at_ms, direction, opcode, payload_truncated, payload_size, stored_size)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+lastId:
+SELECT last_insert_rowid();
+
+putPayload:
+INSERT INTO frame_payloads(frame_ref, codec, data) VALUES (?, ?, ?);
+
+pageOfExchange:
+SELECT frames.*, frame_payloads.codec, frame_payloads.data
+FROM frames
+LEFT JOIN frame_payloads ON frame_payloads.frame_ref = frames.id
+WHERE frames.exchange_ref = :exchangeRef AND frames.id > :afterId
+ORDER BY frames.id
+LIMIT :limit;

@@ -18,20 +18,22 @@ internal fun interface MdnsBrowser {
     fun browse(onAnswer: (DesktopAnswer) -> Unit): AutoCloseable
 }
 
+/** Where the iOS simulator reaches its Mac's loopback: it shares the Mac's network stack (ADR-0002). */
+internal const val SIMULATOR_HOST: String = "127.0.0.1"
+
 /** Bounds of SDD 04's discovering state; tests shorten them. */
 internal data class DiscoveryConfig(
-    val mdnsBeforeEmulator: Duration = 3.seconds,
+    val mdnsBeforeFallback: Duration = 3.seconds,
     val txtGrace: Duration = DesktopSelector.TXT_GRACE_MS.milliseconds,
 )
 
 /**
- * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host is the only source; else
- * mDNS through [mdns] (null when it may not run), then [EMULATOR_HOST] when [onEmulator].
- */
+ * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only; else mDNS through [mdns] (null
+ * when it may not run), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
 internal fun discovery(
     options: AppMonitorOptions,
     mdns: () -> MdnsBrowser?,
-    onEmulator: Boolean,
+    fallbackHost: String?,
     config: DiscoveryConfig = DiscoveryConfig(),
     log: (String) -> Unit = ::platformLog,
 ): suspend () -> Endpoint? {
@@ -44,8 +46,8 @@ internal fun discovery(
                 when {
                     browser == null -> null
 
-                    // Bounded so the emulator fallback runs inside MonitorClient's discovery timeout.
-                    onEmulator -> withTimeoutOrNull(config.mdnsBeforeEmulator) { discoverMdns(browser, config.txtGrace) }
+                    // Bounded so the fallback host is tried inside MonitorClient's discovery timeout.
+                    fallbackHost != null -> withTimeoutOrNull(config.mdnsBeforeFallback) { discoverMdns(browser, config.txtGrace) }
 
                     else -> discoverMdns(browser, config.txtGrace)
                 }
@@ -55,7 +57,7 @@ internal fun discovery(
                 log("mDNS discovery failed: $e")
                 null
             }
-        found ?: if (onEmulator) Endpoint(EMULATOR_HOST) else null
+        found ?: fallbackHost?.let { Endpoint(it) }
     }
 }
 

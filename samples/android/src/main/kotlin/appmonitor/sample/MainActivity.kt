@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
-    private val calls = SampleCalls()
+    private val calls by lazy { SampleCalls(intent.getStringExtra(EXTRA_TARGET)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
 private const val EXTRA_HOST = "host"
 private const val EXTRA_PORT = "port"
 private const val EXTRA_RUN_ALL = "runAll"
+private const val EXTRA_TARGET = "target"
 
 private data class SampleButton(
     val label: String,
@@ -65,6 +66,7 @@ private fun Sample(
             SampleButton("404") { calls.notFound() },
             SampleButton("Timeout") { calls.timeout() },
             SampleButton("WebSocket echo") { calls.webSocketEcho() },
+            SampleButton("418, or a mock") { calls.teapot() },
         )
     LaunchedEffect(Unit) {
         if (!runAll) return@LaunchedEffect

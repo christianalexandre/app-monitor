@@ -1,0 +1,1 @@
+ALTER TABLE exchanges ADD COLUMN grpc_status INTEGER;

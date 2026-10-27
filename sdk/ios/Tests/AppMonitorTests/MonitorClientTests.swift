@@ -51,6 +51,12 @@ struct MonitorClientTests {
         return desktop.port
     }
 
+    @Test func anIPv6HostKeepsItsZoneInTheURL() {
+        #expect(Endpoint(host: "fe80::1%en0").url?.absoluteString == "ws://[fe80::1%25en0]:47474/v1/ws")
+        #expect(Endpoint(host: "fe80::1%en0").url?.host == "fe80::1%en0")
+        #expect(Endpoint(host: "10.0.0.2", port: 9).url?.absoluteString == "ws://10.0.0.2:9/v1/ws")
+    }
+
     @Test func handshakeSendsHelloFirstThenConnects() async throws {
         let desktop = TestDesktop()
         try await desktop.start()
@@ -196,7 +202,8 @@ struct MonitorClientTests {
             }
         var config = Self.config
         config.discoveryTimeout = 30
-        config.connectTimeout = 30
+        // A freed port another socket took drops the SYN instead of refusing it: back off on the timeout too.
+        config.connectTimeout = stopCase == .backingOff ? Self.config.connectTimeout : 30
         config.backoffInitial = 30
         var client: MonitorClient? = Self.client(discover, config: config)
         weak let weakClient = client

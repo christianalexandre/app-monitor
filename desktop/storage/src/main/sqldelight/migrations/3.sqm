@@ -1,0 +1,14 @@
+CREATE TABLE mock_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  app_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  pending INTEGER NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('window', 'mcp')),
+  rule BLOB NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX mock_rules_app_id ON mock_rules(app_id, position);

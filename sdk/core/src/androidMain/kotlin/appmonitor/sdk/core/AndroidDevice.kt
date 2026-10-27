@@ -7,7 +7,7 @@ import android.os.Build
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
-import java.io.File
+import kotlinx.io.files.Path
 
 private const val ACCESS_LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
 private const val ANDROID_17 = 37
@@ -40,12 +40,13 @@ internal fun androidHello(context: Context): Hello {
     return Hello(
         protocol_version = Protocol.VERSION,
         platform = Platform.PLATFORM_ANDROID,
-        device_id = deviceId(File(context.noBackupFilesDir, "appmonitor-device-id")),
+        device_id = deviceId(Path(context.noBackupFilesDir.path, "appmonitor-device-id")),
         device_name = "${Build.MANUFACTURER} ${Build.MODEL}",
         os_version = "Android ${Build.VERSION.RELEASE}",
         app_id = context.packageName,
         app_version = packageInfo.versionName.orEmpty(),
         sdk_version = SDK_VERSION,
-        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+        channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
+        sdk_name = SDK_NAME,
     )
 }

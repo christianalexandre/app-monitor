@@ -30,6 +30,21 @@ struct DeviceTests {
         #expect(deviceID(file: file) == id)
     }
 
+    @Test func racingWritersOnAnEmptyDirectoryAllReturnTheIDLeftInTheFile() async throws {
+        for round in 0..<50 {
+            let file = Self.tempFile()
+            defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            let ids = await withTaskGroup(of: String.self) { group in
+                for _ in 0..<8 { group.addTask { deviceID(file: file) } }
+                return await group.reduce(into: []) { $0.append($1) }
+            }
+            let stored = try String(contentsOf: file, encoding: .utf8)
+            #expect(ids == Array(repeating: stored, count: 8), "round \(round)")
+            let left = try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path)
+            #expect(left == ["appmonitor-device-id"])
+        }
+    }
+
     @Test func helloNamesThisInstall() {
         let file = Self.tempFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
@@ -41,7 +56,11 @@ struct DeviceTests {
         #expect(!hello.osVersion.isEmpty)
         #expect(!hello.appID.isEmpty)
         #expect(hello.sdkVersion == sdkVersion)
-        #expect(hello.channels == [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork])
+        #expect(hello.sdkName == "swift")
+        #expect(
+            hello.channels == [
+                ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
+            ])
     }
 }
 

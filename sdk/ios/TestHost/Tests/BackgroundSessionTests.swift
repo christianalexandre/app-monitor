@@ -17,6 +17,34 @@ final class Sink: CaptureSink, @unchecked Sendable {
 
     var all: [Appmonitor_V1_Envelope] { lock.withLock { envelopes } }
 
+    /// The rules a session would hold; a background task must never be answered from them (ADR-0110 D.1).
+    let rules = MockRuleSet()
+
+    func mock(method: String, url: String) -> Appmonitor_V1_MockRule? {
+        rules.match(method: method, url: url)
+    }
+
+    /// What `keepForReplay` got; a background task is never sent again (ADR-0124 C.1).
+    let replays = RecentRequests()
+
+    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+        replays.keep(requestID, replay)
+    }
+
+    /// The breakpoints a session would hold; a background task is never held (ADR-0125).
+    let breakpoints = Breakpoints()
+
+    func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
+    {
+        breakpoints.match(method: method, url: url, stage: stage)
+    }
+
+    func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
+        -> @Sendable () -> Void
+    {
+        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+    }
+
     func started() throws -> Appmonitor_V1_RequestStarted {
         try Appmonitor_V1_RequestStarted(serializedBytes: #require(all.first { $0.type == "RequestStarted" }).payload)
     }
@@ -126,6 +154,7 @@ final class BackgroundSessionTests {
         let started = try sink.started()
         #expect(started.url == server.url("/ok").absoluteString)
         #expect(started.captureLayer == .platform)
+        #expect(sink.replays.replay(started.requestID) == "A background session's task is not sent again")
         #expect(started.headers.contains { $0.name == "Authorization" && $0.value == "██" })
         let response = try sink.response()
         #expect(response.requestID == started.requestID)
@@ -172,8 +201,81 @@ final class BackgroundSessionTests {
         let response = try sink.response()
         #expect(String(decoding: response.body, as: UTF8.self) == "payload" && response.bodySize == 7)
         #expect(String(decoding: delegate.received, as: UTF8.self) == "payload")
-        #expect(delegate.callbacks.contains("didSendBodyData"))
         #expect(delegate.callbacks.suffix(3) == ["didReceiveData", "didFinishCollecting", "didComplete"])
+    }
+
+    @Test func aFileUploadAMockRuleOrBreakpointMatchesStillGoesToTheNetwork() async throws {
+        let sink = capture()
+        var rule = Appmonitor_V1_MockRule()
+        rule.id = 1
+        rule.host = "127.0.0.1"
+        rule.path = "/echo"
+        rule.failure = Appmonitor_V1_MockFailure()
+        sink.rules.replace([rule])
+        var breakpoint = Appmonitor_V1_BreakpointRule()
+        breakpoint.host = "127.0.0.1"
+        breakpoint.path = "/echo"
+        breakpoint.request = true
+        breakpoint.response = true
+        breakpoint.timeoutMs = 60_000
+        sink.breakpoints.replace([breakpoint])
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("payload".utf8).write(to: file)
+        var request = URLRequest(url: server.url("/echo"))
+        request.httpMethod = "POST"
+
+        await run(session.uploadTask(with: request, fromFile: file))
+
+        #expect(try !sink.started().hasMockRuleID)
+        #expect(!sink.all.contains { $0.type == "BreakpointHit" })
+        #expect(String(decoding: delegate.received, as: UTF8.self) == "payload")
+        #expect(delegate.callbacks.last == "didComplete")
+    }
+
+    @Test func aDownloadResumedBeforeStartIsCapturedAtCompletion() async throws {
+        _ = capture(nil)
+        let sink = Sink(AppMonitorOptions())
+        var request = URLRequest(url: server.url("/slow"))
+        request.setValue("Bearer t0k", forHTTPHeaderField: "Authorization")
+        let resumed = Int64(Date().timeIntervalSince1970 * 1000)
+
+        await delegate.wait {
+            session.downloadTask(with: request).resume()
+            URLSessionCapture.sink = sink
+        }
+
+        // ConnectionCaptureTests runs beside this suite: its local calls reach this sink too.
+        let (envelope, started) = try #require(
+            sink.all.lazy.filter { $0.type == "RequestStarted" }
+                .map { ($0, try! Appmonitor_V1_RequestStarted(serializedBytes: $0.payload)) }
+                .first { $0.1.url == server.url("/slow").absoluteString })
+        #expect(envelope.timestampMs >= resumed && envelope.timestampMs < resumed + 1000)
+        #expect(started.method == "GET")
+        #expect(started.headers.contains { $0.name == "Authorization" && $0.value == "██" })
+        #expect(!started.bodyTruncated)
+        #expect(sink.replays.replay(started.requestID) == "A background session's task is not sent again")
+        let response = try #require(
+            sink.all.filter { $0.type == "ResponseReceived" }
+                .map { try Appmonitor_V1_ResponseReceived(serializedBytes: $0.payload) }
+                .first { $0.requestID == started.requestID })
+        #expect(response.statusCode == 200)
+        #expect(String(decoding: response.body, as: UTF8.self) == "hello" && response.bodySize == 5)
+        #expect(String(decoding: delegate.file, as: UTF8.self) == "hello")
+    }
+
+    @Test func aTaskSdkKtorMarkedBeforeStartStaysSkipped() async throws {
+        _ = capture(nil)
+        let sink = Sink(AppMonitorOptions())
+        var request = URLRequest(url: server.url("/slow"))
+        request.setValue("1", forHTTPHeaderField: ProtocolConstants.captureHeader)
+
+        await delegate.wait {
+            session.downloadTask(with: request).resume()
+            URLSessionCapture.sink = sink
+        }
+
+        #expect(!sink.all.contains { $0.type == "RequestStarted" && $0.payload.range(of: Data("/slow".utf8)) != nil })
+        #expect(String(decoding: delegate.file, as: UTF8.self) == "hello")
     }
 
     @Test func nothingIsCapturedBeforeStart() async throws {

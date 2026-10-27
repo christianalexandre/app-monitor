@@ -1,31 +1,101 @@
-# Sourced by scripts/e2e_android.sh and scripts/e2e_ios.sh (ADR-0056, ADR-0057):
-# the headless server on a free port and the assertions on its log.
-# The caller sets `tag` (the prefix of every line) and `server_log`.
+# Sourced by scripts/e2e_android.sh, scripts/e2e_ios.sh and scripts/e2e_kmp.sh (ADR-0056, ADR-0057):
+# the device, the headless server and the local target on free ports, and the assertions on the log.
+# The caller sets `tag` (the prefix of every line), `server_log` and `target_log`.
 
 fail() {
   echo "$tag: $*" >&2
   exit 1
 }
 
-# Starts desktop/server's installDist, built by the caller, on port 0; sets server_pid and port.
-start_server() {
-  : >"$server_log"
-  desktop/server/build/install/server/bin/server --port 0 >"$server_log" 2>&1 &
-  server_pid=$!
-  port=
+# Picks ANDROID_SERIAL, else the first booted emulator, and waits for its boot; sets and exports
+# ANDROID_SERIAL, puts adb on the PATH.
+boot_emulator() {
+  PATH="$PATH:${ANDROID_HOME:-}/platform-tools"
+  command -v adb >/dev/null 2>&1 || fail "adb not found (ANDROID_HOME/platform-tools, or adb on PATH)"
+  ANDROID_SERIAL="${ANDROID_SERIAL:-$(adb devices | awk '$1 ~ /^emulator-[0-9]+$/ && $2 == "device" { print $1; exit }')}"
+  [[ -n "$ANDROID_SERIAL" ]] || fail "no booted emulator in 'adb devices' (start one, or set ANDROID_SERIAL)"
+  export ANDROID_SERIAL
+  for _ in $(seq 1 90); do
+    [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == 1 ]] && break
+    sleep 2
+  done
+  [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]] || fail "$ANDROID_SERIAL did not finish booting"
+}
+
+# $1 the app id: grants the local network permission (ADR-0030), whose prompt would wait for a hand.
+grant_local_network() {
+  if (($(adb shell getprop ro.build.version.sdk | tr -d '\r') >= 37)); then
+    adb shell pm grant "$1" android.permission.ACCESS_LOCAL_NETWORK
+  fi
+}
+
+# Picks the booted iPhone simulator named SIM_DEVICE (any when unset), else boots an available one;
+# sets udid and sim_name.
+boot_simulator() {
+  command -v xcrun >/dev/null 2>&1 || fail "xcrun not found (needs macOS with Xcode; ADR-0047)"
+  local pick
+  pick="$(xcrun simctl list devices booted | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
+  if [[ -z "$pick" ]]; then
+    pick="$(xcrun simctl list devices available | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
+    [[ -n "$pick" ]] || fail "no iPhone simulator${SIM_DEVICE:+ named $SIM_DEVICE} (Xcode > Settings > Components)"
+    xcrun simctl boot "${pick%% *}"
+  fi
+  udid="${pick%% *}" sim_name="${pick#* }"
+  xcrun simctl bootstatus "$udid" -b >/dev/null
+}
+
+# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path: builds the Debug app for the picked
+# simulator, log in $out/build.log. Release and its SDK name scan are `make swift`'s (ADR-0075).
+build_ios_debug() {
+  command -v xcodegen >/dev/null 2>&1 || fail "xcodegen not found ('brew install xcodegen'; ADR-0050)"
+  xcodegen generate --quiet --spec "$1"
+  xcodebuild build -project "$(dirname "$1")/$2.xcodeproj" -scheme "$2" -configuration Debug \
+    -destination "id=$udid" -derivedDataPath "$3" >"$out/build.log" 2>&1 \
+    || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
+}
+
+# $1 an installDist launcher that prints `Listening on port N`, $2 its log, more arguments passed on;
+# starts it on port 0, sets listener_pid and listener_port.
+listen() {
+  : >"$2"
+  "$1" --port 0 "${@:3}" >"$2" 2>&1 &
+  listener_pid=$!
+  listener_port=
   for _ in $(seq 1 60); do
-    port="$(sed -n 's/^Listening on port \([0-9]*\).*/\1/p' "$server_log")"
-    [[ -n "$port" ]] && return 0
-    kill -0 "$server_pid" 2>/dev/null || { cat "$server_log" >&2; fail "server exited before listening"; }
+    listener_port="$(sed -n 's/^Listening on port \([0-9]*\).*/\1/p' "$2")"
+    [[ -n "$listener_port" ]] && return 0
+    kill -0 "$listener_pid" 2>/dev/null || { cat "$2" >&2; fail "$1 exited before listening"; }
     sleep 1
   done
-  fail "server did not print its port, log in $server_log"
+  fail "$1 did not print its port, log in $2"
+}
+
+# Starts desktop/server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
+start_server() {
+  listen desktop/server/build/install/server/bin/server "$server_log" "$@"
+  server_pid=$listener_pid port=$listener_port
+}
+
+# Starts tools/e2e-target's installDist (ADR-0074), built by the caller, logging to $target_log;
+# its arguments passed on; sets target_pid and target_port.
+start_target() {
+  listen tools/e2e-target/build/install/e2e-target/bin/e2e-target "$target_log" "$@"
+  target_pid=$listener_pid target_port=$listener_port
+}
+
+# $1 the authority every request must go to (e.g. 10.0.2.2:N); prints the RequestStarted URLs elsewhere.
+# The proxy's session (`--proxy`) is left out: it records whatever an app sends through it.
+foreign_urls() {
+  awk -v a="//$1/" '$1 != "[proxy]" && $2 == "network/RequestStarted" && index($5 "/", a) == 0 { print $4, $5 }' "$server_log"
 }
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
-# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT.
+# a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, mock:<rule id>
+# for a request that rule answered on the device (ADR-0110), or `replay` for a request the device sent
+# again with the same terminal (ADR-0122).
 # Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
 missing() {
+  local method url terminal frames id frame replay
   grep -q "\] connected: .* $1 " "$server_log" || echo "no device connected with app id $1"
   while read -r method url terminal frames; do
     id="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { print $3; exit }' "$server_log")"
@@ -35,21 +105,69 @@ missing() {
     fi
     grep -q " network/$terminal $id " "$server_log" || echo "$method $url: no $terminal for $id"
     for frame in $frames; do
+      if [[ "$frame" == replay ]]; then
+        replay="$(awk -v i="$id" '$2 == "network/RequestStarted" && $(NF - 1) == "replay_of" && $NF == i { print $3; exit }' "$server_log")"
+        if [[ -z "$replay" ]]; then
+          echo "$method $url: not sent again"
+        else
+          grep -q " network/$terminal $replay " "$server_log" || echo "$method $url: no $terminal for its replay $replay"
+        fi
+        continue
+      fi
+      if [[ "$frame" == mock:* ]]; then
+        awk -v i="$id" -v r="${frame#mock:}" '$2 == "network/RequestStarted" && $3 == i && $6 == "mock" && $7 == r { f = 1 }
+          END { exit !f }' "$server_log" || echo "$method $url: not answered by mock rule ${frame#mock:}"
+        continue
+      fi
       grep -q " network/WebSocketFrame $id ${frame%%:*} ${frame#*:}," "$server_log" \
         || echo "$method $url: no WebSocketFrame ${frame%%:*} ${frame#*:} for $id"
     done
   done <<<"$2"
 }
 
-# $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is.
-# Waits until nothing is missing, then prints one `ok` line per expectation; fails otherwise.
+# $1 expectations as for `missing`: prints each one whose RequestStarted is in the log more than once,
+# schemes compared as the SDKs log a socket's upgrade, `ws` as `http` and `wss` as `https` (ADR-0003);
+# a replay the desktop asked for is not counted.
+repeated() {
+  local method url count
+  while read -r method url _; do
+    count="$(awk -v m="$method" -v u="$url" '
+      function blind(s) { sub(/^ws:/, "http:", s); sub(/^wss:/, "https:", s); return s }
+      $2 == "network/RequestStarted" && $4 == m && blind($5) == blind(u) && $(NF - 1) != "replay_of" { n++ } END { print n + 0 }' "$server_log")"
+    ((count <= 1)) || echo "$method $url: $count RequestStarted"
+  done <<<"$1"
+}
+
+# $1 app id, $2 an SDK name (`Hello.sdk_name`, ADR-0077): prints how many sessions it opened for the app,
+# the app id being the field after `(PLATFORM_…)`.
+sessions() {
+  awk -v a="$1" -v s="$2" '$2 == "connected:" && $NF == s {
+      for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) n++; break } }
+    END { print n + 0 }' "$server_log"
+}
+
+# $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is,
+# $5 the target's authority as for `foreign_urls`.
+# Waits until nothing is missing, then a settle for late duplicates, and prints one `ok` line per
+# expectation; fails on a gap, a duplicate or a request off the target.
 assert_envelopes() {
-  local deadline=$((SECONDS + $3)) gaps
+  local deadline=$((SECONDS + $3)) gaps method url terminal frames
   while [[ -n "$(missing "$1" "$2")" ]] && ((SECONDS < deadline)); do sleep 2; done
   gaps="$(missing "$1" "$2")"
   if [[ -n "$gaps" ]]; then
     echo "$gaps" | sed "s/^/$tag: missing: /" >&2
     fail "failed after $3s, server log in $server_log, $4"
+  fi
+  sleep 3
+  gaps="$(repeated "$2")"
+  if [[ -n "$gaps" ]]; then
+    echo "$gaps" | sed "s/^/$tag: captured twice: /" >&2
+    fail "an exchange was captured more than once, server log in $server_log"
+  fi
+  gaps="$(foreign_urls "$5")"
+  if [[ -n "$gaps" ]]; then
+    echo "$gaps" | sed "s/^/$tag: not on the target: /" >&2
+    fail "requests left the local target $5, server log in $server_log"
   fi
   while read -r method url terminal frames; do
     echo "$tag: ok $method $url $terminal${frames:+ $frames}"

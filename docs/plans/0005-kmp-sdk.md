@@ -1,10 +1,10 @@
 ---
 id: PLAN-0005
 title: KMP SDK
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M4
 started: 2026-10-24
-finished:
+finished: 2026-10-24
 ---
 
 # PLAN-0005 — KMP SDK (M4)
@@ -48,21 +48,27 @@ ADR.
   toolkit, targets, and whether its end to end joins the release gate
   (runner minutes, ADR-0052).
   Accept: the ADRs merged by the owner with `status: Accepted`.
-- [ ] **M4.2 `sdk/core` lifecycle on iOS on paper.** SDD 04 states where
+- [x] **M4.2 `sdk/core` lifecycle on iOS on paper.** (`docs/sdk-core-ios-lifecycle`; ADR-0066 picks CIO and common tests, DEBT-0052) SDD 04 states where
   `sdk/core` on Kotlin/Native differs from the JVM: Ktor engine, the JDK
   calls it replaces, threading, what `stop()` does in each state, app
   background and foreground; each case names the test that will drive it
   (M3's lesson).
   Accept: `make docs-check`; every SDD 04 state has its iOS exits and a
   named test.
-- [ ] **M4.3 `sdk/core` on iOS targets.** The iOS targets M4.1 (a) picks in
+- [x] **M4.3 `sdk/core` on iOS targets.** (`feat/sdk-core-ios-targets`; ADR-0067, DEBT-0053. Deviations: iOS
+  `AppMonitor.start` moves to M4.4 with the `Hello` it needs; the no-op's iOS dump to M4.8; the iOS
+  tests run in `make check` on a Mac only, PR CI is Linux, the gate job is M4.10's; found and fixed a
+  hang on every platform, a session after a ping timeout never left connected) The iOS targets M4.1 (a) picks in
   `appmonitor.kmp-sdk` (supersedes ADR-0023's "no iOS artifact"); transport,
   buffer and backoff build and run there per M4.2; ABI dumps updated for
   the new targets.
   Accept: `./gradlew :sdk:core:allTests` runs `iosSimulatorArm64Test` with
   M4.2's cases, not skipped; a live test gated by an environment variable
   reaches `make server` from the iOS simulator.
-- [ ] **M4.4 `sdk/core` iOS discovery and device identity.** Manual host →
+- [x] **M4.4 `sdk/core` iOS discovery and device identity.** (`feat/sdk-core-ios-discovery`; ADR-0068, DEBT-0054. Deviations: the
+  ADR-0042 TCP probe never left preparing on the simulator, so names resolve with `dns_sd`; found and fixed
+  `stopWhileConnectedEndsTheDesktopSession`, which returned a `List` and so never ran on JUnit; the live Bonjour run
+  connected to the first desktop answered, a leftover headless server on 47999, not the `make server` started for it) Manual host →
   Bonjour from Kotlin/Native → the simulator's `127.0.0.1`, the same
   contract as ADR-0024 and the Swift SDK (ADR-0042); the `Hello` an iOS KMP
   app sends (device id, model, OS, app name); the device id file shared
@@ -70,51 +76,242 @@ ADR.
   kept open by the desktop (ADR-0064 B.1).
   Accept: `./gradlew :sdk:core:allTests` — discovery with fake browsers on
   the iOS simulator; the live test finds `make server` by Bonjour.
-- [ ] **M4.5 `sdk/ktor` HTTP capture.** The plugin per M4.1 (a, b) on JVM,
+- [x] **M4.5 `sdk/ktor` HTTP capture.** (`feat/sdk-ktor-http-capture`; ADR-0069, DEBT-0055. Deviation: streamed
+  bodies, both ways, are sent empty and truncated rather than split) The plugin per M4.1 (a, b) on JVM,
   Android and iOS: request, response, failure, bounded bodies (ADR-0020),
   masking with the shared vector `protocol/fixtures/masking.json`, capture
   layer `ADAPTER` (ADR-0038); SDD chapter for the module.
   Accept: `./gradlew :sdk:ktor:allTests` — the plugin against Ktor's
   `MockEngine` and the masking vector, on JVM and the iOS simulator.
-- [ ] **M4.6 `sdk/ktor` WebSocket capture.** Frames both ways and the close,
+- [x] **M4.6 `sdk/ktor` WebSocket capture.** (`feat/sdk-ktor-websocket-capture`; ADR-0070. Deviations: frames are
+  also proven on OkHttp (JVM) and Darwin (simulator), the engines ADR-0063 named; a first relay coroutine lost Darwin's
+  close and was replaced; Ktor's Darwin engine itself may fail a session on the peer's close, capture or not) Frames both ways and the close,
   truncation as ADR-0028, if M4.1 (b) keeps it in scope.
   Accept: `./gradlew :sdk:ktor:allTests` — frames captured against an
   in-process echo server on JVM.
-- [ ] **M4.7 Dedupe with the Swift SDK.** The correlation header per M4.1
+- [x] **M4.7 Dedupe with the Swift SDK.** (`feat/ktor-swift-dedupe`; ADR-0071: the in-process mark needs
+  `ktor-client-darwin` or new public API, the header stands. Deviation: found and fixed a Swift gap, a WebSocket
+  task made from a `ws` `URLRequest`, as Ktor's Darwin engine makes them, was never captured) The correlation header per M4.1
   (c) in `sdk/ktor`; the Swift SDK's hooks skip what carries it. First
   tries the in-process mark ADR-0064 names; a working one goes to a new ADR.
   Accept: `./gradlew :sdk:ktor:allTests` and `swift test --package-path
   sdk/ios` — a request with the header yields no Swift capture, one
   without it still does.
-- [ ] **M4.8 `sdk/ktor` no-op and publication.** The no-op M4.1 (a) picks
+- [x] **M4.8 `sdk/ktor` no-op and publication.** (`build/sdk-ktor-no-op-publication`; ADR-0072 supersedes ADR-0026. Deviations:
+  `sdk/no-op` split into `sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op` per ADR-0062 C.1 and became the
+  unpublished check project; `sdk/ktor` itself was not published yet and joins the dry-run; the no-op iOS dumps M4.3
+  deferred land here) The no-op M4.1 (a) picks
   joins the ABI comparison (ADR-0026); the artifacts join `make
   publish-dry-run` (ADR-0058).
   Accept: `./gradlew :sdk:no-op:check` and `make publish-dry-run` list the
   new artifacts.
-- [ ] **M4.9 KMP sample app.** `samples/kmp` per M4.1 (d): every call of
+- [x] **M4.8a Hermetic end to end (DEBT-0047, fired).** (`test/hermetic-end-to-end`; ADR-0074. Deviation: the KMP
+  sample takes the same `target` parameter, for M4.10; the scripts also fail when a request leaves the target) `make e2e-android`
+  and `make e2e-ios` start a local HTTP and WebSocket target next to the
+  headless server; the samples take its address at launch (the emulator's
+  `10.0.2.2`, the simulator's `127.0.0.1`) and keep the public URLs as the
+  default for hand runs. M4.9 and M4.10 reuse it.
+  Accept: `make e2e-android` and `make e2e-ios` pass and every URL in their
+  server logs is the local target; DEBT-0047 `Paid`.
+- [x] **M4.9 KMP sample app.** (`feat/kmp-sample-app`; ADR-0073: ADR-0062 D.1 proven on iOS by `CONFIGURATION`, on Android by
+  substituting the no-ops in the app's release configurations. Deviations: the sample's Android modules need compileSdk 37,
+  Compose Multiplatform 1.12 and Ktor's OkHttp 5.5 require it; `make kmp-sample` joins `make swift`;
+  done before M4.8a, added while it ran, so the sample calls the public URLs and M4.8a takes `samples/kmp` too) `samples/kmp` per M4.1 (d): every call of
   the other samples (GET, POST, failure, WebSocket if M4.6 ships) through
   Ktor, a `runAll` launch path as ADR-0056 and ADR-0057, the release build
   without the SDK.
   Accept: the sample's Android and iOS debug builds run against `make
   server` and every call shows; its release builds contain no SDK names.
-- [ ] **M4.10 KMP end to end.** `make e2e-kmp`: headless server, the KMP
+- [x] **M4.10 KMP end to end.** (`test/kmp-end-to-end`; ADR-0075, pays DEBT-0049's double build and DEBT-0050's simulator pick.
+  Deviations: every end to end now fails on an exchange captured twice, not only the KMP one; `e2e-ios` builds its
+  Debug app only, as `e2e-kmp-ios`; gate run 40113961385
+  green: `e2e-kmp-android` 3.6 min, `e2e-kmp-ios` 22.0 min against ADR-0065's ≈10–12, `contract` 43.1 min, DEBT-0057) `make e2e-kmp`: headless server, the KMP
   sample on an Android emulator and an iOS simulator with `runAll`, every
   envelope asserted, as `make e2e-android` and `make e2e-ios`; on iOS with
   the Swift SDK also running, each exchange once. Then the release gate
   job if M4.1 (d) allows.
   Accept: `make e2e-kmp` green on the Mac; a call removed from the run
   makes it fail, shown in the PR; the gate run green if the job is added.
-- [ ] **M4.11 Docs sync.** README status, platforms and KMP usage; SDD 01
+- [x] **M4.11 Docs sync.** (`docs/m4-docs-sync`; also `make android-samples` in `AGENTS.md`, SDD 03's
+  stale `make swift` mentions of the sample checks, ADR-0076) README status, platforms and KMP usage; SDD 01
   and 03; `AGENTS.md` commands.
   Accept: `make docs-check`; every command the milestone added is in
   `AGENTS.md`.
 
+### First milestone review
+
+Findings of the `code-review` of `c93bd2a..ad3e5a7`. Five are correctness
+findings and became tasks. Two went to DEBT-0058 (two comment blocks over
+4 lines, the `ws://` scheme of `sdk/ktor` against the others' `http(s)://`).
+One was rejected: `BonjourBrowser` answering a cached address after the
+desktop moves, since `discovery` opens a new browser on every round, so the
+cache lives for one bounded browse.
+
+- [x] **M4.R1 `make e2e-kmp-ios` stays green with an exchange captured
+  twice.** (`test/e2e-dedupe-scheme-blind`; ADR-0077. Deviation: `Hello` had no field telling the SDKs apart,
+  so it gains `sdk_name`, printed by the headless server) `repeated` in `scripts/e2e_lib.sh` matches method and URL
+  exactly, but `sdk/ktor` logs the upgrade as `ws://host:port/ws` and the
+  Swift SDK as `http://host:port/ws` (`WebSocketHooks.started`): a second
+  capture of the socket by the Swift SDK counts 1 under each URL. And the
+  two sessions check counts `connected:` lines, so `sdk/core` reconnecting
+  once passes it with no Swift SDK session. Compare URLs scheme-blind
+  (`ws`↔`http`, `wss`↔`https`) and count sessions by SDK name.
+  Accept: `make scripts-test` with a crafted log holding the same socket
+  under `ws://` and `http://` (fails) and two `sdk/core` sessions and no
+  Swift one (fails); `make e2e-kmp-ios` green.
+- [x] **M4.R2 Both SDKs starting together can write two device ids.** (`fix/shared-device-id-atomic`; ADR-0078. Deviation: on
+  Kotlin/Native `createDirectories` threw when a racing writer made the directory first, which the race test found)
+  `deviceId` in `sdk/core` truncates and writes the shared
+  `appmonitor-device-id` file non-atomically, with no coordination with the
+  Swift SDK: on a first launch that starts both (`KmpSampleApp.init`), each
+  can generate its own UUID, and the Swift SDK can read the truncated file
+  and make a third. The desktop then sees one install under two ids,
+  against ADR-0064 B.1.
+  Accept: `./gradlew :sdk:core:allTests` and `swift test --package-path
+  sdk/ios`, with a test where two writers race on an empty directory and
+  both return the id left in the file; the write is atomic on both sides.
+- [x] **M4.R3 A response body that fails to read leaves its request
+  pending.** (`fix/ktor-body-read-failure`; pays DEBT-0058's comment blocks, re-triggers its scheme item. Deviation: Ktor saves the body again in `fetchResponse`, so the
+  app's call throws too; the exchange ends `ResponseReceived` with the body unread, as a streamed one) `AppMonitorKtor`'s send interceptor returns on an exception
+  from `response.capture`, after `RequestStarted` was sent, so neither
+  `ResponseReceived` nor `RequestFailed` follows and the desktop shows the
+  exchange pending forever although the app got its response.
+  Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response whose
+  body read throws, ending in exactly one terminal envelope.
+- [x] **M4.R4 A rejected session can be retried as lost.** (`fix/rejected-session-not-lost`; DEBT-0027 already `Paid`,
+  nothing to do. Deviations: `MonitorClient` gains an internal `openSession` seam so a test can make the teardown throw;
+  `make check` found M4.R6) In
+  `MonitorClient.connectAndServe`, an exception from the `call` coroutine's
+  teardown after `outcome` completed (e.g. `Rejected` on close 1008) fails
+  the `coroutineScope`, and the catch returns `Outcome.Lost`: backoff is not
+  exhausted and the client keeps retrying a desktop that rejected it.
+  DEBT-0027 fires (`MonitorClient` change).
+  Accept: `./gradlew :sdk:core:allTests` with a session that completes
+  `Rejected` and whose close throws, ending rejected, not lost.
+- [x] **M4.R5 The peer's close is lost when `incoming` closes with a
+  cause.** (`fix/ktor-ws-close-with-cause`. Deviation: only OkHttp's default session lost it;
+  on a raw one the close is a frame in `incoming`, read before the cause) `RecordingReceiveChannel` records the peer's close only on
+  `ClosedReceiveChannelException` or `hasNext() == false`; a channel closed
+  with a cause rethrows it from `receive()` and `hasNext()`, so the
+  `DIRECTION_RECEIVED:OPCODE_CLOSE` frame is never emitted (Darwin may fail
+  the session on the peer's close, M4.6).
+  Accept: `./gradlew :sdk:ktor:allTests` with an `incoming` closed with a
+  cause after a close frame, read by `receive()` and by `for`, both
+  recording the close once.
+- [x] **M4.R6 A writer whose temp file cannot open returns an id not in
+  the file.** (`fix/device-id-temp-file-race`; ADR-0079, DEBT-0059. Deviation: not the `createDirectories` race the task named;
+  kotlinx-io's Apple `Path.parent` uses `dirname(3)`'s shared buffer, so racing writers got each other's parent) Found by `make check` in M4.R4: `racingWritersOnAnEmptyDirectoryAllReturnTheIdLeftInTheFile`
+  failed 4 of 8 runs on the iOS simulator (passes on JVM and Android host;
+  PR CI is Linux, so it never ran there). Instrumented: while another writer
+  creates the directory, `createDirectories` throws "File exists" and then
+  `publish` throws `Failed to open <file>.<uuid> with No such file or
+  directory`; `deviceId` swallows it and returns its own fresh id, which
+  never reaches the file, so one install shows two ids (ADR-0064 B.1, ADR-0078).
+  Accept: `./gradlew :sdk:core:iosSimulatorArm64Test --tests '*DeviceIdTest*' --rerun`
+  green 10 runs in a row.
+
+### Second milestone review
+
+Findings of the `code-review` of `ad3e5a7..97038e3`. Two are correctness
+findings and became tasks. Four went to DEBT-0060 (the
+`createParentDirectories` KDoc, the JVM and Android `Platform` copies, the
+`MonitorClientTest` helper's two branches, `sessions` in
+`scripts/e2e_lib.sh` matching the app id in any field). Three were
+rejected:
+
+- the Swift SDK renaming over the file when `link` fails with something
+  other than `EEXIST`: the temp file sits in the same directory of the app
+  container, so `EXDEV` cannot happen, and `ENOSPC` or `EIO` fail the temp
+  file's write first;
+- racing writers both replacing a corrupt file: the SDKs now only publish
+  whole files (ADR-0078), so a corrupt one needs outside tampering and a
+  first-launch race together;
+- `sdk/ktor` recording a locally filled `closeReason` as a received close:
+  `CapturingDefaultSession` wraps OkHttp's session only, whose
+  `closeReason` completes from `onClosing` or `onClosed` (the peer's code)
+  and exceptionally on `onFailure`, which records nothing
+  (`OkHttpWebsocketSession.kt`, `ktor-client-okhttp-jvm` 3.5.1 sources).
+
+- [x] **M4.R7 Android writers race on the device id with no exclusive
+  link.** (`fix/android-device-id-without-link`; ADR-0080) SELinux denies `link` to every untrusted app
+  (`neverallow … file_type:file link` in AOSP's
+  `private/app_neverallows.te`), so on a real Android device
+  `linkExclusive` throws, `publish` falls back to `atomicMove`, and two
+  writers on a first launch (`sdk/android-okhttp` and `sdk/ktor` in one
+  app, or two processes) each move their own file: the first can re-read
+  its own id before the second move lands, and the install shows two ids
+  (ADR-0064 B.1, ADR-0078). The JVM host test links, so it never sees it.
+  Accept: `./gradlew :sdk:core:allTests` with a racing-writers test where
+  the link is refused, every writer returning the id left in the file;
+  the Android path no longer needs `link`.
+- [x] **M4.R8 A cancelled body read leaves its request pending.** (`fix/ktor-cancelled-body-read`)
+  `AppMonitorKtor`'s send interceptor rethrows a `CancellationException`
+  from `response.capture` with no terminal envelope, after
+  `RequestStarted`; `proceed()` emits `RequestFailed` for the same
+  cancellation, so a caller cancelled while its body is read (screen
+  closed, timeout) leaves the exchange pending on the desktop forever.
+  Accept: `./gradlew :sdk:ktor:allTests` with a `MockEngine` response
+  whose body read is cancelled, ending in exactly one `RequestFailed`.
+
+### Third milestone review
+
+Findings of the `code-review` of `97038e3..7819fe8`. None is a
+correctness finding against what the SDD states. Two went to DEBT-0061
+(two `sdk/core` `Platform` comments that restate ADR-0080, and
+`DeviceIdTest` not telling the link path from the lock path). Seven were
+rejected:
+
+- a corrupt id file replaced by two linking writers: rejected in the
+  second review, the SDKs only publish whole files (ADR-0078);
+- `link` failing with something other than `EEXIST`, on the JVM or iOS,
+  sending a writer to the lock while the others link: the temp file was
+  just written in the same directory, so the errors left (`EXDEV`,
+  `ENOSPC`, `EIO`) cannot happen or fail that write first;
+- the lock failing to open or take, leaving the id unsaved: the lock file
+  sits beside the temp file just written, in the app's own directory, and
+  the reported cases (NFS, a JVM without locks) are not where the SDK runs;
+- `withFileLock` blocking `start` with no timeout: the holder only reads
+  the file and renames under the lock, so the wait is one rename;
+- `flock` not retried on `EINTR` and the lock opened without `O_CLOEXEC`:
+  only reached when `link` fails as above, and an iOS app does not fork;
+- a body read cancelled after the status arrived ending in `RequestFailed`
+  rather than an unread `ResponseReceived`: the outcome M4.R8 chose and
+  tests, the app's call failing too.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: plan (#145); M4.1 KMP SDK decisions (#146); M4.2 `sdk/core`
+  lifecycle on Kotlin/Native on paper (#147); M4.3 `sdk/core` on iOS
+  (#148); M4.4 iOS discovery, `Hello` and the shared device id (#149);
+  M4.5 `sdk/ktor` HTTP capture (#150); M4.6 its WebSocket frames (#152);
+  M4.7 dedupe with the Swift SDK by the capture header (#153); M4.8 one
+  no-op per SDK module and `sdk/ktor` in the publication dry-run (#154);
+  DEBT-0047 firing (#151) and M4.8a hermetic end to ends (#156); M4.9 KMP
+  sample (#155); M4.10 KMP end to end on Android and iOS (#157); fast PR
+  suite, slow suites in the release gate (#158); M4.11 docs sync (#159).
+  Three review rounds: plan updates #160, #167 and this PR; fixes M4.R1
+  (#161), M4.R2 (#162), M4.R3 (#163), M4.R4 (#164), M4.R5 (#165), M4.R6
+  (#166), M4.R7 (#168), M4.R8 (#169).
+- **Decisions**: ADR-0062 to ADR-0080; ADR-0072 supersedes ADR-0026.
+- **Debt**: DEBT-0052 to DEBT-0061 created. DEBT-0047 paid by M4.8a,
+  DEBT-0057 by #158, DEBT-0049's double build and DEBT-0050's simulator
+  pick by M4.10; DEBT-0058's comment blocks paid by M4.R3, its scheme item
+  re-triggered; DEBT-0060's KDoc and `Platform` copies paid by M4.R7;
+  DEBT-0027 fired on M4.R4, already paid. Review findings left open are
+  only non-correctness ones, in DEBT-0058, DEBT-0060 and DEBT-0061. No
+  correctness finding is left open.
+- **Deviations**: M4.8a added when DEBT-0047 fired, before M4.9; M4.3
+  moved iOS `AppMonitor.start` to M4.4 and the no-op's iOS dump to M4.8;
+  M4.4 resolves with `dns_sd`, the TCP probe never leaving preparing on the
+  simulator; M4.9 needed compileSdk 37; #158 moved the simulator suites and
+  sample apps out of `make check` into the release gate (ADR-0076). The
+  reviews added M4.R1–M4.R8; three of them (R2, R6, R7) were the shared
+  device id file, each fix exposing the next platform case, and R6 was
+  found by `make check` while M4.R4 ran.
+- **Lessons**: the device id took four tasks because each platform's file
+  primitives (kotlinx-io's `dirname`, Android's SELinux `link` rule) were
+  checked only after a race test failed there: the next plan that shares a
+  file or resource across SDKs should list each platform's primitive and
+  its evidence in the ADR before the code. Running every end to end as a
+  `make` target first again paid off: M4.10's gate run was green; iOS end to ends cost more than estimated (22 against ≈10–12 min,
+  DEBT-0057).

@@ -36,6 +36,12 @@ message RequestStarted {
   optional int64 body_size = 7;
   // Holds for every event of this request_id, WebSocket frames included.
   CaptureLayer capture_layer = 8;
+  // The MockRule.id that answered the request on the device; absent when the
+  // network did (ADR-0110 E.1).
+  optional int64 mock_rule_id = 9;
+  // The request_id of the request this one sends again, on a ReplayRequest;
+  // absent for a call the app made itself (ADR-0111 D.1).
+  optional string replay_of = 10;
 }
 
 message ResponseReceived {
@@ -46,6 +52,9 @@ message ResponseReceived {
   bytes body = 4;
   bool body_truncated = 5;
   optional int64 body_size = 6;
+  // CAPTURE_LAYER_CONNECTION only: bytes the app wrote, body_size the bytes it
+  // read; status_code 0 and no body (ADR-0103).
+  optional int64 sent_size = 7;
 }
 
 message RequestFailed {

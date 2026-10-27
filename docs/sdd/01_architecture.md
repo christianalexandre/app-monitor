@@ -16,9 +16,12 @@ built are marked **(planned)**; see `../plans/` for their milestone.
                                                                   AI agents (Claude…) ┘
 ```
 
-Built: `protocol`, `desktop/server`, `desktop/app` (in-memory),
-`tools/fake-client`, the Android SDK (`sdk/core`, `sdk/android-okhttp`,
-`sdk/no-op`), `samples/android`, the iOS SDK (`sdk/ios`) and `samples/ios`.
+Built: `protocol`, `desktop/server`, `desktop/storage`, `desktop/mcp` (SDD 10),
+`desktop/app` (on SQLite),
+`tools/fake-client`, `tools/e2e-target`, `sdk/core` (JVM, Android, iOS),
+`sdk/android-okhttp`, the Ktor plugin (`sdk/ktor`, HTTP and WebSocket
+frames), the no-op modules (`sdk/*-no-op`), the iOS SDK (`sdk/ios`) and the
+samples (`samples/android`, `samples/ios`, `samples/kmp`).
 Everything else is **(planned)**.
 
 ## Protocol
@@ -32,8 +35,9 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 
 | Channel | Messages |
 | --- | --- |
-| `core` | `Hello` (device → desktop, first frame), `HelloAck` |
+| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077), `HelloAck` |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
+| `interaction` | `MockRules`, `BreakpointRules`, `BreakpointResume`, `BreakpointAbort` (desktop → device); `BreakpointHit` (device → desktop) (SDD 12, ADR-0113, ADR-0118) |
 
 `Envelope.type` names the message inside the channel; `Envelope.timestamp_ms`
 is when the event happened on the sender. Constants shared by both ends
@@ -68,8 +72,9 @@ device                         AppMonitorServer
   │                            │   → close 1002 (protocol error)
   │                            │ pending: DeviceApproval.approve(hello), no timeout
   │                            │   rejected → close 1008; any frame → close 1002
-  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network)
+  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network, interaction)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
+  │◄─ Envelope(…) ×N ──────────│ ← DeviceSession.send, after HelloAck only
   │                            │ channel not accepted, or a known network event
   │                            │   undecodable / without request_id → close 1002
   │                            │ frame > Protocol.MAX_FRAME_BYTES → close 1009
@@ -80,6 +85,8 @@ device                         AppMonitorServer
 - `DeviceSession.envelopes: Flow<Envelope>`: every envelope after `Hello`,
   in order; completes when the socket closes. A non-binary or undecodable
   frame closes the connection with 1002.
+- `DeviceSession.send(envelope)`: queues an envelope for the device on an
+  accepted channel, written in order after `HelloAck` (SDD 12).
 - Both flows are bounded/single-collector: a lagging collector stops socket
   reads (TCP back-pressure), nothing is dropped.
 - `AppMonitorServer` is single use: `stop()` completes `sessions` for good,
@@ -117,8 +124,19 @@ device                         AppMonitorServer
   its ping while pending is withdrawn. The default approves every device
   (headless server, tests); the desktop app passes `DeviceApprovals`, which
   asks once per (`device_id`, `app_id`), shares one pending entry between
-  connections of the same pair, and remembers each answer until the app
-  quits (persisted in M5).
+  connections of the same pair, and remembers each answer, starting from
+  the ones it is built with, until `forget` (persisted by the app, below).
+  `AppMonitorServer.disconnect(key)` closes the pair's connections with
+  1008, handshakes still pending or answered but not yet published
+  included; under the lock that publishes sessions, so a connection racing
+  a forget either is closed after `HelloAck` or never gets one. An answered
+  handshake found forgotten sends the 1008 itself before its handler
+  returns, so Ktor's normal 1000 close never wins.
+  `DeviceApprovals.disconnect(hello)` refuses the pair at once, whatever its
+  answer and without a pending entry (connections still pending are
+  answered with a refusal it does not remember), until `reconnect(key)`;
+  `disconnected` lists the pairs with the `Hello` given, in memory only
+  (ADR-0144).
 - Envelope rules (ADR-0021): an envelope on a channel not accepted in
   `HelloAck`, or a `RequestStarted` / `ResponseReceived` / `RequestFailed` /
   `WebSocketFrame` whose payload does not decode or has an empty
@@ -139,7 +157,8 @@ device                         AppMonitorServer
 
 `desktop/server` has a headless `main` (`make server`) that prints one line
 per session connect/disconnect and per envelope, decoded for the `network`
-messages. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
+messages; with `--proxy <dir>` it also runs the proxy (SDD 11) and prints
+its exchanges as the `[proxy]` session. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
 the desktop over mDNS on every LAN IPv4 address, skipping one where JmDNS
 cannot open (or at `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
@@ -175,9 +194,11 @@ a stack trace (DEBT-0010). See ADR-0010.
   shared `protocol/fixtures/masking.json` vector (ADR-0036). Debug builds
   need the local network keys, which
   `sdk/ios/scripts/add_local_network_keys.sh` adds (ADR-0049).
-- **Android / KMP**: `sdk-core` in KMP (JVM + Android, `minSdk` 24); the
-  OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor adapter
-  **(planned)**. Connection states, offline buffer and `stop()`: SDD 04
+- **Android / KMP**: `sdk/core` in KMP (JVM, Android `minSdk` 24, `iosArm64`
+  and `iosSimulatorArm64`; Kotlin/Native specifics in SDD 04, ADR-0066 to
+  ADR-0068); the
+  OkHttp adapter `sdk/android-okhttp` (SDD 05, ADR-0025); Ktor plugin
+  `sdk/ktor` on JVM, Android and iOS, HTTP and WebSocket frames (SDD 08, ADR-0069, ADR-0070). Connection states, offline buffer and `stop()`: SDD 04
   (ADR-0022); module layout and Ktor CIO transport: ADR-0023.
 - **Android entry point** (ADR-0017): `AppMonitor.start(context, options)` /
   `stop()`; `AppMonitorOptions` holds the enabled flag, manual host and port,
@@ -185,9 +206,23 @@ a stack trace (DEBT-0010). See ADR-0010.
   `masking` switch (ADR-0034). Masking
   and the body limit run on the device, before the wire (ADR-0018). Capture:
   `AppMonitorInterceptor` and `AppMonitorWebSocketFactory`.
-- **Release builds** depend on `sdk/no-op`: the same public types doing
-  nothing, kept identical by comparing the committed ABI dumps (ADR-0026).
-- `samples/android` uses the SDK in debug and `sdk/no-op` in release, and
+- **KMP entry point** (ADR-0062): `install(AppMonitorKtor)` on each
+  `HttpClient`, no configuration block, options from the running monitor;
+  `AppMonitor.start(context, options)` on Android and
+  `AppMonitor.start(options)` from `iosMain`, no common `expect`. Ktor 3.6.0
+  or newer. Masking as ADR-0063.
+- **Dedupe on iOS** (ADR-0003, ADR-0064, ADR-0071): an app running both
+  `sdk/ktor` and the Swift SDK shares one device id, so the desktop keeps two
+  sessions for one (`device_id`, `app_id`); `sdk/ktor` sets
+  `X-AppMonitor-Capture` on what it captured and the Swift SDK's hooks skip
+  those tasks, so each exchange shows once. On the JVM and Android, beside
+  `appmonitor-okhttp`, the same mark makes `AppMonitorInterceptor` skip
+  Ktor's OkHttp engine calls and take the header off (ADR-0129).
+- **Release builds** swap each SDK module for its no-op twin
+  (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
+  same public types doing nothing, kept identical by comparing the committed
+  JVM, Android and klib ABI dumps (ADR-0072).
+- `samples/android` uses the SDK in debug and `sdk/okhttp-no-op` in release, and
   `checkReleaseHasNoSdk` proves the release APK has no SDK classes
   (ADR-0030). It is the device side of the end-to-end run (SDD 02,
   ADR-0031).
@@ -197,27 +232,40 @@ a stack trace (DEBT-0010). See ADR-0010.
   (ADR-0048). The package gets `DEBUG` only in an app configuration whose
   name contains `Debug`. SwiftProtobuf is still linked in release
   (DEBT-0040).
-- `samples/ios` uses the same product in both configurations; its Release
+- `samples/ios` uses the same product, from the root `Package.swift`
+  (ADR-0109), in both configurations; its Release
   app names nothing of the `AppMonitor` module but the two stubs, and only
   its Debug app has the local network keys (`make ios-sample`, ADR-0050).
+- `samples/kmp` (Compose Multiplatform, Android and iOS) calls through Ktor
+  with `install(AppMonitorKtor)`; its iOS host also starts the Swift SDK.
+  Release builds swap the SDK for its no-ops (ADR-0062 D.1): on iOS the
+  shared module's Gradle script picks `sdk/ktor-no-op` from Xcode's
+  `CONFIGURATION`, on Android the release app substitutes `sdk/ktor` and
+  `sdk/core`; `make kmp-sample` checks both releases hold no SDK name
+  (ADR-0073).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 
 ## Desktop
 
 Compose Multiplatform on the JVM. Ktor server + JmDNS, SQLDelight storage
-**(planned)**, MCP server bound to `127.0.0.1` **(planned)**. Each debug tool
+(`desktop/storage`, SDD 09), MCP server bound to `127.0.0.1` (`desktop/mcp`,
+SDD 10), proxy on `127.0.0.1`, off by default (`desktop/proxy`, SDD 11). Each debug tool
 is a feature module owning a `channel` **(planned)**. See ADR-0005.
 
 `desktop/app` today (ADR-0011):
 
 ```
-AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<TrafficState> ──► AppMonitorApp
-                                 one coroutine per session;     devices + HTTP exchanges,
-                                 TrafficState.received(envelope) immutable snapshots
+AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ──► LiveTraffic (SDD 09) ──► observed reads ──► AppMonitorApp
+                                 one coroutine per session;  │          in memory,           sessions, a page
+                                 connected / received /      │          bounded; stored      of exchanges, one
+                                 disconnected                │          runs from Storage    exchange's detail
+                                                             └─► Storage, what starts while recording (ADR-0142)
 ```
 
-- `main` starts `AppMonitorServer` with the default config and feeds
+- `main` opens `Storage` in `dataDirectory()` first; when that fails the
+  window shows the error and the file's path and no server starts (SDD 09).
+  Then it starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
   "Server stopped" when `sessions` completes because someone else stopped
   the server, or "Server failed" with any startup or session failure, `Error`s included
@@ -240,25 +288,156 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
   The app's hook and `runServer` share one `once(server::stop)`: whichever
   runs first stops the server and the other returns at once, so a hanging
   `stop()` delays the exit by one `STOP_TIMEOUT` and is reported once.
-- `TrafficState.received` turns `RequestStarted` / `ResponseReceived` /
-  `RequestFailed` into one `HttpExchange` per `(session, request_id)`;
-  duration is the difference of the envelopes' `timestamp_ms`. Each
-  `WebSocketFrame` is appended, in arrival order, to the `frames` of the
-  exchange of its `request_id` (the upgrade request). Other
-  channels, other types and undecodable payloads leave the state unchanged.
-- A device stays in the list after it disconnects, with its traffic.
-- Approval: `DeviceApprovals.pending` drives a panel over the three panes,
+  After the server, `once { storage.close(STOP_TIMEOUT) }` ends the run and
+  drains the write queue, from `main` or from the hook, whose bound is
+  then two `STOP_TIMEOUT`s. A session's `Disconnected` waits at most
+  `STOP_TIMEOUT` for room in the queue, so a stalled disk cannot hold the exit.
+- Storage turns `RequestStarted` / `ResponseReceived` / `RequestFailed`
+  into one exchange per `(session, request_id)` and each `WebSocketFrame`
+  into a frame of the exchange of its `request_id` (SDD 09); duration is the
+  difference of the envelopes' `timestamp_ms`. Other channels, other types
+  and undecodable payloads are kept apart and not shown.
+- Live list and runs (ADR-0140): the window opens on the live list
+  ("Live ▾"), every device's traffic since the last "Clear", in memory and
+  not stored (SDD 09). The device list shows its sessions, oldest first,
+  "connected" until they end, under "All devices"; "All devices" (the
+  default) lists every device's requests in one list, a device only its
+  own. Above the request list, on the live list only: "Record" / "Stop
+  recording" (ADR-0142), "Save" (or "Save N") which stores the ticked
+  requests, or the selected one, in "Saved" and says how many it saved
+  (ADR-0143), and "Clear", which empties the live list. The picker opens
+  "Live", "Saved" once something is saved, then the recordings, newest
+  first: each opens read-only, on all its devices; "Rename" names a
+  recording (blank makes it unnamed again). No run opens at launch.
+- Reading: every pane follows the live list's reads, run again after each
+  change, or a stored run's SQLDelight query flows, re-run after each
+  commit that touches their table. The request list is the device's, or
+  every device's, first `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that
+  limit by one page. The detail reads the selected exchange, its bodies and
+  its first `PAGE_SIZE` frames ("Show more frames" reads one more page)
+  again whenever its list row changes. A write failure shows
+  "N events not saved: <error>" under the status.
+- Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
+  issue" (or "Save N as issue") in the toolbar takes the ticked requests,
+  from any session or run, or the selected one (live ones are saved to
+  "Saved" first, ADR-0143), and asks a title (the
+  first request's method and URL by default), a note and comma-separated
+  tags. "Issues" under the devices lists them newest first ("Open" or
+  "Resolved", tags, request count, "in the window" or "by MCP", last
+  change) with a status and a tag filter; one opens to edit its title,
+  note, tags and status, lists its requests, and "Delete" removes it after
+  a confirmation. The editor sends only the fields changed since it opened
+  (SDD 09 lists every writer and their order), so an MCP edit of another
+  field meanwhile is kept; the tags count as changed only when their field
+  is edited, so an MCP tag holding a comma survives an edit of another field.
+- Benchmarks (ADR-0097): "Benchmarks" under the devices opens, for
+  every device of the shown run (or every run) under the request filter,
+  one row per endpoint: count, status classes, error rate, p50, p95, p99,
+  sent and received stored body bytes, most called first; a column header
+  sorts by it, again reverses. The numbers are `endpoint_stats`' (SDD 10),
+  read once when opened and on "Refresh", not on each commit: a read pages
+  through up to 100 000 exchanges, and says so when it stops there.
+  With a run shown, "By device" (ADR-0140 D) splits the same rows into one
+  group of columns per device of the run, in the order they joined it:
+  count, status classes, p50, p95 and received bytes, `—` where a device
+  never called the endpoint; "By endpoint" goes back. A device reconnected
+  during the run is one column.
+- Run diff (ADR-0097): "Compare runs" in the run list (two runs or more)
+  opens a base and a run picked from every run (the previous and the
+  newest first), each by title and id, under the request filter for both.
+  It shows the counts added, gone, changed and unchanged, then the changed
+  endpoints (count, error rate, p50, p95 as `base → run`), the added and
+  the gone ones (the one side's numbers). The comparison is `diff_runs`'
+  (`diffEndpoints`, SDD 09), read on each pick and on "Refresh".
+- Export (ADR-0098): "Export HAR" under the devices asks a file in
+  the native save dialog and writes `export_har`'s HAR (SDD 10) of every
+  device of the shown run (or every run) under the request filter: the
+  first 1 000 exchanges, oldest first, bodies whole, refused past 32 MiB;
+  a line under the buttons says how many were written, or why not, and
+  how many connections were left out. The request detail's cURL tab
+  shows `to_curl`'s command for that exchange and "Copy" puts it on the
+  clipboard. Both go through `desktop/mcp`'s `Exports`.
+- Connections (ADR-0104): a `CONNECTION` exchange's row shows `CONNECT`,
+  `tcp://host:port` and `open`, `closed` or `failed` as its status; its
+  detail shows the layer caption, then bytes sent and received instead of
+  headers and bodies: its detail has only the Summary and Timing tabs. Benchmarks and the run diff
+  list it as `CONNECT host:port` (`connections.png`).
+- gRPC status (ADR-0107): a call whose `grpc_status` is other than 0 shows
+  `grpc N` as its status in the row and the detail, and counts as an error
+  in benchmarks and the run diff.
+- Approval: `DeviceApprovals.pending`, read as `PendingApproval`s through
+  `ApprovalStore` and `DecisionsViewModel`, drives a panel over the three panes,
   one device at a time ("<device_name> — <app_id> wants to connect", OS, app
   version, device id, "N more waiting"); Approve / Reject call
-  `DeviceApprovals.decide`. A pending device is not in the device list until
-  approved. `make fake-traffic` against the app must be approved within its
-  10 s handshake wait (DEBT-0028).
-- UI: three panes (devices, requests of the selected device, detail). The
+  `ApprovalStore.decide`, which answers the connections at once and queues
+  the answer to storage (ADR-0083). The store is built from the stored
+  answers at launch, so an approved pair is admitted with no dialog and a
+  rejected one closed with 1008 after a restart. "Settings" under the device
+  list opens the settings; their "Devices" section lists every answered pair
+  (name, app id, approved or rejected, date, OS, app version) with "Forget"
+  per row and "Forget all": a forgotten pair is asked again on its next
+  `Hello`, and its open sessions are closed with 1008 when it was approved.
+  A pending device is not in the device list until approved.
+  A connected session in the live list has "Disconnect" (ADR-0140 E,
+  ADR-0144): `ApprovalStore`, as `DeviceConnectionRepository`, refuses the
+  pair first and then closes its sessions with 1008; its next connections
+  are closed with 1008 with no dialog. Disconnected pairs are listed under
+  "Disconnected" below the devices, with "Reconnect", which lets the pair
+  in again as its answer says. Nothing of it is stored: a restart
+  reconnects every pair. The SDK keeps retrying with its backoff, as for a
+  rejected device.
+  `make fake-traffic` against the app must be approved within its 10 s
+  handshake wait the first time; its fixture `Hello` is always the same
+  pair, so later runs are admitted with no dialog (DEBT-0028).
+- UI (ADR-0146): a toolbar over three panes (devices, requests of the
+  selected device, detail). "◂ Devices" hides the devices pane and
+  "▸ Devices" brings it back; the rule after the devices and after the
+  requests is dragged to resize them (devices 240–400 dp, requests from
+  360 dp, the detail at least 360 dp; the window keeps at least
+  1000 × 600 px); the hidden pane and both widths are kept across launches
+  in `ui.panes` (ADR-0153). The toolbar holds the run picker, Record /
+  "Stop recording", Save and Clear (live list only), "Save as issue", the
+  URL search and "Filters", which opens the filter sheet (method, status
+  classes, "Failed only", hosts, ADR-0148); Save's and
+  the HAR export's notes show under it. A status bar along the bottom
+  holds the server's status, what failed to be stored and the retention
+  warning, then the screens the window opens: Issues, Benchmarks, Mocks,
+  Breakpoints, Export HAR, Settings; it stays while the devices pane is
+  hidden (ADR-0151). A request row shows its status as a badge colored by class
+  (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
+  pending or a socket neutral), the method, the URL cut in its middle,
+  "mocked" and "replay" badges, the start time to the millisecond (left
+  out while the list is under 560 dp) and the duration. An empty pane says why and what to do next: "No requests yet"
+  (live, recording or a stored run, each with its hint), "No requests
+  match" (a filter is set), "Select a request".
+- Request detail (ADR-0147): the method and URL, a copy note, "Mock this"
+  and "Send again" over five tabs: Summary (caption, error, replay link,
+  URL, connection bytes), Headers (request and response), Body (request
+  and response bodies, then WebSocket frames), Timing (started and ended
+  to the millisecond in this machine's zone, duration, frames: the
+  protocol carries no finer phase) and cURL. The tab picked stays for the
+  next request. Under the tabs, "Search in this request" highlights every
+  case-insensitive match in the shown tab and counts them per tab
+  ("Headers · 2", "2 matches"); cURL is highlighted but not counted, as it
+  repeats the others; the text stays while another request is picked
+  (ADR-0152). On the Body tab "N of M" with "↑" and "↓" walks the body
+  matches in reading order, request then response, scrolling to the
+  line of each; the current one is drawn stronger (ADR-0153). The search
+  field is one compact line with "×" to empty it, as is the toolbar's.
+  The detail's heading starts with the status badge the request row
+  shows; a request row leaves out `https://` (a plain `http://` stays). Headers show one per row, the name small and muted above the
+  value, in the order sent, each heading with its count. The URL, bodies
+  and cURL sit in a code block; a JSON body colors its keys, strings and
+  literals. Each part has "Copy": the URL, headers as `Name: value`
+  lines, a body whole as the device sent it (UTF-8, else its hex dump,
+  not the indented view), the timing lines, the cURL command; a note
+  at the pane's bottom says "Copied", "Nothing to copy" or why not, and
+  goes after two seconds (ADR-0153). The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
   when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
-  user can switch. The chosen format belongs to the exchange: another
+  user can switch with the Text / JSON / Hex chips, the shown one lit. The chosen format belongs to the exchange: another
   exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
   pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
@@ -281,22 +460,22 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► StateFlow<Tra
 
 Two levels guard the branches (details and commands in SDD 02, *CI*):
 
-- **PRs to `dev`**: `ci.yml` runs `make check` on ubuntu (ADR-0012) and
-  `pr-conventions.yml` checks branch, title, trailers and docs. iOS gates
-  run only locally on this level.
+- **PRs to `dev`**: `ci.yml` runs `make check`, the fast suite, on ubuntu
+  (ADR-0012, ADR-0076) and `pr-conventions.yml` checks branch, title,
+  trailers and docs. Swift host gates run only locally on this level.
 - **PRs to `main`**: `release-gate.yml` (ADR-0052) accepts only `dev` or
   `release/x.y.z` as head, then proves the whole system: desktop tests on
   ubuntu, macOS and windows; the Kotlin ↔ Swift contract (`make swift`,
-  `:protocol:allTests`); the Android sample on an emulator and the iOS
-  sample on a simulator, each against the headless server, every envelope
-  asserted (ADR-0056, ADR-0057); unsigned `.dmg`, `.msi`, `.deb` (ADR-0055);
+  `make swift-sim`, `:protocol:allTests`); every sample app in debug and
+  release (`make samples`, ADR-0076); the Android sample on an emulator, the iOS
+  sample on a simulator and the KMP sample on both, each against the
+  headless server and `tools/e2e-target`, every envelope asserted and every
+  exchange captured once (ADR-0056, ADR-0057, ADR-0074, ADR-0075); unsigned `.dmg`, `.msi`, `.deb` (ADR-0055);
   the SDK publication dry-run (ADR-0058). The `protect-main` ruleset makes
   every gate job a required check (ADR-0053).
 
 ## Limits
 
-- The desktop store is in memory and unbounded; it lives until the app
-  closes (SQLDelight in M5).
 - WebSocket ping and pong frames are not captured (DEBT-0029).
 - Selecting text across body chunks that scrolled out of view is lost
   (ADR-0029).

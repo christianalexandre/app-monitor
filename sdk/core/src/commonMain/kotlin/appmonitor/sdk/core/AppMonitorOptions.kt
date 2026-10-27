@@ -1,6 +1,7 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import kotlin.jvm.JvmOverloads
 
 /**
  * How [AppMonitor] runs (ADR-0017). [host] set: the only desktop tried, on [port]; null: discovered

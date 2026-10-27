@@ -21,18 +21,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetAddress
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,6 +74,9 @@ class AppMonitorServer internal constructor(
     @Volatile private var advertiser: MdnsAdvertiser? = null
 
     @Volatile private var stopped = false
+
+    // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
+    private val connections = ConcurrentHashMap<DefaultWebSocketServerSession, Hello>()
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -164,6 +170,20 @@ class AppMonitorServer internal constructor(
         releasing.await()
     }
 
+    /**
+     * Closes every connection of [key] with 1008, handshakes still waiting for their answer or their `HelloAck`
+     * included; the device's next `Hello` is asked for again.
+     */
+    fun disconnect(key: DeviceKey) {
+        synchronized(lock) {
+            connections.forEach { (connection, hello) ->
+                if (hello.device_id == key.deviceId && hello.app_id == key.appId && connections.remove(connection, hello)) {
+                    connection.launch { connection.close(FORGOTTEN) }
+                }
+            }
+        }
+    }
+
     private suspend fun release(
         advertiser: MdnsAdvertiser?,
         server: EmbeddedServer<*, *>?,
@@ -190,6 +210,15 @@ class AppMonitorServer internal constructor(
             close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
             return
         }
+        connections[this] = hello
+        try {
+            handshaken(hello)
+        } finally {
+            connections.remove(this)
+        }
+    }
+
+    private suspend fun DefaultWebSocketServerSession.handshaken(hello: Hello) {
         val approved = awaitApproval(hello) ?: return
         if (!approved) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
@@ -200,15 +229,37 @@ class AppMonitorServer internal constructor(
                 id = UUID.randomUUID().toString(),
                 hello = hello,
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
+                peerAddress = call.request.local.remoteAddress,
             )
-        // Under the lock stop takes: a handshake racing stop is either published or gets no HelloAck.
-        val published = synchronized(lock) { !stopped && newSessions.trySend(session).isSuccess }
-        if (!published) {
-            close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
-            return
+        // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
+        val publication =
+            synchronized(lock) {
+                when {
+                    !connections.containsKey(this) -> Publication.FORGOTTEN
+                    !stopped && newSessions.trySend(session).isSuccess -> Publication.PUBLISHED
+                    else -> Publication.STOPPED
+                }
+            }
+        // Returning before disconnect's close is sent lets Ktor close with 1000.
+        when (publication) {
+            Publication.FORGOTTEN -> {
+                close(FORGOTTEN)
+                return
+            }
+
+            Publication.STOPPED -> {
+                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+                return
+            }
+
+            Publication.PUBLISHED -> {
+                Unit
+            }
         }
+        var writer: Job? = null
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
+            writer = launch { for (envelope in session.outgoing) send(Frame.Binary(true, envelope.encode())) }
             for (frame in incoming) {
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
@@ -224,6 +275,7 @@ class AppMonitorServer internal constructor(
             }
         } finally {
             session.close()
+            writer?.cancel()
         }
     }
 
@@ -249,8 +301,11 @@ class AppMonitorServer internal constructor(
             timestamp_ms = System.currentTimeMillis(),
         )
 
+    private enum class Publication { PUBLISHED, FORGOTTEN, STOPPED }
+
     private companion object {
-        val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK)
+        val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
+        val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }
 

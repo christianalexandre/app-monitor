@@ -1,0 +1,33 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.christianalexandre:core>
+final class appmonitor.sdk.core/AppMonitorOptions { // appmonitor.sdk.core/AppMonitorOptions|null[0]
+    constructor <init>(kotlin/Boolean = ..., kotlin/String? = ..., kotlin/Int = ..., kotlin/String? = ..., kotlin.collections/Set<kotlin/String> = ..., kotlin.collections/Set<kotlin/String> = ..., kotlin/Int = ..., kotlin/Boolean = ...) // appmonitor.sdk.core/AppMonitorOptions.<init>|<init>(kotlin.Boolean;kotlin.String?;kotlin.Int;kotlin.String?;kotlin.collections.Set<kotlin.String>;kotlin.collections.Set<kotlin.String>;kotlin.Int;kotlin.Boolean){}[0]
+
+    final val appName // appmonitor.sdk.core/AppMonitorOptions.appName|{}appName[0]
+        final fun <get-appName>(): kotlin/String? // appmonitor.sdk.core/AppMonitorOptions.appName.<get-appName>|<get-appName>(){}[0]
+    final val enabled // appmonitor.sdk.core/AppMonitorOptions.enabled|{}enabled[0]
+        final fun <get-enabled>(): kotlin/Boolean // appmonitor.sdk.core/AppMonitorOptions.enabled.<get-enabled>|<get-enabled>(){}[0]
+    final val host // appmonitor.sdk.core/AppMonitorOptions.host|{}host[0]
+        final fun <get-host>(): kotlin/String? // appmonitor.sdk.core/AppMonitorOptions.host.<get-host>|<get-host>(){}[0]
+    final val maskedHeaders // appmonitor.sdk.core/AppMonitorOptions.maskedHeaders|{}maskedHeaders[0]
+        final fun <get-maskedHeaders>(): kotlin.collections/Set<kotlin/String> // appmonitor.sdk.core/AppMonitorOptions.maskedHeaders.<get-maskedHeaders>|<get-maskedHeaders>(){}[0]
+    final val maskedQueryParameters // appmonitor.sdk.core/AppMonitorOptions.maskedQueryParameters|{}maskedQueryParameters[0]
+        final fun <get-maskedQueryParameters>(): kotlin.collections/Set<kotlin/String> // appmonitor.sdk.core/AppMonitorOptions.maskedQueryParameters.<get-maskedQueryParameters>|<get-maskedQueryParameters>(){}[0]
+    final val masking // appmonitor.sdk.core/AppMonitorOptions.masking|{}masking[0]
+        final fun <get-masking>(): kotlin/Boolean // appmonitor.sdk.core/AppMonitorOptions.masking.<get-masking>|<get-masking>(){}[0]
+    final val maxBodyBytes // appmonitor.sdk.core/AppMonitorOptions.maxBodyBytes|{}maxBodyBytes[0]
+        final fun <get-maxBodyBytes>(): kotlin/Int // appmonitor.sdk.core/AppMonitorOptions.maxBodyBytes.<get-maxBodyBytes>|<get-maxBodyBytes>(){}[0]
+    final val port // appmonitor.sdk.core/AppMonitorOptions.port|{}port[0]
+        final fun <get-port>(): kotlin/Int // appmonitor.sdk.core/AppMonitorOptions.port.<get-port>|<get-port>(){}[0]
+}
+
+final object appmonitor.sdk.core/AppMonitor { // appmonitor.sdk.core/AppMonitor|null[0]
+    final fun start(appmonitor.sdk.core/AppMonitorOptions = ...) // appmonitor.sdk.core/AppMonitor.start|start(appmonitor.sdk.core.AppMonitorOptions){}[0]
+    final fun stop() // appmonitor.sdk.core/AppMonitor.stop|stop(){}[0]
+}

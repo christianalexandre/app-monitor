@@ -1,0 +1,77 @@
+-- Exchanges saved with a note (ADR-0095); `status` is 'open' or 'resolved', `source` 'window' or 'mcp'.
+CREATE TABLE issues (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  note TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('open', 'resolved')),
+  source TEXT NOT NULL CHECK (source IN ('window', 'mcp')),
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE TABLE issue_tags (
+  issue_ref INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (issue_ref, tag)
+);
+
+CREATE INDEX issue_tags_tag ON issue_tags(tag);
+
+-- ADR-0095 B.1: retention keeps a linked exchange; only "Clear all data" deletes one.
+CREATE TABLE issue_exchanges (
+  issue_ref INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  exchange_ref INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  PRIMARY KEY (issue_ref, exchange_ref)
+);
+
+CREATE INDEX issue_exchanges_exchange_ref ON issue_exchanges(exchange_ref);
+
+insert:
+INSERT INTO issues(title, note, status, source, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?);
+
+lastId:
+SELECT last_insert_rowid();
+
+exists:
+SELECT count(*) FROM issues WHERE id = ?;
+
+update:
+UPDATE issues
+SET title = coalesce(:title, title), note = coalesce(:note, note), status = coalesce(:status, status), updated_at_ms = :atMs
+WHERE id = :id;
+
+deleteTags:
+DELETE FROM issue_tags WHERE issue_ref = ?;
+
+addTag:
+INSERT OR IGNORE INTO issue_tags(issue_ref, tag) VALUES (?, ?);
+
+deleteExchanges:
+DELETE FROM issue_exchanges WHERE issue_ref = ?;
+
+addExchange:
+INSERT OR IGNORE INTO issue_exchanges(issue_ref, exchange_ref) VALUES (?, ?);
+
+-- Newest first, ids under :beforeId, at most :limit (-1: all); tags joined by a line break, which a tag never holds.
+filtered:
+SELECT issues.*,
+  (SELECT group_concat(tag, char(10)) FROM issue_tags WHERE issue_tags.issue_ref = issues.id) AS tags,
+  (SELECT count(*) FROM issue_exchanges WHERE issue_exchanges.issue_ref = issues.id) AS exchange_count
+FROM issues
+WHERE (:status IS NULL OR issues.status = :status)
+  AND (:tag IS NULL OR EXISTS (SELECT 1 FROM issue_tags WHERE issue_tags.issue_ref = issues.id AND issue_tags.tag = :tag))
+  AND issues.id < :beforeId
+ORDER BY issues.id DESC
+LIMIT :limit;
+
+exchangeIds:
+SELECT exchange_ref FROM issue_exchanges WHERE issue_ref = ? ORDER BY exchange_ref;
+
+allTags:
+SELECT DISTINCT tag FROM issue_tags ORDER BY tag;
+
+delete:
+DELETE FROM issues WHERE id = ?;
+
+deleteAll:
+DELETE FROM issues;

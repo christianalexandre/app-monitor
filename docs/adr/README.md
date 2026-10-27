@@ -33,7 +33,7 @@ Rules:
 | [0013](0013-loop-scripts-bash-tests.md) | Loop scripts are tested by a plain bash test in make check | Accepted |
 | [0014](0014-loop-watchdog-polls-a-marker.md) | Loop watchdog polls a done marker instead of trapping TERM | Accepted |
 | [0015](0015-loop-timeout-by-exit-status.md) | Loop reports a timeout only when the watchdog's TERM killed the session | Accepted |
-| [0016](0016-bounded-milestone-review.md) | Milestone review is incremental, keeps only correctness findings and stops after three rounds | Accepted |
+| [0016](0016-bounded-milestone-review.md) | Milestone review is incremental, keeps only correctness findings and stops after three rounds | Superseded by [0094](0094-faster-loop.md) |
 | [0017](0017-android-sdk-public-api.md) | Android SDK public API and minSdk | Accepted |
 | [0018](0018-capture-masking-and-device-approval.md) | What the Android SDK captures and masks, and device approval | Accepted |
 | [0019](0019-loop-merges-the-close-plan-pr.md) | The loop merges the close-plan PR and moves on to the next plan | Accepted |
@@ -43,7 +43,7 @@ Rules:
 | [0023](0023-sdk-core-module-and-ktor-transport.md) | sdk/core module layout and its Ktor CIO transport | Accepted |
 | [0024](0024-sdk-discovery-contract.md) | One mDNS selection rule for every client, and the SDK's discovery sources | Accepted |
 | [0025](0025-okhttp-capture-module.md) | OkHttp capture module, its bridge to sdk/core and the body cap | Accepted |
-| [0026](0026-no-op-artifact-and-abi-dumps.md) | One no-op artifact, checked against committed ABI dumps | Accepted |
+| [0026](0026-no-op-artifact-and-abi-dumps.md) | One no-op artifact, checked against committed ABI dumps | Superseded by [0072](0072-no-op-per-adapter-and-klib-dumps.md) |
 | [0027](0027-device-approval-on-the-desktop.md) | Device approval as a server hook, shown in the window | Accepted |
 | [0028](0028-websocket-frame-truncation-fields.md) | WebSocket frames carry a truncation flag and their original size | Accepted |
 | [0029](0029-desktop-renders-bodies-off-the-ui-thread.md) | The detail pane is a lazy list; bodies render off the UI thread in chunks | Accepted |
@@ -83,3 +83,92 @@ Rules:
 | [0063](0063-ktor-capture-masking-and-ios-keys.md) | What the Ktor plugin captures and masks, and the keys a KMP iOS app needs | Accepted |
 | [0064](0064-ktor-swift-dedupe-by-correlation-header.md) | How the Ktor plugin and the Swift SDK avoid capturing one exchange twice | Accepted |
 | [0065](0065-kmp-sample-app.md) | KMP sample app, its UI toolkit, targets and place in the release gate | Accepted |
+| [0066](0066-sdk-core-on-kotlin-native.md) | sdk/core on Kotlin/Native keeps CIO and runs its state tests in common code | Accepted |
+| [0067](0067-sdk-core-ios-build-and-stop-while-connecting.md) | sdk/core iOS build, live simulator test, and stop() letting a connect end itself | Accepted |
+| [0068](0068-kotlin-native-bonjour-resolves-with-dns-sd.md) | sdk/core on iOS browses with nw_browser and resolves with dns_sd, not a TCP probe | Accepted |
+| [0069](0069-ktor-capture-hook-and-common-masking.md) | The Ktor plugin captures in the send pipeline and masks by RFC 3986 on strings | Accepted |
+| [0070](0070-ktor-websocket-frames-from-the-engine-session.md) | The Ktor plugin records WebSocket frames on the engine's session | Accepted |
+| [0071](0071-ktor-capture-header-over-an-in-process-mark.md) | The Ktor plugin marks its captures with the header, not an in-process mark | Accepted |
+| [0072](0072-no-op-per-adapter-and-klib-dumps.md) | One no-op module per SDK module, checked against JVM, Android and klib dumps | Accepted |
+| [0073](0073-kmp-sample-layout-and-release-swap.md) | KMP sample in three modules, the release swap per platform and compileSdk 37 | Accepted |
+| [0074](0074-local-e2e-target-in-kotlin.md) | The end to ends call a local Ktor target passed to the samples at launch | Accepted |
+| [0075](0075-kmp-end-to-end-one-script-and-captured-once.md) | The KMP end to end is one script per platform argument, and every end to end asserts each exchange once | Accepted |
+| [0076](0076-fast-pr-suite-slow-suites-in-the-release-gate.md) | PRs to dev run a fast suite; slow suites run only in the release gate | Accepted |
+| [0077](0077-hello-names-the-sdk.md) | Hello names the SDK that opened the session | Accepted |
+| [0078](0078-device-id-published-by-hard-link.md) | The device id file is published by an exclusive hard link | Accepted |
+| [0079](0079-ios-device-id-directory-without-dirname.md) | sdk/core on iOS creates the device id directory with NSFileManager, not kotlinx-io | Accepted |
+| [0080](0080-device-id-file-lock-without-links.md) | Without hard links, sdk/core publishes the device id under a file lock | Accepted |
+| [0081](0081-what-the-desktop-stores-on-disk.md) | What the desktop stores on disk, where, and how it is protected | Accepted |
+| [0082](0082-storage-retention.md) | How long the desktop keeps captured traffic, and how it is cleared | Accepted |
+| [0083](0083-persisted-device-approvals.md) | Device approvals survive a restart, and how one is revoked | Accepted |
+| [0084](0084-what-a-run-is.md) | What a run is for the developer, and what the window shows by default | Superseded by [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) |
+| [0085](0085-desktop-storage-platform-primitives.md) | Desktop storage on SQLDelight 2.4.1 and sqlite-jdbc, its files and connection settings | Accepted |
+| [0086](0086-storage-open-and-write-details.md) | How the store prepares a new file, stores booleans and counts lost writes | Accepted |
+| [0087](0087-exchange-search-queries.md) | Exchange search is one WHERE built from the filters that are set | Accepted |
+| [0088](0088-retention-pass-and-clear-all.md) | Retention measures live pages, deletes in chunks on the writer thread, and "Clear all data" empties the file in place | Accepted |
+| [0089](0089-what-the-mcp-tools-return.md) | What the MCP tools return, and how bodies are capped | Accepted |
+| [0090](0090-who-can-call-the-mcp-server.md) | Who can call the MCP server, on which port, and whether it is on by default | Accepted |
+| [0091](0091-which-mcp-clients-and-setup-docs.md) | Which MCP clients the desktop serves, and what the setup docs cover | Accepted |
+| [0092](0092-mcp-server-platform-primitives.md) | MCP server on the Kotlin MCP SDK 0.15.0, stateless Streamable HTTP on Ktor CIO | Accepted |
+| [0093](0093-gradle-plugin-for-the-release-swap.md) | A Gradle plugin swaps the SDK for its no-ops in release builds | Accepted |
+| [0094](0094-faster-loop.md) | The loop reviews a milestone once, merges on auto, plans fewer tasks and stops less | Accepted |
+| [0095](0095-what-an-issue-keeps-and-who-writes-it.md) | What an issue keeps, how long, and who may write it | Accepted |
+| [0096](0096-issue-rows-and-their-writers.md) | Issue rows, their writers' order, and what retention trims | Accepted |
+| [0097](0097-endpoint-grouping-in-storage.md) | The endpoint grouping lives in desktop/storage | Accepted |
+| [0098](0098-window-exports-through-desktop-mcp.md) | The window's HAR and cURL exports call desktop/mcp's code | Accepted |
+| [0099](0099-grpc-swift-adapter.md) | Which grpc-swift the adapter targets, and how an app adds it | Accepted |
+| [0100](0100-connection-metadata-layer.md) | What the connection layer captures on iOS, and when it is on | Accepted |
+| [0101](0101-desktop-proxy-mode.md) | How the desktop proxy mode is exposed, trusted and fed | Accepted |
+| [0102](0102-grpc-call-events.md) | How a grpc-swift call maps onto the network events | Accepted |
+| [0103](0103-connection-events.md) | How a rebound socket maps onto the network events | Accepted |
+| [0104](0104-connection-exchanges-in-the-desktop.md) | How the desktop reads a connection exchange | Accepted |
+| [0105](0105-proxy-and-certificate-libraries.md) | Netty and Bouncy Castle for the desktop proxy | Accepted |
+| [0106](0106-proxy-http2-and-grpc.md) | How the desktop proxy relays HTTP/2 and stores gRPC | Accepted |
+| [0107](0107-grpc-status-in-the-desktop.md) | The desktop stores grpc-status in its own column | Accepted |
+| [0108](0108-proxy-trust-on-the-simulator.md) | How a simulator's gRPC client trusts the proxy | Accepted |
+| [0109](0109-grpc-core-in-the-ios-sample.md) | gRPC-Core in the iOS sample and the proxy in the iOS end to end | Accepted |
+| [0110](0110-mock-rules.md) | Mock rules from the desktop, served by the SDKs | Accepted |
+| [0111](0111-breakpoints-and-replay.md) | Breakpoints hold a call on the device; replay goes through the app | Accepted |
+| [0112](0112-okhttp-injection-by-the-gradle-plugin.md) | The Gradle plugin adds the OkHttp interceptor in debug builds | Accepted |
+| [0113](0113-interaction-channel-and-rule-storage.md) | The interaction channel's rule set and how the desktop keeps rules | Accepted |
+| [0114](0114-mock-editor-and-create-mock.md) | The window's mock editor and the create_mock tool | Accepted |
+| [0115](0115-mocks-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep, match and serve mock rules | Accepted |
+| [0116](0116-mocked-exchanges-in-the-desktop.md) | How the desktop keeps and shows a mocked exchange, and the headless server's rules | Accepted |
+| [0117](0117-mocks-in-the-ios-sdk.md) | How the iOS SDK keeps, matches and serves mock rules | Accepted |
+| [0118](0118-breakpoint-messages-and-held-calls.md) | Breakpoints as their own rule set; a held call named by its request and stage | Accepted |
+| [0119](0119-breakpoints-in-the-window.md) | A held call opens on its own; breakpoints get their own panel | Accepted |
+| [0120](0120-replay-messages-and-send-again.md) | Replay named by request id, refused by the device, linked within its session | Accepted |
+| [0121](0121-replay-from-mcp.md) | A replay an agent asks waits in memory for a click, and the tool answers at once | Accepted |
+| [0122](0122-replay-in-the-kotlin-sdks.md) | How the Kotlin SDKs keep and send a request again | Accepted |
+| [0123](0123-breakpoints-in-the-kotlin-sdks.md) | How the Kotlin SDKs hold a call at a breakpoint | Accepted |
+| [0124](0124-replay-in-the-ios-sdk.md) | How the iOS SDK keeps and sends a task again | Accepted |
+| [0125](0125-breakpoints-in-the-ios-sdk.md) | How the iOS SDK holds a task at a breakpoint | Accepted |
+| [0126](0126-how-the-gradle-plugin-finds-the-sdk-and-is-tested.md) | How the Gradle plugin finds the SDK and is tested | Accepted |
+| [0127](0127-the-gradle-plugin-rewrites-the-okhttp-client-constructor.md) | The Gradle plugin rewrites OkHttp's client constructor | Accepted |
+| [0128](0128-a-network-interceptor-serves-no-mock-and-keeps-the-host.md) | As a network interceptor, the OkHttp capture serves no mock and keeps the host | Accepted |
+| [0129](0129-ktor-marks-its-captures-beside-the-okhttp-sdk.md) | The Ktor plugin marks its captures beside the OkHttp SDK, and the interceptor skips and strips the mark | Accepted |
+| [0130](0130-a-held-ios-task-asks-the-apps-delegate.md) | A held iOS task asks the app's delegate | Accepted |
+| [0131](0131-background-tasks-resumed-before-start-are-adopted.md) | Background tasks the resume hook never saw are adopted at their first callback | Accepted |
+| [0132](0132-cleartext-allowed-by-a-debug-source-set-config.md) | Cleartext to the desktop is allowed by a debug source set config, not debug-overrides | Accepted |
+| [0133](0133-desktop-clean-architecture-and-design-system.md) | The desktop app is split into a design system, core layers and feature modules | Accepted |
+| [0134](0134-the-design-system-wraps-material-and-is-checked-by-a-script.md) | The design system wraps Compose Material and is checked by a script | Accepted |
+| [0135](0135-desktop-domain-models-mirror-the-store-and-keep-protocol-messages.md) | Desktop domain models mirror the store's and keep the protocol's messages | Accepted |
+| [0136](0136-desktop-view-models-are-wired-by-a-koin-dsl-module-per-window.md) | Desktop view models are wired by a Koin DSL module per window | Accepted |
+| [0137](0137-what-desktop-features-share-lives-in-desktop-ui.md) | What desktop features share lives in desktop/ui | Accepted |
+| [0138](0138-mcp-reads-through-a-paged-query-repository.md) | MCP reads through a paged query repository beside the window's | Accepted |
+| [0139](0139-live-traffic-by-default-and-runs-as-recordings.md) | The window shows live traffic by default; a run is a recording started and stopped by hand | Superseded by [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) |
+| [0140](0140-only-recordings-and-saved-exchanges-are-stored.md) | Live traffic stays in memory; only recordings and what the user saves are stored | Accepted |
+| [0141](0141-the-live-list-is-held-as-the-store-s-rows-in-memory.md) | The live list is held as the store's rows in memory, its ids apart from the store's | Accepted |
+| [0142](0142-a-recorder-sink-stores-what-starts-while-recording.md) | A Recorder sink stores what starts while recording, one session row per run | Accepted |
+| [0143](0143-save-copies-live-exchanges-into-one-saved-run.md) | Save copies live exchanges into one "Saved" run, marked by a column | Accepted |
+| [0144](0144-disconnect-refuses-a-pair-in-memory-until-reconnect.md) | Disconnect refuses a pair in memory, before approval, until Reconnect | Accepted |
+| [0145](0145-the-theme-is-a-stored-setting-applied-at-the-window-root.md) | The theme is a stored setting applied at the window root, every color a token with two values | Accepted |
+| [0146](0146-a-toolbar-over-the-panes-and-request-rows-with-a-status-badge.md) | A toolbar over the panes, request rows with a status badge, the URL cut in its middle | Accepted |
+| [0147](0147-request-detail-tabs-with-copy-actions.md) | Request detail in tabs, each part copied as the device sent it | Accepted |
+| [0148](0148-a-filter-sheet-keeps-any-of-the-picked-status-classes-and-hosts.md) | A filter sheet keeps any of the picked status classes and hosts | Accepted |
+| [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Accepted |
+| [0150](0150-the-macos-title-bar-takes-the-stored-theme-at-launch.md) | The macOS title bar takes the stored theme at launch | Accepted |
+| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Accepted |
+| [0152](0152-a-search-inside-the-request-and-code-blocks-for-its-texts.md) | A search inside the request, header rows, and code blocks with JSON colors | Accepted |
+| [0153](0153-field-test-polish-of-the-traffic-window.md) | Field test polish of the traffic window, the panes kept across launches | Accepted |
+| [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |

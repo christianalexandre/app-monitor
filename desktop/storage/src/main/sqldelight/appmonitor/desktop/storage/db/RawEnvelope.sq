@@ -1,0 +1,20 @@
+-- What the store does not turn into rows (ADR-0081 A.1).
+CREATE TABLE raw_envelopes (
+  id INTEGER PRIMARY KEY,
+  session_ref INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL,
+  type TEXT NOT NULL,
+  timestamp_ms INTEGER NOT NULL,
+  payload BLOB NOT NULL
+);
+
+CREATE INDEX raw_envelopes_session_ref_id ON raw_envelopes(session_ref, id);
+
+insert:
+INSERT INTO raw_envelopes(session_ref, channel, type, timestamp_ms, payload) VALUES (?, ?, ?, ?, ?);
+
+ofSession:
+SELECT * FROM raw_envelopes WHERE session_ref = ? ORDER BY id;
+
+deleteOfSession:
+DELETE FROM raw_envelopes WHERE session_ref = ?;

@@ -1,0 +1,43 @@
+-- Breakpoint rules per app (ADR-0111, ADR-0118): made in the window only, so none waits for a confirmation.
+-- AUTOINCREMENT: an id is never reused, as a held call names the rule that holds it.
+CREATE TABLE breakpoint_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  app_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  rule BLOB NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX breakpoint_rules_app_id ON breakpoint_rules(app_id, position);
+
+-- Last in its app's match order.
+insert:
+INSERT INTO breakpoint_rules(app_id, position, name, enabled, rule, created_at_ms, updated_at_ms)
+VALUES (:appId, (SELECT coalesce(max(position), -1) + 1 FROM breakpoint_rules WHERE app_id = :appId), :name, 1, :rule, :atMs, :atMs);
+
+lastId:
+SELECT last_insert_rowid();
+
+exists:
+SELECT count(*) FROM breakpoint_rules WHERE id = ?;
+
+update:
+UPDATE breakpoint_rules
+SET name = coalesce(:name, name), enabled = coalesce(:enabled, enabled), rule = coalesce(:rule, rule), updated_at_ms = :atMs
+WHERE id = :id;
+
+all:
+SELECT * FROM breakpoint_rules ORDER BY app_id, position, id;
+
+-- What a device of :appId is sent, in match order.
+activeOf:
+SELECT id, rule FROM breakpoint_rules WHERE app_id = ? AND enabled = 1 ORDER BY position, id;
+
+delete:
+DELETE FROM breakpoint_rules WHERE id = ?;
+
+deleteAll:
+DELETE FROM breakpoint_rules;

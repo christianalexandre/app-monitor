@@ -20,14 +20,17 @@ record of how the milestone was actually built once it is done.
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
   code of that milestone. The roadmap row then links to it.
+- **Size**: four to six tasks. No standalone "design on paper" or "docs
+  sync" task: a design lands with the first task that needs it, and every
+  PR keeps the docs it touches current (ADR-0094).
 - **Checkpoint**: when every task is `[x]`, the agent reviews the milestone
-  (`code-review`) in at most three rounds — the first on the whole milestone
-  diff, the next ones only on what changed since — and turns correctness
-  findings into `MN.R*` tasks, the rest into one DEBT per round (ADR-0016).
-  Then it opens the close-plan PR and merges it after green CI, unless a
-  correctness finding is left open or `PLAN_CHECKPOINT=1` is set: then it
-  stops, and the owner merging that PR is the approval to start the next
-  plan (ADR-0019).
+  (`code-review` at `medium`) **once**, on the whole milestone diff. Only
+  findings that normal use hits become `MN.R*` tasks; the rest go into one
+  DEBT (ADR-0094). The findings ride in the first `MN.R*` PR, and the close
+  in the last one (or in a close-plan PR when there is no task). It merges on
+  auto unless a correctness finding is left open or `PLAN_CHECKPOINT=1` is
+  set: then it stops, and the owner merging that PR is the approval to start
+  the next plan (ADR-0019).
 
 ## Index
 
@@ -37,46 +40,37 @@ record of how the milestone was actually built once it is done.
 | [0002](0002-android-sdk.md) | M1 | Android SDK | Done |
 | [0003](0003-ios-sdk.md) | M2 | iOS SDK | Done |
 | [0004](0004-release-gate.md) | M3 | Release gate | Done |
-| [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Active |
+| [0005](0005-kmp-sdk.md) | M4 | KMP SDK | Done |
+| [0006](0006-persistence-and-runs.md) | M5 | Persistence and runs | Done |
+| [0007](0007-mcp-server.md) | M6 | MCP server | Done |
+| [0008](0008-issues-benchmarks-export.md) | M7 | Issues, benchmarks, export | Done |
+| [0009](0009-ios-deep-capture.md) | M8 | iOS deep capture | Done |
+| [0010](0010-interaction.md) | M9 | Interaction | Done |
+| [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
+| [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
+| [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
-### M5 — Persistence and runs
+### Hold — field test before M10
 
-`desktop/storage` with SQLDelight (devices, apps, runs, requests, bodies
-compressed), named runs, search and filters, retention settings.
-
-### M6 — MCP server
-
-`desktop/mcp` on `127.0.0.1` (ADR-0005), tools `list_runs`, `search_requests`,
-`get_request`, `endpoint_stats`, `diff_runs`, `export_har`, `to_curl`; setup
-docs for Claude Code.
-
-### M7 — Issues, benchmarks, export
-
-Issues (requests + note + tags + status, also via MCP `save_issue` /
-`list_issues`), per-endpoint p50/p95/p99, error rate, bytes, run-to-run diff,
-HAR and cURL export in the UI.
-
-### M8 — iOS deep capture (layers 2–4)
-
-grpc-swift interceptor adapter, connection metadata via symbol rebinding,
-desktop MITM proxy mode with HTTP/2 + gRPC decoding and simulator CA install
-(ADR-0004). First, identify with Instruments which SDK the old tool missed.
-
-### M9 — Interaction
-
-Mocks and breakpoints (desktop → device), replay, Gradle plugin that injects
-the OkHttp interceptor automatically.
+The owner runs the SDKs in a real app (not only the samples), fixes what
+breaks and improves the desktop's interface together with the agent
+before anything is published. The loop does not plan past this section:
+reaching it is **stop: waiting for the owner**, who removes it when the
+field test is done.
 
 ### M10 — Distribution
 
 Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
 owner's, with the steps to let them run (ADR-0055: no signing cost), Maven
-Central, SwiftPM tags, docs site, README with GIFs.
+Central, SwiftPM tags, docs site, README with GIFs. The Gradle plugin that
+swaps the SDK for its no-ops in release builds, published with the SDK
+(ADR-0093); its TestKit consumer then resolves the published
+`appmonitor-okhttp` too, the module names of ADR-0126 A.1.
 
 ### Later — more debug channels
 

@@ -7,7 +7,9 @@ Rules:
 
 - Changed the design → change the chapter in the same PR.
 - Describe what exists. Planned work lives in `../plans/`; missing work in
-  `../tech-debt/`.
+  `../tech-debt/`. One exception: a section marked **Designed, not built
+  yet** is the contract a plan task writes before its code (ADR-0066); the
+  PR that builds it removes the mark.
 - New chapter: copy `_template.md` to `NN_topic.md` and add it below.
 
 ## Chapters
@@ -21,3 +23,8 @@ Rules:
 | 05 | [OkHttp capture](05_okhttp_capture.md) |
 | 06 | [iOS SDK connection lifecycle](06_ios_sdk_connection.md) |
 | 07 | [iOS URLSession capture](07_ios_urlsession_capture.md) |
+| 08 | [Ktor capture](08_ktor_capture.md) |
+| 09 | [Desktop storage](09_desktop_storage.md) |
+| 10 | [Desktop MCP server](10_desktop_mcp.md) |
+| 11 | [Desktop proxy](11_desktop_proxy.md) |
+| 12 | [Interaction channel](12_interaction.md) |

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0033
 title: Non-correctness findings of the second M1 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR that touches one of the files listed below
-paid_date:
+paid_date: 2026-10-25
 ---
 
 # DEBT-0033 — Non-correctness findings of the second M1 milestone review
@@ -27,12 +27,15 @@ standalone PR.
 
 ## Trigger
 
-The next PR that touches `Capture.kt` or `BodyFormat.kt` pays that file's
-items.
+The next PR that touches `BodyFormat.kt` pays its item. The OkHttp
+Capture.kt items are paid (below), so that name no longer triggers this.
 
 ## How it was paid
 
 Partly. The `Capture.kt` items were paid by PLAN-0002 M1.R5
 (`fix/mask-urls-in-response-headers`): a masked URL reaches the desktop with
 `██`, not its percent-encoding, user name included, and `Masking.url` makes
-one builder pass. The `BodyFormat.kt` item is open.
+one builder pass. The `BodyFormat.kt` item was paid by PLAN-0010 M9.3
+(`feat/mock-editor`): `chunked` cuts before a line that would take the
+chunk past `CHUNK_CHARS`, so a chunk holds at most `CHUNK_CHARS`
+characters plus one surrogate (`BodyFormatTest`).

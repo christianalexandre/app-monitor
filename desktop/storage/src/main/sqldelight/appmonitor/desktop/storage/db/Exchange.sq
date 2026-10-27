@@ -1,0 +1,113 @@
+-- One request and its outcome. `*_meta` are the events re-encoded without their body (SDD 09).
+CREATE TABLE exchanges (
+  id INTEGER PRIMARY KEY,
+  session_ref INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL,
+  method TEXT,
+  url TEXT,
+  host TEXT,
+  status_code INTEGER,
+  failed INTEGER NOT NULL DEFAULT 0,
+  started_at_ms INTEGER,
+  ended_at_ms INTEGER,
+  capture_layer INTEGER,
+  request_meta BLOB,
+  response_meta BLOB,
+  error TEXT,
+  frame_count INTEGER NOT NULL DEFAULT 0,
+  grpc_status INTEGER,
+  mock_rule_id INTEGER,
+  replay_of TEXT,
+  UNIQUE (session_ref, request_id)
+);
+
+CREATE INDEX exchanges_session_ref_id ON exchanges(session_ref, id);
+CREATE INDEX exchanges_host ON exchanges(host);
+CREATE INDEX exchanges_status_code ON exchanges(status_code);
+CREATE INDEX exchanges_method ON exchanges(method);
+
+insertIfAbsent:
+INSERT OR IGNORE INTO exchanges(session_ref, request_id) VALUES (?, ?);
+
+idOf:
+SELECT id FROM exchanges WHERE session_ref = ? AND request_id = ?;
+
+-- Each replay among :ids with the id of its original, in the same session, when it is still stored.
+originalsOf:
+SELECT replay.id AS replay, original.id AS original
+FROM exchanges AS replay
+JOIN exchanges AS original ON original.session_ref = replay.session_ref AND original.request_id = replay.replay_of
+WHERE replay.id IN :ids;
+
+started:
+UPDATE exchanges
+SET method = :method, url = :url, host = :host, started_at_ms = :atMs, capture_layer = :captureLayer, request_meta = :meta,
+  mock_rule_id = :mockRuleId, replay_of = :replayOf
+WHERE id = :id;
+
+responded:
+UPDATE exchanges SET status_code = :statusCode, grpc_status = :grpcStatus, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
+
+failed:
+UPDATE exchanges SET failed = 1, error = :error, ended_at_ms = :atMs WHERE id = :id;
+
+frameAdded:
+UPDATE exchanges SET frame_count = frame_count + 1 WHERE id = :id;
+
+-- Pages by key (SDD 09): the next page starts after the last id of the previous one.
+pageOfSession:
+SELECT id, session_ref, request_id, method, url, host, status_code, failed, started_at_ms, ended_at_ms, capture_layer, error, frame_count, grpc_status, mock_rule_id, replay_of
+FROM exchanges
+WHERE session_ref = :sessionRef AND id > :afterId
+ORDER BY id
+LIMIT :limit;
+
+-- The hosts a filter sheet offers (SDD 09).
+hosts:
+SELECT DISTINCT host FROM exchanges WHERE host IS NOT NULL ORDER BY host;
+
+hostsOfRun:
+SELECT DISTINCT exchanges.host FROM exchanges
+JOIN sessions ON sessions.id = exchanges.session_ref
+WHERE sessions.run_id = ? AND exchanges.host IS NOT NULL
+ORDER BY exchanges.host;
+
+hostsOfSession:
+SELECT DISTINCT host FROM exchanges WHERE session_ref = ? AND host IS NOT NULL ORDER BY host;
+
+countOfRun:
+SELECT count(*) FROM exchanges JOIN sessions ON sessions.id = exchanges.session_ref WHERE sessions.run_id = ?;
+
+pageOfRun:
+SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
+  exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status, exchanges.mock_rule_id, exchanges.replay_of
+FROM exchanges
+JOIN sessions ON sessions.id = exchanges.session_ref
+WHERE sessions.run_id = :runId AND exchanges.id > :afterId
+ORDER BY exchanges.id
+LIMIT :limit;
+
+byId:
+SELECT * FROM exchanges WHERE id = ?;
+
+exists:
+SELECT count(*) FROM exchanges WHERE id = ?;
+
+ofIssue:
+SELECT exchanges.id, exchanges.session_ref, exchanges.request_id, exchanges.method, exchanges.url, exchanges.host,
+  exchanges.status_code, exchanges.failed, exchanges.started_at_ms, exchanges.ended_at_ms, exchanges.capture_layer,
+  exchanges.error, exchanges.frame_count, exchanges.grpc_status, exchanges.mock_rule_id, exchanges.replay_of
+FROM exchanges
+JOIN issue_exchanges ON issue_exchanges.exchange_ref = exchanges.id
+WHERE issue_exchanges.issue_ref = ?
+ORDER BY exchanges.id;
+
+-- ADR-0095 B.1: what retention deletes of a session an issue keeps.
+deleteUnlinkedOfSession:
+DELETE FROM exchanges
+WHERE session_ref = ?
+  AND NOT EXISTS (SELECT 1 FROM issue_exchanges WHERE issue_exchanges.exchange_ref = exchanges.id);
+
+deleteAll:
+DELETE FROM exchanges;

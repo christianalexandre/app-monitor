@@ -2,6 +2,8 @@
 import Foundation
 
 let sdkVersion = "0.1.0-dev"
+// ADR-0077
+let sdkName = "swift"
 
 #if targetEnvironment(simulator)
 let isSimulator = true
@@ -12,19 +14,35 @@ let isSimulator = false
 /// The install's device id kept in `file`, excluded from backup; a missing or unreadable one is
 /// replaced by a new random UUID (ADR-0036 D).
 func deviceID(file: URL) -> String {
-    if let stored = try? String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-        UUID(uuidString: stored) != nil
-    {
-        return stored
-    }
+    if let stored = storedDeviceID(file: file) { return stored }
     let id = UUID().uuidString.lowercased()
-    try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try? Data(id.utf8).write(to: file, options: .atomic)
+    publish(id, to: file)
     var values = URLResourceValues()
     values.isExcludedFromBackup = true
     var excluded = file
     try? excluded.setResourceValues(values)
-    return id
+    return storedDeviceID(file: file) ?? id
+}
+
+/// Hard links `id`, written whole beside `file`, to it: the first writer wins, `sdk/core`'s
+/// included (ADR-0078).
+private func publish(_ id: String, to file: URL) {
+    let directory = file.deletingLastPathComponent()
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let temp = directory.appendingPathComponent("\(file.lastPathComponent).\(UUID().uuidString.lowercased())")
+    defer { unlink(temp.path) }
+    guard (try? Data(id.utf8).write(to: temp)) != nil else { return }
+    if link(temp.path, file.path) == 0 { return }
+    if errno == EEXIST, storedDeviceID(file: file) != nil { return }
+    rename(temp.path, file.path)
+}
+
+private func storedDeviceID(file: URL) -> String? {
+    guard
+        let stored = try? String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+        UUID(uuidString: stored) != nil
+    else { return nil }
+    return stored
 }
 
 /// Where the device id lives: the app's Application Support directory.
@@ -61,7 +79,10 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.appID = bundle.bundleIdentifier ?? ProcessInfo.processInfo.processName
     hello.appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     hello.sdkVersion = sdkVersion
-    hello.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
+    hello.channels = [
+        ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
+    ]
+    hello.sdkName = sdkName
     return hello
 }
 #endif

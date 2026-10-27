@@ -2,7 +2,12 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.v1.BreakpointHit
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
 import appmonitor.v1.Envelope
+import appmonitor.v1.MockRule
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -15,12 +20,51 @@ import kotlin.test.assertNotNull
 /** Records envelopes as the running monitor would buffer them. */
 internal class RecordingSink(
     override val options: AppMonitorOptions? = AppMonitorOptions(),
+    private val mocks: List<MockRule> = emptyList(),
+    private val breakpoints: List<BreakpointRule> = emptyList(),
+    /** How the desktop answers each hit. */
+    private val answer: suspend (BreakpointHit) -> BreakpointOutcome = { BreakpointOutcome.UNCHANGED },
 ) : CaptureSink {
     private val envelopes = LinkedBlockingQueue<Envelope>()
 
     override fun send(envelope: Envelope) {
         assertEquals(Protocol.CHANNEL_NETWORK, envelope.channel)
         envelopes.put(envelope)
+    }
+
+    // ADR-0110 B.1's matching is sdk/core's; a rule here answers the path it names on any host.
+    override fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = mocks.firstOrNull { pathOf(url) == it.path }
+
+    override fun breakpointFor(
+        method: String,
+        url: String,
+        stage: BreakpointStage,
+    ): BreakpointRule? =
+        breakpoints.firstOrNull {
+            pathOf(url) == it.path && if (stage == BreakpointStage.BREAKPOINT_STAGE_REQUEST) it.request else it.response
+        }
+
+    /** Every hit, in order. */
+    val hits: LinkedBlockingQueue<BreakpointHit> = LinkedBlockingQueue()
+
+    override suspend fun hold(hit: BreakpointHit): BreakpointOutcome {
+        hits.put(hit)
+        return answer(hit)
+    }
+
+    private fun pathOf(url: String) = "/" + url.substringAfter("://").substringAfter('/').substringBefore('?')
+
+    /** What [keepForReplay] kept, by request id. */
+    val replays: MutableMap<String, () -> String?> = java.util.concurrent.ConcurrentHashMap()
+
+    override fun keepForReplay(
+        requestId: String,
+        replay: () -> String?,
+    ) {
+        replays[requestId] = replay
     }
 
     val pending: Int get() = envelopes.size
