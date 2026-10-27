@@ -327,9 +327,11 @@ freshness, swift-format, `swift test` with the fixture tests, public API),
 `make swift-sim` and `./gradlew :protocol:allTests`
 (`iosSimulatorArm64Test` included); the simulator log and the protocol
 reports are uploaded on failure. The `samples` job, on macOS, installs
-XcodeGen and runs `make samples` (the Android sample's `build`, the iOS and
-KMP samples in debug and release with their SDK name scans); their logs are
-uploaded on failure (ADR-0076). The `e2e-android` job, on ubuntu,
+XcodeGen and runs `make android-samples kmp-sample` (the Android sample's
+`build`, the Gradle plugin's TestKit tests, the KMP sample in debug and
+release with its SDK name scans); `samples-ios`, beside it, runs `make
+ios-sample` (the iOS sample in debug and release, gRPC-Core built cold);
+their logs are uploaded on failure (ADR-0076, ADR-0154). The `e2e-android` job, on ubuntu,
 enables KVM, builds the debug APK and the `installDist` of the server and
 of `tools/e2e-target`, then
 boots an API 36 `google_apis` x86_64 emulator with

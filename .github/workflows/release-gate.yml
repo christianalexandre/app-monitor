@@ -168,17 +168,38 @@ jobs:
           brew install xcodegen
           xcodebuild -version
           xcrun simctl list devices available | grep -m1 iPhone
-      - name: Sample apps, debug and release
-        run: make samples
+      - name: Android and KMP samples, debug and release
+        run: make android-samples kmp-sample
       - name: Logs and reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: samples-logs
           path: |
-            build/ios-sample.log
             build/kmp-sample.log
             samples/android/build/reports/
+          retention-days: 7
+
+  # ADR-0154: the iOS sample's gRPC-Core build has a job of its own, so neither passes its timeout (DEBT-0080).
+  samples-ios:
+    needs: branch
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+          xcrun simctl list devices available | grep -m1 iPhone
+      - name: iOS sample, debug and release
+        run: make ios-sample
+      - name: Logs and reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: samples-ios-logs
+          path: build/ios-sample.log
           retention-days: 7
 
   e2e-android:
