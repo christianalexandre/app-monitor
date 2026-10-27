@@ -92,6 +92,47 @@ class ProxyServerTest {
     }
 
     @Test
+    fun `a client closing its tunnel before any TLS byte ends the CONNECT exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                }
+
+                val exchange = ended(1).single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `a client resetting its connection mid handshake ends the CONNECT exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                    // The start of a ClientHello turns the tunnel to TLS; a zero linger closes with a reset, no alert.
+                    socket.getOutputStream().write(byteArrayOf(0x16, 0x03, 0x01, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3c, 0x03, 0x03))
+                    socket.getOutputStream().flush()
+                    Thread.sleep(200)
+                    socket.setSoLinger(true, 0)
+                }
+
+                val exchange = ended(1).single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+            }
+        }
+    }
+
+    @Test
     fun `an origin certificate the proxy refuses is a failed exchange and a 502`() {
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy {
