@@ -87,7 +87,10 @@ class ProxyServerTest {
                 val result = curl("--proxy", url, "--cacert", otherCa, "https://127.0.0.1:${origin.port}/pinned")
 
                 assertNotEquals(0, result.exit)
-                val exchange = runCatching { ended(1) }.getOrElse { fail("no CONNECT ended; curl: ${result.output}", it) }.single().exchange
+                val exchange =
+                    runCatching {
+                        ended(1)
+                    }.getOrElse { fail("no CONNECT ended; stored: ${stored()}; curl: ${result.output}", it) }.single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)
                 assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)

@@ -148,6 +148,18 @@ internal class Proxy(
 ) {
     val url: String get() = "http://127.0.0.1:$port"
 
+    /** Every stored exchange as "METHOD url ended|open error", for a failure's message. */
+    suspend fun stored(): String {
+        storage.flush()
+        return storage
+            .sessions(storage.runId)
+            .flatMap { session ->
+                storage.exchangesOfSession(session.id).mapNotNull { storage.exchange(it.id) }
+            }.joinToString("; ") {
+                "${it.exchange.method} ${it.exchange.url} ${if (it.exchange.endedAtMs != null) "ended" else "open"} ${it.exchange.error}"
+            }.ifEmpty { "none" }
+    }
+
     /** The stored exchanges once [count] of them have ended. */
     suspend fun ended(count: Int): List<ExchangeDetail> =
         withTimeout(10.seconds) {
