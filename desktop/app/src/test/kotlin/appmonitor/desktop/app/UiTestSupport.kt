@@ -11,6 +11,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.AnnotatedString
@@ -42,6 +43,26 @@ internal class FakeClipboard : ClipboardManager {
 
     override fun getText() = copied
 }
+
+/**
+ * Opens [anchor]'s menu and picks [item]; clicks [anchor] again when the menu does not show, as a dialog that grows
+ * while its content loads moves the anchor from under a click aimed before.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.pick(
+    anchor: String,
+    item: String,
+) {
+    repeat(MENU_TRIES) {
+        onNodeWithText(anchor).performClick()
+        val shown = runCatching { waitUntil(timeoutMillis = MENU_WAIT_MS) { onAllNodesWithText(item).fetchSemanticsNodes().isNotEmpty() } }
+        if (shown.isSuccess) return onNodeWithText(item).performClick().let {}
+    }
+    error("$anchor never showed $item")
+}
+
+private const val MENU_TRIES = 3
+private const val MENU_WAIT_MS = 4_000L
 
 /** Opens the request detail's tab named [label]; the pick keeps it for the next request. */
 @OptIn(ExperimentalTestApi::class)
