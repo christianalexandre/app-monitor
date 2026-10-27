@@ -115,3 +115,4 @@ Rules:
 | [0095](0095-title-bar-follows-a-picked-theme-only-after-relaunch.md) | The macOS title bar follows a theme picked in Settings only after a relaunch | Someone reports the title bar's color not matching after picking Light or Dark in Settings | Open |
 | [0096](0096-no-jump-to-the-next-match-in-the-request-search.md) | The search inside a request has no jump to the next match | Someone searches a body longer than the detail pane and asks to be taken to the matches | Paid |
 | [0097](0097-issues-ui-test-missed-its-filter-chip-once.md) | The issues UI test missed its "Resolved" chip once | `IssuesUiTest` fails again, locally or on CI | Paid |
+| [0098](0098-a-client-refusing-the-proxy-certificate-is-not-recorded-on-windows.md) | A client refusing the proxy's certificate is not recorded on Windows | Someone runs the proxy on Windows, or the next PR that changes how `ClientHandler.kt` handles the client's TLS handshake | Open |

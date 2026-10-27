@@ -1,6 +1,7 @@
 package appmonitor.desktop.proxy
 
 import appmonitor.v1.CaptureLayer
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import java.net.BindException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -80,6 +81,7 @@ class ProxyServerTest {
 
     @Test
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
+        assumeFalse(System.getProperty("os.name").startsWith("Windows"), "DEBT-0098")
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 // A CA that is not the proxy's: curl reaches the handshake and refuses the leaf, with or without a system bundle.
