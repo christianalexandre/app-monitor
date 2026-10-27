@@ -102,8 +102,11 @@ internal class Curl(
     val output: String,
 )
 
+/** The curl the tests run: `APPMONITOR_CURL` when set, as Windows' own one lacks HTTP/2 and fails on revocation checks. */
+internal val CURL: String = System.getenv("APPMONITOR_CURL")?.takeIf { it.isNotBlank() } ?: "curl"
+
 internal fun curl(vararg args: String): Curl {
-    val process = ProcessBuilder(listOf("curl", "-sS", "--max-time", "20") + args).redirectErrorStream(true).start()
+    val process = ProcessBuilder(listOf(CURL, "-sS", "--max-time", "20") + args).redirectErrorStream(true).start()
     assertTrue(process.waitFor(30, TimeUnit.SECONDS), "curl did not finish")
     return Curl(process.exitValue(), process.inputStream.readBytes().decodeToString())
 }
@@ -144,6 +147,18 @@ internal class Proxy(
     val scratch: Path,
 ) {
     val url: String get() = "http://127.0.0.1:$port"
+
+    /** Every stored exchange as "METHOD url ended|open error", for a failure's message. */
+    suspend fun stored(): String {
+        storage.flush()
+        return storage
+            .sessions(storage.runId)
+            .flatMap { session ->
+                storage.exchangesOfSession(session.id).mapNotNull { storage.exchange(it.id) }
+            }.joinToString("; ") {
+                "${it.exchange.method} ${it.exchange.url} ${if (it.exchange.endedAtMs != null) "ended" else "open"} ${it.exchange.error}"
+            }.ifEmpty { "none" }
+    }
 
     /** The stored exchanges once [count] of them have ended. */
     suspend fun ended(count: Int): List<ExchangeDetail> =

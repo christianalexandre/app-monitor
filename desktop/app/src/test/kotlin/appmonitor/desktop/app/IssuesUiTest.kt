@@ -75,24 +75,17 @@ class IssuesUiTest {
                 onNodeWithText("Save as issue").assertExists()
                 screenshot("issues.png")
 
-                // A menu's items show once it has opened: wait for them before clicking (DEBT-0097).
-                onNodeWithText("Tag: Any ▾").performClick()
-                awaitText("checkout")
-                onNodeWithText("checkout").performClick()
+                pick("Tag: Any ▾", "checkout")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { !exists("Feed never answers") }
 
                 onNodeWithText("Cart fails then succeeds").performClick()
                 awaitText("Delete")
-                onNodeWithText("Status: Open ▾").performClick()
-                awaitText("Resolved")
-                onNodeWithText("Resolved").performClick()
+                pick("Status: Open ▾", "Resolved")
                 onNodeWithTag(ISSUE_NOTE).performTextReplacement("500 on the first try, fixed by the retry")
                 onNodeWithTag(SAVE_ISSUE).performClick()
                 awaitText("Resolved · checkout, flaky", substring = true)
 
-                onNodeWithText("Tag: checkout ▾").performClick()
-                awaitText("Any")
-                onNodeWithText("Any").performClick()
+                pick("Tag: checkout ▾", "Any")
                 awaitText("Feed never answers")
                 onNodeWithText("Feed never answers").performClick()
                 awaitText("Delete")

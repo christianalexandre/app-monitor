@@ -9,6 +9,7 @@ import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +39,7 @@ class SettingsViewModelTest {
             val viewModel = SettingsViewModel(retention)
             assertEquals(Retention(7, 1L shl 30), viewModel.state.value.retention)
 
-            viewModel.setRetention(Retention(null, 2L shl 30))
+            viewModel.changeRetention { Retention(null, 2L shl 30) }
             retention.state.value = RetentionState(usedBytes = 4096, keptOverBound = true)
 
             assertEquals(Retention(null, 2L shl 30), viewModel.state.value.retention)
@@ -46,6 +47,19 @@ class SettingsViewModelTest {
             assertNull(viewModel.state.value.mcp, "no MCP server, no section")
             assertNull(viewModel.state.value.proxy)
             assertNull(viewModel.state.value.theme)
+        }
+
+    @Test
+    fun `a second retention choice keeps the first one the store has not echoed yet`() =
+        runTest {
+            val slow = SlowRetention()
+            val viewModel = SettingsViewModel(slow)
+            viewModel.changeRetention { it.copy(maxAgeDays = 30) }
+            viewModel.changeRetention { it.copy(maxBytes = 2L shl 30) }
+            assertEquals(Retention(30, 2L shl 30), viewModel.state.value.retention, "shown at once")
+            slow.release()
+            assertEquals(listOf(Retention(30, 1L shl 30), Retention(30, 2L shl 30)), slow.written)
+            assertEquals(Retention(30, 2L shl 30), viewModel.state.value.retention)
         }
 
     @Test
@@ -105,6 +119,22 @@ private class FakeRetention : RetentionRepository {
     override val state = MutableStateFlow(RetentionState())
 
     override suspend fun setRetention(retention: Retention) {
+        this.retention.value = retention
+    }
+}
+
+// Holds every write until released, as a slow store would; echoes each one as it lands.
+private class SlowRetention : RetentionRepository {
+    override val retention = MutableStateFlow(Retention(7, 1L shl 30))
+    override val state = MutableStateFlow(RetentionState())
+    val written = mutableListOf<Retention>()
+    private val gate = CompletableDeferred<Unit>()
+
+    fun release() = gate.complete(Unit)
+
+    override suspend fun setRetention(retention: Retention) {
+        gate.await()
+        written += retention
         this.retention.value = retention
     }
 }

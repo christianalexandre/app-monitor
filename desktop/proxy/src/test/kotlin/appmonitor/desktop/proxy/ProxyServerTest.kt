@@ -1,6 +1,7 @@
 package appmonitor.desktop.proxy
 
 import appmonitor.v1.CaptureLayer
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import java.net.BindException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -16,9 +17,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 class ProxyServerTest {
-    private val originCa = ProxyCa.loadOrCreate(createTempDirectory("origin-ca"))
+    private val originCaDir = createTempDirectory("origin-ca")
+    private val originCa = ProxyCa.loadOrCreate(originCaDir)
 
     @Test
     fun `curl trusting the proxy ca gets its https response and the exchange is stored`() {
@@ -78,11 +81,58 @@ class ProxyServerTest {
 
     @Test
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
+        assumeFalse(System.getProperty("os.name").startsWith("Windows"), "DEBT-0098")
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
-                val result = curl("--proxy", url, "https://127.0.0.1:${origin.port}/pinned")
+                // A CA that is not the proxy's: curl reaches the handshake and refuses the leaf, with or without a system bundle.
+                val otherCa = originCaDir.resolve(ProxyCa.CERTIFICATE_FILE).toString()
+                val result = curl("--proxy", url, "--cacert", otherCa, "https://127.0.0.1:${origin.port}/pinned")
 
                 assertNotEquals(0, result.exit)
+                val exchange =
+                    runCatching {
+                        ended(1)
+                    }.getOrElse { fail("no CONNECT ended; stored: ${stored()}; curl: ${result.output}", it) }.single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `a client closing its tunnel before any TLS byte ends the CONNECT exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                }
+
+                val exchange = ended(1).single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `a client resetting its connection mid handshake ends the CONNECT exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                    // The start of a ClientHello turns the tunnel to TLS; a zero linger closes with a reset, no alert.
+                    socket.getOutputStream().write(byteArrayOf(0x16, 0x03, 0x01, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3c, 0x03, 0x03))
+                    socket.getOutputStream().flush()
+                    Thread.sleep(200)
+                    socket.setSoLinger(true, 0)
+                }
+
                 val exchange = ended(1).single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)

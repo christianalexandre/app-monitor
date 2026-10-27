@@ -13,12 +13,16 @@ import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** What the settings show of the MCP server: its [status], the switch, and the address and [token] to paste. */
 data class McpSettings(
@@ -56,6 +60,16 @@ class SettingsViewModel(
     private val proxy: ProxyRepository? = null,
     private val appearance: AppearanceRepository? = null,
 ) : ViewModel() {
+    // The newest retention: the store's, or the one just chosen while its writes are on their way (a second
+    // choice builds on the first, not on what the store has not echoed yet).
+    private val latestRetention = MutableStateFlow<Retention?>(null)
+    private val retentionWrites = Mutex()
+    private var pendingWrites = 0
+
+    init {
+        viewModelScope.launch { retention.retention.collect { if (pendingWrites == 0) latestRetention.value = it } }
+    }
+
     private val mcpSettings: Flow<McpSettings?> =
         mcp?.let { mcp ->
             combine(mcp.status, mcp.enabled, mcp.token) { status, enabled, token ->
@@ -70,7 +84,7 @@ class SettingsViewModel(
 
     val state: StateFlow<SettingsState> =
         combine(
-            retention.retention,
+            latestRetention.filterNotNull(),
             retention.state,
             answered?.answered ?: flowOf(emptyList()),
             mcpSettings,
@@ -79,8 +93,18 @@ class SettingsViewModel(
             .combine(appearance?.theme ?: flowOf(null)) { state, theme -> state.copy(theme = theme) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsState())
 
-    fun setRetention(retention: Retention) {
-        viewModelScope.launch { this@SettingsViewModel.retention.setRetention(retention) }
+    /** Applies [change] to the newest retention, the one shown or chosen just before, and writes it. */
+    fun changeRetention(change: (Retention) -> Retention) {
+        val next = latestRetention.value?.let(change) ?: return
+        latestRetention.value = next
+        pendingWrites++
+        viewModelScope.launch {
+            try {
+                retentionWrites.withLock { retention.setRetention(next) }
+            } finally {
+                pendingWrites--
+            }
+        }
     }
 
     /** Every pair when [device] is null. */

@@ -116,10 +116,10 @@ fun Settings(
         if (retention != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Choice("Keep", retention.maxAgeDays, AGE_CHOICES, ::ageOf, any = "Forever") {
-                    viewModel.setRetention(retention.copy(maxAgeDays = it))
+                    viewModel.changeRetention { r -> r.copy(maxAgeDays = it) }
                 }
                 Choice("Up to", retention.maxBytes, SIZE_CHOICES, ::bytesOf, any = null) {
-                    if (it != null) viewModel.setRetention(retention.copy(maxBytes = it))
+                    if (it != null) viewModel.changeRetention { r -> r.copy(maxBytes = it) }
                 }
             }
         }

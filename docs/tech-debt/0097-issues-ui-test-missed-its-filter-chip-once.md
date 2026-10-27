@@ -36,3 +36,10 @@ find any node … 'Resolved'" at `IssuesUiTest.kt:85`. The test clicked a
 menu's item right after the click that opens the menu; on a slow runner
 the menu had not opened yet. It now waits for each menu item ("checkout",
 "Resolved", "Any") before clicking it.
+
+The wait alone was not enough: the next Windows run (40422644832) timed out
+waiting for "Resolved" after the click on "Status: Open ▾". The issue
+editor loads its request list after it opens, so the dialog grows and
+recentres, and a click aimed before lands beside the moved anchor. The
+test now picks from a menu with `pick(anchor, item)`, which clicks the
+anchor again when the menu does not show (the settings test too).

@@ -88,3 +88,12 @@ server listens, so a taken port leaves no session
 a page at a time past the connections, which `log.comment` still counts
 (`ConnectionToolsTest.aConnectionDoesNotCountAgainstMaxEntries`, which
 fails on the earlier code). The other items are open.
+
+`ClientHandler.kt` fired by `fix/windows-proxy-curl` (#295), which changes
+only its `channelInactive`: a client leaving a tunnel before any TLS byte
+now ends the CONNECT exchange (`ProxyServerTest`, "a client closing its
+tunnel before any TLS byte…", which timed out before the fix, as the
+Windows gate did). Its two items here, the early answer and the relay's
+backpressure, change how requests and responses flow and are not mixed
+into a release gate fix: for `ClientHandler.kt` the trigger becomes the
+next PR that changes `responseEnded`, `content` or `forward`.

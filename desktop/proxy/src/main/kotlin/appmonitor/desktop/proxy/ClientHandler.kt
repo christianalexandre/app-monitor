@@ -304,6 +304,9 @@ internal class ClientHandler(
     }
 
     override fun channelInactive(ctx: ChannelHandlerContext) {
+        // A client leaving a tunnel before its handshake ends sends no TLS byte, so no handshake event ends the CONNECT.
+        connectCapture?.failed("TLS handshake with the client failed: the client closed the connection")
+        connectCapture = null
         exchange?.capture?.failed("The client closed the connection")
         exchange = null
         upstream?.close()

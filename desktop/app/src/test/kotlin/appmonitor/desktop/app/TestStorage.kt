@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.nio.file.FileSystemException
 import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
@@ -46,15 +47,30 @@ internal val HELLO =
 internal val drain: suspend (Flow<DeviceSession>) -> Unit = { it.collect() }
 
 /** A temporary data directory, deleted after [block]. */
-@OptIn(ExperimentalPathApi::class)
 internal fun <T> withDataDir(block: (Path) -> T): T {
     val dir = createTempDirectory("app-test").resolve("data")
     try {
         return block(dir)
     } finally {
-        dir.parent.deleteRecursively()
+        deleteWhenReleased(dir.parent)
     }
 }
+
+// Windows keeps a file just closed locked for a moment (a slow close, its scanner): try again before failing.
+@OptIn(ExperimentalPathApi::class)
+private fun deleteWhenReleased(dir: Path) {
+    repeat(DELETE_TRIES - 1) {
+        try {
+            return dir.deleteRecursively()
+        } catch (_: FileSystemException) {
+            Thread.sleep(DELETE_PAUSE_MS)
+        }
+    }
+    dir.deleteRecursively()
+}
+
+private const val DELETE_TRIES = 20
+private const val DELETE_PAUSE_MS = 500L
 
 /** A store in a temporary data directory, closed after [block]. */
 internal fun <T> withStorage(block: (Storage) -> T): T =
