@@ -18,7 +18,8 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class ProxyServerTest {
-    private val originCa = ProxyCa.loadOrCreate(createTempDirectory("origin-ca"))
+    private val originCaDir = createTempDirectory("origin-ca")
+    private val originCa = ProxyCa.loadOrCreate(originCaDir)
 
     @Test
     fun `curl trusting the proxy ca gets its https response and the exchange is stored`() {
@@ -80,7 +81,9 @@ class ProxyServerTest {
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
-                val result = curl("--proxy", url, "https://127.0.0.1:${origin.port}/pinned")
+                // A CA that is not the proxy's: curl reaches the handshake and refuses the leaf, with or without a system bundle.
+                val otherCa = originCaDir.resolve(ProxyCa.CERTIFICATE_FILE).toString()
+                val result = curl("--proxy", url, "--cacert", otherCa, "https://127.0.0.1:${origin.port}/pinned")
 
                 assertNotEquals(0, result.exit)
                 val exchange = ended(1).single().exchange
