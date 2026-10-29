@@ -1,5 +1,4 @@
 import Foundation
-import SwiftProtobuf
 import Testing
 
 @testable import AppMonitor
@@ -151,7 +150,7 @@ struct BreakpointsTests {
 
 @Suite(.serialized)
 struct MonitorClientBreakpointsTests {
-    static func envelope(_ type: String, _ message: some SwiftProtobuf.Message) -> Appmonitor_V1_Envelope {
+    static func envelope(_ type: String, _ message: some ProtoMessage) -> Appmonitor_V1_Envelope {
         interactionEnvelope(type, message)
     }
 

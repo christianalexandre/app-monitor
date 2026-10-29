@@ -1,6 +1,5 @@
 import Foundation
 import ObjectiveC
-import SwiftProtobuf
 import os
 
 /// Where captured events go: the running monitor, or a test double.
@@ -267,7 +266,7 @@ func requestStartedEvent(
 }
 
 /// Wraps `message` for the `interaction` channel.
-func interactionEnvelope(_ type: String, _ message: some SwiftProtobuf.Message) -> Appmonitor_V1_Envelope {
+func interactionEnvelope(_ type: String, _ message: some ProtoMessage) -> Appmonitor_V1_Envelope {
     var envelope = Appmonitor_V1_Envelope()
     envelope.channel = ProtocolConstants.channelInteraction
     envelope.type = type

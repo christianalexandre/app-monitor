@@ -1,10 +1,10 @@
 ---
 id: DEBT-0040
 title: An iOS release build still links SwiftProtobuf
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: M10's first SwiftPM tag, or an app reports the SDK's size in a release build
-paid_date:
+paid_date: 2026-10-29
 ---
 
 # DEBT-0040 — An iOS release build still links SwiftProtobuf
@@ -46,4 +46,11 @@ an *Embed & Sign* step.
 
 ## How it was paid
 
-> Filled when closing.
+By ADR-0160: `scripts/swift_proto_gen.py` writes the protocol types with
+protoc-gen-swift's names, on a hand-written `ProtoWire.swift`, and
+`AppMonitor` no longer depends on swift-protobuf. `FixtureTests` still
+decodes and re-encodes every fixture byte for byte. `make ios-sample` fails
+when the sample's Debug or Release app holds a `SwiftProtobuf` symbol; it
+holds none. The gRPC adapter keeps SwiftProtobuf, `from: "1.28.0"`, for the
+app's own messages. What is left: a schema feature the generator lacks
+stops `make swift-proto` until it writes it.

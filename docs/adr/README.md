@@ -56,7 +56,7 @@ Rules:
 | [0036](0036-ios-capture-masking-and-plist-keys.md) | What the iOS SDK captures and masks, and the Info.plist keys it needs | Accepted |
 | [0037](0037-where-swift-tests-run.md) | Where the Swift tests run | Accepted |
 | [0038](0038-capture-layer-field.md) | Exchanges carry the capture layer that produced them | Accepted |
-| [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Accepted |
+| [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Superseded by [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) |
 | [0040](0040-swift-transport-network-framework.md) | Swift transport on Network.framework, confined to one serial queue | Accepted |
 | [0041](0041-connection-refused-ends-connecting.md) | A refused connection ends connecting, other waits do not | Accepted |
 | [0042](0042-bonjour-address-by-tcp-probe.md) | A Bonjour result's address comes from a TCP probe to its service | Accepted |
@@ -177,3 +177,4 @@ Rules:
 | [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) | The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it | Accepted |
 | [0158](0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md) | A KMP app on iOS is captured by the Swift SDK alone | Accepted |
 | [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
+| [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |

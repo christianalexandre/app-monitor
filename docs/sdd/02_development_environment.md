@@ -16,8 +16,8 @@ What a machine needs to build and test the whole repository.
 | Claude Code CLI | logged in | `make loop` |
 
 No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
-`make swift-proto` builds `protoc` and `protoc-gen-swift` from the pinned
-swift-protobuf for `sdk/ios` (ADR-0039). `make check` is the fast suite
+`make swift-proto` writes `sdk/ios`'s types with `scripts/swift_proto_gen.py`,
+`python3` only (ADR-0160). `make check` is the fast suite
 (ADR-0076): docs, lint, script tests, `./gradlew build` without the sample
 apps, and the host Swift gates (`make swift`) only on macOS with `swift` on
 the `PATH`; elsewhere it prints `swift: SKIPPED` (ADR-0037). The slow
@@ -293,7 +293,7 @@ name, description, URL, license, developer or SCM, or when a no-op POM
 depends on an `appmonitor-*` artifact that is not a no-op (ADR-0072). On macOS it then builds
 `build/spm-consumer`, a throwaway executable that adds the root
 `Package.swift` by path, in debug and release, and prints the binary size
-and `SwiftProtobuf` symbol count (DEBT-0040). ≈35 s cold. Nothing is
+and `SwiftProtobuf` symbol count, 0 for the `AppMonitor` product (ADR-0160). ≈35 s cold. Nothing is
 uploaded anywhere: Central and tags are M10.
 
 ## CI

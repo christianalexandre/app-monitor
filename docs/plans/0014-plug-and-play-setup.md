@@ -80,14 +80,15 @@ permission and a second Kotlin start on iOS were all written by hand.
   Accept: `./gradlew -p gradle-plugin check :gradle-plugin:functionalTest
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` with
   no WebSocket line in the sample, its four frames asserted.
-- [ ] **H4.6 The iOS SDK without SwiftProtobuf.** The package pins
+- [x] **H4.6 The iOS SDK without SwiftProtobuf.** (#301) The package pins
   `swift-protobuf` at `exact: 1.39.0`, so an app on another version cannot
   resolve both. Its runtime also stays in release builds (DEBT-0040). A
-  minimal codec generated from `protocol/proto` replaces it. New ADR,
-  changing ADR-0003 and ADR-0039.
+  minimal codec generated from `protocol/proto` replaces it (ADR-0160,
+  superseding ADR-0039; ADR-0003 is unchanged). The gRPC adapter keeps
+  SwiftProtobuf, with a version range, for the app's own messages.
   Accept: `make swift`, where `FixtureTests` decodes and re-encodes every
-  fixture byte for byte; the root `Package.swift` with no
-  `swift-protobuf`; `make ios-sample` with no `SwiftProtobuf` symbol in
+  fixture byte for byte; the root `Package.swift` with `swift-protobuf`
+  only for `AppMonitorGRPC`; `make ios-sample` with no `SwiftProtobuf` symbol in
   the Release app; DEBT-0040 paid.
 
 H4.1 to H4.4 landed in one PR (#298): the README, the ADR index and the
