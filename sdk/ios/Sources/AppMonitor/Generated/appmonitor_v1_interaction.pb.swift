@@ -70,8 +70,8 @@ struct Appmonitor_V1_MockRule: ProtoMessage, Hashable, Sendable {
         case 3: host = try reader.string()
         case 4: path = try reader.string()
         case 5: delayMs = Int64(bitPattern: try reader.varint())
-        case 6: answer = .response(try reader.message(Appmonitor_V1_MockResponse.self))
-        case 7: answer = .failure(try reader.message(Appmonitor_V1_MockFailure.self))
+        case 6: answer = .response(try reader.message(merging: response))
+        case 7: answer = .failure(try reader.message(merging: failure))
         default: try reader.skip(into: &unknownFields)
         }
     }
@@ -246,8 +246,8 @@ struct Appmonitor_V1_BreakpointHit: ProtoMessage, Hashable, Sendable {
         switch number {
         case 1: ruleID = Int64(bitPattern: try reader.varint())
         case 2: stage = Appmonitor_V1_BreakpointStage(rawValue: Int(Int32(truncatingIfNeeded: try reader.varint())))!
-        case 3: _request = try reader.message(Appmonitor_V1_RequestStarted.self)
-        case 4: _response = try reader.message(Appmonitor_V1_ResponseReceived.self)
+        case 3: _request = try reader.message(merging: request)
+        case 4: _response = try reader.message(merging: response)
         case 5: timeoutMs = Int64(bitPattern: try reader.varint())
         default: try reader.skip(into: &unknownFields)
         }

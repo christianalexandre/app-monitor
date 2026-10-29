@@ -1,7 +1,8 @@
 import Foundation
 
 /// The protobuf wire format the generated `Appmonitor_V1_*` types encode with (ADR-0160): varint and
-/// length-delimited fields written in field-number order, proto3 defaults left out, unknown fields kept.
+/// length-delimited fields written in field-number order, proto3 defaults left out, unknown fields kept,
+/// a message field read twice merged.
 protocol ProtoMessage: Hashable, Sendable {
     init()
     var unknownFields: ProtoUnknownFields { get set }
@@ -47,7 +48,11 @@ enum ProtoDecodingError: Error, Equatable {
     case wireTypeMismatch(field: Int)
     case invalidUTF8(field: Int)
     case unsupportedWireType(Int)
+    case invalidFieldNumber
 }
+
+/// Field numbers run from 1 to 2^29 - 1.
+private let maxFieldNumber: UInt64 = (1 << 29) - 1
 
 struct ProtoWriter {
     private(set) var bytes: [UInt8] = []
@@ -127,6 +132,7 @@ struct ProtoReader {
         guard position < buffer.count else { return false }
         fieldStart = position
         let key = try rawVarint()
+        guard (1...maxFieldNumber).contains(key >> 3) else { throw ProtoDecodingError.invalidFieldNumber }
         fieldNumber = Int(key >> 3)
         wireType = Int(key & 7)
         return true
@@ -139,7 +145,8 @@ struct ProtoReader {
             guard position < buffer.count else { throw ProtoDecodingError.truncated }
             let byte = buffer[position]
             position += 1
-            guard shift < 64 else { throw ProtoDecodingError.malformedVarint }
+            // The tenth byte holds bit 63 only.
+            guard shift < 63 || (shift == 63 && byte <= 1) else { throw ProtoDecodingError.malformedVarint }
             value |= UInt64(byte & 0x7F) << shift
             if byte & 0x80 == 0 { return value }
             shift += 7
@@ -176,8 +183,13 @@ struct ProtoReader {
     }
 
     mutating func message<Message: ProtoMessage>(_ type: Message.Type) throws -> Message {
+        try message(merging: Message())
+    }
+
+    /// A message field read again merges into its value so far, as protobuf's parsers do.
+    mutating func message<Message: ProtoMessage>(merging current: Message) throws -> Message {
         var nested = ProtoReader(bytes: Array(try delimited()))
-        var message = Message()
+        var message = current
         try message.decode(from: &nested)
         return message
     }
