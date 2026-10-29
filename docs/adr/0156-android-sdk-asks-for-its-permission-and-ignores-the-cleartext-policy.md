@@ -34,10 +34,11 @@ the SDK must be the whole setup.
 1. **Keep both steps documented** (ADR-0017 E/F, ADR-0132). Two files per
    build type in every app.
 2. **The SDK does both.** `start` registers `ActivityLifecycleCallbacks`.
-   On Android 17+, without the permission, the first resumed Activity that
-   is not finishing asks for `ACCESS_LOCAL_NETWORK` once per process (the
-   callbacks are removed at once; a dismissed dialog resumes the Activity,
-   and asking again would loop). The cleartext check is removed: the
+   On Android 17+, without the permission, the first Activity that stays
+   resumed for 500 ms asks for `ACCESS_LOCAL_NETWORK`, once per process: the
+   callbacks are removed when it asks, because a dismissed dialog resumes the
+   Activity and asking again would loop. A splash or trampoline Activity
+   paused before then never asks, so its dialog is not lost with it. The cleartext check is removed: the
    policy governs the app's traffic, not the SDK's own socket.
 
 ## Decision
@@ -54,6 +55,10 @@ documented config, an error naming it), and ADR-0023 2(b).
   `LocalNetwork.kt`. They keep a debug config allowing cleartext to
   `10.0.2.2` and `127.0.0.1` only, for their own calls to
   `tools/e2e-target`.
+- Checked on an API 37 emulator: the dialog shows on a fresh install, and
+  is not asked again after "Don't allow". With another app's screen opened
+  200 ms after launch, it is not shown there; it is shown once the app is
+  back.
 - Denied: discovery falls back to the emulator host or a manual host, as
   before. The SDK never asks again in that process.
 - An app whose policy forbids cleartext still has the SDK reach the

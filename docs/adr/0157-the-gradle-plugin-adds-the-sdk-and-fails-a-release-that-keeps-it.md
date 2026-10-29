@@ -38,9 +38,12 @@ plugin, and no SDK code may reach a production build.
      its no-op, whichever module asked for it.
    - In a KMP module built by Xcode, the same swap applies unless the build
      type (`KOTLIN_FRAMEWORK_BUILD_TYPE`, else `CONFIGURATION`) is `debug`,
-     so a configuration Kotlin cannot name gets the no-ops.
+     so a configuration Kotlin cannot name gets the no-ops. Outside Xcode it
+     applies when a requested task names `release`, `xcframework` or
+     `publish`, so a release framework built by Gradle alone (an
+     XCFramework on CI) has none of the SDK either.
    - A check task (`appMonitorCheck<Variant>`, before `pre<Variant>Build`;
-     before the link and `embedAndSign` tasks under Xcode) fails the build
+     before each native target's link tasks, its own configuration only) fails the build
      when the release graph still resolves a real SDK module, for example
      a per-target artifact declared by hand.
    - The SDK version is the plugin's own, generated from the root's
@@ -61,11 +64,21 @@ the README snippets of it are gone.
   `AppMonitorKtor`.
 - A release APK also carries `appmonitor-okhttp-no-op`'s three stubs
   (`kmp_sample_check.sh` allows them).
-- A debug app without OkHttp holds the OkHttp adapter's classes without
-  OkHttp. They are never loaded, but a debug build with R8 on would report
-  them as missing classes.
+- An app without OkHttp holds the OkHttp adapter's classes without OkHttp.
+  They are never loaded, and R8 drops them unreported (a minified release
+  of such an app is in the TestKit tests).
+- `appmonitor-okhttp` is now on the classpath of every app, so the Ktor
+  plugin can no longer infer from it that `AppMonitorInterceptor` will see
+  its requests. It marks a request only when its client runs on Ktor's
+  OkHttp engine, the one engine that reaches the interceptor, which strips
+  the mark. Another engine sends the request unmarked, and the mark never
+  reaches a server (ADR-0129).
+- The no-op targets of the substitution carry the plugin's version: Gradle
+  refuses a target without one ("Must specify version for target of
+  dependency substitution"). A TestKit consumer resolves the SDK from a
+  Maven repository, as an app does.
 - `./gradlew :gradle-plugin:functionalTest` builds consumers with stand-in
-  SDK projects: debug real, release no-op, no OkHttp brought to an app
-  without it, the opt-out, and a release that resolves
-  `appmonitor-core-android` failing. The plugin's ABI gains `NoSdkCheck`.
+  SDK projects, and one with them published to a Maven repository: debug
+  real, release no-op, no OkHttp brought to an app without it, the opt-out,
+  and a release that resolves `appmonitor-core-android` failing. The plugin's ABI gains `NoSdkCheck`.
 - Supersedes ADR-0093.

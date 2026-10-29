@@ -29,11 +29,12 @@ app ── HttpClient { install(AppMonitorKtor) }
   `Monitoring` and shown in its `RequestStarted`; the Swift SDK skips a task
   carrying it, so a Darwin call is captured once (SDD 07, ADR-0064,
   ADR-0071). A hop not captured has it removed. On the JVM and Android it is
-  set only when `appmonitor-okhttp` is on the classpath:
-  `AppMonitorInterceptor` sends a marked request on without the header and
-  captures nothing of it, so a Ktor call on the OkHttp engine is captured
-  once and the server does not see the mark; on another engine it reaches
-  the server (ADR-0129).
+  set only when `appmonitor-okhttp` is on the classpath and the client runs
+  on Ktor's OkHttp engine (`passesAnotherCapture`): `AppMonitorInterceptor`
+  sends a marked request on without the header and captures nothing of it,
+  so the call is captured once and the server never sees the mark. Another
+  engine never reaches the interceptor, so it sends nothing marked
+  (ADR-0129, ADR-0157).
 - **Masking** is the rule of SDD 05, member for member, pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a

@@ -15,11 +15,7 @@ public object AppMonitorOkHttp {
         if (!present) builder.addInterceptor(AppMonitorInterceptor())
     }
 
-    /**
-     * Called first in `OkHttpClient.newWebSocket`: a socket whose frames are captured, or null to let OkHttp open
-     * it as usual. Null while the monitor is idle, for the factory's own call (its request is tagged), and for a
-     * request the Ktor plugin captures (ADR-0129).
-     */
+    /** Called first in `OkHttpClient.newWebSocket` (ADR-0159): a captured socket, or null to let OkHttp open it. */
     @JvmStatic
     public fun newWebSocket(
         client: OkHttpClient,

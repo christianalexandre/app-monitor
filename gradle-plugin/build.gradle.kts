@@ -74,6 +74,7 @@ testing {
                     val sdkDir = providers.environmentVariable("ANDROID_HOME").orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
                     systemProperty("appmonitor.androidSdk", sdkDir.getOrElse(""))
                     systemProperty("appmonitor.okhttp", libs.versions.okhttp.get())
+                    systemProperty("appmonitor.sdkVersion", sdkVersion.get())
                     systemProperty(
                         "appmonitor.compileSdk",
                         libs.versions.android.compileSdk
