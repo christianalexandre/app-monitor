@@ -78,9 +78,14 @@ is `sdk/ios/scripts/add_local_network_keys.sh` line for line
 `sdk/ios/TestHost/project.yml` is the reference. Without the `Info.plist`
 among its outputs a sandboxed phase cannot write it (`deny file-write-data`).
 With it, an app whose own phase also edits the built `Info.plist`, as the
-field-test app did, fails with "Multiple commands produce"; with sandboxing
-off, the stamp alone is enough. Measured 2026-10-29, Xcode 26.6, outside
-`/tmp`, which the sandbox lets any phase write.
+field-test app did, fails with "Multiple commands produce" or, when that
+phase declares the `Info.plist` as its only output, "invalid task … with
+mutable output but no other virtual output node". That phase builds once
+it declares an output of its own beside the `Info.plist` (a stamp), with
+sandboxing on or off, and both phases' keys land in the plist; with
+sandboxing off, this phase's stamp alone is enough too. Measured
+2026-10-29, Xcode 26.6, outside `/tmp`, which the sandbox lets any phase
+write.
 
 ### Resources and their owners
 
