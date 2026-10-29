@@ -14,10 +14,9 @@ paid_date:
 Findings of PLAN-0011's H1.1 review that normal use does not hit
 (ADR-0094):
 
-- **A client that stopped itself stays held.** When cleartext is
-  blocked, `MonitorClient` calls its own `stop()`, but `MonitorHolder`
-  keeps it. A later `AppMonitor.start` is ignored, and every capture
-  module keeps building envelopes that `send` then drops.
+- ~~**A client that stopped itself stays held.**~~ Gone with ADR-0156:
+  no cleartext check is left to stop the client, and nothing else makes it
+  call its own `stop()`.
 - **The Swift client logs one connect failure per life.** In
   `MonitorClient.swift`, `connectFailureLogged` is never reset after a
   `HelloAck`. The Kotlin client resets it there. A desktop that moves

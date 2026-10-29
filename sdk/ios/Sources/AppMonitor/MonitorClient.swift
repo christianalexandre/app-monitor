@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import Network
 import SwiftProtobuf
@@ -517,4 +516,3 @@ private final class LockedCount: @unchecked Sendable {
 
     func increment() { lock.withLock { count += 1 } }
 }
-#endif

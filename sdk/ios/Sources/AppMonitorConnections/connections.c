@@ -1,4 +1,3 @@
-#if APPMONITOR_DEBUG
 #include "AppMonitorConnections.h"
 #include "rebind.h"
 
@@ -184,4 +183,3 @@ bool appmonitor_connections_install(
   _dyld_register_func_for_add_image(rebind_image);
   return true;
 }
-#endif

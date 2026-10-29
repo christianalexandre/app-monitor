@@ -116,6 +116,30 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(echo.received == [Data("0123456789".utf8)])
     }
 
+    @Test func aReceiveAskedBeforeResumeIsCaptured() async throws {
+        let echo = TestEchoServer()
+        try await echo.start()
+        defer { echo.stop() }
+        capture()
+        let task = URLSession.shared.webSocketTask(with: echo.url("/early"))
+        defer { task.cancel() }
+        // As Ktor's Darwin engine does: its receive loop starts before the task is resumed.
+        let reply = Task { try await task.receive() }
+        try await Task.sleep(for: .milliseconds(50))
+        task.resume()
+
+        try await task.send(.string("hi"))
+        guard case .string(let text) = try await reply.value else {
+            Issue.record("the app got another message")
+            return
+        }
+
+        let (started, _) = try await sink.exchange(echo.httpURL("/early"))
+        let frames = try await sink.frames(started.requestID, count: 2)
+        #expect(flat(frames) == [frame(.sent, .text, Data("hi".utf8)), frame(.received, .text, Data("hi".utf8))])
+        #expect(text == "hi")
+    }
+
     @Test func thePeersCloseIsAReceivedCloseFrame() async throws {
         let echo = TestEchoServer()
         try await echo.start()

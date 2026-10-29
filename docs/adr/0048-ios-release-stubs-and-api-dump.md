@@ -1,9 +1,9 @@
 ---
 id: ADR-0048
 title: iOS release stubs under #if DEBUG, checked against a committed interface dump
-status: Accepted
+status: Superseded
 date: 2026-10-23
-superseded_by:
+superseded_by: ADR-0155
 ---
 
 # ADR-0048 — iOS release stubs under #if DEBUG, checked against a committed interface dump

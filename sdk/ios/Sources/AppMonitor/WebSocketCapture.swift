@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -144,17 +143,19 @@ enum WebSocketHooks {
     }
 
     /// Wraps the app's handler: a message is recorded before the app gets it; an error after the peer's
-    /// close frame records that frame, read from the task's public `closeCode` and `closeReason`.
+    /// close frame records that frame, read from the task's public `closeCode` and `closeReason`. The capture
+    /// is looked up on completion: Ktor's Darwin engine asks before it resumes the task (ADR-0158).
     private static func hookReceive(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
         typealias Handler = @convention(block) (AnyObject?, AnyObject?) -> Void
         let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
         let selector = method_getName(method)
         let block: @convention(block) (AnyObject, AnyObject?) -> Void = { object, handler in
-            guard let handler, let capture = capture(of: object), let task = object as? URLSessionWebSocketTask
+            guard let handler, let task = object as? URLSessionWebSocketTask
             else { return original(object, selector, handler) }
             let app = unsafeBitCast(handler, to: Handler.self)
             let wrapped: Handler = { message, error in
+                guard let capture = capture(of: task) else { return app(message, error) }
                 if let message = message as? NSObject {
                     capture.message(.received, message)
                 } else if error != nil, task.closeCode != .invalid {
@@ -180,4 +181,3 @@ enum WebSocketHooks {
         method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
-#endif

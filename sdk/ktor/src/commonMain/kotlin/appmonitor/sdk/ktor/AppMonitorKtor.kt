@@ -23,10 +23,11 @@ public val AppMonitorKtor: ClientPlugin<Unit> = appMonitorKtor(MonitorSink)
 
 internal fun appMonitorKtor(
     sink: CaptureSink,
-    marksCaptured: Boolean = MARKS_CAPTURED_REQUESTS,
+    marksCaptured: Boolean? = null,
 ): ClientPlugin<Unit> =
     createClientPlugin("AppMonitorKtor") {
         val httpClient = client
+        val marks = marksCaptured ?: (MARKS_CAPTURED_REQUESTS && passesAnotherCapture(client.engine))
         // ADR-0122 C.1: before DefaultRequest, HttpCookies or any other plugin changes the request.
         client.requestPipeline.intercept(HttpRequestPipeline.Before) {
             if (sink.options != null) context.attributes.put(APP_REQUEST, HttpRequestBuilder().takeFrom(context))
@@ -36,10 +37,10 @@ internal fun appMonitorKtor(
             val options = sink.options
             context.attributes.remove(REQUEST_ID)
             // ADR-0064: the Swift SDK skips a task carrying it; a redirect hop copies the previous hop's headers.
-            if (marksCaptured) context.headers.remove(Protocol.CAPTURE_HEADER)
+            if (marks) context.headers.remove(Protocol.CAPTURE_HEADER)
             if (options == null || sent !is OutgoingContent) return@intercept
             val request = context
-            if (marksCaptured) request.headers[Protocol.CAPTURE_HEADER] = Protocol.CAPTURE_HEADER_KTOR
+            if (marks) request.headers[Protocol.CAPTURE_HEADER] = Protocol.CAPTURE_HEADER_KTOR
             val id = newRequestId()
             request.attributes.put(REQUEST_ID, id)
             val masking = Masking(options)

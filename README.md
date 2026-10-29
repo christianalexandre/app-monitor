@@ -106,7 +106,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
-## Usage
+## Installation
 
 > [!IMPORTANT]
 > Not published yet (M10); the API may change before then. The Android API
@@ -114,148 +114,173 @@ Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 > [ADR-0035](docs/adr/0035-ios-sdk-public-api.md), the KMP one in
 > [ADR-0062](docs/adr/0062-kmp-sdk-public-api.md).
 
-```kotlin
-// Android — Application.onCreate
-AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+### Android
 
-val client = OkHttpClient.Builder()
-    .addInterceptor(AppMonitorInterceptor())
-    .build()
-val webSockets = AppMonitorWebSocketFactory(client) // optional, captures frames
-```
+Two steps. Release builds get the no-op artifacts, and a release that still
+resolves the real SDK fails to build
+([ADR-0157](docs/adr/0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md)).
 
-Debug builds depend on `sdk/android-okhttp`, release builds on
-`sdk/okhttp-no-op` (same API, does nothing). The Gradle plugin
-`io.github.christianalexandre.appmonitor` adds the interceptor to every
-client of a debug build instead, library clients included; it is
-published with the SDK in M10 ([SDD 05](docs/sdd/05_okhttp_capture.md)).
-A working app, with the plugin and without the line, is in
-[`samples/android`](samples/android).
+1. **Apply the plugin** in the app module. It adds the SDK to debuggable
+   variants and the no-ops to the others, and adds the OkHttp interceptor
+   to every `OkHttpClient` of a debug build, library clients (Retrofit,
+   Apollo, Ktor's OkHttp engine) included:
 
-The desktop speaks plain `ws://` on the LAN, which Android blocks from
-API 28 on: a debug-only network security config allows it. Android 17
-also asks the user for `ACCESS_LOCAL_NETWORK`, which the SDK declares and
-the app requests from a debug-only source file, as the sample does:
+   ```kotlin
+   // app/build.gradle.kts
+   plugins {
+       id("io.github.christianalexandre.appmonitor") version "<version>"
+   }
+   ```
 
-```xml
-<!-- src/debug/AndroidManifest.xml -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/network_security_config" />
-</manifest>
+2. **Start it** in `Application.onCreate`:
 
-<!-- src/debug/res/xml/network_security_config.xml -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
-</network-security-config>
-```
+   ```kotlin
+   AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+   ```
 
-```kotlin
-// src/debug/…/LocalNetwork.kt, called from an Activity's onCreate;
-// src/release/ holds a no-op with the same signature
-fun ComponentActivity.requestLocalNetwork() {
-    if (Build.VERSION.SDK_INT < 37) return
-    val permission = "android.permission.ACCESS_LOCAL_NETWORK"
-    if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return
-    registerForActivityResult(ActivityResultContracts.RequestPermission()) {}.launch(permission)
-}
-```
+Nothing else. On Android 17 the SDK asks for `ACCESS_LOCAL_NETWORK` itself,
+once, on the first screen; it reaches the desktop's `ws://` whatever the
+app's network security config says
+([ADR-0156](docs/adr/0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md)).
+The SDK never brings OkHttp to an app or changes its version. Optional:
+WebSocket frames with `AppMonitorWebSocketFactory(client)`;
+`appMonitor { injectOkHttp = false }` turns the rewrite off, and
+`AppMonitorInterceptor()` adds it by hand ([SDD 05](docs/sdd/05_okhttp_capture.md)).
+A working app is in [`samples/android`](samples/android).
 
-`<debug-overrides>` cannot carry `cleartextTrafficPermitted`, only trust
-anchors; an app with its own config adds the attribute to a debug copy of
-it.
+### iOS
 
-```swift
-// iOS — App.init or application(_:didFinishLaunchingWithOptions:)
-import AppMonitor
+Four steps. Release builds hold none of the SDK's code: it is not
+linked and has no stubs ([ADR-0155](docs/adr/0155-ios-sdk-left-out-of-release-builds-by-the-app.md)).
 
-AppMonitor.start(AppMonitorOptions(appName: "My App"))
-```
+1. **Add the package.** *File → Add Package Dependencies…*,
+   `https://github.com/christianalexandre/app-monitor`, product
+   `AppMonitor`, to the app target.
+2. **Start it under `#if DEBUG`**, in `App.init` or
+   `application(_:didFinishLaunchingWithOptions:)`:
 
-Every `URLSession` is captured without further code, except a request
-carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it already
-captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
+   ```swift
+   #if DEBUG
+   import AppMonitor
+   #endif
+
+   #if DEBUG
+   AppMonitor.start(AppMonitorOptions(appName: "My App"))
+   #endif
+   ```
+
+3. **Exclude it from every release configuration.** In the app target's
+   *Build Settings*, *Excluded Source File Names* for `Release` (and
+   `Prod`, `Staging`, … whatever ships):
+
+   ```text
+   EXCLUDED_SOURCE_FILE_NAMES = AppMonitor*
+   ```
+
+   In an `.xcconfig`, `EXCLUDED_SOURCE_FILE_NAMES[config=Release] = AppMonitor*`;
+   in XcodeGen, under the target's `settings: configs: Release:`. A
+   configuration's name does not matter. Only this setting does.
+4. **Paste the Run Script.** A *New Run Script Phase* on the app target,
+   last. It adds the local network keys a physical device needs, and
+   **fails a build that would ship the SDK**: an optimized configuration
+   without step 3. Nothing to fill in. The usage text can be changed with
+   an `APPMONITOR_LOCAL_NETWORK_USAGE` build setting, and a configuration
+   that must keep the SDK optimized sets `APPMONITOR_ALLOW_OPTIMIZED = YES`.
+
+   ```sh appmonitor-run-script
+   #!/bin/sh
+   # AppMonitor Run Script (ADR-0155). A configuration whose EXCLUDED_SOURCE_FILE_NAMES
+   # excludes AppMonitor.o is left as is; any other links the SDK: it fails when
+   # optimized, else gets the local network keys. Keys the app already has are kept.
+   set -eu
+
+   plist="${TARGET_BUILD_DIR:?run from an Xcode Run Script build phase}/${INFOPLIST_PATH:?}"
+   usage="${APPMONITOR_LOCAL_NETWORK_USAGE:-AppMonitor sends the network traffic of this debug build to the AppMonitor desktop app on your local network.}"
+   service="_appmonitor._tcp"
+
+   set -f
+   for pattern in ${EXCLUDED_SOURCE_FILE_NAMES:-}; do
+     case AppMonitor.o in
+       $pattern)
+         echo "AppMonitor: excluded from ${CONFIGURATION:-this build}, Info.plist left as is"
+         exit 0
+         ;;
+     esac
+   done
+   set +f
+
+   if [ "${SWIFT_OPTIMIZATION_LEVEL:--Onone}" != "-Onone" ] && [ "${APPMONITOR_ALLOW_OPTIMIZED:-NO}" != YES ]; then
+     echo "error: AppMonitor is linked into the optimized ${CONFIGURATION:-build}." \
+       "Set EXCLUDED_SOURCE_FILE_NAMES = AppMonitor* on it, or APPMONITOR_ALLOW_OPTIMIZED = YES to keep the SDK."
+     exit 1
+   fi
+
+   if ! plutil -extract NSLocalNetworkUsageDescription raw -o /dev/null "$plist" 2>/dev/null; then
+     plutil -insert NSLocalNetworkUsageDescription -string "$usage" "$plist"
+   fi
+   if ! plutil -extract NSBonjourServices raw -o /dev/null "$plist" 2>/dev/null; then
+     plutil -insert NSBonjourServices -array "$plist"
+   fi
+   if ! plutil -extract NSBonjourServices json -o - "$plist" | grep -q "\"$service\""; then
+     plutil -insert NSBonjourServices -string "$service" -append "$plist"
+   fi
+   echo "AppMonitor: local network keys in $plist"
+   ```
+
+   Under `ENABLE_USER_SCRIPT_SANDBOXING` (on in new Xcode projects) the
+   phase needs these, or the sandbox denies the write:
+
+   ```text
+   Input files:   $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+   Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+                  $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+   ```
+
+The simulator needs only steps 1 to 3: it reaches the desktop on
+`127.0.0.1`. Every `URLSession` is captured without further code, except a
+request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
+already captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
 other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
 port, bytes and timing, no content; `captureConnections: false` in the
-options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). The same `AppMonitor`
-product compiles to stubs in configurations whose name lacks `Debug`, and
-the Run Script phase `sdk/ios/scripts/add_local_network_keys.sh` adds the
-local network keys to debug builds only. A working app is in
+options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). A working app is in
 [`samples/ios`](samples/ios).
 
-The Run Script phase runs after *Copy Bundle Resources* and edits the
-built `Info.plist`. Under `ENABLE_USER_SCRIPT_SANDBOXING` (on by default in
-new Xcode projects) it needs these input and output files, or the
-sandbox denies the write and the Debug build fails:
-
-```text
-Script:        "$SRCROOT/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh"
-Input files:   $(SRCROOT)/<path to app-monitor>/sdk/ios/scripts/add_local_network_keys.sh
-               $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
-Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
-               $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
-```
-
 ```swift
-// iOS with gRPC Swift 2 — add the AppMonitorGRPC product too
+// iOS with gRPC Swift 2 — add the AppMonitorGRPC product too; AppMonitor* excludes it as well
+#if DEBUG
 import AppMonitorGRPC
+let interceptors: [any ClientInterceptor] = [AppMonitorGRPCInterceptor()]
+#else
+let interceptors: [any ClientInterceptor] = []
+#endif
 
-let client = GRPCClient(transport: transport, interceptors: [AppMonitorGRPCInterceptor()])
+let client = GRPCClient(transport: transport, interceptors: interceptors)
 ```
 
 Each call shows as one exchange, messages as bytes
 ([ADR-0099](docs/adr/0099-grpc-swift-adapter.md)); gRPC Swift 1 is not
 covered.
 
-```kotlin
-// KMP — commonMain, every HttpClient you want to see
-val client = HttpClient(engine) {
-    install(AppMonitorKtor)
-}
+### Kotlin Multiplatform
 
-// Android — Application.onCreate
-AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
+1. **Apply the plugin** in the Android app module and in each KMP module
+   that installs the Ktor plugin. In those, it adds `appmonitor-ktor` to
+   `commonMain`; under Xcode, any build type but `debug` gets the no-op.
+2. **Install it** on every `HttpClient` you want to see, in `commonMain`:
 
-// iOS — iosMain, called from the app's entry point
-fun startMonitor() = AppMonitor.start(AppMonitorOptions(appName = "My App"))
-```
+   ```kotlin
+   val client = HttpClient(engine) {
+       install(AppMonitorKtor)
+   }
+   ```
 
-The shared module depends on `sdk/ktor` in debug and `sdk/ktor-no-op` in
-release; on iOS the Gradle script picks it from the configuration Xcode
-builds, on Android the release app substitutes both no-ops
-([ADR-0073](docs/adr/0073-kmp-sample-layout-and-release-swap.md)):
+3. **Start it** on Android in `Application.onCreate`, as an Android app.
+4. **On iOS, add the Swift SDK** with the four steps above. Ktor's Darwin
+   engine runs on `URLSession`, so the Swift SDK captures it; nothing to
+   start from Kotlin, nothing in `iosMain`
+   ([ADR-0158](docs/adr/0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md)).
 
-```kotlin
-// shared/build.gradle.kts
-fun String?.nativeBuildType() = this?.lowercase()?.takeIf { it == "debug" || it == "release" }
-
-val xcodeBuildType =
-    providers.environmentVariable("CONFIGURATION").orNull.nativeBuildType()
-        ?: providers.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull.nativeBuildType()
-val sdkKtor = if (xcodeBuildType == "release") ":sdk:ktor-no-op" else ":sdk:ktor"
-kotlin { sourceSets { commonMain.dependencies { implementation(project(sdkKtor)) } } }
-
-// androidApp/build.gradle.kts
-dependencies {
-    debugImplementation(project(":sdk:core"))
-    releaseImplementation(project(":sdk:core-no-op"))
-}
-configurations.matching { it.name.startsWith("release") }.configureEach {
-    resolutionStrategy.dependencySubstitution {
-        substitute(project(":sdk:ktor")).using(project(":sdk:ktor-no-op"))
-        substitute(project(":sdk:core")).using(project(":sdk:core-no-op"))
-    }
-}
-```
-
-A configuration named neither `Debug` nor `Release`, `Staging` for one,
-sets `KOTLIN_FRAMEWORK_BUILD_TYPE` (`debug` or `release`) in its build
-settings, as Kotlin's `embedAndSignAppleFrameworkForXcode` already asks;
-without it that configuration links the real `sdk/ktor`. The Android app
-adds the same network security config and permission request as an
-Android app, the iOS app the same local network keys Run Script phase,
-with its input and output files, as a Swift app. Beside the Swift SDK, each exchange shows once: `sdk/ktor` marks what
-it captured and the Swift SDK skips it. A working app is in
-[`samples/kmp`](samples/kmp).
+A working app is in [`samples/kmp`](samples/kmp).
 
 ### Ask your AI agent (MCP)
 

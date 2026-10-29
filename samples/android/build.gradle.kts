@@ -21,8 +21,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)
     implementation(libs.okhttp)
-    debugImplementation(project(":sdk:android-okhttp"))
-    releaseImplementation(project(":sdk:okhttp-no-op"))
     testImplementation(kotlin("test-junit"))
 }
 

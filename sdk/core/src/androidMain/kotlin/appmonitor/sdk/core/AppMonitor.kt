@@ -1,8 +1,9 @@
 package appmonitor.sdk.core
 
+import android.app.Application
 import android.content.Context
 
-/** Streams the app's traffic to the desktop; call [start] in `Application.onCreate` (ADR-0017). */
+/** Streams the app's traffic to the desktop; call [start] in `Application.onCreate` (ADR-0017), which asks for the local network permission (ADR-0156). */
 public object AppMonitor {
     /** Starts the monitor; ignored while it runs or when [AppMonitorOptions.enabled] is false. */
     @JvmStatic
@@ -12,6 +13,7 @@ public object AppMonitor {
         options: AppMonitorOptions = AppMonitorOptions(),
     ) {
         val app = context.applicationContext
+        if (options.enabled && app is Application) requestLocalNetworkOnFirstActivity(app)
         monitor.start(options) {
             MonitorClient(hello = { androidHello(app) }, discover = discovery(it, nsdBrowser(app), EMULATOR_HOST.takeIf { isEmulator() }))
         }

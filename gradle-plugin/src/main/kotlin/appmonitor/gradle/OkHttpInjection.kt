@@ -4,8 +4,8 @@ import com.android.build.api.instrumentation.AsmClassVisitorFactory
 import com.android.build.api.instrumentation.ClassContext
 import com.android.build.api.instrumentation.ClassData
 import com.android.build.api.instrumentation.InstrumentationParameters
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
-import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -17,22 +17,16 @@ internal const val CLIENT = "okhttp3.OkHttpClient"
 internal const val BUILDER = "okhttp3.OkHttpClient\$Builder"
 internal const val ENTRY_POINT = "appmonitor.sdk.okhttp.AppMonitorOkHttp"
 
-// The published module, its Android variant, and this repository's project.
-private val SDK_MODULES = setOf("appmonitor-okhttp", "appmonitor-okhttp-android", "android-okhttp")
+// The published module and its Android variant; this repository's project is matched by path.
+private val SDK_MODULES = setOf("appmonitor-okhttp", "appmonitor-okhttp-android")
 
 /** Whether the graph under [root] holds `io.github.christianalexandre:appmonitor-okhttp`. */
-internal fun hasSdk(root: ResolvedComponentResult): Boolean {
-    val seen = mutableSetOf<ResolvedComponentResult>()
-    val queue = ArrayDeque(listOf(root))
-    while (queue.isNotEmpty()) {
-        val component = queue.removeFirst()
-        if (!seen.add(component)) continue
+internal fun hasSdk(root: ResolvedComponentResult): Boolean =
+    components(root).any { component ->
         val module = component.moduleVersion
-        if (module != null && module.group == "io.github.christianalexandre" && module.name in SDK_MODULES) return true
-        component.dependencies.filterIsInstance<ResolvedDependencyResult>().forEach { queue += it.selected }
+        (module != null && module.group == GROUP && module.name in SDK_MODULES) ||
+            (component.id as? ProjectComponentIdentifier)?.projectPath == SdkModule.OKHTTP.path
     }
-    return false
-}
 
 /** Calls `AppMonitorOkHttp.install(builder)` on entry of `OkHttpClient(builder)`, when the SDK is on the classpath. */
 internal abstract class OkHttpInjection : AsmClassVisitorFactory<OkHttpInjection.Parameters> {

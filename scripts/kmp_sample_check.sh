@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds samples/kmp (ADR-0065, ADR-0073): the Android app in debug and release, and the
 # iOS host in Debug and Release for an iPhone simulator (SIM_DEVICE). Release holds no SDK
-# but the no-op stubs, on both platforms (ADR-0062 D.1); local network keys in Debug only.
+# but the Kotlin no-op stubs (ADR-0062 D.1) and no Swift SDK (ADR-0155); keys in Debug only.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -24,7 +24,10 @@ apks=samples/kmp/androidApp/build/outputs/apk
 grep -qx 'Lappmonitor/sdk/core/MonitorClient' <<<"$(apk_names "$apks"/debug/*.apk)" \
   || { echo "$tag: no MonitorClient in the debug APK; the dex check sees nothing" >&2; exit 1; }
 release_apk="$(apk_names "$apks"/release/*.apk | tr '\n' ' ')"
-if [[ "$release_apk" != "Lappmonitor/sdk/core/AppMonitor Lappmonitor/sdk/core/AppMonitorOptions Lappmonitor/sdk/ktor/AppMonitorKtorKt " ]]; then
+# The Gradle plugin adds the OkHttp adapter to every app, so its no-op stubs ship too (ADR-0157).
+stubs="Lappmonitor/sdk/core/AppMonitor Lappmonitor/sdk/core/AppMonitorOptions Lappmonitor/sdk/ktor/AppMonitorKtorKt"
+stubs+=" Lappmonitor/sdk/okhttp/AppMonitorInterceptor Lappmonitor/sdk/okhttp/AppMonitorOkHttp Lappmonitor/sdk/okhttp/AppMonitorWebSocketFactory "
+if [[ "$release_apk" != "$stubs" ]]; then
   echo "$tag: release APK holds SDK names other than the no-op stubs: $release_apk" >&2
   exit 1
 fi
@@ -54,7 +57,7 @@ done
 # Kotlin/Native keeps as UTF-16 strings in Debug and Release alike.
 ios_names() {
   local binaries
-  binaries="$(find "$1" -maxdepth 1 -type f \( -name KmpSample -o -name '*.dylib' \))"
+  binaries="$(app_binaries "$1")"
   nm $binaries 2>/dev/null | awk '{print $NF}' | xcrun swift-demangle --compact |
     grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed -E 's/^[^A-Za-z]*AppMonitor\./swift:/'
   # shellcheck disable=SC2086
@@ -73,7 +76,7 @@ done
 grep -qx kotlin:appmonitor.sample.kmp <<<"$release_names" \
   || { echo "$tag: no Kotlin name in the Release app; the symbol check sees nothing" >&2; exit 1; }
 leaked="$(grep -E '^swift:|^kotlin:(appmonitor\.|Monitor(Client|Bridge|Sink))' <<<"$release_names" |
-  grep -vxE 'swift:AppMonitor(Options)?|kotlin:appmonitor\.sdk\.(core|ktor)|kotlin:appmonitor\.sample\.kmp.*' | tr '\n' ' ' || true)"
+  grep -vxE 'kotlin:appmonitor\.sdk\.(core|ktor)|kotlin:appmonitor\.sample\.kmp.*' | tr '\n' ' ' || true)"
 if [[ -n "$leaked" ]]; then
   echo "$tag: Release app holds SDK names other than the no-op stubs: $leaked(ADR-0062 D.1)" >&2
   exit 1

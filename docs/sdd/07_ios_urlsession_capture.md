@@ -208,8 +208,8 @@ macOS 15; ADR-0099 A.1). The app passes it once in the client's
 never builds or links it (`make publish-dry-run` checks the binary). Code in
 `sdk/ios/Sources/AppMonitorGRPC/`, events built by `AdapterExchange`
 (`package` access, `AppMonitor/AdapterCapture.swift`) so the protobuf types
-stay `internal`. In release the interceptor only calls `next` (ADR-0048,
-its own `api/AppMonitorGRPC.swiftinterface`).
+stay `internal`. Release builds exclude it with `AppMonitor*` (ADR-0155);
+its public API is `api/AppMonitorGRPC.swiftinterface`.
 
 One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
 
@@ -245,8 +245,8 @@ third-party SDK's included, is one exchange with `capture_layer =
 CONNECTION` and no content (ADR-0100, ADR-0103). C in
 `sdk/ios/Sources/AppMonitorConnections/` (fishhook vendored at
 `aadc161`, BSD-3-Clause, its two functions renamed so an app's own copy
-links), reporting in `AppMonitor/ConnectionCapture.swift`; compiled only
-with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
+links), reporting in `AppMonitor/ConnectionCapture.swift`; nothing installs the
+hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 
 - **Installed once**, at the first `start()` with `enabled` and
   `captureConnections` (default true). Each `connect` reads

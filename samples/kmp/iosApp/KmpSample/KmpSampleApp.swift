@@ -1,18 +1,23 @@
-import AppMonitor
 import Shared
 import SwiftUI
+
+#if DEBUG
+import AppMonitor
+#endif
 
 @main
 struct KmpSampleApp: App {
     init() {
-        // `-host H -port N` at launch pin the desktop for both SDKs, as `make e2e-ios` does (ADR-0057).
+        // `-host H -port N` at launch pin the desktop, as `make e2e-ios` does (ADR-0057). The Swift SDK alone
+        // captures Ktor's Darwin calls; `sdk/core` is never started on iOS (ADR-0158).
         let host = UserDefaults.standard.string(forKey: "host")
         let port = UserDefaults.standard.integer(forKey: "port")
+        #if DEBUG
         var options = AppMonitorOptions(appName: "KMP sample")
         options.host = host
         if port > 0 { options.port = port }
         AppMonitor.start(options)
-        MainViewControllerKt.startMonitor(host: host, port: Int32(port))
+        #endif
     }
 
     var body: some Scene {

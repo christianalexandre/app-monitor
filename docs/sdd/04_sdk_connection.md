@@ -23,7 +23,6 @@ it. The client is a state machine; exactly one state is current.
                      └─ timer ───────────────────── backing off ◄──────────────────────┘
 
   discovering … backing off ── stop() ──► stopped ── start() ──► new client
-  connecting ── cleartext blocked ──► stopped
 ```
 
 ### States and exits
@@ -32,7 +31,7 @@ it. The client is a state machine; exactly one state is current.
 | --- | --- | --- |
 | **idle** | Nothing; no client yet. Events are dropped. | `start()` with `enabled` → discovering. `start()` with `enabled = false` → stays idle. |
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
-| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the fix, a debug-only config with `cleartextTrafficPermitted`, and the README's Usage section (ADR-0017, ADR-0132), then stopped. `stop()` → stopped. |
+| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). The app's network security policy is not consulted: CIO's raw sockets ignore it, and it governs the app's traffic, not the SDK's (ADR-0156). `stop()` → stopped. |
 | **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
 | **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, a `BreakpointRules` its breakpoints, a `BreakpointResume` or `BreakpointAbort` lets a held call go, a `ReplayRequest` sends a kept request again, anything else is ignored ([Mock rules](#mock-rules), [Breakpoints](#breakpoints), [Replays](#replays)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
@@ -106,7 +105,7 @@ it. The client is a state machine; exactly one state is current.
 | Source | Used when | Gives up |
 | --- | --- | --- |
 | Manual `host` (`AppMonitorOptions.host`, `port`) | `host` set; then nothing else is tried | Never: the endpoint is returned at once |
-| mDNS (`NsdManager` on Android, `nw_browser` and `dns_sd` on iOS, see [Kotlin/Native (iOS)](#kotlinnative-ios)) | No `host`, and local network access allowed: below Android 17, or `ACCESS_LOCAL_NETWORK` granted, whatever the app targets (an Android 17 emulator gave no implicit grant to a target-36 app, ADR-0030). Not allowed → skipped, one log line per client (ADR-0017 E). A browser that fails → logged, nothing found | On the emulator or simulator after 3 s; on a device at the 5 s discovery bound |
+| mDNS (`NsdManager` on Android, `nw_browser` and `dns_sd` on iOS, see [Kotlin/Native (iOS)](#kotlinnative-ios)) | No `host`, and local network access allowed: below Android 17, or `ACCESS_LOCAL_NETWORK` granted, whatever the app targets (an Android 17 emulator gave no implicit grant to a target-36 app, ADR-0030). Not allowed → skipped, one log line per client. `AppMonitor.start` asks for it on the first Activity that stays resumed 500 ms, once per process (ADR-0156). A browser that fails → logged, nothing found | On the emulator or simulator after 3 s; on a device at the 5 s discovery bound |
 | `10.0.2.2:47474` | On the emulator (`Build.HARDWARE` `ranchu` or `goldfish`) and mDNS found nothing | Never |
 | `127.0.0.1:47474` | On the iOS simulator (`iosSimulatorArm64`) and mDNS found nothing | Never |
 
@@ -257,7 +256,7 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
   (DEBT-0020).
 - `AppMonitorOptions.appName` is not sent: `Hello` has no field for it
   (DEBT-0024).
-- `NsdBrowser`, the permission check and the emulator test run only on
+- `NsdBrowser`, the permission check and request and the emulator test run only on
   Android; host tests use fake browsers (ADR-0024). The iOS
   `BonjourBrowser` runs for real on the simulator.
 - On iOS, local network privacy with CIO's BSD sockets is unproven on a

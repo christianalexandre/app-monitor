@@ -19,13 +19,13 @@ production build, and a build that would ship it fails.
 
 The first field test (a KMP app, Ktor on Android and iOS, configurations
 `Dev` and `Prod`) touched ten files and showed no traffic: the Swift SDK
-was compiled out in `Dev`, by Xcode's name rule, the Android client stopped itself
+was compiled out in `Dev`, by Xcode's name rule (ADR-0155), the Android client stopped itself
 on the app's cleartext policy, and the release swap, the local network
 permission and a second Kotlin start on iOS were all written by hand.
 
 ## Tasks
 
-- [ ] **H4.1 Android asks for its permission and stops blocking itself.**
+- [x] **H4.1 Android asks for its permission and stops blocking itself.** (#298)
   `AppMonitor.start(context)` asks for `ACCESS_LOCAL_NETWORK` on the first
   resumed Activity (Android 17+) through `ActivityLifecycleCallbacks`. The
   client no longer stops on the app's cleartext policy: CIO's sockets never
@@ -33,9 +33,9 @@ permission and a second Kotlin start on iOS were all written by hand.
   the debug network security config and `LocalNetwork.kt`. New ADR,
   superseding ADR-0017 E/F, ADR-0023's cleartext check and ADR-0132.
   Accept: `make e2e-android` and `make e2e-kmp-android` on an emulator,
-  with the samples free of `LocalNetwork.kt`, their network security config limited to their own test target; `./gradlew :sdk:core:allTests`.
-- [ ] **H4.2 The Gradle plugin adds the SDK and swaps it for the no-ops
-  (ADR-0093, from M10).** Applied to an app or a KMP module, it adds the
+  with the samples free of `LocalNetwork.kt`, their network security config limited to their own test target (ADR-0156); `./gradlew :sdk:core:allTests`.
+- [x] **H4.2 The Gradle plugin adds the SDK and swaps it for the no-ops
+  (ADR-0093, from M10).** (#298) Applied to an app or a KMP module, it adds the
   real SDK to debuggable variants and to debug Apple frameworks, the
   no-ops elsewhere (`KOTLIN_FRAMEWORK_BUILD_TYPE`, then `CONFIGURATION`),
   and **fails the build** when a non-debuggable variant or a release
@@ -45,14 +45,15 @@ permission and a second Kotlin start on iOS were all written by hand.
   `plugins {}` and `AppMonitor.start` has the SDK in debug and none in
   release (`dexdump`). A consumer forcing the real SDK into release fails.
   `make kmp-sample` passes its release scan.
-- [ ] **H4.3 KMP on iOS through the Swift SDK alone.** Ktor's Darwin engine
+- [x] **H4.3 KMP on iOS through the Swift SDK alone.** (#298) Ktor's Darwin engine
   runs on `URLSession`, and the Ktor plugin marks nothing until a Kotlin
   `AppMonitor.start` runs (ADR-0064). So an iOS app with the Swift SDK
   needs no Kotlin start and no `sdk/core` in `iosMain`. The README and
   `samples/kmp` drop both. New ADR.
   Accept: `make e2e-kmp-ios`, where each Ktor call shows once, from the
   Swift SDK's session only.
-- [ ] **H4.4 The app leaves the iOS SDK out of release builds.** The package keeps no `#if DEBUG`. The app starts it under
+- [x] **H4.4 The app leaves the iOS SDK out of release builds
+  (ADR-0155).** (#298) The package keeps no `#if DEBUG`. The app starts it under
   its own `#if DEBUG` and sets `EXCLUDED_SOURCE_FILE_NAMES = AppMonitor*`
   on each configuration that ships. The Run Script, inline in the README,
   leaves an excluded configuration as is, fails an optimized one that
@@ -81,6 +82,9 @@ permission and a second Kotlin start on iOS were all written by hand.
   fixture byte for byte; the root `Package.swift` with no
   `swift-protobuf`; `make ios-sample` with no `SwiftProtobuf` symbol in
   the Release app; DEBT-0040 paid.
+
+H4.1 to H4.4 landed in one PR (#298): the README, the ADR index and the
+sample checks share their changes, and only the combined state was run.
 
 The owner re-runs the field test in the same KMP app once H4.5 merges.
 That is the plan's real check and not loop work: what it finds goes into

@@ -1,16 +1,12 @@
 import Foundation
-
-#if DEBUG
 import os
-#endif
 
 /// Streams the app's traffic to the desktop; call `start(_:)` in `App.init` or
-/// `application(_:didFinishLaunchingWithOptions:)` (ADR-0035). Does nothing in a release build (ADR-0048).
+/// `application(_:didFinishLaunchingWithOptions:)` (ADR-0035), under `#if DEBUG`: release builds exclude the SDK (ADR-0155).
 public enum AppMonitor {
     /// Starts the monitor; ignored while it runs or when `AppMonitorOptions.enabled` is false. Any thread.
     public static func start(_ options: AppMonitorOptions = AppMonitorOptions()) {
         options.check()
-        #if DEBUG
         if options.enabled {
             _ = URLSessionCapture.install()
             if options.captureConnections { _ = ConnectionCapture.install() }
@@ -23,14 +19,11 @@ public enum AppMonitor {
                 log: log
             )
         }
-        #endif
     }
 
     /// Stops the monitor and drops what it had not sent; `start(_:)` runs a new one. Any thread.
     public static func stop() {
-        #if DEBUG
         monitor.stop()
-        #endif
     }
 }
 
@@ -86,7 +79,6 @@ public struct AppMonitorOptions: Sendable {
     }
 }
 
-#if DEBUG
 /// The `start` / `stop` of SDD 06 around one `MonitorClient` at a time: idle until started, a second
 /// `start` ignored while a client runs, a new client after `stop`.
 final class MonitorHolder: @unchecked Sendable {
@@ -118,4 +110,3 @@ final class MonitorHolder: @unchecked Sendable {
 
 /// The process-wide monitor behind `AppMonitor`.
 let monitor = MonitorHolder()
-#endif

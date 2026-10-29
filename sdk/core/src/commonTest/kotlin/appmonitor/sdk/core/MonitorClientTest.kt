@@ -140,19 +140,6 @@ class MonitorClientTest {
         }
 
     @Test
-    fun blockedCleartextStopsTheClientWithOneLogLine() =
-        runBlocking {
-            val desktop = desktop()
-            val lines = Lines()
-            val client = client(desktop.port, cleartextPermitted = { false }, log = lines::add)
-            client.awaitState(ClientState.Stopped)
-            assertEquals(1, lines.all.size)
-            assertTrue("cleartextTrafficPermitted" in lines.all.single())
-            assertTrue("README.md" in lines.all.single())
-            assertEquals(null, desktop.hellos.tryReceive().getOrNull())
-        }
-
-    @Test
     fun anUnreachableDesktopIsLoggedOncePerClient() =
         runBlocking {
             val port = closedPort()
@@ -283,12 +270,11 @@ class MonitorClientTest {
         port: Int = 0,
         config: ClientConfig = this.config,
         discover: suspend () -> Endpoint? = { Endpoint(LOOPBACK, port) },
-        cleartextPermitted: (String) -> Boolean = { true },
         log: (String) -> Unit = {},
         openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
             { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
     ): MonitorClient {
-        val client = MonitorClient({ hello }, discover, config, cleartextPermitted, log, openSession = openSession)
+        val client = MonitorClient({ hello }, discover, config, log, openSession = openSession)
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

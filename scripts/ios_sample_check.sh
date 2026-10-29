@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds samples/ios (ADR-0050) in Debug and Release for an iPhone simulator
 # (SIM_DEVICE, default the first available); the local network keys must be in the
-# Debug app only (ADR-0049), the Release app must hold no AppMonitor type but the stubs.
+# Debug app only, the Release app must hold no AppMonitor name at all (ADR-0155).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,9 +28,9 @@ done
 
 # Prints the names the AppMonitor module declares in the binaries of one built app.
 sdk_names() {
-  find "$1" -maxdepth 1 -type f \( -name Sample -o -name '*.dylib' \) -exec nm {} + 2>/dev/null |
+  app_binaries "$1" | xargs nm 2>/dev/null |
     awk '{print $NF}' | xcrun swift-demangle --compact |
-    grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed 's/.*AppMonitor\.//' | sort -u
+    grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed 's/.*AppMonitor\.//' | sort -u || true
 }
 
 debug_names="$(sdk_names "$products/Debug-iphonesimulator/Sample.app")"
@@ -39,13 +39,13 @@ if ! grep -qx MonitorClient <<<"$debug_names"; then
   exit 1
 fi
 release_names="$(sdk_names "$products/Release-iphonesimulator/Sample.app" | tr '\n' ' ')"
-if [[ "$release_names" != "AppMonitor AppMonitorOptions " ]]; then
-  echo "ios-sample: Release app holds AppMonitor names other than the stubs: $release_names(ADR-0048)" >&2
+if [[ -n "$release_names" ]]; then
+  echo "ios-sample: Release app holds AppMonitor names: $release_names(ADR-0155)" >&2
   exit 1
 fi
 # The C target of the connection layer (SDD 07) has no Swift names.
 c_symbols() {
-  find "$1" -maxdepth 1 -type f \( -name Sample -o -name '*.dylib' \) -exec nm {} + 2>/dev/null |
+  app_binaries "$1" | xargs nm 2>/dev/null |
     grep -c appmonitor_connections_install || true
 }
 if [[ "$(c_symbols "$products/Debug-iphonesimulator/Sample.app")" == 0 ]]; then
@@ -53,7 +53,7 @@ if [[ "$(c_symbols "$products/Debug-iphonesimulator/Sample.app")" == 0 ]]; then
   exit 1
 fi
 if [[ "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; then
-  echo "ios-sample: Release app holds the connection layer's C code (ADR-0048)" >&2
+  echo "ios-sample: Release app holds the connection layer's C code (ADR-0155)" >&2
   exit 1
 fi
 echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only"
