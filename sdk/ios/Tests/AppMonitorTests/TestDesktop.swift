@@ -1,6 +1,5 @@
 import Foundation
 import Network
-import SwiftProtobuf
 
 @testable import AppMonitor
 

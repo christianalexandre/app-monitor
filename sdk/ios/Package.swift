@@ -9,13 +9,13 @@ let package = Package(
         .library(name: "AppMonitorGRPC", targets: ["AppMonitorGRPC"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.39.0"),
+        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.28.0"),
         .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.3.0"),
     ],
     targets: [
         .target(
             name: "AppMonitor",
-            dependencies: ["AppMonitorConnections", .product(name: "SwiftProtobuf", package: "swift-protobuf")]
+            dependencies: ["AppMonitorConnections"]
         ),
         .target(
             name: "AppMonitorConnections",

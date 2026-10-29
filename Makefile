@@ -71,7 +71,7 @@ e2e-kmp-ios: ## KMP sample on an iPhone simulator with the Swift SDK, each excha
 publish-dry-run: ## SDKs to build/maven-dry-run, POMs checked; SwiftPM consumer in debug and release (ADR-0058)
 	@scripts/publish_dry_run.sh
 
-swift-proto: ## Regenerate sdk/ios swift-protobuf code from protocol/proto (ADR-0039)
+swift-proto: ## Regenerate sdk/ios protobuf types from protocol/proto (ADR-0160)
 	@scripts/swift_proto_gen.sh
 
 desktop: ## Run the desktop app (listens for devices on port 47474)

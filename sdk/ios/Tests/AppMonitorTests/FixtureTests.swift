@@ -1,5 +1,4 @@
 import Foundation
-import SwiftProtobuf
 import Testing
 
 @testable import AppMonitor
@@ -41,7 +40,7 @@ struct FixtureTests {
         let expected = try #require(Samples.messages[name]).message
         let envelope = try Appmonitor_V1_Envelope(serializedBytes: try Self.fixture(name))
         let decoded = try type(of: expected).init(serializedBytes: envelope.payload)
-        #expect(decoded.isEqualTo(message: expected), "\(name)")
+        #expect(AnyHashable(decoded) == AnyHashable(expected), "\(name)")
         #expect(decoded.unknownFields.data.isEmpty, "\(name)")
         let reencoded: Data = try decoded.serializedBytes()
         #expect(reencoded == envelope.payload, "\(name)")

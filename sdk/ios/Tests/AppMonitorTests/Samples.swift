@@ -1,5 +1,4 @@
 import Foundation
-import SwiftProtobuf
 
 @testable import AppMonitor
 
@@ -170,7 +169,7 @@ enum Samples {
     }
 
     /// Fixture file name to the message its envelope carries.
-    static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
+    static let messages: [String: (channel: String, type: String, message: any ProtoMessage)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
         "hello_ack.bin": (ProtocolConstants.channelCore, "HelloAck", helloAck),
         "request_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", requestStarted),

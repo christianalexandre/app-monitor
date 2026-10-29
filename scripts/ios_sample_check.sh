@@ -56,4 +56,12 @@ if [[ "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; the
   echo "ios-sample: Release app holds the connection layer's C code (ADR-0155)" >&2
   exit 1
 fi
-echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only"
+# DEBT-0040, ADR-0160: the SDK no longer links SwiftProtobuf, so neither app holds it.
+for config in Debug Release; do
+  protobuf="$(app_binaries "$products/$config-iphonesimulator/Sample.app" | xargs nm 2>/dev/null | grep -c SwiftProtobuf || true)"
+  if [[ "$protobuf" != 0 ]]; then
+    echo "ios-sample: $config app holds $protobuf SwiftProtobuf symbols (ADR-0160)" >&2
+    exit 1
+  fi
+done
+echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only, no SwiftProtobuf"

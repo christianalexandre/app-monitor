@@ -117,11 +117,12 @@ for product in Consumer GRPCConsumer; do
     }
     bin="$consumer/.build/$config/$product"
     grpc="$(nm "$bin" | grep -c GRPCCore || true)"
-    if [[ "$product" == Consumer && "$grpc" -ne 0 ]]; then
-      echo "publish-swift: Consumer $config links $grpc GRPCCore symbols without the adapter" >&2
+    protobuf="$(nm "$bin" | grep -c SwiftProtobuf || true)"
+    if [[ "$product" == Consumer && ("$grpc" -ne 0 || "$protobuf" -ne 0) ]]; then
+      echo "publish-swift: Consumer $config links $grpc GRPCCore and $protobuf SwiftProtobuf symbols without the adapter (ADR-0160)" >&2
       exit 1
     fi
     echo "publish-swift: $config $product $(wc -c <"$bin" | tr -d ' ') bytes," \
-      "$(nm "$bin" | grep -c SwiftProtobuf || true) SwiftProtobuf symbols (DEBT-0040), $grpc GRPCCore symbols"
+      "$protobuf SwiftProtobuf symbols (ADR-0160), $grpc GRPCCore symbols"
   done
 done

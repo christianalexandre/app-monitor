@@ -1,23 +1,11 @@
 #!/usr/bin/env bash
-# Regenerates the swift-protobuf code of sdk/ios from protocol/proto (ADR-0039).
-# Uses protoc and protoc-gen-swift built from the pinned swift-protobuf, so no
-# system protoc is needed. Run after any change to protocol/proto.
+# Regenerates sdk/ios's protobuf types from protocol/proto with scripts/swift_proto_gen.py,
+# no protoc and no SwiftProtobuf (ADR-0160). Run after any change to protocol/proto.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-pkg=sdk/ios
-out="$pkg/Sources/AppMonitor/Generated"
-
-swift build --package-path "$pkg" -c release --product protoc
-swift build --package-path "$pkg" -c release --product protoc-gen-swift
-bin="$(swift build --package-path "$pkg" -c release --show-bin-path)"
-
+out=sdk/ios/Sources/AppMonitor/Generated
 rm -f "$out"/*.pb.swift
-"$bin/protoc" -I protocol/proto \
-  --plugin=protoc-gen-swift="$bin/protoc-gen-swift" \
-  --swift_out="$out" \
-  --swift_opt=Visibility=Internal \
-  --swift_opt=FileNaming=PathToUnderscores \
-  protocol/proto/appmonitor/v1/*.proto
+python3 -I scripts/swift_proto_gen.py protocol/proto/appmonitor/v1 "$out"
 scripts/swift_proto_hash.sh > "$out/proto.sha256"
 echo "swift-proto: regenerated $(ls "$out"/*.pb.swift | wc -l | tr -d ' ') files in $out"
