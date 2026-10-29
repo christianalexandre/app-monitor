@@ -73,7 +73,7 @@ permission and a second Kotlin start on iOS were all written by hand.
   (TestKit consumer) and an iOS app (XcodeGen, configurations `Dev` and
   `Prod`), build and send traffic in debug, and their release builds
   hold no SDK names; the step count per platform is listed in the PR.
-- [x] **H4.7 OkHttp WebSocket frames through the plugin.** The plugin
+- [x] **H4.7 OkHttp WebSocket frames through the plugin.** (#300) The plugin
   rewrites `OkHttpClient.newWebSocket` to ask the SDK first (ADR-0159), so
   an Android app drops `AppMonitorWebSocketFactory` and a KMP app on
   Ktor's OkHttp and Darwin engines installs nothing in `commonMain`.
