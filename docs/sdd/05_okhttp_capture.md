@@ -58,13 +58,21 @@ code:
 - Release variants, a variant without the SDK (one build line, "OkHttp is
   not rewritten", when AGP runs the transform) and
   `appMonitor { injectOkHttp = false }` leave OkHttp's bytes untouched.
-- WebSockets still need `AppMonitorWebSocketFactory` (ADR-0112 C.1).
+- `OkHttpClient.newWebSocket` calls `AppMonitorOkHttp.newWebSocket(this,
+  request, listener)` first and returns its socket when not null (ADR-0159).
+  The entry returns null while the monitor is idle, for a request tagged
+  with a `WebSocketCapture` (the factory's own call into the client) and for
+  one carrying `X-AppMonitor-Capture` (the Ktor plugin's). Otherwise it opens
+  the socket through `AppMonitorWebSocketFactory(client)`. AGP recomputes
+  that method's frames. `AppMonitorWebSocketFactory` by hand is for apps
+  that set `injectOkHttp = false`.
 - Tests: `ClientVisitorTest` (OkHttp's real `OkHttpClient` rewritten
-  and loaded, a client from each path), `OkHttpInjectionTest` (TestKit: consumers with stand-in `:sdk:*`
+  and loaded, a client from each path, `newWebSocket` asking the entry
+  first), `AppMonitorOkHttpWebSocketTest` in the SDK, `OkHttpInjectionTest` (TestKit: consumers with stand-in `:sdk:*`
   projects, their APKs read with `dexdump`: debug real, release no-op, no
   OkHttp brought to an app without it, a release resolving a real artifact
   failing), `AppMonitorOkHttpTest` in the SDK. The Android sample has
-  no interceptor line; `make e2e-android` captures it.
+  no interceptor and no WebSocket line; `make e2e-android` captures both.
 
 ### One HTTP call
 

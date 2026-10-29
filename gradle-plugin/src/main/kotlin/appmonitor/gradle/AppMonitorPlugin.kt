@@ -1,5 +1,6 @@
 package appmonitor.gradle
 
+import com.android.build.api.instrumentation.FramesComputationMode
 import com.android.build.api.instrumentation.InstrumentationScope
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.gradle.api.DefaultTask
@@ -39,6 +40,7 @@ public class AppMonitorPlugin : Plugin<Project> {
                 variant.instrumentation.transformClassesWith(OkHttpInjection::class.java, InstrumentationScope.ALL) {
                     it.sdkOnClasspath.set(graph.map(::hasSdk))
                 }
+                variant.instrumentation.setAsmFramesComputationMode(FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS)
             }
         }
         project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
