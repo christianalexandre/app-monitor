@@ -34,7 +34,10 @@ app ── HttpClient { install(AppMonitorKtor) }
   sends a marked request on without the header and captures nothing of it,
   so the call is captured once and the server never sees the mark. Another
   engine never reaches the interceptor, so it sends nothing marked
-  (ADR-0129, ADR-0157).
+  (ADR-0129, ADR-0157). The engine is known by class (`is OkHttpEngine`,
+  `ktor-client-okhttp` compile-only), so R8 renaming it in a minified debug
+  build changes nothing; `consumer-rules.pro` lets R8 shrink an app without
+  that engine. An app engine that wraps it is captured twice (DEBT-0100).
 - **Masking** is the rule of SDD 05, member for member, pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a

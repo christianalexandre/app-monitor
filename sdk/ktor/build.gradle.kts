@@ -26,6 +26,11 @@ tasks.matching { it.name.endsWith("LintModel") || it.name.startsWith("lintAnalyz
 kotlin {
     android {
         namespace = "appmonitor.sdk.ktor"
+        // Lets R8 shrink an app without Ktor's OkHttp engine, which Platform.android.kt names.
+        optimization.consumerKeepRules.apply {
+            publish = true
+            file("consumer-rules.pro")
+        }
     }
     sourceSets {
         all {
@@ -37,6 +42,9 @@ kotlin {
             implementation(project(":protocol"))
             implementation(libs.kotlinx.atomicfu)
         }
+        // Only to know the engine by class; the app brings it, or the check is false.
+        androidMain.dependencies { compileOnly(libs.ktor.client.okhttp) }
+        jvmMain.dependencies { compileOnly(libs.ktor.client.okhttp) }
         commonTest {
             kotlin.srcDir(generateMaskingVector)
             dependencies {
