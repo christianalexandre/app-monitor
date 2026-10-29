@@ -66,32 +66,44 @@ internal class Sdk(
         if (local) {
             this.project(if (noOp) sdk.noOpPath else sdk.path)
         } else {
-            this.module("$GROUP:${if (noOp) sdk.noOpArtifact else sdk.artifact}")
+            // A substitution target needs a version; the requested side matches any.
+            if (noOp) this.module("$GROUP:${sdk.noOpArtifact}:$SDK_VERSION") else this.module("$GROUP:${sdk.artifact}")
         }
 }
 
 // A KMP module publishes per-target artifacts (`appmonitor-core-android`, `appmonitor-core-iosarm64`, …).
 private val REAL_ARTIFACT = Regex("appmonitor-(core|okhttp|ktor)(-[a-z0-9]+)?")
 
+/** Every component in the graph under [root], each once. */
+internal fun components(root: ResolvedComponentResult): Sequence<ResolvedComponentResult> =
+    sequence {
+        val seen = mutableSetOf<ResolvedComponentResult>()
+        val queue = ArrayDeque(listOf(root))
+        while (queue.isNotEmpty()) {
+            val component = queue.removeFirst()
+            if (!seen.add(component)) continue
+            yield(component)
+            component.dependencies.filterIsInstance<ResolvedDependencyResult>().forEach { queue += it.selected }
+        }
+    }
+
 /** The real SDK modules in the graph under [root]; a release build must have none (ADR-0157). */
 internal fun realSdkIn(root: ResolvedComponentResult): List<String> {
-    val seen = mutableSetOf<ResolvedComponentResult>()
-    val queue = ArrayDeque(listOf(root))
-    val found = mutableListOf<String>()
     val realPaths = SdkModule.entries.map { it.path }.toSet()
-    while (queue.isNotEmpty()) {
-        val component = queue.removeFirst()
-        if (!seen.add(component)) continue
-        when (val id = component.id) {
-            is ModuleComponentIdentifier -> {
-                if (id.group == GROUP && REAL_ARTIFACT.matches(id.module) && !id.module.contains("-no-op")) found += id.displayName
-            }
+    return components(root)
+        .mapNotNull { component ->
+            when (val id = component.id) {
+                is ModuleComponentIdentifier -> {
+                    id.displayName.takeIf { id.group == GROUP && REAL_ARTIFACT.matches(id.module) && !id.module.contains("-no-op") }
+                }
 
-            is ProjectComponentIdentifier -> {
-                if (id.projectPath in realPaths) found += id.projectPath
+                is ProjectComponentIdentifier -> {
+                    id.projectPath.takeIf { it in realPaths }
+                }
+
+                else -> {
+                    null
+                }
             }
-        }
-        component.dependencies.filterIsInstance<ResolvedDependencyResult>().forEach { queue += it.selected }
-    }
-    return found
+        }.toList()
 }

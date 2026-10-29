@@ -43,18 +43,19 @@ public class AppMonitorPlugin : Plugin<Project> {
         }
         project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
             sdk.add("commonMainImplementation", SdkModule.KTOR)
-            val buildType = xcodeBuildType(project)
+            val buildType = nativeBuildType(project)
             if (buildType == null || buildType == "debug") return@withPlugin
             project.configurations.configureEach { sdk.swapForNoOps(it) }
-            val klibs = project.configurations.matching { it.isCanBeResolved && it.name.endsWith("CompileKlibraries") }
+            val klibs =
+                project.configurations.matching {
+                    it.isCanBeResolved && it.name.endsWith("CompileKlibraries") && !it.name.contains("Test")
+                }
             klibs.all { configuration ->
                 val check = registerCheck(project, configuration.name, configuration.name)
+                val target = configuration.name.removeSuffix("CompileKlibraries").replaceFirstChar(Char::uppercase)
                 project.tasks
-                    .matching {
-                        it.name.startsWith(
-                            "embedAndSign",
-                        ) || it.name.startsWith("link")
-                    }.configureEach { it.dependsOn(check) }
+                    .matching { it.name.startsWith("link") && it.name.endsWith(target) }
+                    .configureEach { it.dependsOn(check) }
             }
         }
     }
@@ -75,13 +76,18 @@ public class AppMonitorPlugin : Plugin<Project> {
 }
 
 /**
- * The build type Xcode asks the Kotlin framework for, as `embedAndSignAppleFrameworkForXcode` reads it; null outside
- * Xcode. Anything but `debug` gets the no-ops (ADR-0157), so a configuration Kotlin cannot name never links the SDK.
+ * The build type Xcode asks the Kotlin framework for, as `embedAndSignAppleFrameworkForXcode` reads it. Outside Xcode,
+ * `release` when a requested task builds or publishes a release binary or an XCFramework, else null. Anything but
+ * `debug` gets the no-ops (ADR-0157), so a configuration Kotlin cannot name never links the SDK.
  */
-internal fun xcodeBuildType(project: Project): String? {
+internal fun nativeBuildType(project: Project): String? {
     val env = project.providers
-    return (env.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull ?: env.environmentVariable("CONFIGURATION").orNull)
-        ?.lowercase()
+    val xcode = env.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull ?: env.environmentVariable("CONFIGURATION").orNull
+    if (xcode != null) return xcode.lowercase()
+    val tasks =
+        project.gradle.startParameter.taskNames
+            .map { it.substringAfterLast(':').lowercase() }
+    return if (tasks.any { "release" in it || "xcframework" in it || "publish" in it }) "release" else null
 }
 
 /** Fails a release build that still resolves a real SDK module, whoever declared it (ADR-0157). */

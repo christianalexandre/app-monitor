@@ -225,8 +225,9 @@ a stack trace (DEBT-0010). See ADR-0010.
 - **The Gradle plugin adds them** (ADR-0157): in an Android app,
   `appmonitor-core` and `appmonitor-okhttp` (its `okhttp` excluded); in a KMP
   module, `appmonitor-ktor` in `commonMain`. Every non-debuggable variant
-  of the app, and a KMP module that Xcode builds with any build type but
-  `debug`, gets the no-ops. `appMonitorCheck<Variant>` fails a release that
+  of the app gets the no-ops. So does a KMP module that Xcode builds with
+  any build type but `debug`, or that Gradle builds outside Xcode for a
+  task naming `release`, `xcframework` or `publish`. `appMonitorCheck<Variant>` fails a release that
   still resolves a real SDK module. In this repository
   `appmonitor.sdk.local=true` points it at the `:sdk:*` projects.
 - `samples/android` applies only the plugin, and
