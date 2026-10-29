@@ -97,7 +97,7 @@ class MonitorClientDesktopTest {
 
     private fun client(port: Int): MonitorClient {
         val config = ClientConfig(backoffInitial = 50.milliseconds, backoffMax = 200.milliseconds)
-        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, { true }, {})
+        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, {})
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

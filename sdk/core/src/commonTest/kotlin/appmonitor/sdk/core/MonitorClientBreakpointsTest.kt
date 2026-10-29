@@ -206,7 +206,7 @@ class MonitorClientBreakpointsTest {
 
     private suspend fun client(desktop: Desktop): MonitorClient {
         val port = desktop.start()
-        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, { true }, {})
+        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, {})
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

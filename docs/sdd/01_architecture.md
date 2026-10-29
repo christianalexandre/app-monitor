@@ -192,8 +192,8 @@ a stack trace (DEBT-0010). See ADR-0010.
   WebSocket and background tasks included (SDD 07, ADR-0043, ADR-0045,
   ADR-0046). Masking and the body limit run on the device, against the
   shared `protocol/fixtures/masking.json` vector (ADR-0036). Debug builds
-  need the local network keys, which
-  `sdk/ios/scripts/add_local_network_keys.sh` adds (ADR-0049).
+  need the local network keys, which the Run Script pasted from the README
+  (`sdk/ios/scripts/add_local_network_keys.sh`) adds (ADR-0155).
 - **Android / KMP**: `sdk/core` in KMP (JVM, Android `minSdk` 24, `iosArm64`
   and `iosSimulatorArm64`; Kotlin/Native specifics in SDD 04, ADR-0066 to
   ADR-0068); the
@@ -222,27 +222,35 @@ a stack trace (DEBT-0010). See ADR-0010.
   (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
   same public types doing nothing, kept identical by comparing the committed
   JVM, Android and klib ABI dumps (ADR-0072).
-- `samples/android` uses the SDK in debug and `sdk/okhttp-no-op` in release, and
+- **The Gradle plugin adds them** (ADR-0157): in an Android app,
+  `appmonitor-core` and `appmonitor-okhttp` (its `okhttp` excluded); in a KMP
+  module, `appmonitor-ktor` in `commonMain`. Every non-debuggable variant
+  of the app, and a KMP module that Xcode builds with any build type but
+  `debug`, gets the no-ops. `appMonitorCheck<Variant>` fails a release that
+  still resolves a real SDK module. In this repository
+  `appmonitor.sdk.local=true` points it at the `:sdk:*` projects.
+- `samples/android` applies only the plugin, and
   `checkReleaseHasNoSdk` proves the release APK has no SDK classes
   (ADR-0030). It is the device side of the end-to-end run (SDD 02,
   ADR-0031).
-- **iOS release builds** compile the same `AppMonitor` product to stubs:
-  every implementation file and the generated code sit under `#if DEBUG`,
-  and both builds must match `sdk/ios/api/AppMonitor.swiftinterface`
-  (ADR-0048). The package gets `DEBUG` only in an app configuration whose
-  name contains `Debug`. SwiftProtobuf is still linked in release
-  (DEBT-0040).
+- **iOS release builds** hold none of the SDK's code (ADR-0155).
+  `AppMonitor` has no `#if DEBUG` in it. The app starts it under
+  its own `#if DEBUG` and sets `EXCLUDED_SOURCE_FILE_NAMES = AppMonitor*` on
+  each configuration that ships, which leaves `AppMonitor.o` unlinked;
+  SwiftProtobuf, its own target, stays (DEBT-0040). The Run Script fails an
+  optimized build that links it. Xcode would otherwise pick the package's
+  configuration by name (`debug` or `development`), never by settings. The
+  public API is `sdk/ios/api/AppMonitor.swiftinterface`.
 - `samples/ios` uses the same product, from the root `Package.swift`
-  (ADR-0109), in both configurations; its Release
-  app names nothing of the `AppMonitor` module but the two stubs, and only
-  its Debug app has the local network keys (`make ios-sample`, ADR-0050).
+  (ADR-0109), excluded from Release; its Release
+  app names nothing of the module, and only
+  its Debug app has the local network keys (`make ios-sample`, ADR-0050, ADR-0155).
 - `samples/kmp` (Compose Multiplatform, Android and iOS) calls through Ktor
-  with `install(AppMonitorKtor)`; its iOS host also starts the Swift SDK.
-  Release builds swap the SDK for its no-ops (ADR-0062 D.1): on iOS the
-  shared module's Gradle script picks `sdk/ktor-no-op` from Xcode's
-  `CONFIGURATION`, on Android the release app substitutes `sdk/ktor` and
-  `sdk/core`; `make kmp-sample` checks both releases hold no SDK name
-  (ADR-0073).
+  with `install(AppMonitorKtor)`; its `androidApp` and `shared` apply the
+  plugin, which does the release swap on both platforms. On iOS only the
+  Swift SDK starts and captures Ktor's Darwin calls (ADR-0158).
+  `make kmp-sample` checks both releases hold no SDK name but the no-op
+  stubs (ADR-0073, ADR-0157).
 - Capture coverage on iOS is layered (URLSession → adapters → connection
   metadata → desktop MITM proxy). See ADR-0004.
 

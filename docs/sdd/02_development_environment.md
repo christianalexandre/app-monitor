@@ -191,9 +191,9 @@ xcrun simctl launch booted dev.appmonitor.kmpsample -host 127.0.0.1 -runAll YES
 `--es target URL` on Android and `-target URL` on iOS point the calls at
 `tools/e2e-target`, as for the other samples. The five calls (GET, POST,
 404, timeout, WebSocket echo) go through Ktor
-(OkHttp on Android, Darwin on iOS). On iOS the Swift SDK runs too: the
-desktop shows two sessions of one app, and each exchange once, on the
-Kotlin one (ADR-0064).
+(OkHttp on Android, Darwin on iOS). On iOS only the Swift SDK runs: the
+desktop shows one session of the app, the Swift SDK's, with each exchange
+once (ADR-0158).
 
 ### The KMP sample end to end, scripted
 
@@ -204,12 +204,11 @@ builds only the sample's debug app (Release and the SDK name scan stay in
 `make kmp-sample`, as for `make e2e-ios`), starts the server and `tools/e2e-target` on free ports
 and launches the sample with `host`, `port`, `target` and `runAll`, as
 `make e2e-android` and `make e2e-ios` do. It asserts the five calls; the
-WebSocket's URL is logged as `ws://<host>:<target port>/ws`, Ktor's own.
-"Captured once" compares URLs with `ws` as `http` and `wss` as `https`,
-since the Swift SDK logs a socket's upgrade under the HTTP scheme. On iOS it
+WebSocket's URL is logged as `ws://<host>:<target port>/ws` on Android,
+Ktor's own, and `http://…` on iOS, as `URLSession` reports it. "Captured
+once" compares URLs with `ws` as `http` and `wss` as `https`. On iOS it
 also fails unless `dev.appmonitor.kmpsample` opened a session with
-`sdk_name` `swift` and one with `kotlin` (ADR-0077), so "captured once"
-means the Swift SDK skipped Ktor's requests (ADR-0064, ADR-0071).
+`sdk_name` `swift` and none with `kotlin` (ADR-0077, ADR-0158).
 Logs in `build/e2e-kmp-android/` and `build/e2e-kmp-ios/` (`build.log`
 holds the iOS build).
 

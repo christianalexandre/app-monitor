@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # KMP end to end (ADR-0065, ADR-0075): samples/kmp's debug app on a booted emulator
 # (`android`) or an iPhone simulator (`ios`) against the headless server, its Ktor calls to the
-# local target (ADR-0074), every expected envelope asserted once; on iOS beside the Swift SDK.
+# local target (ADR-0074), every expected envelope asserted once; on iOS by the Swift SDK alone.
 # ANDROID_SERIAL and SIM_DEVICE pick the device, E2E_TIMEOUT (s, default 120) bounds the wait.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -51,17 +51,20 @@ else
   echo "$tag: sample on $sim_name ($udid), server on port $port, target $target"
 fi
 
+# Ktor reports a WebSocket as ws://; the Swift SDK as URLSession sees it, http:// (ADR-0158).
+ws_scheme=ws
+[[ "$platform" == ios ]] && ws_scheme=http
 # One expectation per line, as `missing` in scripts/e2e_lib.sh reads them.
 expected="GET $target/json ResponseReceived
 POST $target/post ResponseReceived
 GET $target/status/404 ResponseReceived
 GET $target/delay/10 RequestFailed
-GET ws://$host:$target_port/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE"
+GET $ws_scheme://$host:$target_port/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE"
 
 assert_envelopes "$app" "$expected" "$timeout" "$device_log" "$host:$target_port"
 if [[ "$platform" == ios ]]; then
-  # The dedupe proves nothing unless the Swift SDK's session was there to capture twice (ADR-0064).
+  # ADR-0158: on iOS the Swift SDK captures Ktor's Darwin calls; sdk/core is never started there.
   swift="$(sessions "$app" swift)" kotlin="$(sessions "$app" kotlin)"
-  ((swift >= 1 && kotlin >= 1)) || fail "$swift Swift SDK and $kotlin sdk/core session(s) for $app, one of each expected; server log in $server_log"
-  echo "$tag: $swift Swift SDK and $kotlin sdk/core session(s), each exchange captured once"
+  ((swift >= 1 && kotlin == 0)) || fail "$swift Swift SDK and $kotlin sdk/core session(s) for $app, Swift only expected; server log in $server_log"
+  echo "$tag: $swift Swift SDK session(s), no sdk/core, each exchange captured once"
 fi

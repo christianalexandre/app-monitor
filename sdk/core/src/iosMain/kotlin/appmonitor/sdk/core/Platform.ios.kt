@@ -17,9 +17,6 @@ import platform.posix.flock
 import platform.posix.link
 import platform.posix.open
 
-/** iOS has no per-host cleartext policy CIO's sockets would obey; ATS governs `URLSession` only (ADR-0066 A). */
-internal actual fun isCleartextPermitted(host: String): Boolean = true
-
 internal actual fun platformLog(message: String) {
     NSLog("AppMonitor: %@", message)
 }

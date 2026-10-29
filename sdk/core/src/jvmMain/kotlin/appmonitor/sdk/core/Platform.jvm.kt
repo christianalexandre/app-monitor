@@ -6,8 +6,6 @@ import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Paths
 
-internal actual fun isCleartextPermitted(host: String): Boolean = true
-
 internal actual fun platformLog(message: String) {
     System.err.println("AppMonitor: $message")
 }

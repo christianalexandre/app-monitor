@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -484,4 +483,3 @@ func responseReceivedEvent(_ response: HTTPURLResponse, _ data: Data, id: String
     event.bodySize = Int64(data.count)
     return event
 }
-#endif

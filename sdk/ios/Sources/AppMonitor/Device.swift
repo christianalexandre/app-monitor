@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 let sdkVersion = "0.1.0-dev"
@@ -85,4 +84,3 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
     hello.sdkName = sdkName
     return hello
 }
-#endif

@@ -1,5 +1,3 @@
-// swift-format-ignore-file
-#if DEBUG
 // DO NOT EDIT.
 // swift-format-ignore-file
 // swiftlint:disable all
@@ -935,4 +933,3 @@ nonisolated extension Appmonitor_V1_ReplayRefused: SwiftProtobuf.Message, SwiftP
     return true
   }
 }
-#endif

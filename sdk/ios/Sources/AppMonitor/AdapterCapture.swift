@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// Where adapter exchanges go: the running monitor, or a test double.
@@ -125,4 +124,3 @@ package final class AdapterExchange: @unchecked Sendable {
         }
     }
 }
-#endif

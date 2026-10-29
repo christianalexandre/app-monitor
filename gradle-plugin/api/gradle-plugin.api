@@ -9,3 +9,10 @@ public final class appmonitor/gradle/AppMonitorPlugin : org/gradle/api/Plugin {
 	public fun apply (Lorg/gradle/api/Project;)V
 }
 
+public abstract class appmonitor/gradle/NoSdkCheck : org/gradle/api/DefaultTask {
+	public fun <init> ()V
+	public final fun check ()V
+	public abstract fun getConfigurationName ()Lorg/gradle/api/provider/Property;
+	public abstract fun getFound ()Lorg/gradle/api/provider/ListProperty;
+}
+

@@ -30,6 +30,27 @@ gradlePlugin {
     }
 }
 
+// ADR-0157: the plugin adds the SDK of its own release, the root's VERSION_NAME.
+val sdkVersion =
+    providers.fileContents(layout.projectDirectory.file("../gradle.properties")).asText.map { text ->
+        text
+            .lineSequence()
+            .first { it.startsWith("VERSION_NAME=") }
+            .substringAfter("=")
+            .trim()
+    }
+val generateSdkVersion by tasks.registering {
+    val output = layout.buildDirectory.dir("generated/sdkVersion")
+    inputs.property("version", sdkVersion)
+    outputs.dir(output)
+    doLast {
+        val file = output.get().file("appmonitor/gradle/SdkVersion.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText("package appmonitor.gradle\n\ninternal const val SDK_VERSION: String = \"${sdkVersion.get()}\"\n")
+    }
+}
+kotlin.sourceSets.main { kotlin.srcDir(generateSdkVersion) }
+
 // The app's own AGP is the one at run time; the functional tests put this one on the plugin's classpath.
 val agp = configurations.create("agp")
 

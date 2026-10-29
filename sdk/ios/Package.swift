@@ -19,8 +19,7 @@ let package = Package(
         ),
         .target(
             name: "AppMonitorConnections",
-            exclude: ["fishhook"],
-            cSettings: [.define("APPMONITOR_DEBUG", .when(configuration: .debug))]
+            exclude: ["fishhook"]
         ),
         .target(
             name: "AppMonitorGRPC",

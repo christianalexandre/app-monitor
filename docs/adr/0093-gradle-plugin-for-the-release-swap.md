@@ -1,9 +1,9 @@
 ---
 id: ADR-0093
 title: A Gradle plugin swaps the SDK for its no-ops in release builds
-status: Accepted
+status: Superseded
 date: 2026-10-24
-superseded_by:
+superseded_by: ADR-0157
 ---
 
 # ADR-0093 — A Gradle plugin swaps the SDK for its no-ops in release builds

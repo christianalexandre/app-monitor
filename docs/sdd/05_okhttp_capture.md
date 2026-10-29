@@ -44,8 +44,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 ### Added by the Gradle plugin
 
 `io.github.christianalexandre.appmonitor` (`gradle-plugin/`, ADR-0112,
-ADR-0126, ADR-0127), applied in an Android app module, adds the interceptor
-without a line of code:
+ADR-0126, ADR-0127), applied in an Android app module, adds the SDK, its
+no-ops in release (ADR-0157, SDD 01), and the interceptor without a line of
+code:
 
 - In each variant with `debuggable = true` whose dependency graph has
   `appmonitor-okhttp`, OkHttp's constructor `OkHttpClient(builder)`
@@ -59,8 +60,10 @@ without a line of code:
   `appMonitor { injectOkHttp = false }` leave OkHttp's bytes untouched.
 - WebSockets still need `AppMonitorWebSocketFactory` (ADR-0112 C.1).
 - Tests: `ClientVisitorTest` (OkHttp's real `OkHttpClient` rewritten
-  and loaded, a client from each path), `OkHttpInjectionTest` (TestKit: a consumer's APKs read with
-  `dexdump`), `AppMonitorOkHttpTest` in the SDK. The Android sample has
+  and loaded, a client from each path), `OkHttpInjectionTest` (TestKit: consumers with stand-in `:sdk:*`
+  projects, their APKs read with `dexdump`: debug real, release no-op, no
+  OkHttp brought to an app without it, a release resolving a real artifact
+  failing), `AppMonitorOkHttpTest` in the SDK. The Android sample has
   no interceptor line; `make e2e-android` captures it.
 
 ### One HTTP call

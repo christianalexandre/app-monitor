@@ -77,7 +77,6 @@ internal class MonitorClient(
     hello: () -> Hello,
     private val discover: suspend () -> Endpoint?,
     private val config: ClientConfig = ClientConfig(),
-    private val cleartextPermitted: (host: String) -> Boolean = ::isCleartextPermitted,
     private val log: (String) -> Unit = ::platformLog,
     random: Random = Random.Default,
     private val openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
@@ -170,15 +169,6 @@ internal class MonitorClient(
             mutableState.value = ClientState.Discovering
             val endpoint = withTimeoutOrNull(config.discoveryTimeout) { discover() }
             if (endpoint != null) {
-                if (!cleartextPermitted(endpoint.host)) {
-                    log(
-                        "cleartext ws:// to ${endpoint.host} is blocked by the app's network security policy; " +
-                            "allow it in a debug-only network security config with cleartextTrafficPermitted " +
-                            "(README.md, Usage, at github.com/christianalexandre/app-monitor)",
-                    )
-                    stop()
-                    return
-                }
                 when (connect(endpoint)) {
                     Outcome.Stopped -> return
                     Outcome.Rejected -> backoff.exhaust()

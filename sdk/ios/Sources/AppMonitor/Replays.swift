@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -102,4 +101,3 @@ private final class Weak<Value: AnyObject>: @unchecked Sendable {
     weak var value: Value?
     init(_ value: Value?) { self.value = value }
 }
-#endif

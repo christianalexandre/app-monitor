@@ -1,4 +1,3 @@
-#if DEBUG
 import AppMonitor
 import Foundation
 import GRPCCore
@@ -211,4 +210,3 @@ struct CapturedParts<Output: Sendable>: AsyncSequence, Sendable {
         }
     }
 }
-#endif

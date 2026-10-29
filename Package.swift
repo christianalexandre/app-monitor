@@ -2,6 +2,7 @@
 import PackageDescription
 
 // ADR-0054: the manifest apps resolve; sdk/ios/Package.swift builds the same sources with the tests.
+// ADR-0155: apps keep it out of release builds with EXCLUDED_SOURCE_FILE_NAMES = AppMonitor*.
 let package = Package(
     name: "AppMonitor",
     platforms: [.iOS(.v15), .macOS(.v12)],
@@ -23,8 +24,7 @@ let package = Package(
         .target(
             name: "AppMonitorConnections",
             path: "sdk/ios/Sources/AppMonitorConnections",
-            exclude: ["fishhook"],
-            cSettings: [.define("APPMONITOR_DEBUG", .when(configuration: .debug))]
+            exclude: ["fishhook"]
         ),
         .target(
             name: "AppMonitorGRPC",

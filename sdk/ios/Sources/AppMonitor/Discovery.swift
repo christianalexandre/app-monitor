@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// Where the simulator reaches its Mac's loopback: it shares the Mac's network stack (ADR-0002).
@@ -167,4 +166,3 @@ private final class MdnsRound: @unchecked Sendable {
 private final class QueueFlag: @unchecked Sendable {
     var value = false
 }
-#endif

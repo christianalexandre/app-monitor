@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -147,4 +146,3 @@ enum MockHooks {
         return true
     }
 }
-#endif
