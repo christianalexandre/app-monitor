@@ -1,5 +1,6 @@
 package appmonitor.gradle
 
+import com.android.build.api.instrumentation.FramesComputationMode
 import com.android.build.api.instrumentation.InstrumentationScope
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.gradle.api.DefaultTask
@@ -39,6 +40,7 @@ public class AppMonitorPlugin : Plugin<Project> {
                 variant.instrumentation.transformClassesWith(OkHttpInjection::class.java, InstrumentationScope.ALL) {
                     it.sdkOnClasspath.set(graph.map(::hasSdk))
                 }
+                variant.instrumentation.setAsmFramesComputationMode(FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS)
             }
         }
         project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
@@ -76,9 +78,8 @@ public class AppMonitorPlugin : Plugin<Project> {
 }
 
 /**
- * The build type Xcode asks the Kotlin framework for, as `embedAndSignAppleFrameworkForXcode` reads it. Outside Xcode,
- * `release` when a requested task builds or publishes a release binary or an XCFramework, else null. Anything but
- * `debug` gets the no-ops (ADR-0157), so a configuration Kotlin cannot name never links the SDK.
+ * The build type Xcode asks the Kotlin framework for; outside Xcode, `release` for a task naming a release, an
+ * XCFramework or a publication, else null. Anything but `debug` gets the no-ops (ADR-0157).
  */
 internal fun nativeBuildType(project: Project): String? {
     val env = project.providers

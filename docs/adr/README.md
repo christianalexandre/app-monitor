@@ -176,3 +176,4 @@ Rules:
 | [0156](0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md) | The Android SDK asks for its local network permission and no longer stops on the cleartext policy | Accepted |
 | [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) | The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it | Accepted |
 | [0158](0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md) | A KMP app on iOS is captured by the Swift SDK alone | Accepted |
+| [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |

@@ -73,6 +73,13 @@ permission and a second Kotlin start on iOS were all written by hand.
   (TestKit consumer) and an iOS app (XcodeGen, configurations `Dev` and
   `Prod`), build and send traffic in debug, and their release builds
   hold no SDK names; the step count per platform is listed in the PR.
+- [x] **H4.7 OkHttp WebSocket frames through the plugin.** (#300) The plugin
+  rewrites `OkHttpClient.newWebSocket` to ask the SDK first (ADR-0159), so
+  an Android app drops `AppMonitorWebSocketFactory` and a KMP app on
+  Ktor's OkHttp and Darwin engines installs nothing in `commonMain`.
+  Accept: `./gradlew -p gradle-plugin check :gradle-plugin:functionalTest
+  :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` with
+  no WebSocket line in the sample, its four frames asserted.
 - [ ] **H4.6 The iOS SDK without SwiftProtobuf.** The package pins
   `swift-protobuf` at `exact: 1.39.0`, so an app on another version cannot
   resolve both. Its runtime also stays in release builds (DEBT-0040). A

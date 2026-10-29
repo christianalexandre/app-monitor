@@ -142,10 +142,12 @@ Nothing else. On Android 17 the SDK asks for `ACCESS_LOCAL_NETWORK` itself,
 once, on the first screen; it reaches the desktop's `ws://` whatever the
 app's network security config says
 ([ADR-0156](docs/adr/0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md)).
-The SDK never brings OkHttp to an app or changes its version. Optional:
-WebSocket frames with `AppMonitorWebSocketFactory(client)`;
-`appMonitor { injectOkHttp = false }` turns the rewrite off, and
-`AppMonitorInterceptor()` adds it by hand ([SDD 05](docs/sdd/05_okhttp_capture.md)).
+WebSocket frames are captured the same way, from `OkHttpClient.newWebSocket`
+([ADR-0159](docs/adr/0159-okhttp-websockets-captured-by-the-gradle-plugin.md)).
+The SDK never brings OkHttp to an app or changes its version.
+`appMonitor { injectOkHttp = false }` turns the rewrite off;
+`AppMonitorInterceptor()` and `AppMonitorWebSocketFactory(client)` then add
+it by hand ([SDD 05](docs/sdd/05_okhttp_capture.md)).
 A working app is in [`samples/android`](samples/android).
 
 ### iOS
@@ -263,22 +265,20 @@ covered.
 
 ### Kotlin Multiplatform
 
-1. **Apply the plugin** in the Android app module and in each KMP module
-   that installs the Ktor plugin. In those, it adds `appmonitor-ktor` to
-   `commonMain`; under Xcode, any build type but `debug` gets the no-op.
-2. **Install it** on every `HttpClient` you want to see, in `commonMain`:
+The Android steps and the iOS steps, nothing more. Ktor's OkHttp engine on
+Android is OkHttp, so the plugin captures its calls and WebSocket frames;
+its Darwin engine on iOS runs on `URLSession`, which the Swift SDK
+captures. Nothing to install in `commonMain`, nothing to start in `iosMain`
+([ADR-0158](docs/adr/0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md)).
 
-   ```kotlin
-   val client = HttpClient(engine) {
-       install(AppMonitorKtor)
-   }
-   ```
+With another engine (CIO, Java, …), apply the plugin in the module that
+builds the `HttpClient` too, which adds `appmonitor-ktor`, and install it:
 
-3. **Start it** on Android in `Application.onCreate`, as an Android app.
-4. **On iOS, add the Swift SDK** with the four steps above. Ktor's Darwin
-   engine runs on `URLSession`, so the Swift SDK captures it; nothing to
-   start from Kotlin, nothing in `iosMain`
-   ([ADR-0158](docs/adr/0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md)).
+```kotlin
+val client = HttpClient(CIO) {
+    install(AppMonitorKtor)
+}
+```
 
 A working app is in [`samples/kmp`](samples/kmp).
 

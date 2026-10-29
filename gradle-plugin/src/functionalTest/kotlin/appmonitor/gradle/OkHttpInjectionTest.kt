@@ -106,9 +106,11 @@ class OkHttpInjectionTest {
         return out
     }
 
-    /** The calls to the entry point in an APK's code. */
-    private fun installCalls(apk: String): Int =
-        Regex("""invoke-static \{v\d+}, Lappmonitor/sdk/okhttp/AppMonitorOkHttp;\.install:""").findAll(dex(apk)).count()
+    /** The calls to an entry point, `install` or `newWebSocket`, in an APK's code. */
+    private fun entryCalls(
+        apk: String,
+        entry: String = "install",
+    ): Int = Regex("""invoke-static \{[v\d, ]+}, Lappmonitor/sdk/okhttp/AppMonitorOkHttp;\.$entry:""").findAll(dex(apk)).count()
 
     private fun hasClass(
         apk: String,
@@ -134,7 +136,9 @@ class OkHttpInjectionTest {
             include(${apps.joinToString { "\":$it\"" }})
             """,
         )
-        val install = "public static void install(okhttp3.OkHttpClient.Builder builder) {}"
+        val install =
+            "public static void install(okhttp3.OkHttpClient.Builder builder) {}\n" +
+                "public static okhttp3.WebSocket newWebSocket(okhttp3.OkHttpClient c, okhttp3.Request r, okhttp3.WebSocketListener l) { return null; }"
         val okhttpApi = """api("com.squareup.okhttp3:okhttp:$okhttp")"""
         for ((path, artifact) in SDK) {
             val pkg = "appmonitor.sdk." + path.substringAfterLast(':').removePrefix("android-").removeSuffix("-no-op")
@@ -184,13 +188,15 @@ class OkHttpInjectionTest {
 
         val debug = "app/build/outputs/apk/debug/app-debug.apk"
         val release = "app/build/outputs/apk/release/app-release-unsigned.apk"
-        assertEquals(1, installCalls(debug))
+        assertEquals(1, entryCalls(debug))
+        assertEquals(1, entryCalls(debug, "newWebSocket"))
         assertTrue(hasClass(debug, "Lappmonitor/sdk/core/RealCore;"))
         assertFalse(hasClass(debug, "Lappmonitor/sdk/core/NoOpCore;"))
-        assertEquals(0, installCalls(release))
+        assertEquals(0, entryCalls(release))
+        assertEquals(0, entryCalls(release, "newWebSocket"))
         assertTrue(hasClass(release, "Lappmonitor/sdk/core/NoOpCore;"))
         assertFalse(hasClass(release, "Lappmonitor/sdk/core/RealCore;"))
-        assertEquals(0, installCalls("optout/build/outputs/apk/debug/optout-debug.apk"))
+        assertEquals(0, entryCalls("optout/build/outputs/apk/debug/optout-debug.apk"))
         val bare = "bare/build/outputs/apk/debug/bare-debug.apk"
         assertTrue(hasClass(bare, "Lappmonitor/sdk/core/RealCore;"))
         assertFalse(hasClass(bare, "Lokhttp3/OkHttpClient;"), "the plugin must not bring OkHttp to an app without it")
