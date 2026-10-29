@@ -238,6 +238,12 @@ linked and has no stubs ([ADR-0155](docs/adr/0155-ios-sdk-left-out-of-release-bu
                   $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
    ```
 
+   If the app already has a script phase that edits the built `Info.plist`
+   (a build number, for one), Xcode may stop with `Multiple commands produce
+   '…/Info.plist'`. With sandboxing off, drop the `Info.plist` from the
+   output files and keep the stamp. With it on, the app's own phase has to
+   declare the same output.
+
 The simulator needs only steps 1 to 3: it reaches the desktop on
 `127.0.0.1`. Every `URLSession` is captured without further code, except a
 request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
