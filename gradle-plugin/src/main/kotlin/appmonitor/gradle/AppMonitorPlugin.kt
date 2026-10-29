@@ -60,6 +60,71 @@ public class AppMonitorPlugin : Plugin<Project> {
                     .configureEach { it.dependsOn(check) }
             }
         }
+        project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+            sdk.add("commonMainImplementation", SdkModule.KTOR)
+            val buildType = nativeBuildType(project)
+            if (buildType == null || buildType == "debug") return@withPlugin
+            project.configurations.configureEach { sdk.swapForNoOps(it) }
+            val klibs =
+                project.configurations.matching {
+                    it.isCanBeResolved && it.name.endsWith("CompileKlibraries") && !it.name.contains("Test")
+                }
+            klibs.all { configuration ->
+                val check = registerCheck(project, configuration.name, configuration.name)
+                val target = configuration.name.removeSuffix("CompileKlibraries").replaceFirstChar(Char::uppercase)
+                project.tasks
+                    .matching { it.name.startsWith("link") && it.name.endsWith(target) }
+                    .configureEach { it.dependsOn(check) }
+            }
+        }
+    }
+
+    private fun registerCheck(
+        project: Project,
+        name: String,
+        configuration: String,
+    ) = project.tasks.register("appMonitorCheck${name.replaceFirstChar(Char::uppercase)}", NoSdkCheck::class.java) { task ->
+        task.configurationName.set(configuration)
+        task.found.set(
+            project.configurations
+                .named(configuration)
+                .flatMap { it.incoming.resolutionResult.rootComponent }
+                .map(::realSdkIn),
+        )
+    }
+}
+
+/**
+ * The build type Xcode asks the Kotlin framework for, as `embedAndSignAppleFrameworkForXcode` reads it. Outside Xcode,
+ * `release` when a requested task builds or publishes a release binary or an XCFramework, else null. Anything but
+ * `debug` gets the no-ops (ADR-0157), so a configuration Kotlin cannot name never links the SDK.
+ */
+internal fun nativeBuildType(project: Project): String? {
+    val env = project.providers
+    val xcode = env.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull ?: env.environmentVariable("CONFIGURATION").orNull
+    if (xcode != null) return xcode.lowercase()
+    val tasks =
+        project.gradle.startParameter.taskNames
+            .map { it.substringAfterLast(':').lowercase() }
+    return if (tasks.any { "release" in it || "xcframework" in it || "publish" in it }) "release" else null
+}
+
+/** Fails a release build that still resolves a real SDK module, whoever declared it (ADR-0157). */
+public abstract class NoSdkCheck : DefaultTask() {
+    @get:Input
+    public abstract val configurationName: Property<String>
+
+    @get:Input
+    public abstract val found: ListProperty<String>
+
+    @TaskAction
+    public fun check() {
+        val found = found.get()
+        if (found.isNotEmpty()) {
+            throw GradleException(
+                "AppMonitor: ${configurationName.get()} resolves the real SDK ($found) in a release build; remove that dependency (ADR-0157)",
+            )
+        }
     }
 
     private fun registerCheck(
