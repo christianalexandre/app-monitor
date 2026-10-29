@@ -49,6 +49,7 @@ record of how the milestone was actually built once it is done.
 | [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
+| [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Active |
 
 ## Roadmap
 
@@ -59,7 +60,8 @@ the plan sharpens it.
 
 The owner runs the SDKs in a real app (not only the samples), fixes what
 breaks and improves the desktop's interface together with the agent
-before anything is published. The loop does not plan past this section:
+before anything is published. The first run asked for
+[PLAN-0014](0014-plug-and-play-setup.md) (H4). The loop does not plan past this section:
 reaching it is **stop: waiting for the owner**, who removes it when the
 field test is done.
 
