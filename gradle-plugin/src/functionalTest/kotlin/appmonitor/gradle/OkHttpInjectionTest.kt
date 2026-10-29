@@ -216,6 +216,45 @@ class OkHttpInjectionTest {
     }
 
     @Test
+    fun `a dynamic feature holds no SDK, its app does`() {
+        consumer("base", "feature")
+        app("base", """android { dynamicFeatures += ":feature" }""")
+        write(
+            "feature/build.gradle.kts",
+            """
+            plugins { id("com.android.dynamic-feature") }
+            android {
+                namespace = "consumer.feature"
+                compileSdk = $compileSdk
+                defaultConfig { minSdk = 24 }
+            }
+            dependencies { implementation(project(":base")) }
+            """,
+        )
+        write(
+            "feature/src/main/AndroidManifest.xml",
+            """
+            <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:dist="http://schemas.android.com/apk/distribution">
+                <dist:module dist:title="@string/app_name"><dist:fusing dist:include="true" /><dist:delivery><dist:on-demand /></dist:delivery></dist:module>
+                <application android:hasCode="false" />
+            </manifest>
+            """,
+        )
+        write("feature/src/main/res/values/strings.xml", "<resources><string name=\"app_name\">f</string></resources>")
+        write("base/src/main/res/values/strings.xml", "<resources><string name=\"app_name\">b</string></resources>")
+
+        gradle(":base:assembleDebug", ":feature:assembleDebug", ":base:assembleRelease", ":feature:assembleRelease").build()
+
+        // The app's APK carries the SDK or its no-ops for the feature; the feature's carries neither.
+        assertTrue(hasClass("base/build/outputs/apk/debug/base-debug.apk", "Lappmonitor/sdk/core/RealCore;"))
+        assertTrue(hasClass("base/build/outputs/apk/release/base-release-unsigned.apk", "Lappmonitor/sdk/core/NoOpCore;"))
+        for (apk in listOf("feature/build/outputs/apk/debug/feature-debug.apk", "feature/build/outputs/apk/release/feature-release.apk")) {
+            assertFalse(hasClass(apk, "Lappmonitor/sdk/core/RealCore;"), apk)
+            assertFalse(hasClass(apk, "Lappmonitor/sdk/core/NoOpCore;"), apk)
+        }
+    }
+
+    @Test
     fun `fails a release build that resolves a real SDK artifact`() {
         consumer("leaky")
         // A per-target artifact the swap does not name, declared by hand.

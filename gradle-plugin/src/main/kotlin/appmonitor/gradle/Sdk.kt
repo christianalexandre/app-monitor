@@ -59,6 +59,17 @@ internal class Sdk(
         }
     }
 
+    /** Leaves every SDK module, real or no-op, out of [configuration]. */
+    fun exclude(configuration: Configuration) {
+        if (!local) {
+            configuration.exclude(mapOf("group" to GROUP))
+            return
+        }
+        SdkModule.entries
+            .flatMap { listOf(it.path, it.noOpPath) }
+            .forEach { configuration.exclude(mapOf("module" to it.substringAfterLast(':'))) }
+    }
+
     private fun DependencySubstitutions.selector(
         sdk: SdkModule,
         noOp: Boolean,

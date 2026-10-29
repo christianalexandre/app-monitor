@@ -223,13 +223,17 @@ a stack trace (DEBT-0010). See ADR-0010.
   (`sdk/core-no-op`, `sdk/okhttp-no-op`, `sdk/ktor-no-op`, ADR-0062 C.1): the
   same public types doing nothing, kept identical by comparing the committed
   JVM, Android and klib ABI dumps (ADR-0072).
-- **The Gradle plugin adds them** (ADR-0157): in an Android app,
+- **The Gradle plugin adds them** (ADR-0157, ADR-0161): in an Android app,
   `appmonitor-core` and `appmonitor-okhttp` (its `okhttp` excluded); in a KMP
   module, `appmonitor-ktor` in `commonMain`. Every non-debuggable variant
-  of the app gets the no-ops. So does a KMP module that Xcode builds with
-  any build type but `debug`, or that Gradle builds outside Xcode for a
-  task naming `release`, `xcframework` or `publish`. `appMonitorCheck<Variant>` fails a release that
-  still resolves a real SDK module. In this repository
+  of the app gets the no-ops. In a KMP module, every release native binary
+  links a copy of its klibs with the no-ops, and a release library's
+  `export` too; debug binaries link the SDK. Which link Kotlin runs (Xcode's
+  build type, a CocoaPods mapping, an XCFramework, `assemble`) is the only
+  input. Each dynamic feature of the app leaves every SDK module out of its
+  runtime classpaths: the base APK carries them. `appMonitorCheck<Variant>`
+  and `appMonitorCheck<LinkTask>` fail a
+  release that still resolves a real SDK module. In this repository
   `appmonitor.sdk.local=true` points it at the `:sdk:*` projects.
 - `samples/android` applies only the plugin, and
   `checkReleaseHasNoSdk` proves the release APK has no SDK classes

@@ -51,12 +51,14 @@ val generateSdkVersion by tasks.registering {
 }
 kotlin.sourceSets.main { kotlin.srcDir(generateSdkVersion) }
 
-// The app's own AGP is the one at run time; the functional tests put this one on the plugin's classpath.
+// The app's own AGP and KGP are the ones at run time; the functional tests put these on the plugin's classpath.
 val agp = configurations.create("agp")
 
 dependencies {
     compileOnly(libs.android.gradle.api)
+    compileOnly(libs.kotlin.gradle.plugin)
     agp(libs.android.gradle.plugin)
+    agp(libs.kotlin.gradle.plugin)
     testImplementation(kotlin("test"))
     testImplementation(libs.android.gradle.api)
     testImplementation(libs.okhttp)

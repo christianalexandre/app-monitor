@@ -144,6 +144,8 @@ app's network security config says
 ([ADR-0156](docs/adr/0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md)).
 WebSocket frames are captured the same way, from `OkHttpClient.newWebSocket`
 ([ADR-0159](docs/adr/0159-okhttp-websockets-captured-by-the-gradle-plugin.md)).
+Dynamic feature modules need nothing: the app's APK carries the SDK for
+them ([ADR-0161](docs/adr/0161-release-binaries-and-dynamic-features-hold-no-sdk.md)).
 The SDK never brings OkHttp to an app or changes its version.
 `appMonitor { injectOkHttp = false }` turns the rewrite off;
 `AppMonitorInterceptor()` and `AppMonitorWebSocketFactory(client)` then add
