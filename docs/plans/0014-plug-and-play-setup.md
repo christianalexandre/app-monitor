@@ -80,7 +80,7 @@ permission and a second Kotlin start on iOS were all written by hand.
   Accept: `./gradlew -p gradle-plugin check :gradle-plugin:functionalTest
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` with
   no WebSocket line in the sample, its four frames asserted.
-- [x] **H4.6 The iOS SDK without SwiftProtobuf.** The package pins
+- [x] **H4.6 The iOS SDK without SwiftProtobuf.** (#301) The package pins
   `swift-protobuf` at `exact: 1.39.0`, so an app on another version cannot
   resolve both. Its runtime also stays in release builds (DEBT-0040). A
   minimal codec generated from `protocol/proto` replaces it (ADR-0160,
