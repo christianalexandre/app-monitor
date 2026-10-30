@@ -83,7 +83,7 @@ final class MonitorClient: @unchecked Sendable {
         hello: @escaping @Sendable () -> Appmonitor_V1_Hello,
         discover: @escaping Discover,
         config: ClientConfig = ClientConfig(),
-        log: @escaping @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").info("\($0)") },
+        log: @escaping @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") },
         random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) }
     ) {
         self.makeHello = hello
