@@ -19,7 +19,9 @@ record of how the milestone was actually built once it is done.
   plan is **immutable** — it is the historical record. Follow-up work goes in
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
-  code of that milestone. The roadmap row then links to it.
+  code of that milestone. The roadmap row then links to it. A plan the
+  owner wrote ahead is `Draft` and its roadmap section links to it: it is
+  activated as written, not rewritten.
 - **Size**: four to six tasks. No standalone "design on paper" or "docs
   sync" task: a design lands with the first task that needs it, and every
   PR keeps the docs it touches current (ADR-0094).
@@ -50,20 +52,31 @@ record of how the milestone was actually built once it is done.
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
 | [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Active |
+| [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Draft |
+| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Draft |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
-### Hold — field test before M10
+### H5 — Release readiness
 
-The owner runs the SDKs in a real app (not only the samples), fixes what
-breaks and improves the desktop's interface together with the agent
-before anything is published. The first run asked for
-[PLAN-0014](0014-plug-and-play-setup.md) (H4). The loop does not plan past this section:
-reaching it is **stop: waiting for the owner**, who removes it when the
-field test is done.
+Written as [PLAN-0015](0015-release-readiness.md) (`Draft`): the gate,
+the protocol M10 freezes, desktop trust, release guarantees, a physical
+iPhone.
+
+### H6 — Debt sweep before distribution
+
+Written as [PLAN-0016](0016-debt-sweep.md) (`Draft`): every open DEBT
+paid or dropped, except those waiting outside the repository.
+
+### Hold — the owner's go before M10
+
+The owner ran the SDKs in a real app (2026-10-30), which asked for
+[PLAN-0014](0014-plug-and-play-setup.md) (H4), then H5 and H6. The loop
+does not plan past this section: reaching it is **stop: waiting for the
+owner**, who removes it when the backlog is ready to publish.
 
 ### M10 — Distribution
 
