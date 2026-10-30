@@ -60,7 +60,9 @@ The fixture is `protocol/fixtures/mock_rules.bin`, mirrored in
 A `BreakpointRule` carries `id`, `method`, `host` and `path` matched as a
 `MockRule`'s, `request` and `response` (what it holds, at least one) and
 `timeout_ms`. A held call is named by its request id and stage (ADR-0118
-B.1). In a resume, every header of a name in `set_headers` is replaced by
+B.1). A hit the device never writes (over `MAX_FRAME_BYTES`, dropped from
+its offline buffer, or discarded at stop) lets its call go on unchanged at
+once, not at its timeout. In a resume, every header of a name in `set_headers` is replaced by
 that list's headers of the name, and every header named in
 `removed_headers` (ignoring case) goes; a header left alone, a masked
 `██` one included, is in neither and keeps the device's value (ADR-0111
@@ -280,9 +282,9 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `desktop/server` |
 | A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
 | An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
-| A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end | `MonitorClientBreakpointsTest` in `sdk/core` |
+| A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end; a hit over a frame or dropped unwritten goes on unchanged at once, also when a desktop that stops reading fills the buffer | `MonitorClientBreakpointsTest`, `EventBufferTest`, `StalledDesktopBreakpointTest` (JVM) in `sdk/core` |
 | OkHttp and Ktor hold a request and a response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, an OkHttp call cancelled while held | `BreakpointTest` in `sdk/android-okhttp` and `sdk/ktor` |
-| The Swift SDK keeps the last breakpoints, waits on a hit until its resume or abort, its timeout or the session's end | `BreakpointsTests`, `MonitorClientBreakpointsTests` in `sdk/ios` |
+| The Swift SDK keeps the last breakpoints, waits on a hit until its resume or abort, its timeout or the session's end; a hit over a frame or dropped unwritten goes on unchanged at once | `BreakpointsTests`, `MonitorClientBreakpointsTests`, `EventBufferTests` in `sdk/ios` |
 | `URLSession` holds a data or upload task's request and response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a held task cancelled; its delegate gets the data | `BreakpointTests` in `sdk/ios` (macOS host, DEBT-0086) |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 

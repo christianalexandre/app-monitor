@@ -75,7 +75,7 @@ struct BreakpointsTests {
         let outcomes = Outcomes()
         var sent = 0
 
-        _ = Breakpoints().hold(breakpointHit("a", .request), send: { _ in sent += 1 }, done: outcomes.record)
+        _ = Breakpoints().hold(breakpointHit("a", .request), send: { _, _ in sent += 1 }, done: outcomes.record)
 
         #expect(sent == 0)
         guard case .resume(nil) = outcomes.all.first else {
@@ -88,7 +88,7 @@ struct BreakpointsTests {
         let set = Breakpoints()
         set.replace([])
         let outcomes = Outcomes()
-        _ = set.hold(breakpointHit("a", .request), send: { _ in }, done: outcomes.record)
+        _ = set.hold(breakpointHit("a", .request), send: { _, _ in }, done: outcomes.record)
         var changed = resume("a", .request)
         changed.method = "PUT"
 
@@ -109,8 +109,8 @@ struct BreakpointsTests {
         set.replace([])
         let timedOut = Outcomes()
         let ended = Outcomes()
-        _ = set.hold(breakpointHit("a", .request, timeoutMs: 50), send: { _ in }, done: timedOut.record)
-        _ = set.hold(breakpointHit("b", .response), send: { _ in }, done: ended.record)
+        _ = set.hold(breakpointHit("a", .request, timeoutMs: 50), send: { _, _ in }, done: timedOut.record)
+        _ = set.hold(breakpointHit("b", .response), send: { _, _ in }, done: ended.record)
 
         #expect(await eventually { timedOut.all.count == 1 })
         #expect(ended.all.isEmpty)
@@ -123,11 +123,23 @@ struct BreakpointsTests {
         #expect(set.match(method: "GET", url: "http://127.0.0.1/a", stage: .request) == nil)
     }
 
+    @Test func aHitDroppedBeforeItIsWrittenGoesOnUnchangedAtOnce() {
+        let set = Breakpoints()
+        set.replace([])
+        let outcomes = Outcomes()
+        _ = set.hold(breakpointHit("a", .request), send: { _, dropped in dropped() }, done: outcomes.record)
+
+        guard outcomes.all.count == 1, case .resume(nil) = outcomes.all.first else {
+            Issue.record("\(outcomes.all)")
+            return
+        }
+    }
+
     @Test func aReleasedHoldIsNeverAnswered() {
         let set = Breakpoints()
         set.replace([])
         let outcomes = Outcomes()
-        let release = set.hold(breakpointHit("a", .request), send: { _ in }, done: outcomes.record)
+        let release = set.hold(breakpointHit("a", .request), send: { _, _ in }, done: outcomes.record)
 
         release()
         set.resume(resume("a", .request))
@@ -172,7 +184,8 @@ struct MonitorClientBreakpointsTests {
             })
         let resumed = Outcomes()
         _ = client.breakpoints.hold(
-            breakpointHit("a", .request), send: { client.send(interactionEnvelope("BreakpointHit", $0)) },
+            breakpointHit("a", .request),
+            send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) },
             done: resumed.record)
         #expect(await eventually { desktop.events.contains { $0.type == "BreakpointHit" } })
         var changed = resume("a", .request)
@@ -186,11 +199,41 @@ struct MonitorClientBreakpointsTests {
         #expect(changes.url == "http://127.0.0.1/b")
 
         let ended = Outcomes()
-        _ = client.breakpoints.hold(breakpointHit("b", .response), send: { _ in }, done: ended.record)
+        _ = client.breakpoints.hold(breakpointHit("b", .response), send: { _, _ in }, done: ended.record)
         desktop.stop()
 
         #expect(await eventually { ended.all.count == 1 })
         #expect(client.breakpoints.match(method: "GET", url: "http://127.0.0.1/a", stage: .request) == nil)
+    }
+
+    @Test func aHitLargerThanAFrameGoesOnUnchangedAtOnce() async throws {
+        let desktop = TestDesktop(
+            mode: .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelInteraction]))
+        try await desktop.start()
+        let client = MonitorClientTests.client(manualDiscovery(desktop.endpoint))
+        client.start()
+        defer { client.stop() }
+        #expect(await eventually { client.state == .connected })
+        var rules = Appmonitor_V1_BreakpointRules()
+        rules.rules = [breakpointRule(4, path: "/a", response: true)]
+        desktop.push(Self.envelope("BreakpointRules", rules))
+        #expect(
+            await eventually {
+                client.breakpoints.match(method: "GET", url: "http://127.0.0.1/a", stage: .response) != nil
+            })
+        var hit = breakpointHit("a", .response, timeoutMs: 60_000)
+        hit.request.body = Data(count: ProtocolConstants.maxBodyBytes)
+        hit.response.body = Data(count: ProtocolConstants.maxBodyBytes)
+
+        let outcomes = Outcomes()
+        _ = client.breakpoints.hold(
+            hit, send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) }, done: outcomes.record)
+
+        #expect(await eventually { outcomes.all.count == 1 })
+        guard case .resume(nil) = outcomes.all.first else {
+            Issue.record("\(outcomes.all)")
+            return
+        }
     }
 }
 

@@ -1,9 +1,17 @@
 import Foundation
 
-/// One encoded envelope waiting to be written, with its channel for the `HelloAck` filter.
+/// One encoded envelope waiting to be written, with its channel for the `HelloAck` filter; `onDropped` when
+/// never written.
 struct BufferedFrame: Sendable {
     let channel: String
     let bytes: Data
+    let onDropped: (@Sendable () -> Void)?
+
+    init(channel: String, bytes: Data, onDropped: (@Sendable () -> Void)? = nil) {
+        self.channel = channel
+        self.bytes = bytes
+        self.onDropped = onDropped
+    }
 }
 
 /// Offline ring buffer (SDD 04, SDD 06): `offer` never blocks beyond the lock and drops the
@@ -33,17 +41,21 @@ final class EventBuffer: @unchecked Sendable {
     var count: Int { lock.withLock { frames.count - head } }
 
     func offer(_ frame: BufferedFrame) {
-        let wake: (@Sendable () -> Void)? = lock.withLock {
-            guard !closed else { return nil }
+        let (wake, evicted): ((@Sendable () -> Void)?, [BufferedFrame]) = lock.withLock {
+            guard !closed else { return (nil, [frame]) }
             frames.append(frame)
             bytes += frame.bytes.count
+            var evicted: [BufferedFrame] = []
             while frames.count - head > maxCount || bytes > maxBytes {
-                bytes -= removeFirst().bytes.count
+                let first = removeFirst()
+                bytes -= first.bytes.count
                 droppedCount += 1
+                evicted.append(first)
             }
             defer { onAvailable = nil }
-            return onAvailable
+            return (onAvailable, evicted)
         }
+        for frame in evicted { frame.onDropped?() }
         wake?()
     }
 
@@ -62,13 +74,17 @@ final class EventBuffer: @unchecked Sendable {
 
     /// Discards every frame; later offers are dropped.
     func close() {
-        lock.withLock {
-            closed = true
-            frames = []
-            head = 0
-            bytes = 0
-            onAvailable = nil
+        let discarded = lock.withLock {
+            defer {
+                closed = true
+                frames = []
+                head = 0
+                bytes = 0
+                onAvailable = nil
+            }
+            return frames[head...]
         }
+        for frame in discarded { frame.onDropped?() }
     }
 
     private func removeFirst() -> BufferedFrame {

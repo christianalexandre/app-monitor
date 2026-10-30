@@ -137,14 +137,19 @@ final class MonitorClient: @unchecked Sendable {
         }
     }
 
-    /// Buffers `envelope` for the desktop; dropped when stopped or larger than a frame (ADR-0022).
-    func send(_ envelope: Appmonitor_V1_Envelope) {
-        guard let bytes: Data = try? envelope.serializedBytes() else { return }
-        guard bytes.count <= ProtocolConstants.maxFrameBytes else {
-            oversized.increment()
+    /// Buffers `envelope` for the desktop; dropped when stopped or larger than a frame (ADR-0022), then
+    /// `onDropped`.
+    func send(_ envelope: Appmonitor_V1_Envelope, onDropped: (@Sendable () -> Void)? = nil) {
+        guard let bytes: Data = try? envelope.serializedBytes() else {
+            onDropped?()
             return
         }
-        buffer.offer(BufferedFrame(channel: envelope.channel, bytes: bytes))
+        guard bytes.count <= ProtocolConstants.maxFrameBytes else {
+            oversized.increment()
+            onDropped?()
+            return
+        }
+        buffer.offer(BufferedFrame(channel: envelope.channel, bytes: bytes, onDropped: onDropped))
     }
 
     /// Returns at once; the release runs on the client's queue, bounded by `ClientConfig.closeTimeout`.
@@ -305,6 +310,7 @@ final class MonitorClient: @unchecked Sendable {
             return
         }
         backoff.reset()
+        connectFailureLogged = false
         accepted = Set(ack.channels)
         setState(.connected)
         pump()
@@ -349,7 +355,10 @@ final class MonitorClient: @unchecked Sendable {
     private func pump() {
         guard !stopping, current == .connected, !sending, let connection else { return }
         while let frame = buffer.poll(onAvailable: { [weak self] in self?.queue.async { self?.pump() } }) {
-            guard accepted.contains(frame.channel) else { continue }
+            guard accepted.contains(frame.channel) else {
+                frame.onDropped?()
+                continue
+            }
             sending = true
             connection.send(
                 content: frame.bytes,

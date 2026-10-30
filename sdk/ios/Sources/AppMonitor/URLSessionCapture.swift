@@ -48,7 +48,8 @@ extension MonitorHolder: CaptureSink {
             done(.unchanged)
             return {}
         }
-        return client.breakpoints.hold(hit, send: { client.send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+        return client.breakpoints.hold(
+            hit, send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) }, done: done)
     }
 }
 

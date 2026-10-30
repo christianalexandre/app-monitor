@@ -43,6 +43,17 @@ struct EventBufferTests {
         #expect(buffer.count == 0)
     }
 
+    @Test func aFrameDroppedOrDiscardedReportsIt() {
+        let buffer = EventBuffer(maxCount: 1, maxBytes: 100)
+        let dropped = LockedLines()
+        for name in ["evicted", "discarded"] {
+            buffer.offer(BufferedFrame(channel: "interaction", bytes: Data([1])) { dropped.append(name) })
+        }
+        buffer.close()
+        buffer.offer(BufferedFrame(channel: "interaction", bytes: Data([1])) { dropped.append("late") })
+        #expect(dropped.all == ["evicted", "discarded", "late"])
+    }
+
     @Test func keepsOrderAcrossManyFrames() {
         let buffer = EventBuffer()
         for index in 0..<5000 { buffer.offer(BufferedFrame(channel: "\(index)", bytes: Data())) }

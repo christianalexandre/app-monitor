@@ -43,6 +43,16 @@ class EventBufferTest {
         }
 
     @Test
+    fun aFrameDroppedOrClearedReportsIt() {
+        val buffer = EventBuffer(maxCount = 1, maxBytes = 1_000)
+        val dropped = mutableListOf<Int>()
+        buffer.offer(BufferedFrame("interaction", ByteArray(1)) { dropped += 0 })
+        buffer.offer(BufferedFrame("interaction", ByteArray(1)) { dropped += 1 })
+        buffer.clear()
+        assertEquals(listOf(0, 1), dropped)
+    }
+
+    @Test
     fun takeWaitsForTheNextOffer() =
         runTest {
             val buffer = EventBuffer()
