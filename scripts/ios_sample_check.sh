@@ -56,6 +56,20 @@ if [[ "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; the
   echo "ios-sample: Release app holds the connection layer's C code (ADR-0155)" >&2
   exit 1
 fi
+# The Run Script leaves any exclusion matching AppMonitor.o alone (ADR-0155): the bare object name must strip it too.
+if ! xcodebuild build \
+  -project samples/ios/Sample.xcodeproj -scheme Sample -configuration Release \
+  -destination "platform=iOS Simulator,name=$device" \
+  -derivedDataPath build/ios-sample EXCLUDED_SOURCE_FILE_NAMES=AppMonitor.o >>"$log" 2>&1; then
+  grep -E 'error:' "$log" >&2 || true
+  echo "ios-sample: Release build excluding AppMonitor.o failed, full log in $log" >&2
+  exit 1
+fi
+only_object="$(sdk_names "$products/Release-iphonesimulator/Sample.app" | tr '\n' ' ')"
+if [[ -n "$only_object" || "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; then
+  echo "ios-sample: Release app excluding AppMonitor.o still holds the SDK: $only_object(ADR-0155)" >&2
+  exit 1
+fi
 # DEBT-0040, ADR-0160: the SDK no longer links SwiftProtobuf, so neither app holds it.
 for config in Debug Release; do
   protobuf="$(app_binaries "$products/$config-iphonesimulator/Sample.app" | xargs nm 2>/dev/null | grep -c SwiftProtobuf || true)"
@@ -64,4 +78,4 @@ for config in Debug Release; do
     exit 1
   fi
 done
-echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only, no SwiftProtobuf"
+echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only, also excluding AppMonitor.o alone, no SwiftProtobuf"
