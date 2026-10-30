@@ -11,11 +11,15 @@ import java.net.Socket
 import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
+import java.time.Duration
+import java.time.Instant
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -229,6 +233,18 @@ class ProxyServerTest {
         }
         ProxyCa.delete(dir)
         assertNotEquals(first.certificate, ProxyCa.loadOrCreate(dir).certificate)
+    }
+
+    @Test
+    fun `a leaf about to expire is minted again`() {
+        var now = Instant.now()
+        val ca = ProxyCa.loadOrCreate(createTempDirectory("leaf-ca")) { now }
+        val first = ca.serverContext("api.example.com")
+        assertSame(first, ca.serverContext("api.example.com"))
+
+        now = now.plus(Duration.ofDays(30))
+
+        assertNotSame(first, ca.serverContext("api.example.com"))
     }
 
     @Test

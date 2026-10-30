@@ -42,39 +42,54 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The proxy's certificate authority (ADR-0101 C.1): one per data directory, its key beside the database, owner-only.
- * Leaf certificates are minted per host in memory and kept until the CA is dropped.
+ * Leaf certificates are minted per host in memory and kept until a day before they expire.
  */
 class ProxyCa private constructor(
     val certificate: X509Certificate,
     private val key: PrivateKey,
     private val clock: () -> Instant,
 ) {
-    private val leaves = ConcurrentHashMap<String, SslContext>()
+    private class Leaf(
+        val context: SslContext,
+        val notAfter: Instant,
+    )
+
+    private val leaves = ConcurrentHashMap<String, Leaf>()
 
     /** A TLS server context presenting a leaf for [host], a DNS name or an IP literal; with [alpn], offering `h2` then `http/1.1`. */
     internal fun serverContext(
         host: String,
         alpn: Boolean = true,
     ): SslContext =
-        leaves.computeIfAbsent("$alpn ${host.lowercase()}") {
-            val name = host.lowercase()
-            val keys = newKeyPair()
-            val builder =
-                SslContextBuilder
-                    .forServer(keys.private, leaf(name, keys), certificate)
-                    .sslProvider(SslProvider.JDK)
-            if (!alpn) return@computeIfAbsent builder.build()
-            builder
-                .applicationProtocolConfig(
-                    ApplicationProtocolConfig(
-                        ApplicationProtocolConfig.Protocol.ALPN,
-                        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                        ApplicationProtocolNames.HTTP_2,
-                        ApplicationProtocolNames.HTTP_1_1,
-                    ),
-                ).build()
+        leaves
+            .compute("$alpn ${host.lowercase()}") { _, kept ->
+                kept?.takeIf { clock() < it.notAfter.minus(RENEW_BEFORE) } ?: mint(host.lowercase(), alpn)
+            }!!
+            .context
+
+    private fun mint(
+        name: String,
+        alpn: Boolean,
+    ): Leaf {
+        val keys = newKeyPair()
+        val leaf = leaf(name, keys)
+        val builder =
+            SslContextBuilder
+                .forServer(keys.private, leaf, certificate)
+                .sslProvider(SslProvider.JDK)
+        if (alpn) {
+            builder.applicationProtocolConfig(
+                ApplicationProtocolConfig(
+                    ApplicationProtocolConfig.Protocol.ALPN,
+                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2,
+                    ApplicationProtocolNames.HTTP_1_1,
+                ),
+            )
         }
+        return Leaf(builder.build(), leaf.notAfter.toInstant())
+    }
 
     private fun leaf(
         host: String,
@@ -110,7 +125,7 @@ class ProxyCa private constructor(
         private val LEAF_VALIDITY = Duration.ofDays(30)
         private val BACKDATE = Duration.ofDays(1)
 
-        // A CA this close to its end is replaced: its leaves would outlive it.
+        // A CA or leaf this close to its end is replaced: a CA's leaves would outlive it.
         private val RENEW_BEFORE = Duration.ofDays(1)
 
         /** Reads the CA kept in [directory], or creates one when it is missing, unreadable or about to expire. */

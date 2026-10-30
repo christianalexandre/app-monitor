@@ -73,7 +73,8 @@ internal class ProxyController(
             mutableEnabled.value = on
         }
         storage.setSetting(KEY_ENABLED, on.toString())
-        lock.withLock { if (on) startLocked() else stopLocked() }
+        // DEBT-0073: the switch as it is now, so an earlier call that takes the lock last does not undo a later one.
+        lock.withLock { if (mutableEnabled.value) startLocked() else stopLocked() }
     }
 
     /** Deletes the CA (ADR-0101 C.1); a running proxy restarts with a new one. */

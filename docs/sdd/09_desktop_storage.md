@@ -232,6 +232,11 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   rest of the launch and a disconnect that keeps failing never takes the
   next batch or another lost disconnect with it; once written it leaves
   the count and clears the error.
+- **Error in a batch** (an `Error`, not an exception: out of memory, an
+  assertion). Counted as a failed batch, then the writer ends. It closes
+  the queue on its way out, so every later `enqueue` returns false
+  (`NotSaved`) instead of waiting for room no one frees
+  (`WriteQueueTest.anErrorInAWriteClosesTheQueue`).
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
   file, stored approvals that cannot be read). The app opens without storage: the window shows the error, the
   path and "Clear all data", which deletes `appmonitor.db`, `-wal` and
