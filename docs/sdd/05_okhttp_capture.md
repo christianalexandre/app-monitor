@@ -93,7 +93,8 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 interceptor answers without `chain.proceed` (ADR-0115):
 
 - `RequestStarted` as above, with `mock_rule_id`.
-- After `delay_ms` (`Thread.sleep`), a rule's response becomes a
+- After `delay_ms` (`Thread.sleep` in 50 ms steps that check
+  `call.isCanceled()`), a rule's response becomes a
   `Response` with its status, headers and body, protocol HTTP/1.1, and
   `ResponseReceived` is sent at once with the whole body. A rule's
   failure, a call cancelled during the delay or an interrupted delay
