@@ -284,7 +284,12 @@ internal class MonitorClient(
                 launch {
                     while (true) {
                         val frame = buffer.take()
-                        if (frame.channel in accepted) ws.send(Frame.Binary(true, frame.bytes)) else frame.onDropped?.invoke()
+                        if (frame.channel in accepted) {
+                            ws.send(Frame.Binary(true, frame.bytes))
+                            ws.flush()
+                        } else {
+                            frame.onDropped?.invoke()
+                        }
                     }
                 }
             try {

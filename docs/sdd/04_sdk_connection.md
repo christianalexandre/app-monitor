@@ -166,7 +166,11 @@ cancels the scope.
 - An envelope larger than `Protocol.MAX_FRAME_BYTES` is dropped before it
   enters the buffer: the desktop would close 1009 on it (ADR-0021).
 - An envelope leaves the buffer when it is written to the socket (at most
-  once). It is not resent after a reconnect, so one the desktop rejected
+  once). The writer waits for Ktor to flush each frame before it takes the
+  next one, so a desktop that stops reading (its store full, ADR-0009)
+  fills this buffer, which drops the oldest, instead of Ktor's unbounded
+  outgoing queue (`StalledDesktopBreakpointTest`, against a raw socket that
+  stops reading). It is not resent after a reconnect, so one the desktop rejected
   cannot end every later session.
 - Memory only: nothing captured is written to the app's storage.
 
