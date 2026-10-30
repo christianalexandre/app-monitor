@@ -89,7 +89,7 @@ struct CorpusTests {
         }
     }
 
-    /// SplitMix64: the same mutations on every run and every machine.
+    /// SplitMix64: the same mutations on every run with one Swift toolchain.
     struct Seeded: RandomNumberGenerator {
         var state: UInt64
         mutating func next() -> UInt64 {
