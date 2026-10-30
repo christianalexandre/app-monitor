@@ -95,8 +95,7 @@ queued breakpoint items, for M9.2's reason. One more copy for the
 mappings item; the rest untouched.
 
 Fired by the PR that closes the write queue when its writer ends with an
-`Error` (`fix/proxy-switch-leaf-renewal-writer-error`, an external
-review's T5). Its `WriteQueue.kt` item, the long comment, was already
+`Error` (#313, an external review's T5). Its `WriteQueue.kt` item, the long comment, was already
 paid; the rest names `Ingest`, `applyRetention` and the `.sq` files,
 which it does not touch. Kept as is.
 
