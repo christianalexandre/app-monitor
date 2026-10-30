@@ -4,10 +4,11 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.Channel
 
-/** One encoded envelope waiting to be written, with its channel for the `HelloAck` filter. */
+/** One encoded envelope waiting to be written, with its channel for the `HelloAck` filter; [onDropped] when never written. */
 internal class BufferedFrame(
     val channel: String,
     val bytes: ByteArray,
+    val onDropped: (() -> Unit)? = null,
 )
 
 /**
@@ -31,14 +32,18 @@ internal class EventBuffer(
     val size: Int get() = synchronized(lock) { frames.size }
 
     fun offer(frame: BufferedFrame) {
-        synchronized(lock) {
-            frames.addLast(frame)
-            bytes += frame.bytes.size
-            while (frames.size > maxCount || bytes > maxBytes) {
-                bytes -= frames.removeFirst().bytes.size
-                droppedCount++
+        val evicted =
+            synchronized(lock) {
+                frames.addLast(frame)
+                bytes += frame.bytes.size
+                buildList {
+                    while (frames.size > maxCount || bytes > maxBytes) {
+                        add(frames.removeFirst().also { bytes -= it.bytes.size })
+                        droppedCount++
+                    }
+                }
             }
-        }
+        evicted.forEach { it.onDropped?.invoke() }
         available.trySend(Unit)
     }
 
@@ -51,10 +56,14 @@ internal class EventBuffer(
     }
 
     fun clear() {
-        synchronized(lock) {
-            frames.clear()
-            bytes = 0
-        }
+        val cleared =
+            synchronized(lock) {
+                frames.toList().also {
+                    frames.clear()
+                    bytes = 0
+                }
+            }
+        cleared.forEach { it.onDropped?.invoke() }
     }
 
     private fun poll(): BufferedFrame? =

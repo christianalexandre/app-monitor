@@ -58,10 +58,11 @@ final class Breakpoints: @unchecked Sendable {
     }
 
     /// Sends `hit` by `send`, then calls `done` once: with the resume, the abort, or unchanged after the hit's
-    /// timeout or outside a session. The returned closure drops the hold without calling `done`.
+    /// timeout, outside a session, or once `send` reports the hit dropped before it was written. The returned
+    /// closure drops the hold without calling `done`.
     func hold(
         _ hit: Appmonitor_V1_BreakpointHit,
-        send: (Appmonitor_V1_BreakpointHit) -> Void,
+        send: (Appmonitor_V1_BreakpointHit, _ dropped: @escaping @Sendable () -> Void) -> Void,
         done: @escaping @Sendable (BreakpointOutcome) -> Void
     ) -> @Sendable () -> Void {
         let key = Key(id: hit.request.requestID, stage: hit.stage)
@@ -76,7 +77,7 @@ final class Breakpoints: @unchecked Sendable {
             done(.unchanged)
             return {}
         }
-        send(hit)
+        send(hit) { [weak self] in self?.take(key, waiter)?.done(.unchanged) }
         DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(Int(clamping: hit.timeoutMs))) {
             [weak self] in
             self?.take(key, waiter)?.done(.unchanged)

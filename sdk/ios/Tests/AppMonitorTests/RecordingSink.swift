@@ -50,7 +50,7 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
     func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
         -> @Sendable () -> Void
     {
-        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+        breakpoints.hold(hit, send: { hit, _ in send(interactionEnvelope("BreakpointHit", hit)) }, done: done)
     }
 
     /// The `BreakpointHit` sent so far at `stage`, waited for up to 5 s.

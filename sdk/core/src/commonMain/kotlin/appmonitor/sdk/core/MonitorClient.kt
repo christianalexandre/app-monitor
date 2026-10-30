@@ -131,15 +131,18 @@ internal class MonitorClient(
         }
     }
 
-    /** Buffers [envelope] for the desktop; dropped when stopped or larger than a frame (ADR-0022). */
-    fun send(envelope: Envelope) {
-        if (stopRequested.isCompleted) return
-        val bytes = envelope.encode()
-        if (bytes.size > Protocol.MAX_FRAME_BYTES) {
-            synchronized(lock) { oversized++ }
+    /** Buffers [envelope] for the desktop; dropped when stopped or larger than a frame (ADR-0022), then [onDropped]. */
+    fun send(
+        envelope: Envelope,
+        onDropped: (() -> Unit)? = null,
+    ) {
+        val bytes = if (stopRequested.isCompleted) null else envelope.encode()
+        if (bytes == null || bytes.size > Protocol.MAX_FRAME_BYTES) {
+            if (bytes != null) synchronized(lock) { oversized++ }
+            onDropped?.invoke()
             return
         }
-        buffer.offer(BufferedFrame(envelope.channel, bytes))
+        buffer.offer(BufferedFrame(envelope.channel, bytes, onDropped))
     }
 
     /** Returns at once; the release runs on the client's scope, bounded by [ClientConfig.closeTimeout]. */
@@ -281,7 +284,7 @@ internal class MonitorClient(
                 launch {
                     while (true) {
                         val frame = buffer.take()
-                        if (frame.channel in accepted) ws.send(Frame.Binary(true, frame.bytes))
+                        if (frame.channel in accepted) ws.send(Frame.Binary(true, frame.bytes)) else frame.onDropped?.invoke()
                     }
                 }
             try {
@@ -334,14 +337,15 @@ internal class MonitorClient(
     /** Sends [hit] and waits for the desktop's answer (ADR-0111 A.1, B.1). */
     @OptIn(InternalAppMonitorApi::class)
     suspend fun hold(hit: BreakpointHit): BreakpointOutcome =
-        breakpoints.hold(hit) {
+        breakpoints.hold(hit) { held, dropped ->
             send(
                 Envelope(
                     channel = Protocol.CHANNEL_INTERACTION,
                     type = "BreakpointHit",
-                    payload = it.encodeByteString(),
+                    payload = held.encodeByteString(),
                     timestamp_ms = Clock.System.now().toEpochMilliseconds(),
                 ),
+                dropped,
             )
         }
 
