@@ -59,7 +59,7 @@ That PR fixes the items about the file it touches, or says why it does
 not.
 
 `LiveTraffic.kt` fired in the PR that bounds the desktop's frames
-(`fix/bound-desktop-frames-and-recording`, an external review's T4).
+(#312, an external review's T4).
 "Observers rescan" is paid: an envelope off the `network` channel bumps
 only the sessions' counter, which `observeSessions` alone follows
 (`LiveTrafficTest.anEnvelopeOffTheNetworkChannelLeavesTheExchangesAlone`,

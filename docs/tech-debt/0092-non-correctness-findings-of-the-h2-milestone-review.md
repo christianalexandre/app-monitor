@@ -75,8 +75,7 @@ independent (neither depends on the other), so `desktop/data`'s equality
 test is the guard; it leaves the trigger.
 
 `ExportHar.kt` paid in the PR that bounds the desktop's frames and the
-proxy's recording (`fix/bound-desktop-frames-and-recording`, an external
-review's T4), which touches it for the frames' paging. The export reads
+proxy's recording (#312, an external review's T4), which touches it for the frames' paging. The export reads
 at most `MAX_SCANNED` (10 000) matching rows and says so when it stops
 (`ExportHarTest.theScanStopsAtItsBoundAndSaysSo`). Only the connections
 before the last exported entry are counted when `max_entries` cuts the
