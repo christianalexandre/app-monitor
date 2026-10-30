@@ -108,6 +108,7 @@ internal class WriteQueue<T>(
         val count = batch.count(counted)
         val recovered = retry()
         if (recovered > 0) mutableHealth.update { StorageHealth(notSaved = it.notSaved - recovered) }
+        var fatal: Throwable? = null
         try {
             write(batch)
             if (count > 0) mutableHealth.update { it.copy(lastError = null) }
@@ -115,11 +116,13 @@ internal class WriteQueue<T>(
             throw e
         } catch (e: Throwable) {
             mutableHealth.update { StorageHealth(notSaved = it.notSaved + count, lastError = e.toString()) }
-            if (e !is Exception) throw e
+            if (e !is Exception) fatal = e
         }
         pending.addAndGet(-count.toLong())
         queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
         written(batch)
+        // An Error ends the writer only once its batch is settled: a flush barrier in it waits otherwise.
+        fatal?.let { throw it }
     }
 }
 

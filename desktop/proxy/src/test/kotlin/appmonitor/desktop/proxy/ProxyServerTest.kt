@@ -236,6 +236,20 @@ class ProxyServerTest {
     }
 
     @Test
+    fun `in the ca's last day a leaf is kept, not minted per handshake`() {
+        var now = Instant.now()
+        val ca = ProxyCa.loadOrCreate(createTempDirectory("last-day-ca")) { now }
+        now =
+            ca.certificate.notAfter
+                .toInstant()
+                .minus(Duration.ofHours(12))
+
+        val first = ca.serverContext("api.example.com")
+
+        assertSame(first, ca.serverContext("api.example.com"))
+    }
+
+    @Test
     fun `a leaf about to expire is minted again`() {
         var now = Instant.now()
         val ca = ProxyCa.loadOrCreate(createTempDirectory("leaf-ca")) { now }

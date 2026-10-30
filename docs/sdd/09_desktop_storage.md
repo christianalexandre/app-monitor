@@ -233,7 +233,8 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   next batch or another lost disconnect with it; once written it leaves
   the count and clears the error.
 - **Error in a batch** (an `Error`, not an exception: out of memory, an
-  assertion). Counted as a failed batch, then the writer ends. It closes
+  assertion). Counted as a failed batch and settled like one (a flush
+  barrier in it returns), then the writer ends. It closes
   the queue on its way out, so every later `enqueue` returns false
   (`NotSaved`) instead of waiting for room no one frees
   (`WriteQueueTest.anErrorInAWriteClosesTheQueue`).

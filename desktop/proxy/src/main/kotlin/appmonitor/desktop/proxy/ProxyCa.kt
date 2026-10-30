@@ -51,7 +51,7 @@ class ProxyCa private constructor(
 ) {
     private class Leaf(
         val context: SslContext,
-        val notAfter: Instant,
+        val renewAt: Instant,
     )
 
     private val leaves = ConcurrentHashMap<String, Leaf>()
@@ -63,7 +63,7 @@ class ProxyCa private constructor(
     ): SslContext =
         leaves
             .compute("$alpn ${host.lowercase()}") { _, kept ->
-                kept?.takeIf { clock() < it.notAfter.minus(RENEW_BEFORE) } ?: mint(host.lowercase(), alpn)
+                kept?.takeIf { clock() < it.renewAt } ?: mint(host.lowercase(), alpn)
             }!!
             .context
 
@@ -88,7 +88,10 @@ class ProxyCa private constructor(
                 ),
             )
         }
-        return Leaf(builder.build(), leaf.notAfter.toInstant())
+        // A leaf capped by a CA in its last day is kept to its end: a new one would end no later.
+        val notAfter = leaf.notAfter.toInstant()
+        val renewAt = notAfter.minus(RENEW_BEFORE).takeIf { it > clock() } ?: notAfter
+        return Leaf(builder.build(), renewAt)
     }
 
     private fun leaf(

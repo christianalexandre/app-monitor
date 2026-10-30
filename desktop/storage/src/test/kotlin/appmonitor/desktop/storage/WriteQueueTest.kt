@@ -239,6 +239,7 @@ class WriteQueueTest {
     fun anErrorInAWriteClosesTheQueue() =
         runBlocking {
             val executor = Executors.newSingleThreadExecutor()
+            val settled = java.util.concurrent.CopyOnWriteArrayList<Int>()
             val queue =
                 WriteQueue<Int>(
                     maxBytes = 10,
@@ -247,6 +248,7 @@ class WriteQueueTest {
                     sizeOf = { 4L },
                     counted = { true },
                     write = { throw AssertionError("boom") },
+                    written = { settled += it },
                 )
             try {
                 // Without the close, the dead writer's queue fills and an enqueue waits for good.
@@ -254,6 +256,8 @@ class WriteQueueTest {
 
                 assertTrue(queue.health.value.notSaved >= 1)
                 assertEquals("java.lang.AssertionError: boom", queue.health.value.lastError)
+                // The failed batch is settled too: a flush barrier in it must not wait for good.
+                assertEquals(listOf(0), settled.take(1))
             } finally {
                 executor.shutdownNow()
             }

@@ -41,7 +41,8 @@ Castle, ADR-0105); the switch, status and commands in
   basic constraints CA, key usage `keyCertSign` and `cRLSign`, valid
   365 days, subject `App Monitor proxy CA <date>`.
 - A leaf per host, made on first use and kept in memory until a day
-  before it expires, then made again (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
+  before it expires, then made again; one the CA's last day caps is kept
+  to its end, since a new one would end no later (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
   and never past the CA. Its TLS context offers ALPN `h2`, then
   `http/1.1`.
 - "Reset proxy CA" and "Clear all data" delete both files; a running
