@@ -20,7 +20,7 @@ enum SampleCalls {
             SampleButton(label: "418, or a mock") { await data(URLRequest(url: httpbin("status/418"))) },
         ] + grpc
 
-    #if DEBUG
+    #if SAMPLE_GRPC
     private static let grpc = [SampleButton(label: "gRPC-Core unary") { await GrpcCoreCall.run() }]
     #else
     private static let grpc: [SampleButton] = []

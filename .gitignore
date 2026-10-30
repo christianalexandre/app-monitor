@@ -20,6 +20,7 @@ DerivedData/
 *.xcworkspace/xcuserdata/
 sdk/ios/TestHost/TestHost.xcodeproj/
 samples/ios/Sample.xcodeproj/
+samples/ios/SampleGrpc.xcodeproj/
 samples/kmp/iosApp/KmpSample.xcodeproj/
 
 # Claude Code (config local, não compartilhada)

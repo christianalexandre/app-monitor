@@ -27,7 +27,7 @@ Castle, ADR-0105); the switch, status and commands in
   its CA in `<dir>`, printing `Proxy on port N, CA in …` and each
   exchange as a `[proxy]` line; origins are verified against the JVM's
   trust store, which `SERVER_OPTS=-Djavax.net.ssl.trustStore=…` replaces
-  (ADR-0109). `make e2e-ios` drives the iOS sample's gRPC-Core call
+  (ADR-0109). `make e2e-ios-grpc` drives the iOS sample's gRPC-Core call
   through it.
 
 ### The CA
