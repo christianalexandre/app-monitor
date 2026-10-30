@@ -283,7 +283,7 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end | `MonitorClientBreakpointsTest` in `sdk/core` |
 | OkHttp and Ktor hold a request and a response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, an OkHttp call cancelled while held | `BreakpointTest` in `sdk/android-okhttp` and `sdk/ktor` |
 | The Swift SDK keeps the last breakpoints, waits on a hit until its resume or abort, its timeout or the session's end | `BreakpointsTests`, `MonitorClientBreakpointsTests` in `sdk/ios` |
-| `URLSession` holds a data or upload task's request and response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a held task cancelled; its delegate gets the data; a response held at `maxBodyBytes`, not its end, then handed over whole or with the edited body | `BreakpointTests` in `sdk/ios` (macOS host, DEBT-0086) |
+| `URLSession` holds a data or upload task's request and response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a held task cancelled; its delegate gets the data; a response held at `maxBodyBytes`, not its end, still read to its end while held, then handed over whole or with the edited body | `BreakpointTests` in `sdk/ios` (macOS host, DEBT-0086) |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 
 ## Limits

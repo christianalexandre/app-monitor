@@ -293,6 +293,20 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Held") == "yes")
     }
 
+    @Test func aResponseHeldAtTheLimitIsStillReadToItsEnd() async throws {
+        holding(breakpointRule(18, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/20000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        // A connection left unread while held can be closed by the server as idle.
+        #expect(await eventually(timeout: 2) { server.sent.contains("/big/20000000") })
+        sink.breakpoints.resume(resume(hit.request.requestID, .response))
+
+        #expect(try await answer.value.0 == Data(repeating: UInt8(ascii: "a"), count: 20_000_000))
+    }
+
     @Test func aResponseHeldAtTheLimitTakesTheEditedBody() async throws {
         holding(breakpointRule(17, path: "/big/*", response: true))
         sink.options = AppMonitorOptions(maxBodyBytes: 1000)

@@ -136,9 +136,10 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private var response: URLResponse?
     private var body = Data()
     private var buffering = false
-    // Set once the body passed the capture limit: the inner task is suspended and its end waits for the hold.
+    // Set once the body passed the capture limit: the rest goes to `spill` and the task's end waits for the hold.
     private var heldEarly = false
     private var ended: Error?? = nil
+    private var spill: Spill?
 
     override class func canInit(with request: URLRequest) -> Bool { false }
 
@@ -187,6 +188,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         release = nil
         timer?.invalidate()
         timer = nil
+        spill = nil
         inner?.cancel()
         inner = nil
         if let heldStart { emitStart(heldStart) }
@@ -301,10 +303,18 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
                 client?.urlProtocol(self, didLoad: data)
                 return
             }
+            if heldEarly {
+                if let spill { spill.write(data) } else { body.append(data) }
+                return
+            }
             body.append(data)
-            guard !heldEarly, let capture, body.count > capture.limit, let response else { return }
+            guard let capture, body.count > capture.limit, let response else { return }
             heldEarly = true
-            inner?.suspend()
+            spill = Spill()
+            if let spill {
+                spill.write(body.suffix(from: body.startIndex + capture.limit))
+                body = body.prefix(capture.limit)
+            }
             received(response, body, whole: false)
         }
     }
@@ -410,6 +420,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         hit.request = startedEvent(sent, sentBody, mock: nil)
         hit.response = responseReceivedEvent(http, data, id: capture.id, masking: capture.masking, limit: capture.limit)
         if !whole {
+            hit.response.bodyTruncated = true
             if http.expectedContentLength >= 0 {
                 hit.response.bodySize = http.expectedContentLength
             } else {
@@ -421,6 +432,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
             switch outcome {
             case .abort(let message):
                 inner?.cancel()
+                spill = nil
                 fail(connectionLost(message))
             case .resume(nil): deliver(response, whole ? data : body, whole: whole)
             case .resume(let changes?):
@@ -429,24 +441,29 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
                 let edited = HTTPURLResponse(
                     url: http.url ?? sent.url!, statusCode: status, httpVersion: "HTTP/1.1",
                     headerFields: headerFields(fields))!
-                if changes.hasBody { inner?.cancel() }
+                if changes.hasBody {
+                    inner?.cancel()
+                    spill = nil
+                }
                 deliver(edited, changes.hasBody ? changes.body : whole ? data : body, whole: whole || changes.hasBody)
             }
         }
     }
 
-    /// Hands `response` and `data` to the task; not `whole`, the rest of the body follows as it comes.
+    /// Hands `response` and `data` to the task; not `whole`, what was spilled follows, then the rest as it comes.
     private func deliver(_ response: URLResponse, _ data: Data, whole: Bool = true) {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
         if whole { return finish() }
+        spill?.read { client?.urlProtocol(self, didLoad: $0) }
+        spill = nil
         buffering = false
         heldEarly = false
         body = Data()
         switch ended {
         case .some(.some(let error)): fail(error)
         case .some(.none): finish()
-        case .none: inner?.resume()
+        case .none: break
         }
     }
 
@@ -517,4 +534,31 @@ func responseReceivedEvent(_ response: HTTPURLResponse, _ data: Data, id: String
     event.bodyTruncated = data.count > limit
     event.bodySize = Int64(data.count)
     return event
+}
+
+/// A held response's body past the capture limit, in a temporary file deleted with this object.
+private final class Spill {
+    private let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "appmonitor-held-\(UUID().uuidString)")
+    private let handle: FileHandle
+
+    init?() {
+        guard FileManager.default.createFile(atPath: url.path, contents: nil),
+            let handle = try? FileHandle(forUpdating: url)
+        else { return nil }
+        self.handle = handle
+    }
+
+    deinit {
+        try? handle.close()
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    func write(_ data: Data) { try? handle.write(contentsOf: data) }
+
+    /// Every byte written, in chunks of 1 MiB.
+    func read(_ chunk: (Data) -> Void) {
+        try? handle.seek(toOffset: 0)
+        while let data = try? handle.read(upToCount: 1 << 20), !data.isEmpty { chunk(data) }
+    }
 }

@@ -22,6 +22,10 @@ final class TestHTTPServer: @unchecked Sendable {
 
     var received: [Request] { queue.sync { requests } }
 
+    /// Paths whose whole response the network stack took.
+    var sent: [String] { queue.sync { sentPaths } }
+    private var sentPaths: [String] = []
+
     func url(_ path: String) -> URL { URL(string: "http://127.0.0.1:\(port)\(path)")! }
 
     func start() async throws {
@@ -72,7 +76,9 @@ final class TestHTTPServer: @unchecked Sendable {
                 if let response = Self.response(to: request) {
                     let delay: TimeInterval = request.path.hasPrefix("/slow") ? 1 : 0
                     queue.asyncAfter(deadline: .now() + delay) {
-                        connection.send(content: response, completion: .idempotent)
+                        connection.send(
+                            content: response,
+                            completion: .contentProcessed { [weak self] _ in self?.sentPaths.append(request.path) })
                     }
                 }
             }

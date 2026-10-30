@@ -138,13 +138,16 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
   none, default handling and the redirect followed. A refused redirect
   is the task's response (ADR-0130). Without a response rule matching the request as sent, the response is
   handed to the task as it comes.
-- **A response rule**: the response is read whole, or up to
-  `maxBodyBytes` with the inner task suspended once its body passes it
-  (`body_size` its `Content-Length`, else none). It is sent in
-  `BreakpointHit` with the request as sent, then handed over unchanged or
-  with the resume's status, headers and body; past the limit, the rest
-  follows as it comes unless the resume replaces the body. An abort fails
-  the task.
+- **A response rule**: the response is read whole, or held once its body
+  passes `maxBodyBytes` (`body_truncated`, `body_size` its
+  `Content-Length`, else none). Past that point the task keeps reading,
+  so the server never sees an idle connection, and the rest goes to a
+  temporary file, not memory. The response is sent in `BreakpointHit`
+  with the request as sent, then handed over unchanged or with the
+  resume's status, headers and body; past the limit, the file follows in
+  1 MiB chunks, then whatever is still coming, unless the resume replaces
+  the body. The file is deleted at the resume, the abort or a cancel.
+  An abort fails the task.
 - **Ends** at the resume, the abort, the hit's timeout or the session's
   end, the last two unchanged. A task the app cancels while held drops
   the hold and sends the held `RequestStarted` before the capture's
