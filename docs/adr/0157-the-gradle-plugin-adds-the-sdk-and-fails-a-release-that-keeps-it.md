@@ -1,9 +1,9 @@
 ---
 id: ADR-0157
 title: The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it
-status: Accepted
+status: Superseded
 date: 2026-10-28
-superseded_by:
+superseded_by: ADR-0161
 ---
 
 # ADR-0157 — The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it

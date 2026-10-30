@@ -62,6 +62,7 @@ class OkHttpInjectionTest {
         body: String = "",
         deps: String = "",
         artifact: String? = null,
+        group: String = "io.github.christianalexandre",
     ) {
         val dirPath = (if (artifact != null) "sdk-build/" else "") + path.removePrefix(":").replace(':', '/')
         val publish =
@@ -69,7 +70,6 @@ class OkHttpInjectionTest {
                 ""
             } else {
                 """
-                group = "io.github.christianalexandre"
                 version = "$sdkVersion"
                 publishing {
                     publications { create<MavenPublication>("sdk") { artifactId = "$artifact"; from(components["java"]) } }
@@ -84,6 +84,7 @@ class OkHttpInjectionTest {
             repositories { mavenCentral() }
             dependencies { $deps }
             tasks.withType<JavaCompile>().configureEach { options.release = 11 }
+            group = "$group"
             $publish
             """,
         )
@@ -213,6 +214,49 @@ class OkHttpInjectionTest {
         val release = "app/build/outputs/apk/release/app-release-unsigned.apk"
         assertTrue(hasClass(release, "Lappmonitor/sdk/core/NoOpCore;"))
         assertFalse(hasClass(release, "Lappmonitor/sdk/core/RealCore;"))
+    }
+
+    @Test
+    fun `a dynamic feature holds no SDK, its app does`() {
+        consumer("base", "feature")
+        app("base", """android { dynamicFeatures += ":feature" }""")
+        write(
+            "feature/build.gradle.kts",
+            """
+            plugins { id("com.android.dynamic-feature") }
+            android {
+                namespace = "consumer.feature"
+                compileSdk = $compileSdk
+                defaultConfig { minSdk = 24 }
+            }
+            dependencies { implementation(project(":base")); implementation(project(":lib:core")) }
+            """,
+        )
+        // A library of another group named as an SDK project stays in the feature.
+        stub(":lib:core", "other.lib", "OtherCore", group = "other")
+        dir.resolve("settings.gradle.kts").appendText("\ninclude(\":lib:core\")")
+        write(
+            "feature/src/main/AndroidManifest.xml",
+            """
+            <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:dist="http://schemas.android.com/apk/distribution">
+                <dist:module dist:title="@string/app_name"><dist:fusing dist:include="true" /><dist:delivery><dist:on-demand /></dist:delivery></dist:module>
+                <application />
+            </manifest>
+            """,
+        )
+        write("feature/src/main/res/values/strings.xml", "<resources><string name=\"app_name\">f</string></resources>")
+        write("base/src/main/res/values/strings.xml", "<resources><string name=\"app_name\">b</string></resources>")
+
+        gradle(":base:assembleDebug", ":feature:assembleDebug", ":base:assembleRelease", ":feature:assembleRelease").build()
+
+        // The app's APK carries the SDK or its no-ops for the feature; the feature's carries neither.
+        assertTrue(hasClass("base/build/outputs/apk/debug/base-debug.apk", "Lappmonitor/sdk/core/RealCore;"))
+        assertTrue(hasClass("base/build/outputs/apk/release/base-release-unsigned.apk", "Lappmonitor/sdk/core/NoOpCore;"))
+        for (apk in listOf("feature/build/outputs/apk/debug/feature-debug.apk", "feature/build/outputs/apk/release/feature-release.apk")) {
+            assertFalse(hasClass(apk, "Lappmonitor/sdk/core/RealCore;"), apk)
+            assertFalse(hasClass(apk, "Lappmonitor/sdk/core/NoOpCore;"), apk)
+            assertTrue(hasClass(apk, "Lother/lib/OtherCore;"), apk)
+        }
     }
 
     @Test

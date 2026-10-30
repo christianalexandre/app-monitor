@@ -174,7 +174,8 @@ Rules:
 | [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |
 | [0155](0155-ios-sdk-left-out-of-release-builds-by-the-app.md) | The iOS SDK is left out of release builds by the app, guarded by a Run Script pasted from the README | Accepted |
 | [0156](0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md) | The Android SDK asks for its local network permission and no longer stops on the cleartext policy | Accepted |
-| [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) | The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it | Accepted |
+| [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) | The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it | Superseded by [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) |
 | [0158](0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md) | A KMP app on iOS is captured by the Swift SDK alone | Accepted |
 | [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
 | [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |
+| [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) | KMP release binaries link the no-ops at their link task, and dynamic features hold no SDK | Accepted |

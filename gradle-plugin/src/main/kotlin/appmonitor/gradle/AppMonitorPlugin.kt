@@ -7,14 +7,22 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractNativeLibrary
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
+import java.util.concurrent.Callable
 
 /**
  * `io.github.christianalexandre.appmonitor`: adds the SDK to the module and swaps it for its no-ops outside debug
- * builds (ADR-0093, ADR-0157); rewrites OkHttp's `OkHttpClient(builder)` in an app's debuggable variants (ADR-0112).
+ * builds (ADR-0093, ADR-0157, ADR-0161); rewrites OkHttp's `OkHttpClient(builder)` in an app's debuggable variants (ADR-0112).
  */
 public class AppMonitorPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -25,11 +33,21 @@ public class AppMonitorPlugin : Plugin<Project> {
             sdk.add("implementation", SdkModule.CORE)
             sdk.add("implementation", SdkModule.OKHTTP, "com.squareup.okhttp3" to "okhttp")
             val components = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
+            // A feature resolves this app's dependencies unswapped; its classes come from this app's APK (ADR-0161).
+            components.finalizeDsl { android ->
+                android.dynamicFeatures.forEach { path ->
+                    project
+                        .project(path)
+                        .configurations
+                        .matching { it.name.endsWith("RuntimeClasspath") && "Test" !in it.name }
+                        .configureEach(sdk::exclude)
+                }
+            }
             components.onVariants(components.selector().all()) { variant ->
                 if (!variant.debuggable) {
                     sdk.swapForNoOps(variant.runtimeConfiguration)
                     sdk.swapForNoOps(variant.compileConfiguration)
-                    val check = registerCheck(project, variant.name, variant.runtimeConfiguration.name)
+                    val check = registerCheck(project, variant.name, variant.runtimeConfiguration.incoming.resolutionResult.rootComponent)
                     project.tasks
                         .matching { it.name == "pre${variant.name.replaceFirstChar(Char::uppercase)}Build" }
                         .configureEach { it.dependsOn(check) }
@@ -45,19 +63,32 @@ public class AppMonitorPlugin : Plugin<Project> {
         }
         project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
             sdk.add("commonMainImplementation", SdkModule.KTOR)
-            val buildType = nativeBuildType(project)
-            if (buildType == null || buildType == "debug") return@withPlugin
-            project.configurations.configureEach { sdk.swapForNoOps(it) }
-            val klibs =
-                project.configurations.matching {
-                    it.isCanBeResolved && it.name.endsWith("CompileKlibraries") && !it.name.contains("Test")
+            val kotlin = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
+            val noOpKlibs = mutableMapOf<String, Configuration>()
+            kotlin.targets.withType(KotlinNativeTarget::class.java).configureEach { target ->
+                target.binaries.matching { it.buildType == NativeBuildType.RELEASE }.configureEach { binary ->
+                    if (binary is AbstractNativeLibrary) {
+                        project.configurations.named(binary.exportConfigurationName).configure(sdk::swapForNoOps)
+                    }
+                    val name = binary.compilation.compileDependencyConfigurationName
+                    // Built after the build script declared the dependencies, once per compilation.
+                    val klibs =
+                        project.provider {
+                            noOpKlibs.getOrPut(name) {
+                                project.configurations
+                                    .getByName(name)
+                                    .copyRecursive()
+                                    .also(sdk::swapForNoOps)
+                            }
+                        }
+                    val check = registerCheck(project, binary.linkTaskName, klibs.flatMap { it.incoming.resolutionResult.rootComponent })
+                    binary.linkTaskProvider.configure { link ->
+                        // Kotlin's own libraries but the compilation's klibs: the stdlib and platform klibs stay.
+                        val kotlinOwn = Callable { binary.compilation.compileDependencyFiles - project.configurations.getByName(name) }
+                        link.libraries.setFrom(project.files(kotlinOwn), klibs)
+                        link.dependsOn(check)
+                    }
                 }
-            klibs.all { configuration ->
-                val check = registerCheck(project, configuration.name, configuration.name)
-                val target = configuration.name.removeSuffix("CompileKlibraries").replaceFirstChar(Char::uppercase)
-                project.tasks
-                    .matching { it.name.startsWith("link") && it.name.endsWith(target) }
-                    .configureEach { it.dependsOn(check) }
             }
         }
     }
@@ -65,30 +96,11 @@ public class AppMonitorPlugin : Plugin<Project> {
     private fun registerCheck(
         project: Project,
         name: String,
-        configuration: String,
+        graph: Provider<ResolvedComponentResult>,
     ) = project.tasks.register("appMonitorCheck${name.replaceFirstChar(Char::uppercase)}", NoSdkCheck::class.java) { task ->
-        task.configurationName.set(configuration)
-        task.found.set(
-            project.configurations
-                .named(configuration)
-                .flatMap { it.incoming.resolutionResult.rootComponent }
-                .map(::realSdkIn),
-        )
+        task.configurationName.set(name)
+        task.found.set(graph.map(::realSdkIn))
     }
-}
-
-/**
- * The build type Xcode asks the Kotlin framework for; outside Xcode, `release` for a task naming a release, an
- * XCFramework or a publication, else null. Anything but `debug` gets the no-ops (ADR-0157).
- */
-internal fun nativeBuildType(project: Project): String? {
-    val env = project.providers
-    val xcode = env.environmentVariable("KOTLIN_FRAMEWORK_BUILD_TYPE").orNull ?: env.environmentVariable("CONFIGURATION").orNull
-    if (xcode != null) return xcode.lowercase()
-    val tasks =
-        project.gradle.startParameter.taskNames
-            .map { it.substringAfterLast(':').lowercase() }
-    return if (tasks.any { "release" in it || "xcframework" in it || "publish" in it }) "release" else null
 }
 
 /** Fails a release build that still resolves a real SDK module, whoever declared it (ADR-0157). */
