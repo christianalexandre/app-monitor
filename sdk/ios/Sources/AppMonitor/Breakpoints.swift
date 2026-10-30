@@ -139,7 +139,11 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     // Set once the body passed the capture limit: the rest goes to `spill` and the task's end waits for the hold.
     private var heldEarly = false
     private var ended: Error?? = nil
-    private var spill: Spill?
+    private var spill: SpillStore?
+    private var spillError: Error?
+
+    /// What holds a body past the capture limit; tests swap it.
+    nonisolated(unsafe) static var makeSpill: () -> SpillStore? = { Spill() }
 
     override class func canInit(with request: URLRequest) -> Bool { false }
 
@@ -304,15 +308,15 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
                 return
             }
             if heldEarly {
-                if let spill { spill.write(data) } else { body.append(data) }
+                if let spill { write(data, to: spill) } else { body.append(data) }
                 return
             }
             body.append(data)
             guard let capture, body.count > capture.limit, let response else { return }
             heldEarly = true
-            spill = Spill()
+            spill = Self.makeSpill()
             if let spill {
-                spill.write(body.suffix(from: body.startIndex + capture.limit))
+                write(body.suffix(from: body.startIndex + capture.limit), to: spill)
                 body = body.prefix(capture.limit)
             }
             received(response, body, whole: false)
@@ -455,8 +459,17 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
         if whole { return finish() }
-        spill?.read { client?.urlProtocol(self, didLoad: $0) }
-        spill = nil
+        if let spill {
+            self.spill = nil
+            do {
+                if let spillError { throw spillError }
+                try spill.readAll { client?.urlProtocol(self, didLoad: $0) }
+            } catch {
+                inner?.cancel()
+                inner = nil
+                return fail(error)
+            }
+        }
         buffering = false
         heldEarly = false
         body = Data()
@@ -468,6 +481,12 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     }
 
     // MARK: - Helpers
+
+    /// The first failed write is kept: the body would reach the app with a gap.
+    private func write(_ data: Data, to spill: SpillStore) {
+        guard spillError == nil else { return }
+        do { try spill.write(data) } catch { spillError = error }
+    }
 
     private func hold(_ hit: Appmonitor_V1_BreakpointHit, _ go: @escaping (BreakpointOutcome) -> Void) {
         guard let capture else { return }
@@ -536,11 +555,19 @@ func responseReceivedEvent(_ response: HTTPURLResponse, _ data: Data, id: String
     return event
 }
 
-/// A held response's body past the capture limit, in a temporary file deleted with this object.
-private final class Spill {
+/// Where a held response's body past the capture limit waits; a write or read that throws fails the task.
+protocol SpillStore: AnyObject {
+    func write(_ data: Data) throws
+    /// Every byte written, in order, in chunks.
+    func readAll(_ chunk: (Data) -> Void) throws
+}
+
+/// A `SpillStore` in a temporary file deleted with this object.
+final class Spill: SpillStore {
     private let url = FileManager.default.temporaryDirectory.appendingPathComponent(
         "appmonitor-held-\(UUID().uuidString)")
     private let handle: FileHandle
+    private var written = 0
 
     init?() {
         guard FileManager.default.createFile(atPath: url.path, contents: nil),
@@ -554,11 +581,18 @@ private final class Spill {
         try? FileManager.default.removeItem(at: url)
     }
 
-    func write(_ data: Data) { try? handle.write(contentsOf: data) }
+    func write(_ data: Data) throws {
+        try handle.write(contentsOf: data)
+        written += data.count
+    }
 
-    /// Every byte written, in chunks of 1 MiB.
-    func read(_ chunk: (Data) -> Void) {
-        try? handle.seek(toOffset: 0)
-        while let data = try? handle.read(upToCount: 1 << 20), !data.isEmpty { chunk(data) }
+    func readAll(_ chunk: (Data) -> Void) throws {
+        try handle.seek(toOffset: 0)
+        var read = 0
+        while let data = try handle.read(upToCount: 1 << 20), !data.isEmpty {
+            read += data.count
+            chunk(data)
+        }
+        guard read == written else { throw URLError(.cannotOpenFile) }
     }
 }

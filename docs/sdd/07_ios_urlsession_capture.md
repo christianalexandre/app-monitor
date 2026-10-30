@@ -146,7 +146,9 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
   with the request as sent, then handed over unchanged or with the
   resume's status, headers and body; past the limit, the file follows in
   1 MiB chunks, then whatever is still coming, unless the resume replaces
-  the body. The file is deleted at the resume, the abort or a cancel.
+  the body. A write or read of that file that fails, or reads back fewer
+  bytes than written, fails the task, so the app never gets a body with a
+  gap. The file is deleted at the resume, the abort or a cancel.
   An abort fails the task.
 - **Ends** at the resume, the abort, the hit's timeout or the session's
   end, the last two unchanged. A task the app cancels while held drops

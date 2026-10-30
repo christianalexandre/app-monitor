@@ -307,6 +307,21 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(try await answer.value.0 == Data(repeating: UInt8(ascii: "a"), count: 20_000_000))
     }
 
+    @Test(arguments: [true, false])
+    func aSpillThatFailsFailsTheTaskInsteadOfAGap(failsOnWrite: Bool) async throws {
+        holding(breakpointRule(19, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+        HoldProtocol.makeSpill = { FailingSpill(failsOnWrite: failsOnWrite) }
+        defer { HoldProtocol.makeSpill = { Spill() } }
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        sink.breakpoints.resume(resume(hit.request.requestID, .response))
+
+        #expect(await answer.result.failure != nil)
+    }
+
     @Test func aResponseHeldAtTheLimitTakesTheEditedBody() async throws {
         holding(breakpointRule(17, path: "/big/*", response: true))
         sink.options = AppMonitorOptions(maxBodyBytes: 1000)
@@ -602,5 +617,20 @@ final class AskingDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             finished = true
             failure = error
         }
+    }
+}
+
+/// A spill whose write or read throws, as a full disk would.
+final class FailingSpill: SpillStore {
+    private let failsOnWrite: Bool
+
+    init(failsOnWrite: Bool) { self.failsOnWrite = failsOnWrite }
+
+    func write(_ data: Data) throws {
+        if failsOnWrite { throw CocoaError(.fileWriteOutOfSpace) }
+    }
+
+    func readAll(_ chunk: (Data) -> Void) throws {
+        throw CocoaError(.fileReadUnknown)
     }
 }
