@@ -1,10 +1,10 @@
 ---
 id: PLAN-0014
 title: Plug and play setup
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H4
 started: 2026-10-28
-finished:
+finished: 2026-10-30
 ---
 
 # PLAN-0014 — Plug and play setup (H4)
@@ -98,12 +98,66 @@ The owner re-runs the field test in the same KMP app once H4.5 merges.
 That is the plan's real check and not loop work: what it finds goes into
 the Outcome.
 
+### H4 milestone review
+
+`code-review` at `medium` of `8ab8368..19f771a` (#298 to #317). Nine
+findings, none that normal use hits:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | `WriteQueue` drops a writer's items on an `Error` without counting them as lost. | No: needs an `Error` in the writer | DEBT-0109 |
+| 2 | The SDK's permission request can meet the app's own one. | No: the app must ask while the SDK's dialog is up | DEBT-0109 |
+| 3 | `answered` could log a denial when a rotation recreates the Activity under the dialog. | No: an Activity under the dialog is recreated but not resumed until the dialog goes | Rejected |
+| 4 | Two quick proxy toggles can store the first value. | No: needs two concurrent toggles | DEBT-0109 |
+| 5 | A CA past `notAfter` mints an expired leaf per handshake. | No: needs the desktop running past the CA's validity | DEBT-0109 |
+| 6 | A response held early reports the compressed size. | No: needs a breakpoint on a compressed body past the capture limit | DEBT-0109 |
+| 7 | `export_har` builds a page of frames before its size check. | No: needs frames of several MiB exported in full | DEBT-0109 |
+| 8 | `ProtoWire` copies nested messages per level. | No: cost, not wrong data | DEBT-0109 |
+| 9 | Comments cite `SDD NN`, which guideline 02 does not allow. | No | The two new ones fixed in this close; 85 older ones in DEBT-0109 |
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**:
+  - H4.1 to H4.4 in one PR (#298): Android asks for its permission and ignores the
+    cleartext policy, the Gradle plugin adds the SDK and swaps it for the
+    no-ops, KMP on iOS through the Swift SDK alone, and iOS release builds
+    exclude the SDK.
+  - H4.7: OkHttp WebSocket frames through the plugin (#300).
+  - H4.6: the iOS SDK without SwiftProtobuf (#301).
+  - H4.5: installation from the README alone, logs for missing setup
+    (#317).
+  - Field test follow-ups and two review rounds outside the tasks: Run
+    Script troubleshooting (#302, #306), no SDK in KMP release binaries
+    or dynamic features (#303, #315), the protobuf codec per spec and a
+    cross-language fuzz (#304, #308), Ktor's OkHttp engine known by class
+    (#305), one permission request with two screens (#307), breakpoint,
+    body and mock fixes in the SDKs (#309, #310, #311), desktop bounds
+    and proxy fixes (#312, #313), duplications recorded (#314).
+- **Decisions**: ADR-0155 (the app leaves the iOS SDK out of release),
+  ADR-0156 (Android asks for its permission, ignores cleartext), ADR-0157
+  (the plugin adds the SDK, fails a release keeping it), ADR-0158 (KMP on
+  iOS by the Swift SDK alone), ADR-0159 (WebSockets by the plugin),
+  ADR-0160 (protocol without SwiftProtobuf), ADR-0161 (release binaries
+  and dynamic features hold no SDK), ADR-0162 (install from Maven Local
+  and `dev` until M10, setup logs).
+- **Debt**:
+  - Paid: DEBT-0040 (#301), DEBT-0054 (#317), DEBT-0089.
+  - Created: DEBT-0099 to DEBT-0108, and DEBT-0109 (this review's
+    findings 1, 2 and 4 to 9).
+  - No correctness finding that normal use hits is left open.
+- **Deviations**:
+  - H4.1 to H4.4 merged as one PR, because they share the README and the
+    sample checks.
+  - H4.6 and H4.7 were added during the plan, after the field test.
+  - H4.5 found that AGP 9's built-in Kotlin 2.2 cannot compile against
+    the SDK (DEBT-0108), and restored `make swift-sim`, broken since #309.
+- **Field test**: the owner re-runs it in the KMP app after H4.5. Its
+  findings are added here before this close merges, or go into
+  PLAN-0015.
+- **Lessons**:
+  - A fresh project written from the README alone found what the samples
+    hide (the Kotlin floor, the missing imports). Keep one for each
+    install change.
+  - `make swift-sim` is not in `make check`, so a broken TestHost went
+    unseen for eight PRs. A PR that changes an internal API the TestHost
+    uses should run it.
