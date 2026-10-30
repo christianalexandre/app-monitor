@@ -5,6 +5,7 @@ import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withTimeout
 import java.sql.SQLException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
@@ -230,6 +232,34 @@ class WriteQueueTest {
                 assertNotNull(sessions.getValue("s2").disconnectedAtMs, "retried apart from s1")
                 assertEquals(1L, storage.health.value.notSaved, "only s1 left")
                 storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun anErrorInAWriteClosesTheQueue() =
+        runBlocking {
+            val executor = Executors.newSingleThreadExecutor()
+            val settled = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val queue =
+                WriteQueue<Int>(
+                    maxBytes = 10,
+                    maxBatch = 1,
+                    dispatcher = executor.asCoroutineDispatcher(),
+                    sizeOf = { 4L },
+                    counted = { true },
+                    write = { throw AssertionError("boom") },
+                    written = { settled += it },
+                )
+            try {
+                // Without the close, the dead writer's queue fills and an enqueue waits for good.
+                withTimeout(5.seconds) { while (queue.enqueue(0)) delay(10) }
+
+                assertTrue(queue.health.value.notSaved >= 1)
+                assertEquals("java.lang.AssertionError: boom", queue.health.value.lastError)
+                // The failed batch is settled too: a flush barrier in it must not wait for good.
+                assertEquals(listOf(0), settled.take(1))
+            } finally {
+                executor.shutdownNow()
             }
         }
 

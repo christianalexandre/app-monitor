@@ -67,6 +67,13 @@ outgoing queue after `HelloAck` in `AppMonitorServer`'s handshake: it
 paid the `published` item there (a `Publication` enum). `retryLost`,
 health, `close` and `whileOpen` are untouched.
 
+Fired by the PR that closes the write queue when its writer ends with an
+`Error` (#313, an external review's T5), which changes `writeBatch`'s catch. "A retry clears another
+batch's error" is not paid. `aLostDisconnectRetriedByALoneFlushClearsTheError`
+pins that a retry written alone clears the error, and keeping another
+batch's error needs to know which lost item each error came from, which
+the health does not keep. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

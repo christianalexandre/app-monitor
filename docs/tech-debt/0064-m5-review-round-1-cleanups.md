@@ -94,6 +94,11 @@ Fired by PLAN-0010 M9.7 (`feat/breakpoint-channel`), which adds the
 queued breakpoint items, for M9.2's reason. One more copy for the
 mappings item; the rest untouched.
 
+Fired by the PR that closes the write queue when its writer ends with an
+`Error` (#313, an external review's T5). Its `WriteQueue.kt` item, the long comment, was already
+paid; the rest names `Ingest`, `applyRetention` and the `.sq` files,
+which it does not touch. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

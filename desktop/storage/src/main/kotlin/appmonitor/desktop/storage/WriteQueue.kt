@@ -94,6 +94,9 @@ internal class WriteQueue<T>(
                 writeBatch(items.receiveCatching().getOrNull() ?: break)
             }
         } finally {
+            // A writer ended by an Error leaves no one to read: later enqueues must return false, not wait.
+            items.close()
+            queuedBytes.value = 0
             val left = generateSequence { items.tryReceive().getOrNull() }.toList()
             if (left.isNotEmpty()) dropped(left)
         }
@@ -105,17 +108,21 @@ internal class WriteQueue<T>(
         val count = batch.count(counted)
         val recovered = retry()
         if (recovered > 0) mutableHealth.update { StorageHealth(notSaved = it.notSaved - recovered) }
+        var fatal: Throwable? = null
         try {
             write(batch)
             if (count > 0) mutableHealth.update { it.copy(lastError = null) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             mutableHealth.update { StorageHealth(notSaved = it.notSaved + count, lastError = e.toString()) }
+            if (e !is Exception) fatal = e
         }
         pending.addAndGet(-count.toLong())
         queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
         written(batch)
+        // An Error ends the writer only once its batch is settled: a flush barrier in it waits otherwise.
+        fatal?.let { throw it }
     }
 }
 

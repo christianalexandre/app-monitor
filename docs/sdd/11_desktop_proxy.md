@@ -40,8 +40,9 @@ Castle, ADR-0105); the switch, status and commands in
 - Missing, unreadable, or ending within a day → a new one: EC P-256,
   basic constraints CA, key usage `keyCertSign` and `cRLSign`, valid
   365 days, subject `App Monitor proxy CA <date>`.
-- A leaf per host, made on first use and kept in memory until the CA is
-  dropped: EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
+- A leaf per host, made on first use and kept in memory until a day
+  before it expires, then made again; one the CA's last day caps is kept
+  to its end, since a new one would end no later (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
   and never past the CA. Its TLS context offers ALPN `h2`, then
   `http/1.1`.
 - "Reset proxy CA" and "Clear all data" delete both files; a running
@@ -150,6 +151,7 @@ its full-queue waits (`ProxyRecordingTest`). Stopping the proxy writes what is l
 | `start()` (launch) | reads `proxy.enabled` (missing = off) and starts when on | nothing | nothing | nothing |
 | `setEnabled(true)` | stores it, loads or makes the CA, starts; `PortTaken` or `Failed` as a status (`ProxyWiringTest`) | nothing | tries again | stays off (`ProxyWiringTest`) |
 | `setEnabled(false)` | stores it | stops, ends the session (`ProxyWiringTest`) | `Off` | stays off |
+| two `setEnabled` at once | the last switch wins: each call takes the lock with the switch as it is then, not its own argument (DEBT-0073, as `McpController`; `ProxyWiringTest` races them 2 000 rounds) | same | same | same |
 | `resetCa()` | deletes the CA | stops, deletes, starts with a new CA and session (`ProxyWiringTest`) | deletes | deletes |
 | `afterClearAll()` | as `resetCa()`, the switch written back when on (`ProxyWiringTest`) | same | same | same |
 | `close()` | `Closed` | stops, then `Closed` | `Closed` | nothing |

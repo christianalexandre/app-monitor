@@ -23,13 +23,17 @@ import kotlinx.coroutines.withTimeout
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.nio.file.Files
+import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+
+private const val SWITCH_RACE_ROUNDS = 2_000
 
 class ProxyWiringTest {
     private val list = LiveTraffic()
@@ -67,6 +71,35 @@ class ProxyWiringTest {
                 assertEquals(ServiceStatus.Off, relaunched.status.value, "the switch is kept off")
                 runBlocking { relaunched.close() }
                 runBlocking { proxy.close() }
+            } finally {
+                runBlocking { storage.close(kotlin.time.Duration.parse("5s")) }
+            }
+        }
+
+    @Test
+    fun `the last switch wins whichever call takes the lock first`() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            try {
+                repeat(SWITCH_RACE_ROUNDS) { round ->
+                    val proxy = ProxyController(storage, list, dir, port = 0)
+                    val ready = CyclicBarrier(2)
+                    val on = thread { ready.await().also { runBlocking { proxy.setEnabled(true) } } }
+                    val off = thread { ready.await().also { runBlocking { proxy.setEnabled(false) } } }
+                    on.join()
+                    off.join()
+
+                    val status = proxy.status.value
+                    if (proxy.enabled.value) {
+                        assertIs<ServiceStatus.Running>(
+                            status,
+                            "round $round",
+                        )
+                    } else {
+                        assertEquals(ServiceStatus.Off, status, "round $round")
+                    }
+                    runBlocking { proxy.close() }
+                }
             } finally {
                 runBlocking { storage.close(kotlin.time.Duration.parse("5s")) }
             }
