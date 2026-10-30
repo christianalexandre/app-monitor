@@ -1,10 +1,10 @@
 ---
 id: DEBT-0054
 title: The Swift SDK's Bonjour probe is not checked on the simulator
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-24
 trigger: The next PR that touches `sdk/ios/Sources/AppMonitor/BonjourBrowser.swift`, or the first end to end that runs the Swift SDK on the simulator without a manual host
-paid_date:
+paid_date: 2026-10-30
 ---
 
 # DEBT-0054 — The Swift SDK's Bonjour probe is not checked on the simulator
@@ -33,5 +33,8 @@ manual host.
 
 ## How it was paid
 
-> Filled when closing. Likely: run one Bonjour round of `BonjourBrowser` in the simulator-hosted tests
-(`make swift-sim`); if it stalls, resolve with `dns_sd` as ADR-0068 does.
+H4.5 (ADR-0162) runs `DiscoveryTests.swift`, `BonjourBrowserTests` included, in
+the simulator-hosted tests of `make swift-sim`: the probe resolved an
+advertised listener to an IPv4 address there, unlike the Kotlin/Native
+`nw_connection` probe (ADR-0068). The fix in that PR also restored
+`make swift-sim`, which no longer compiled since #309.

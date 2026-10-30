@@ -39,6 +39,7 @@ targets:
       - ../Tests/AppMonitorTests/TestDesktop.swift
       - ../Tests/AppMonitorTests/RecordingSink.swift
       - ../Tests/AppMonitorTests/ConnectionCaptureTests.swift
+      - ../Tests/AppMonitorTests/DiscoveryTests.swift
     dependencies:
       - target: TestHost
       - package: AppMonitor

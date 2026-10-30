@@ -14,6 +14,7 @@ class FirstSettledScreenTest {
     private var now = 0L
     private val due = mutableListOf<Pair<Long, () -> Unit>>()
     private val asked = mutableListOf<String>()
+    private val answered = mutableListOf<String>()
 
     private val first =
         FirstSettledScreen<Screen>(
@@ -25,6 +26,7 @@ class FirstSettledScreenTest {
             },
             gone = { it.finishing },
             ask = { asked += it.name },
+            answered = { answered += it.name },
         )
 
     private fun advance(ms: Long) {
@@ -100,5 +102,18 @@ class FirstSettledScreenTest {
         first.paused(right)
         advance(1_000)
         assertEquals(listOf("left"), asked)
+    }
+
+    @Test
+    fun theFirstScreenResumedAfterTheDialogIsAnsweredOnce() {
+        val main = Screen("main")
+        first.resumed(main)
+        advance(500)
+        assertEquals(emptyList(), answered)
+        first.paused(main)
+        first.resumed(main)
+        first.paused(main)
+        first.resumed(main)
+        assertEquals(listOf("main"), answered)
     }
 }

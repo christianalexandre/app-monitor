@@ -22,7 +22,8 @@ private const val SETTLED_MS = 500L
 
 /**
  * Asks for the permission the SDK declares on the first Activity that stays resumed [SETTLED_MS], once per
- * process (ADR-0156): a dismissed dialog resumes the Activity, and asking again there would loop.
+ * process (ADR-0156): a dismissed dialog resumes the Activity, and asking again there would loop. That resume
+ * logs a denial once.
  */
 internal fun requestLocalNetworkOnFirstActivity(app: Application) {
     if (Build.VERSION.SDK_INT < ANDROID_17 || app.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED) return
@@ -41,9 +42,19 @@ internal fun requestLocalNetworkOnFirstActivity(app: Application) {
                     },
                     gone = { it.isFinishing || it.isDestroyed },
                     ask = { activity ->
-                        app.unregisterActivityLifecycleCallbacks(this)
                         if (activity.checkSelfPermission(ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED) {
                             activity.requestPermissions(arrayOf(ACCESS_LOCAL_NETWORK), REQUEST_CODE)
+                        } else {
+                            app.unregisterActivityLifecycleCallbacks(this)
+                        }
+                    },
+                    answered = { activity ->
+                        app.unregisterActivityLifecycleCallbacks(this)
+                        if (activity.checkSelfPermission(ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED) {
+                            platformLog(
+                                "$ACCESS_LOCAL_NETWORK denied: the desktop cannot be reached on the local network. " +
+                                    "Allow Nearby devices in the app's system settings, then restart the app",
+                            )
                         }
                     },
                 )

@@ -179,3 +179,4 @@ Rules:
 | [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
 | [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |
 | [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) | KMP release binaries link the no-ops at their link task, and dynamic features hold no SDK | Accepted |
+| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Accepted |

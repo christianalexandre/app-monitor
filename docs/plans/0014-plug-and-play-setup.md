@@ -63,7 +63,7 @@ permission and a second Kotlin start on iOS were all written by hand.
   optimized linked builds failing, the README block equal to the
   script); `make swift`; `make ios-sample` and `make kmp-sample` with no
   SDK name in the Release app; `make swift-sim`.
-- [ ] **H4.5 Installation from the README alone.** The README's Usage
+- [x] **H4.5 Installation from the README alone.** (#PR) The README's Usage
   becomes **Installation**: per platform, the dependency, the start call,
   then what is optional. Until M10, the steps to consume an unpublished
   SDK (`publishToMavenLocal`, the SwiftPM branch). The debug client logs
