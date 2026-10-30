@@ -3,7 +3,7 @@ id: DEBT-0092
 title: Findings of the H2 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt`, `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt` or `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`"
+trigger: "The next PR that touches `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt` or `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`"
 paid_date:
 ---
 
@@ -73,6 +73,15 @@ newest one's note"). `Insights.kt` fired in the same PR and stays: the
 copy is how ADR-0135 keeps `desktop/domain` and `desktop/storage`
 independent (neither depends on the other), so `desktop/data`'s equality
 test is the guard; it leaves the trigger.
+
+`ExportHar.kt` paid in the PR that bounds the desktop's frames and the
+proxy's recording (`fix/bound-desktop-frames-and-recording`, an external
+review's T4), which touches it for the frames' paging. The export reads
+at most `MAX_SCANNED` (10 000) matching rows and says so when it stops
+(`ExportHarTest.theScanStopsAtItsBoundAndSaysSo`). Only the connections
+before the last exported entry are counted when `max_entries` cuts the
+export (`onlyConnectionsInsideTheExportedSpanAreCounted`, which failed
+with "2 connections left out" before). The file leaves the trigger.
 
 `BodyFormat.kt` paid in PLAN-0013 H3.6b's PR (`feat/detail-tabs`): the
 three imports are gone (`make lint`, `./gradlew :desktop:feature:traffic:test`).

@@ -36,11 +36,13 @@ interface TrafficSink {
 
 /**
  * The live list in memory, as the store's rows (ADR-0140 A, ADR-0141): the oldest exchange goes past [maxExchanges] or
- * [maxBytes] of bodies and frames; ids from [FIRST_ID]; only `network` envelopes it decodes are kept.
+ * [maxBytes] of bodies and frames; an exchange keeps its last [maxFramesPerExchange] frames, at most a quarter of
+ * [maxBytes]; ids from [FIRST_ID]; only `network` envelopes it decodes are kept.
  */
 class LiveTraffic(
     private val maxExchanges: Int = MAX_EXCHANGES,
     private val maxBytes: Long = MAX_BYTES,
+    private val maxFramesPerExchange: Int = MAX_FRAMES_PER_EXCHANGE,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : TrafficSink {
     private class LiveSession(
@@ -52,9 +54,12 @@ class LiveTraffic(
         var row: StoredExchange,
         var request: RequestStarted? = null,
         var response: ResponseReceived? = null,
-        val frames: MutableList<StoredFrame> = mutableListOf(),
-        var bytes: Long = 0,
-    )
+        val frames: ArrayDeque<StoredFrame> = ArrayDeque(),
+        var bodyBytes: Long = 0,
+        var frameBytes: Long = 0,
+    ) {
+        val bytes: Long get() = bodyBytes + frameBytes
+    }
 
     private val lock = Any()
     private var nextId = FIRST_ID
@@ -66,8 +71,12 @@ class LiveTraffic(
     private val exchangeIds = HashMap<Pair<Long, String>, Long>()
     private var bytes = 0L
 
-    // Bumped after each change; the observed reads run again on it.
+    // Bumped after each change; the observed reads run again on it. Sessions' too on any envelope.
     private val changes = MutableStateFlow(0L)
+    private val sessionChanges = MutableStateFlow(0L)
+
+    /** How many times the exchanges changed, for tests. */
+    internal val exchangesVersion: Long get() = changes.value
 
     override suspend fun connected(
         sessionId: String,
@@ -85,16 +94,18 @@ class LiveTraffic(
         sessionId: String,
         envelope: Envelope,
     ) {
-        change {
-            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return@change
+        synchronized(lock) {
+            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return
             session.row = session.row.copy(lastEnvelopeAtMs = clock())
-            if (envelope.channel != Protocol.CHANNEL_NETWORK) return@change
+            sessionChanges.value += 1
+            if (envelope.channel != Protocol.CHANNEL_NETWORK) return
             try {
                 network(session, envelope)
             } catch (_: IOException) {
-                return@change
+                return
             }
             trim()
+            changes.value += 1
         }
     }
 
@@ -122,7 +133,7 @@ class LiveTraffic(
     fun sessions(): List<StoredSession> = synchronized(lock) { sessions.values.map { it.row } }
 
     /** The live sessions, oldest first, again after each change. */
-    fun observeSessions(): Flow<List<StoredSession>> = observe { sessions() }
+    fun observeSessions(): Flow<List<StoredSession>> = observe(sessionChanges) { sessions() }
 
     fun session(id: Long): StoredSession? = synchronized(lock) { sessions[id]?.row }
 
@@ -236,12 +247,16 @@ class LiveTraffic(
         }
     }
 
-    private fun <T> observe(read: () -> T): Flow<T> = changes.map { read() }.distinctUntilChanged().flowOn(Dispatchers.Default)
+    private fun <T> observe(
+        source: MutableStateFlow<Long> = changes,
+        read: () -> T,
+    ): Flow<T> = source.map { read() }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     private inline fun change(block: () -> Unit) {
         synchronized(lock) {
             block()
             changes.value += 1
+            sessionChanges.value += 1
         }
     }
 
@@ -303,8 +318,16 @@ class LiveTraffic(
                         payloadSize = event.payload_size,
                     )
                 exchange.row = exchange.row.copy(frameCount = exchange.row.frameCount + 1)
-                exchange.bytes += event.payload.size
-                bytes += event.payload.size
+                exchange.addFrameBytes(event.payload.size + FRAME_OVERHEAD_BYTES)
+                while (exchange.frames.size > maxFramesPerExchange || exchange.frameBytes > maxBytes / 4) {
+                    exchange.addFrameBytes(
+                        -(
+                            exchange.frames
+                                .removeFirst()
+                                .payload.size + FRAME_OVERHEAD_BYTES
+                        ),
+                    )
+                }
             }
         }
     }
@@ -346,9 +369,13 @@ class LiveTraffic(
         response: ByteString?,
     ) {
         val bodies = (request?.size ?: 0).toLong() + (response?.size ?: 0)
-        val frameBytes = frames.sumOf { it.payload.size.toLong() }
-        this@LiveTraffic.bytes += bodies + frameBytes - bytes
-        bytes = bodies + frameBytes
+        this@LiveTraffic.bytes += bodies - bodyBytes
+        bodyBytes = bodies
+    }
+
+    private fun LiveExchange.addFrameBytes(delta: Long) {
+        frameBytes += delta
+        this@LiveTraffic.bytes += delta
     }
 
     // The events the store would have been given, as far as the list kept them.
@@ -399,6 +426,10 @@ class LiveTraffic(
 
         const val MAX_EXCHANGES = 10_000
         const val MAX_BYTES = 128L * 1024 * 1024
+        const val MAX_FRAMES_PER_EXCHANGE = 10_000
+
+        /** What a kept frame costs beside its payload, so empty frames count toward [MAX_BYTES]. */
+        const val FRAME_OVERHEAD_BYTES = 128L
 
         /** True when [id] is a live session's, exchange's or frame's. */
         fun isLive(id: Long): Boolean = id >= FIRST_ID

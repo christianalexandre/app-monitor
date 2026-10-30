@@ -33,6 +33,9 @@ internal object ExportHar {
     const val FULL = Int.MAX_VALUE.toLong()
     const val MAX_TEXT = 32L * 1024 * 1024
 
+    /** Matching rows an export reads at most, the live list's bound: a filter matching mostly connections stops there. */
+    const val MAX_SCANNED = 10_000L
+
     val description =
         "Exports the stored exchanges a filter matches, oldest first, as a HAR 1.2 log (the result text is the HAR " +
             "file): headers, bodies (bodies: none, capped at $CAP bytes each, or full) and WebSocket frames in " +
@@ -85,18 +88,21 @@ internal object ExportHar {
         cap: Long,
         version: String,
         maxText: Long = MAX_TEXT,
+        maxScanned: Long = MAX_SCANNED,
     ): HarLog {
-        val (http, connections) = httpRows(queries, filter, maxEntries + 1)
+        val (http, connections, cut) = httpRows(queries, filter, maxEntries, maxScanned)
         var text = 0L
         val entries = mutableListOf<JsonObject>()
+        val tooLarge = { ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none") }
         for (row in http.take(maxEntries.toInt())) {
             val detail = queries.detail(row.id) ?: continue
-            val entry = entry(detail, allFrames(queries, row.id, row.frameCount), cap)
+            val messages = webSocketMessages(queries, row.id, row.frameCount, cap) { if (text + it > maxText) throw tooLarge() }
+            val entry = entry(detail, messages, cap)
             text += entry.toString().encodeToByteArray().size
-            if (text > maxText) throw ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none")
+            if (text > maxText) throw tooLarge()
             entries += entry
         }
-        val more = http.size > maxEntries
+        val more = cut || http.size > maxEntries
         val json =
             buildJsonObject {
                 putJsonObject("log") {
@@ -107,7 +113,11 @@ internal object ExportHar {
                     }
                     put("entries", JsonArray(entries))
                     listOfNotNull(
-                        if (more) "first $maxEntries matching exchanges; more matched" else null,
+                        when {
+                            cut -> "stopped after $maxScanned matching exchanges; more may match: narrow the filter"
+                            more -> "first $maxEntries matching exchanges; more matched"
+                            else -> null
+                        },
                         if (connections > 0) "$connections connections left out: HAR holds HTTP exchanges only" else null,
                     ).joinToString("; ").ifEmpty { null }?.let { put("comment", it) }
                 }
@@ -115,44 +125,90 @@ internal object ExportHar {
         return HarLog(json, entries.size, more, connections)
     }
 
-    /** The first [limit] HTTP exchanges [filter] matches, and how many connections the pages read held (ADR-0104). */
+    /** HTTP rows read for an export, the connections before its last entry (ADR-0104), and whether the scan stopped. */
+    private data class Rows(
+        val http: List<Exchange>,
+        val connections: Int,
+        val cut: Boolean,
+    )
+
+    /** The first [exported] + 1 HTTP exchanges [filter] matches, reading at most [maxScanned] matching rows. */
     private suspend fun httpRows(
         queries: TrafficQueryRepository,
         filter: ExchangeFilter,
-        limit: Long,
-    ): Pair<List<Exchange>, Int> {
+        exported: Long,
+        maxScanned: Long,
+    ): Rows {
         val http = mutableListOf<Exchange>()
         var connections = 0
+        var inSpan = 0
+        var scanned = 0L
         var afterId = 0L
-        while (http.size < limit) {
+        while (http.size <= exported) {
             val page = queries.search(filter, afterId, PAGE_SIZE)
             for (row in page) {
-                if (http.size == limit.toInt()) break
-                if (row.isConnection) connections++ else http += row
+                if (http.size > exported) break
+                if (scanned++ == maxScanned) return Rows(http, connections, cut = true)
+                if (row.isConnection) {
+                    connections++
+                } else {
+                    http += row
+                    if (http.size.toLong() == exported) inSpan = connections
+                }
             }
             if (page.size < PAGE_SIZE) break
             afterId = page.last().id
         }
-        return http to connections
+        return Rows(http, if (http.size > exported) inSpan else connections, cut = false)
     }
 
-    private suspend fun allFrames(
+    /** The frames as `_webSocketMessages`, a page at a time; [check] gets their size so far after each page. */
+    private suspend fun webSocketMessages(
         queries: TrafficQueryRepository,
         exchangeId: Long,
         count: Long,
-    ): List<CapturedFrame> {
+        cap: Long,
+        check: (Long) -> Unit,
+    ): List<JsonObject> {
         if (count == 0L) return emptyList()
-        val frames = mutableListOf<CapturedFrame>()
+        val messages = mutableListOf<JsonObject>()
+        var size = 0L
+        var afterId = 0L
         while (true) {
-            val page = queries.frames(exchangeId, frames.lastOrNull()?.id ?: 0, PAGE_SIZE)
-            frames += page
-            if (page.size < PAGE_SIZE) return frames
+            val page = queries.frames(exchangeId, afterId, PAGE_SIZE)
+            for (frame in page) {
+                messages += message(frame, cap).also { size += it.toString().encodeToByteArray().size }
+            }
+            check(size)
+            if (page.size < PAGE_SIZE) return messages
+            afterId = page.last().id
         }
     }
 
+    private fun message(
+        frame: CapturedFrame,
+        cap: Long,
+    ): JsonObject =
+        buildJsonObject {
+            put("type", if (frame.direction == WebSocketFrame.Direction.DIRECTION_SENT) "send" else "receive")
+            put("time", frame.atMs / 1000.0)
+            put("opcode", rfcOpcode(frame.opcode))
+            // HAR viewers read a binary frame's data (opcode 2) as base64.
+            val slice = slice(frame.payload.bytes, 0, cap)
+            put("data", slice.text ?: slice.bytes.base64())
+            if (cap > 0) {
+                payloadComment(
+                    frame.payload.bytes,
+                    frame.payload.originalSize,
+                    frame.payload.truncated,
+                    slice,
+                )?.let { put("comment", it) }
+            }
+        }
+
     private fun entry(
         detail: ExchangeDetail,
-        frames: List<CapturedFrame>,
+        messages: List<JsonObject>,
         cap: Long,
     ): JsonObject {
         val row = detail.exchange
@@ -206,33 +262,7 @@ internal object ExportHar {
                 row.failed -> put("comment", "failed: ${row.error ?: "no response"}")
                 duration == null -> put("comment", "no end time stored")
             }
-            if (frames.isNotEmpty()) {
-                put(
-                    "_webSocketMessages",
-                    buildJsonArray {
-                        frames.forEach { frame ->
-                            add(
-                                buildJsonObject {
-                                    put("type", if (frame.direction == WebSocketFrame.Direction.DIRECTION_SENT) "send" else "receive")
-                                    put("time", frame.atMs / 1000.0)
-                                    put("opcode", rfcOpcode(frame.opcode))
-                                    // HAR viewers read a binary frame's data (opcode 2) as base64.
-                                    val slice = slice(frame.payload.bytes, 0, cap)
-                                    put("data", slice.text ?: slice.bytes.base64())
-                                    if (cap > 0) {
-                                        payloadComment(
-                                            frame.payload.bytes,
-                                            frame.payload.originalSize,
-                                            frame.payload.truncated,
-                                            slice,
-                                        )?.let { put("comment", it) }
-                                    }
-                                },
-                            )
-                        }
-                    },
-                )
-            }
+            if (messages.isNotEmpty()) put("_webSocketMessages", JsonArray(messages))
         }
     }
 

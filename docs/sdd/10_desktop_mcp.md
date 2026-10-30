@@ -233,8 +233,11 @@ Details the table leaves out:
   `data`: text, else base64), payloads under the same `bodies` rule. More
   HTTP matches than `max_entries` → `log.comment` says so. Connections
   (ADR-0104) are left out, do not count against `max_entries`, and
-  `log.comment` counts them. Output past 32 MiB of
-  text (counted entry by entry) is refused with "narrow the filter or use
+  `log.comment` counts those before the last entry (all of them when
+  nothing was cut). The rows are read 200 at a time, at most 10 000
+  (`MAX_SCANNED`); past that `log.comment` says the export stopped. Output past 32 MiB of
+  text (counted entry by entry, and a WebSocket's frames page by page, so
+  the read stops at the page that passes it) is refused with "narrow the filter or use
   bodies: none". `full` is for a developer who saves the file: Claude Code
   writes a result over 50 000 characters to a file (ADR-0089). Code:
   `ExportHar.kt`; `ExportHar.log`, past the arguments, is what the
@@ -327,7 +330,7 @@ writes) and a hook run before each tool (a call held in flight).
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id, a mocked exchange's rule id and name | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, a known p99 (`knownP99`, the run `desktop/app`'s `BenchmarksUiTest` also shows); `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` and `EndpointsTest` (nearest rank) in `desktop/storage` | M6.5, M7.4 |
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store (the runs read empty, answered as closing, not unknown); `desktop/app`'s `RunDiffUiTest` shows the same two runs | M6.6, M7.5 |
-| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
+| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal (frames read no further than the page past it), connections counted inside the exported span, the scan's bound, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
 | Connections in every tool | `ConnectionToolsTest`, the `CONNECTION` fixtures: `search_requests` row without status, `get_request`'s `connection`, `to_curl` refused, `endpoint_stats` bytes per port, `diff_runs` added, `export_har` leaving them out | M8.4 |
 | gRPC status in the tools | `GrpcStatusToolsTest`, a failed call from the adapter's and the proxy's headers: `search_requests`' `grpc_status`, `endpoint_stats` and `diff_runs` error rate | M8.7 |
 | `create_mock` | `MocksTest`: a rule over HTTP stored pending, sent to no device until confirmed; a failure with any method, a base64 body; every argument error, nothing written; closing store | M9.3 |

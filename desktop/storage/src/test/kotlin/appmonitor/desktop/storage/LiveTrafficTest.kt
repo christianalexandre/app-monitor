@@ -145,6 +145,63 @@ class LiveTrafficTest {
         }
 
     @Test
+    fun emptyFramesCountTowardTheBytes() =
+        runBlocking {
+            val live = LiveTraffic(maxBytes = 1024)
+            live.connected("s1", hello(), null)
+            live.received("s1", envelope(started("ws")))
+            repeat(1_000) { live.received("s1", envelope(WebSocketFrame(request_id = "ws"))) }
+
+            val ws = live.searchExchanges(ExchangeFilter()).single()
+            assertEquals(1_000, ws.frameCount)
+            assertTrue(live.frames(ws.id, limit = 10_000).size < 1_000)
+        }
+
+    @Test
+    fun aWebSocketKeepsItsLastFramesWithinItsShare() =
+        runBlocking {
+            val byCount = LiveTraffic(maxFramesPerExchange = 3)
+            byCount.connected("s1", hello(), null)
+            byCount.received("s1", envelope(started("ws")))
+            repeat(5) { byCount.received("s1", envelope(WebSocketFrame(request_id = "ws", payload = "$it".encodeUtf8()))) }
+            val ws = byCount.searchExchanges(ExchangeFilter()).single()
+            assertEquals(5, ws.frameCount)
+            assertEquals(listOf("2", "3", "4"), byCount.frames(ws.id).map { it.payload.utf8() })
+
+            // A quarter of the bytes holds two empty frames; the exchange stays, its request too.
+            val byBytes = LiveTraffic(maxBytes = LiveTraffic.FRAME_OVERHEAD_BYTES * 8 + 1)
+            byBytes.connected("s1", hello(), null)
+            byBytes.received("s1", envelope(started("ws")))
+            repeat(5) { byBytes.received("s1", envelope(WebSocketFrame(request_id = "ws"))) }
+            val kept = byBytes.searchExchanges(ExchangeFilter()).single()
+            assertEquals(2, byBytes.frames(kept.id).size)
+            assertEquals("ws", byBytes.exchange(kept.id)!!.request!!.request_id)
+        }
+
+    @Test
+    fun anEnvelopeOffTheNetworkChannelLeavesTheExchangesAlone() =
+        runBlocking {
+            var now = 1_000L
+            val live = LiveTraffic { now }
+            live.connected("s1", hello(), null)
+            live.received("s1", envelope(started("a")))
+            val version = live.exchangesVersion
+            now = 2_000
+
+            live.received("s1", envelope(started("b"), channel = "logs"))
+
+            assertEquals(version, live.exchangesVersion)
+            assertEquals(
+                2_000,
+                live
+                    .observeSessions()
+                    .first()
+                    .single()
+                    .lastEnvelopeAtMs,
+            )
+        }
+
+    @Test
     fun endpointsGroupTheLiveList() =
         runBlocking {
             val live = LiveTraffic()
