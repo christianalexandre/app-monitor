@@ -1,10 +1,10 @@
 ---
 id: DEBT-0112
 title: A held iOS task the app cancels can report its end before its start
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: A second failure of `aHeldTaskTheAppCancelsIsCapturedStartedThenFailed` in `sdk/ios/Tests/AppMonitorTests/BreakpointTests.swift`, or PLAN-0015 H5.2 starts
-paid_date:
+paid_date: 2026-10-30
 ---
 
 # DEBT-0112 — A held iOS task the app cancels can report its end before its start
@@ -35,4 +35,10 @@ A second failure of that test, or PLAN-0015 H5.2 starts.
 
 ## How it was paid
 
-> Filled when closing.
+In `fix/held-cancel-event-order`, after the second gate failure (run
+41135798401). The race reproduced locally under load: with a `yes` per
+core, the test failed 7 of 20 times before #321 and 9 of 20 after, so #321
+did not cause it. The held `RequestStarted` now waits on the task's
+`TaskCapture`. `HoldProtocol` and `didFinish` send it under one lock, the
+end only after it. With the same load: 0 of 30 failures for the test, 0 of
+10 for `BreakpointTests`.

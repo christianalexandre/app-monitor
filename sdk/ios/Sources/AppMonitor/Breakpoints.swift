@@ -127,8 +127,6 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private var loop: CFRunLoop?
     private var capture: TaskCapture?
     private var stopped = false
-    private var startSent = false
-    private var heldStart: Appmonitor_V1_RequestStarted?
     private var release: (@Sendable () -> Void)?
     private var timer: Timer?
     private var inner: URLSessionTask?
@@ -171,7 +169,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         let request = capture.heldRequest ?? self.request
         guard let rule = capture.requestHold else { return send(request, upload, mock: capture.mock) }
         let started = startedEvent(request, upload, mock: nil)
-        heldStart = started
+        capture.holdStart(started)
         var hit = Appmonitor_V1_BreakpointHit()
         hit.ruleID = rule.id
         hit.stage = .request
@@ -205,7 +203,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         spill = nil
         inner?.cancel()
         inner = nil
-        if let heldStart { emitStart(heldStart) }
+        capture?.sendStart()
     }
 
     // MARK: - The request
@@ -221,12 +219,9 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     /// `RequestStarted` deferred by the request hold, sent once, before the task can end (ADR-0123 C.1).
     private func emitStart(_ started: Appmonitor_V1_RequestStarted, mock: Appmonitor_V1_MockRule? = nil) {
-        guard !startSent, let capture else { return }
-        startSent = true
-        heldStart = nil
         var started = started
         if let mock { started.mockRuleID = mock.id }
-        emit(capture.sink, "RequestStarted") { try started.serializedBytes() }
+        capture?.sendStart(started)
     }
 
     /// `request` with the resume's fields; throws for an edit `URLSession` cannot send (ADR-0123 D.1).
