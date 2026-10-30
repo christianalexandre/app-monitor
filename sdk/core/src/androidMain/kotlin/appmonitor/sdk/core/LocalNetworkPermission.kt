@@ -27,32 +27,30 @@ private const val SETTLED_MS = 500L
 internal fun requestLocalNetworkOnFirstActivity(app: Application) {
     if (Build.VERSION.SDK_INT < ANDROID_17 || app.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED) return
     if (!registered.compareAndSet(false, true)) return
+    val main = Handler(Looper.getMainLooper())
     app.registerActivityLifecycleCallbacks(
         object : Application.ActivityLifecycleCallbacks {
-            private val main = Handler(Looper.getMainLooper())
-            private var pending: Pair<Activity, Runnable>? = null
-
-            override fun onActivityResumed(activity: Activity) {
-                if (activity.isFinishing) return
-                val ask =
-                    Runnable {
-                        pending = null
-                        if (activity.isFinishing || activity.isDestroyed) return@Runnable
+            private val first =
+                FirstSettledScreen<Activity>(
+                    settleMs = SETTLED_MS,
+                    schedule = { delay, block ->
+                        val runnable = Runnable(block)
+                        val cancel = { main.removeCallbacks(runnable) }
+                        main.postDelayed(runnable, delay)
+                        cancel
+                    },
+                    gone = { it.isFinishing || it.isDestroyed },
+                    ask = { activity ->
                         app.unregisterActivityLifecycleCallbacks(this)
                         if (activity.checkSelfPermission(ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED) {
                             activity.requestPermissions(arrayOf(ACCESS_LOCAL_NETWORK), REQUEST_CODE)
                         }
-                    }
-                pending = activity to ask
-                main.postDelayed(ask, SETTLED_MS)
-            }
+                    },
+                )
 
-            override fun onActivityPaused(activity: Activity) {
-                val (waiting, ask) = pending ?: return
-                if (waiting !== activity) return
-                main.removeCallbacks(ask)
-                pending = null
-            }
+            override fun onActivityResumed(activity: Activity) = first.resumed(activity)
+
+            override fun onActivityPaused(activity: Activity) = first.paused(activity)
 
             override fun onActivityCreated(
                 activity: Activity,

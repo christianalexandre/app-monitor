@@ -45,6 +45,41 @@ struct ProtoWireTests {
         #expect(rule.response == Appmonitor_V1_MockResponse())
     }
 
+    @Test func aMessageFieldReadTwiceIsMerged() throws {
+        // BreakpointHit.request (3) as {method "GET"}, then as {url "u"}.
+        let bytes: [UInt8] = [0x1A, 0x05, 0x12, 0x03, 0x47, 0x45, 0x54, 0x1A, 0x03, 0x1A, 0x01, 0x75]
+        let hit = try Appmonitor_V1_BreakpointHit(serializedBytes: bytes)
+        #expect(hit.request.method == "GET")
+        #expect(hit.request.url == "u")
+    }
+
+    @Test func aOneofMemberReadTwiceIsMerged() throws {
+        // MockRule.response (6) as {status_code 200}, then as {body "x"}.
+        let bytes: [UInt8] = [0x32, 0x03, 0x08, 0xC8, 0x01, 0x32, 0x03, 0x1A, 0x01, 0x78]
+        let rule = try Appmonitor_V1_MockRule(serializedBytes: bytes)
+        #expect(rule.response.statusCode == 200)
+        #expect(rule.response.body == Data("x".utf8))
+    }
+
+    @Test func anotherOneofMemberReplacesTheFirst() throws {
+        // MockRule.response (6) as {status_code 200}, then failure (7) as {message "x"}.
+        let bytes: [UInt8] = [0x32, 0x03, 0x08, 0xC8, 0x01, 0x3A, 0x03, 0x0A, 0x01, 0x78]
+        let rule = try Appmonitor_V1_MockRule(serializedBytes: bytes)
+        #expect(rule.answer == .failure(.with { $0.message = "x" }))
+    }
+
+    @Test(arguments: [
+        // Field numbers run from 1 to 2^29 - 1.
+        [0x00, 0x01] as [UInt8],
+        [0x80, 0x80, 0x80, 0x80, 0x10, 0x01],
+        // A varint's tenth byte holds bit 63 only.
+        [0x18] + [UInt8](repeating: 0xFF, count: 9) + [0x7F],
+        [0x18] + [UInt8](repeating: 0x80, count: 10) + [0x00],
+    ])
+    func malformedTagsAndVarintsThrow(bytes: [UInt8]) {
+        #expect(throws: ProtoDecodingError.self) { try Appmonitor_V1_RequestFailed(serializedBytes: bytes) }
+    }
+
     @Test(arguments: [
         ([0x0A, 0x05, 0x61] as [UInt8], ProtoDecodingError.truncated),
         // Field 3 is not in RequestFailed, so these reach skip.

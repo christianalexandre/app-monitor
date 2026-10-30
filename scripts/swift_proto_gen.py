@@ -2,8 +2,9 @@
 """Generates sdk/ios's protobuf types from protocol/proto without SwiftProtobuf (ADR-0160).
 
 Reads the proto3 subset the protocol uses: top-level messages and enums, enums nested in a message,
-scalar, string, bytes, enum and message fields, `repeated`, `optional` and `oneof` of messages. Anything
-else stops the generator, so the schema cannot grow past what the Swift codec writes. Names follow
+scalar, string, bytes, enum and message fields, `repeated` strings, bytes and messages, `optional` and
+`oneof`. Anything else stops the generator, so the schema cannot grow past what the Swift codec writes:
+a repeated number, bool or enum, which Wire writes packed, or a field number protobuf forbids. Names follow
 protoc-gen-swift's (`Appmonitor_V1_Hello`, `requestID`, `.android`), so the SDK's code is unchanged.
 Usage: swift_proto_gen.py PROTO_DIR OUT_DIR.
 """
@@ -21,6 +22,8 @@ SCALARS = {
     "int64": ("Int64", "0", "int64", "Int64(bitPattern: try reader.varint())"),
     "uint32": ("UInt32", "0", "uint32", "UInt32(truncatingIfNeeded: try reader.varint())"),
 }
+MAX_FIELD_NUMBER = 2**29 - 1
+PACKABLE = {"bool", "int32", "int64", "uint32"}
 ACRONYMS = {"id": "ID", "url": "URL", "http": "HTTP", "https": "HTTPS"}
 
 
@@ -56,7 +59,7 @@ def enum_case(enum_name, value_name):
 
 class Parser:
     def __init__(self, text, source):
-        self.tokens = re.findall(r'[A-Za-z_][A-Za-z0-9_.]*|\d+|"[^"]*"|[{}=;<>,]', strip_comments(text))
+        self.tokens = re.findall(r'[A-Za-z_][A-Za-z0-9_.]*|-?\d+|"[^"]*"|[{}=;<>,]', strip_comments(text))
         self.pos = 0
         self.source = source
 
@@ -133,6 +136,10 @@ class Parser:
             else:
                 fields.append(self.parse_field())
         self.take("}")
+        numbers = [f["number"] for f in fields] + [m["number"] for o in oneofs for m in o["members"]]
+        for number in numbers:
+            if not 1 <= number <= MAX_FIELD_NUMBER or 19000 <= number <= 19999 or numbers.count(number) > 1:
+                fail(f"message {name}: field number {number} is reserved, out of range or used twice")
         return {"kind": "message", "name": name, "fields": fields, "enums": enums, "oneofs": oneofs}
 
 
@@ -193,12 +200,13 @@ class Generator:
             return f"writer.message({number}, {value})"
         return f"writer.{SCALARS[field['type']][2]}({number}, {value})"
 
-    def read(self, field):
+    def read(self, field, current=None):
+        """The read of [field]; a message read again merges into [current], its value so far."""
         kind = self.kind(field)
         if kind == "enum":
             return f"{self.swift_type(field)}(rawValue: Int(Int32(truncatingIfNeeded: try reader.varint())))!"
         if kind == "message":
-            return f"try reader.message({self.swift_type(field)}.self)"
+            return f"try reader.message(merging: {current})" if current else f"try reader.message({self.swift_type(field)}.self)"
         return SCALARS[field["type"]][3]
 
     def enum_lines(self, enum, indent):
@@ -220,6 +228,9 @@ class Generator:
         return lines
 
     def message_lines(self, message):
+        for field in message["fields"]:
+            if field["label"] == "repeated" and (field["type"] in PACKABLE or self.kind(field) == "enum"):
+                fail(f"message {message['name']}: repeated {field['type']} {field['name']} would be packed")
         swift = self.messages[message["name"]]
         members = sorted(
             [("field", f) for f in message["fields"]] + [("oneof", o) for o in message["oneofs"]],
@@ -290,13 +301,13 @@ class Generator:
         for kind, member in members:
             if kind == "oneof":
                 for m in member["members"]:
-                    lines.append(f"        case {m['number']}: {camel(member['name'])} = .{camel(m['name'])}({self.read(m)})")
+                    lines.append(f"        case {m['number']}: {camel(member['name'])} = .{camel(m['name'])}({self.read(m, camel(m['name']))})")
                 continue
             name = camel(member["name"])
             if member["label"] == "repeated":
                 lines.append(f"        case {member['number']}: {name}.append({self.read(member)})")
             elif member["label"] == "optional" or self.kind(member) == "message":
-                lines.append(f"        case {member['number']}: _{name} = {self.read(member)}")
+                lines.append(f"        case {member['number']}: _{name} = {self.read(member, name)}")
             else:
                 lines.append(f"        case {member['number']}: {name} = {self.read(member)}")
         lines += ["        default: try reader.skip(into: &unknownFields)", "        }", "    }", "}"]
