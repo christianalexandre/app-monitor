@@ -333,7 +333,10 @@ public class AppMonitorInterceptor : Interceptor {
         id: String,
     ): Response {
         try {
-            if (rule.delay_ms > 0) Thread.sleep(rule.delay_ms)
+            val until = System.nanoTime() + rule.delay_ms * 1_000_000
+            while (!chain.call().isCanceled() && System.nanoTime() < until) {
+                Thread.sleep(minOf(CANCEL_POLL_MS, (until - System.nanoTime()) / 1_000_000).coerceAtLeast(0))
+            }
             if (chain.call().isCanceled()) throw IOException("Canceled")
             rule.failure?.let { throw IOException(it.message) }
         } catch (e: InterruptedException) {

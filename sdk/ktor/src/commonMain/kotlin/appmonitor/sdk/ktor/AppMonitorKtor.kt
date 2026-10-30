@@ -48,7 +48,7 @@ internal fun appMonitorKtor(
             val webSocket = request.url.protocol.isWebsocket()
             val content = if (webSocket) sent else sink.holdRequest(request, sent, id, masking, options.maxBodyBytes, replayOf)
             if (content !== sent) subject = content
-            val mock = sink.mockFor(request.method.value, request.url.buildString())
+            val mock = if (webSocket) null else sink.mockFor(request.method.value, request.url.buildString())
             sink.emit("RequestStarted") {
                 requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id, replayOf)
             }
