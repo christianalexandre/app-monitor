@@ -27,10 +27,11 @@ The two hook into different places (an OkHttp `Interceptor` on the
 calling thread, a Ktor `HttpSendPipeline` phase in a coroutine), with
 different body types (`RequestBody` and `ResponseBody`, `OutgoingContent`
 and a saved `HttpResponse`). A shared layer needs an abstraction over
-both that does not exist yet. Each SDK's tests (`BreakpointTest`,
-`MockAnswerTest`, `ReplayTest` in both) pin the same cases, so a
-divergence they list shows up in CI. Masking has its own item and
-vector (DEBT-0055).
+both that does not exist yet. Each SDK has its own `BreakpointTest`,
+`MockAnswerTest` and `ReplayTest`, written to the same cases by hand.
+Nothing checks that the two lists stay equal: a case one of them lacks,
+as the upgrade mock was, fails nowhere. Only masking has a shared vector
+(DEBT-0055).
 
 ## Trigger
 
