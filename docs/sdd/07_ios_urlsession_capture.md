@@ -308,6 +308,10 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
   WebSocket is refused as not kept.
 - The hold is tested on the macOS host only (DEBT-0086), a session-wide
   challenge to a held task not at all (ADR-0130).
+- `MockProtocol` and `HoldProtocol` read the task they were made for from
+  their own property, set in `init(task:cachedResponse:client:)`, never
+  `URLProtocol.task`: on iOS 16 that getter raises "unrecognized
+  selector" and ends the app. Nothing below iOS 26 is tested (DEBT-0111).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).

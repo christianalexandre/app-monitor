@@ -146,6 +146,15 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     /// What holds a body past the capture limit; tests swap it.
     nonisolated(unsafe) static var makeSpill: () -> SpillStore? = { Spill() }
 
+    // iOS 16 answers `URLProtocol.task` with "unrecognized selector": the task given here is the one read.
+    private var appTask: URLSessionTask?
+
+    @objc convenience init(task: URLSessionTask, cachedResponse: CachedURLResponse?, client: URLProtocolClient?) {
+        let request = task.currentRequest ?? task.originalRequest ?? URLRequest(url: URL(fileURLWithPath: "/"))
+        self.init(request: request, cachedResponse: cachedResponse, client: client)
+        appTask = task
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { false }
 
     override class func canInit(with task: URLSessionTask) -> Bool {
@@ -156,7 +165,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     override func startLoading() {
         loop = CFRunLoopGetCurrent()
-        guard let task, let capture = Hooks.capture(of: task) else { return fail(URLError(.unknown)) }
+        guard let task = appTask, let capture = Hooks.capture(of: task) else { return fail(URLError(.unknown)) }
         self.capture = capture
         let upload = Hooks.upload(of: task)
         let request = capture.heldRequest ?? self.request
@@ -204,7 +213,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private func startedEvent(_ request: URLRequest, _ upload: UploadBody?, mock: Appmonitor_V1_MockRule?)
         -> Appmonitor_V1_RequestStarted
     {
-        guard let capture, let task else { return Appmonitor_V1_RequestStarted() }
+        guard let capture, let task = appTask else { return Appmonitor_V1_RequestStarted() }
         return requestStartedEvent(
             request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload, mock: mock,
             replayOf: Replay.original(of: task))
@@ -256,7 +265,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
             capture.sink.breakpoint(method: request.httpMethod ?? "GET", url: url.absoluteString, stage: .response)
             != nil
         if let mock { return answer(mock, url) }
-        let configuration = task.flatMap(Hooks.session(of:))?.configuration ?? .default
+        let configuration = appTask.flatMap(Hooks.session(of:))?.configuration ?? .default
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         let task: URLSessionTask =
             switch upload {
@@ -404,7 +413,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         otherwise: @escaping @Sendable () -> Void,
         ask: @escaping (URLSession, URLSessionTask, URLSessionTaskDelegate?) -> Bool
     ) {
-        guard let outer = task, let app = Hooks.session(of: outer), app.delegate != nil || outer.delegate != nil
+        guard let outer = appTask, let app = Hooks.session(of: outer), app.delegate != nil || outer.delegate != nil
         else { return otherwise() }
         let call = Asked { if !ask(app, outer, app.delegate as? URLSessionTaskDelegate) { otherwise() } }
         app.delegateQueue.addOperation { call.run() }

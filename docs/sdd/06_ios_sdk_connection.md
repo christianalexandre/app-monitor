@@ -41,10 +41,14 @@ the app's threads, behind an `NSLock`.
 Answers go through the same selection rule as `DesktopSelector` (ADR-0024):
 first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
-`/v1/ws`. A browser in `.waiting` with `kDNSServiceErr_PolicyDenied` logs
-one line per client pointing at *Settings, Privacy & Security, Local
-Network*; one in `.failed` logs one naming `NSLocalNetworkUsageDescription`
-and `NSBonjourServices`. Either counts as found nothing. On a device without
+`/v1/ws`. A browser in `.waiting` or `.failed` with
+`kDNSServiceErr_PolicyDenied` logs one line per client pointing at
+*Settings, Privacy & Security, Local Network* (iOS 16 fails a denied browse,
+later versions wait on it); one failed otherwise logs one naming
+`NSLocalNetworkUsageDescription` and `NSBonjourServices`. Either counts as
+found nothing. These lines and the connect failure's are `Logger` errors
+(subsystem `AppMonitor`), so Console and the device's syslog show them
+without Xcode. On a device without
 `host`, the client also reads `Bundle.main.infoDictionary` when it starts
 and logs once the keys of [Info.plist keys](#infoplist-keys) it lacks
 (ADR-0162).
@@ -141,5 +145,6 @@ only.
 - A suspended app runs no timers: a connection the OS dropped meanwhile is
   noticed when the app resumes, by `.failed` or the pong deadline.
 - Local network privacy exists only on a device (TN3179, ADR-0036): the
-  `PolicyDenied` and `.waiting` paths are proven in M2.13, not in
-  `swift test`.
+  `PolicyDenied` and `.waiting` paths are proven in M2.13, the `.failed`
+  one on an iPhone 8 with iOS 16.7 in the H4 field test; `swift test`
+  checks only how each state is read (`browseFailure`).

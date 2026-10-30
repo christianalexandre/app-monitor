@@ -15,6 +15,20 @@ struct BonjourBrowser: MdnsBrowser {
     }
 }
 
+/// What a browser state reports as a failure, nil for none. iOS 16 fails a denied browse, later
+/// versions wait on it: both are the denial.
+func browseFailure(_ state: NWBrowser.State) -> String? {
+    switch state {
+    case .waiting(.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))),
+        .failed(.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))):
+        localNetworkDenied
+    case .failed(let error):
+        "\(error)"
+    default:
+        nil
+    }
+}
+
 /// One browse, confined to `queue`. Names are keyed lowercased (RFC 4343).
 private final class BonjourSession: @unchecked Sendable {
     private struct Address {
@@ -48,14 +62,7 @@ private final class BonjourSession: @unchecked Sendable {
         self.browser = browser
         browser.stateUpdateHandler = { [weak self, weak browser] state in
             guard let self, let browser, browser === self.browser else { return }
-            switch state {
-            case .waiting(let error) where error == .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
-                self.onFailure(localNetworkDenied)
-            case .failed(let error):
-                self.onFailure("\(error)")
-            default:
-                break
-            }
+            if let failure = browseFailure(state) { self.onFailure(failure) }
         }
         browser.browseResultsChangedHandler = { [weak self, weak browser] _, changes in
             guard let self, let browser, browser === self.browser else { return }

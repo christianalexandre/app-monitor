@@ -258,6 +258,15 @@ struct DesktopSelectorTests {
 
 // The real browser against a service this process advertises; needs a multicast-capable interface.
 struct BonjourBrowserTests {
+    @Test func aDeniedBrowseIsTheDenialWhetherItWaitsOrFails() {
+        let denied = NWError.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))
+        #expect(browseFailure(.waiting(denied)) == localNetworkDenied)
+        #expect(browseFailure(.failed(denied)) == localNetworkDenied)
+        #expect(browseFailure(.failed(.dns(DNSServiceErrorType(kDNSServiceErr_Unknown)))) != localNetworkDenied)
+        #expect(browseFailure(.waiting(.dns(DNSServiceErrorType(kDNSServiceErr_Unknown)))) == nil)
+        #expect(browseFailure(.ready) == nil)
+    }
+
     @Test func findsAnAdvertisedDesktopWithItsPathAndIPv4Address() async throws {
         let queue = DispatchQueue(label: "test.bonjour")
         let name = "AppMonitor test \(UUID().uuidString.prefix(8))"
