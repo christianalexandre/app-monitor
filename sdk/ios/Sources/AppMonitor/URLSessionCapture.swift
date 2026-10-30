@@ -103,6 +103,8 @@ final class TaskCapture: @unchecked Sendable {
     private var body = Data()
     private var received: Int64 = 0
     private var finished = false
+    private var heldStart: Appmonitor_V1_RequestStarted?
+    private var startSent = false
 
     init(
         sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?, mock: Appmonitor_V1_MockRule? = nil,
@@ -120,6 +122,23 @@ final class TaskCapture: @unchecked Sendable {
 
     func didReceive(_ response: URLResponse) {
         lock.withLock { self.response = response }
+    }
+
+    /// A held task's `RequestStarted`, sent by `sendStart` or, at the latest, before its end (ADR-0123 C.1).
+    func holdStart(_ started: Appmonitor_V1_RequestStarted) {
+        lock.withLock { if !startSent { heldStart = started } }
+    }
+
+    /// Sends `started`, or the held one when nil, once; under the lock so no end can pass it.
+    func sendStart(_ started: Appmonitor_V1_RequestStarted? = nil) {
+        lock.withLock { sendStartLocked(started) }
+    }
+
+    private func sendStartLocked(_ started: Appmonitor_V1_RequestStarted?) {
+        guard !startSent, let started = started ?? heldStart else { return }
+        startSent = true
+        heldStart = nil
+        emit(sink, "RequestStarted") { try started.serializedBytes() }
     }
 
     func didReceive(_ data: NSData) {
@@ -144,6 +163,7 @@ final class TaskCapture: @unchecked Sendable {
         let state: (URLResponse?, Data, Int64)? = lock.withLock {
             guard !finished else { return nil }
             finished = true
+            sendStartLocked(nil)
             return (response, body, received)
         }
         guard let (response, body, received) = state else { return }

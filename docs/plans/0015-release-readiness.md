@@ -36,7 +36,7 @@ This plan becomes `Active` once PLAN-0014 closes.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
   runner) and fixed at its cause, never skipped: DEBT-0032, DEBT-0056,
-  DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, DEBT-0112, and locally
+  DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, and locally
   DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
