@@ -231,7 +231,7 @@ a stack trace (DEBT-0010). See ADR-0010.
   `export` too; debug binaries link the SDK. Which link Kotlin runs (Xcode's
   build type, a CocoaPods mapping, an XCFramework, `assemble`) is the only
   input. Each dynamic feature of the app leaves every SDK module out of its
-  runtime classpaths: the base APK carries them. `appMonitorCheck<Variant>`
+  runtime classpaths, its test ones aside: the base APK carries them. `appMonitorCheck<Variant>`
   and `appMonitorCheck<LinkTask>` fail a
   release that still resolves a real SDK module. In this repository
   `appmonitor.sdk.local=true` points it at the `:sdk:*` projects.

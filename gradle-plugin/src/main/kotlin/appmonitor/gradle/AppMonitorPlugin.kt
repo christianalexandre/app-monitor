@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractNativeLibrary
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
+import java.util.concurrent.Callable
 
 /**
  * `io.github.christianalexandre.appmonitor`: adds the SDK to the module and swaps it for its no-ops outside debug
@@ -38,7 +39,7 @@ public class AppMonitorPlugin : Plugin<Project> {
                     project
                         .project(path)
                         .configurations
-                        .matching { it.name.endsWith("RuntimeClasspath") }
+                        .matching { it.name.endsWith("RuntimeClasspath") && "Test" !in it.name }
                         .configureEach(sdk::exclude)
                 }
             }
@@ -82,7 +83,9 @@ public class AppMonitorPlugin : Plugin<Project> {
                         }
                     val check = registerCheck(project, binary.linkTaskName, klibs.flatMap { it.incoming.resolutionResult.rootComponent })
                     binary.linkTaskProvider.configure { link ->
-                        link.libraries.setFrom(klibs)
+                        // Kotlin's own libraries but the compilation's klibs: the stdlib and platform klibs stay.
+                        val kotlinOwn = Callable { binary.compilation.compileDependencyFiles - project.configurations.getByName(name) }
+                        link.libraries.setFrom(project.files(kotlinOwn), klibs)
                         link.dependsOn(check)
                     }
                 }

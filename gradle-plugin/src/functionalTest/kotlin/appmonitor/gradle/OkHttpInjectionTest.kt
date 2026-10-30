@@ -62,6 +62,7 @@ class OkHttpInjectionTest {
         body: String = "",
         deps: String = "",
         artifact: String? = null,
+        group: String = "io.github.christianalexandre",
     ) {
         val dirPath = (if (artifact != null) "sdk-build/" else "") + path.removePrefix(":").replace(':', '/')
         val publish =
@@ -69,7 +70,6 @@ class OkHttpInjectionTest {
                 ""
             } else {
                 """
-                group = "io.github.christianalexandre"
                 version = "$sdkVersion"
                 publishing {
                     publications { create<MavenPublication>("sdk") { artifactId = "$artifact"; from(components["java"]) } }
@@ -84,6 +84,7 @@ class OkHttpInjectionTest {
             repositories { mavenCentral() }
             dependencies { $deps }
             tasks.withType<JavaCompile>().configureEach { options.release = 11 }
+            group = "$group"
             $publish
             """,
         )
@@ -228,15 +229,18 @@ class OkHttpInjectionTest {
                 compileSdk = $compileSdk
                 defaultConfig { minSdk = 24 }
             }
-            dependencies { implementation(project(":base")) }
+            dependencies { implementation(project(":base")); implementation(project(":lib:core")) }
             """,
         )
+        // A library of another group named as an SDK project stays in the feature.
+        stub(":lib:core", "other.lib", "OtherCore", group = "other")
+        dir.resolve("settings.gradle.kts").appendText("\ninclude(\":lib:core\")")
         write(
             "feature/src/main/AndroidManifest.xml",
             """
             <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:dist="http://schemas.android.com/apk/distribution">
                 <dist:module dist:title="@string/app_name"><dist:fusing dist:include="true" /><dist:delivery><dist:on-demand /></dist:delivery></dist:module>
-                <application android:hasCode="false" />
+                <application />
             </manifest>
             """,
         )
@@ -251,6 +255,7 @@ class OkHttpInjectionTest {
         for (apk in listOf("feature/build/outputs/apk/debug/feature-debug.apk", "feature/build/outputs/apk/release/feature-release.apk")) {
             assertFalse(hasClass(apk, "Lappmonitor/sdk/core/RealCore;"), apk)
             assertFalse(hasClass(apk, "Lappmonitor/sdk/core/NoOpCore;"), apk)
+            assertTrue(hasClass(apk, "Lother/lib/OtherCore;"), apk)
         }
     }
 

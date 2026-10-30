@@ -108,4 +108,10 @@ listed in Context, holds unchanged; this ADR supersedes it.
   SDK in the base APK only.
 - `NoSdkCheck.configurationName` holds the link task's or the variant's
   name.
+- A release link keeps the libraries Kotlin gives it (the stdlib and the
+  platform klibs) minus the compilation's configuration, plus that
+  configuration's swapped copy.
+- The exclusion names each SDK module, real and no-op, in the SDK's group,
+  so a library of another group with the same module name (`core`) stays.
+  A feature's test classpaths keep the SDK: no APK ships them.
 - Supersedes ADR-0157.
