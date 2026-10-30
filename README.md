@@ -250,8 +250,8 @@ linked and has no stubs ([ADR-0155](docs/adr/0155-ios-sdk-left-out-of-release-bu
 All four steps apply to a simulator-only app too. The simulator reaches
 the desktop on `127.0.0.1` without the local network keys, but the Run
 Script is the one check that fails a configuration which ships the SDK
-because step 3 was forgotten. Every `URLSession` is captured without further code, except a
-request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
+because step 3 was forgotten. Every `URLSession` is captured without
+further code, except a request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
 already captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
 other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
 port, bytes and timing, no content; `captureConnections: false` in the
