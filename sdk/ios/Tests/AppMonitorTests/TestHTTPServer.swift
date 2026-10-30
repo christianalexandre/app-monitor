@@ -93,6 +93,10 @@ final class TestHTTPServer: @unchecked Sendable {
             (status, headers, body) = ("401 Unauthorized", ["WWW-Authenticate: Basic realm=\"test\""], Data())
         case "/auth": (status, headers, body) = ("200 OK", [], Data("hello".utf8))
         case "/hang": return nil
+        case _ where path.hasPrefix("/partial/"):
+            let count = Int(path.dropFirst(9))!
+            return Data("HTTP/1.1 200 OK\r\nContent-Length: \(count * 2)\r\n\r\n".utf8)
+                + Data(repeating: UInt8(ascii: "a"), count: count)
         case _ where path.hasPrefix("/big/"):
             (status, headers, body) = ("200 OK", [], Data(repeating: UInt8(ascii: "a"), count: Int(path.dropFirst(5))!))
         default: (status, headers, body) = ("404 Not Found", [], Data())

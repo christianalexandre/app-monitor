@@ -136,6 +136,9 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private var response: URLResponse?
     private var body = Data()
     private var buffering = false
+    // Set once the body passed the capture limit: the inner task is suspended and its end waits for the hold.
+    private var heldEarly = false
+    private var ended: Error?? = nil
 
     override class func canInit(with request: URLRequest) -> Bool { false }
 
@@ -272,7 +275,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private func reply(_ rule: Appmonitor_V1_MockRule, _ url: URL) {
         timer = nil
         switch MockProtocol.answer(rule, url) {
-        case .success(let (response, data)): received(response, data)
+        case .success(let (response, data)): received(response, data, whole: true)
         case .failure(let error): fail(error)
         }
     }
@@ -294,7 +297,15 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         onLoop { [self] in
             guard !stopped else { return }
-            if buffering { body.append(data) } else { client?.urlProtocol(self, didLoad: data) }
+            guard buffering else {
+                client?.urlProtocol(self, didLoad: data)
+                return
+            }
+            body.append(data)
+            guard !heldEarly, let capture, body.count > capture.limit, let response else { return }
+            heldEarly = true
+            inner?.suspend()
+            received(response, body, whole: false)
         }
     }
 
@@ -302,9 +313,13 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         onLoop { [self] in
             guard !stopped else { return }
             inner = nil
+            if heldEarly {
+                ended = .some(error)
+                return
+            }
             if let error { return fail(error) }
             guard buffering, let response else { return finish() }
-            received(response, body)
+            received(response, body, whole: true)
         }
     }
 
@@ -382,37 +397,57 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     // MARK: - The response
 
-    /// The whole response, held first when a breakpoint matches the request as sent.
-    private func received(_ response: URLResponse, _ data: Data) {
+    /// The response, held first when a breakpoint matches the request as sent; not `whole` once its body
+    /// passed the capture limit, the rest then read after the hold unless the resume replaces the body.
+    private func received(_ response: URLResponse, _ data: Data, whole: Bool) {
         guard let capture, let sent, let http = response as? HTTPURLResponse,
             let rule = capture.sink.breakpoint(
                 method: sent.httpMethod ?? "GET", url: sent.url?.absoluteString ?? "", stage: .response)
-        else { return deliver(response, data) }
+        else { return deliver(response, data, whole: whole) }
         var hit = Appmonitor_V1_BreakpointHit()
         hit.ruleID = rule.id
         hit.stage = .response
         hit.request = startedEvent(sent, sentBody, mock: nil)
         hit.response = responseReceivedEvent(http, data, id: capture.id, masking: capture.masking, limit: capture.limit)
+        if !whole {
+            if http.expectedContentLength >= 0 {
+                hit.response.bodySize = http.expectedContentLength
+            } else {
+                hit.response.clearBodySize()
+            }
+        }
         hit.timeoutMs = rule.timeoutMs
         hold(hit) { [self] outcome in
             switch outcome {
-            case .abort(let message): fail(connectionLost(message))
-            case .resume(nil): deliver(response, data)
+            case .abort(let message):
+                inner?.cancel()
+                fail(connectionLost(message))
+            case .resume(nil): deliver(response, whole ? data : body, whole: whole)
             case .resume(let changes?):
                 let status = changes.hasStatusCode ? Int(changes.statusCode) : http.statusCode
                 let fields = changes.applied(to: sortedHeaders(http.allHeaderFields))
                 let edited = HTTPURLResponse(
                     url: http.url ?? sent.url!, statusCode: status, httpVersion: "HTTP/1.1",
                     headerFields: headerFields(fields))!
-                deliver(edited, changes.hasBody ? changes.body : data)
+                if changes.hasBody { inner?.cancel() }
+                deliver(edited, changes.hasBody ? changes.body : whole ? data : body, whole: whole || changes.hasBody)
             }
         }
     }
 
-    private func deliver(_ response: URLResponse, _ data: Data) {
+    /// Hands `response` and `data` to the task; not `whole`, the rest of the body follows as it comes.
+    private func deliver(_ response: URLResponse, _ data: Data, whole: Bool = true) {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
-        finish()
+        if whole { return finish() }
+        buffering = false
+        heldEarly = false
+        body = Data()
+        switch ended {
+        case .some(.some(let error)): fail(error)
+        case .some(.none): finish()
+        case .none: inner?.resume()
+        }
     }
 
     // MARK: - Helpers

@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -20,7 +20,9 @@ not hit (ADR-0094):
   saved. The engine's connection is not given back to its pool.
 - **Recent requests keep their bodies.** `RecentRequests.kt` keeps up to
   200 replay closures. Each one holds its OkHttp `Call` or Ktor request,
-  with its body, until the session ends.
+  with its body, until the session ends. The Swift SDK's
+  `RecentRequests` (`Replays.swift`) does the same: 200 closures, each
+  holding its task's request and upload data. No byte bound on either.
 - **A masked query value goes back as `██`.** In `HeldCalls.kt`,
   `resumeOf` sends the whole URL once any part of it is edited. A masked
   query parameter then goes out as the placeholder. The same happens to
@@ -66,6 +68,7 @@ items in its file:
 - `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/AppMonitorInterceptor.kt`
 - `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
+- `sdk/ios/Sources/AppMonitor/Replays.swift`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`

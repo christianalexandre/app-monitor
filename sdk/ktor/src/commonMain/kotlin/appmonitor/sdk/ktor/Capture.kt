@@ -19,15 +19,19 @@ import com.squareup.wire.Message
 import io.ktor.client.plugins.isSaved
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentLength
 import io.ktor.http.decodeURLQueryComponent
 import io.ktor.util.StringValues
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.InternalAPI
+import io.ktor.utils.io.discard
+import io.ktor.utils.io.readBuffer
 import io.ktor.websocket.Frame
 import io.ktor.websocket.FrameType
+import kotlinx.io.readByteArray
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import kotlin.time.Clock
@@ -271,12 +275,21 @@ internal fun OutgoingContent.capture(limit: Int): CapturedBody =
     }
 
 /** The body Ktor saved for the app, cut at [limit]; a streamed response is not read (ADR-0069). */
+@OptIn(InternalAPI::class) // DEBT-0083
 internal suspend fun HttpResponse.capture(limit: Int): CapturedBody =
     when {
         status == HttpStatusCode.SwitchingProtocols -> CapturedBody.NONE
         !isSaved -> unread()
-        else -> readRawBytes().captured(limit)
+        else -> rawContent.captured(limit)
     }
+
+/** At most [limit] bytes of [this], the rest counted and not kept; throws the channel's close cause. */
+private suspend fun ByteReadChannel.captured(limit: Int): CapturedBody {
+    val head = readBuffer(limit.toLong()).readByteArray()
+    val rest = discard()
+    closedCause?.let { throw it }
+    return CapturedBody(head.toByteString(), truncated = rest > 0, size = head.size + rest)
+}
 
 /** A response body sent empty, truncated, with its `Content-Length` when known. */
 internal fun HttpResponse.unread(): CapturedBody = CapturedBody(ByteString.EMPTY, truncated = true, size = contentLength())

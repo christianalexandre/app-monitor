@@ -263,6 +263,50 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(event.body == Data("teapot".utf8))
     }
 
+    @Test func aHeldResponseIsHeldAtTheBodyLimitNotItsEnd() async throws {
+        holding(breakpointRule(15, path: "/partial/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let task = URLSession.shared.dataTask(with: server.url("/partial/200000"))
+        task.resume()
+        defer { task.cancel() }
+        let hit = try await sink.hit(.response)
+
+        #expect(hit.response.body == Data(repeating: UInt8(ascii: "a"), count: 1000))
+        #expect(hit.response.bodyTruncated)
+        #expect(hit.response.bodySize == 400_000)
+    }
+
+    @Test func aResponseHeldAtTheLimitReachesTheAppWhole() async throws {
+        holding(breakpointRule(16, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        var changes = resume(hit.request.requestID, .response)
+        changes.setHeaders = [header("X-Held", "yes")]
+        sink.breakpoints.resume(changes)
+
+        let (data, response) = try await answer.value
+        #expect(data == Data(repeating: UInt8(ascii: "a"), count: 3_000_000))
+        #expect((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Held") == "yes")
+    }
+
+    @Test func aResponseHeldAtTheLimitTakesTheEditedBody() async throws {
+        holding(breakpointRule(17, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        var changes = resume(hit.request.requestID, .response)
+        changes.body = Data("short".utf8)
+        sink.breakpoints.resume(changes)
+
+        #expect(try await answer.value.0 == Data("short".utf8))
+    }
+
     @Test func anAbortedRequestFailsWithItsMessageAndIsNeverSent() async throws {
         holding(breakpointRule(6, path: "/ok", request: true))
 
