@@ -14,6 +14,37 @@ mkdir -p build
 log=build/ios-sample.log
 : >"$log"
 products=build/ios-sample/Build/Products
+
+# Prints the names the AppMonitor module declares in the binaries of one built app.
+sdk_names() {
+  app_binaries "$1" | xargs nm 2>/dev/null |
+    awk '{print $NF}' | xcrun swift-demangle --compact |
+    grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed 's/.*AppMonitor\.//' | sort -u || true
+}
+
+# The C target of the connection layer (SDD 07) has no Swift names.
+c_symbols() {
+  app_binaries "$1" | xargs nm 2>/dev/null |
+    grep -c appmonitor_connections_install || true
+}
+
+# The Run Script leaves any exclusion matching AppMonitor.o alone (ADR-0155): the bare object name must strip it too.
+# Built first, so the Release app the checks below read is the project's own.
+if ! xcodebuild build \
+  -project samples/ios/Sample.xcodeproj -scheme Sample -configuration Release \
+  -destination "platform=iOS Simulator,name=$device" \
+  -derivedDataPath build/ios-sample EXCLUDED_SOURCE_FILE_NAMES=AppMonitor.o >>"$log" 2>&1; then
+  grep -E 'error:' "$log" >&2 || true
+  echo "ios-sample: Release build excluding AppMonitor.o failed, full log in $log" >&2
+  exit 1
+fi
+check_network_keys Release "$products/Release-iphonesimulator/Sample.app"
+only_object="$(sdk_names "$products/Release-iphonesimulator/Sample.app" | tr '\n' ' ')"
+if [[ -n "$only_object" || "$(c_symbols "$products/Release-iphonesimulator/Sample.app")" != 0 ]]; then
+  echo "ios-sample: Release app excluding AppMonitor.o still holds the SDK: $only_object(ADR-0155)" >&2
+  exit 1
+fi
+
 for config in Debug Release; do
   if ! xcodebuild build \
     -project samples/ios/Sample.xcodeproj -scheme Sample -configuration "$config" \
@@ -26,13 +57,6 @@ for config in Debug Release; do
   check_network_keys "$config" "$products/$config-iphonesimulator/Sample.app"
 done
 
-# Prints the names the AppMonitor module declares in the binaries of one built app.
-sdk_names() {
-  app_binaries "$1" | xargs nm 2>/dev/null |
-    awk '{print $NF}' | xcrun swift-demangle --compact |
-    grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed 's/.*AppMonitor\.//' | sort -u || true
-}
-
 debug_names="$(sdk_names "$products/Debug-iphonesimulator/Sample.app")"
 if ! grep -qx MonitorClient <<<"$debug_names"; then
   echo "ios-sample: no MonitorClient in the Debug app; the symbol check sees nothing" >&2
@@ -43,11 +67,6 @@ if [[ -n "$release_names" ]]; then
   echo "ios-sample: Release app holds AppMonitor names: $release_names(ADR-0155)" >&2
   exit 1
 fi
-# The C target of the connection layer (SDD 07) has no Swift names.
-c_symbols() {
-  app_binaries "$1" | xargs nm 2>/dev/null |
-    grep -c appmonitor_connections_install || true
-}
 if [[ "$(c_symbols "$products/Debug-iphonesimulator/Sample.app")" == 0 ]]; then
   echo "ios-sample: no appmonitor_connections_install in the Debug app; the C symbol check sees nothing" >&2
   exit 1
@@ -64,4 +83,4 @@ for config in Debug Release; do
     exit 1
   fi
 done
-echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only, no SwiftProtobuf"
+echo "ios-sample: Debug and Release build on $device; keys and SDK in Debug only, also excluding AppMonitor.o alone, no SwiftProtobuf"

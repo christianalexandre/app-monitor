@@ -253,7 +253,10 @@ a stack trace (DEBT-0010). See ADR-0010.
   public API is `sdk/ios/api/AppMonitor.swiftinterface`.
 - `samples/ios` uses the same product, from the root `Package.swift`
   (ADR-0109), excluded from Release; its Release
-  app names nothing of the module, and only
+  app names nothing of the module, nor of the connection layer's C target,
+  with `AppMonitor*` and with `AppMonitor.o` alone (Xcode links the
+  package product as one `AppMonitor.o`, which is why the Run Script takes
+  any pattern matching it), and only
   its Debug app has the local network keys (`make ios-sample`, ADR-0050, ADR-0155).
 - `samples/kmp` (Compose Multiplatform, Android and iOS) calls through Ktor
   with `install(AppMonitorKtor)`; its `androidApp` and `shared` apply the

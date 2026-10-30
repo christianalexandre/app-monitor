@@ -1,10 +1,10 @@
 ---
 id: DEBT-0089
 title: Non-correctness findings of the field-test path review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/MonitorHolder.kt` or `sdk/ios/Sources/AppMonitor/MonitorClient.swift`"
-paid_date:
+paid_date: 2026-10-30
 ---
 
 # DEBT-0089 — Non-correctness findings of the field-test path review
@@ -17,7 +17,8 @@ Findings of PLAN-0011's H1.1 review that normal use does not hit
 - ~~**A client that stopped itself stays held.**~~ Gone with ADR-0156:
   no cleartext check is left to stop the client, and nothing else makes it
   call its own `stop()`.
-- **The Swift client logs one connect failure per life.** In
+- **The Swift client logs one connect failure per life.** Paid, see
+  below. In
   `MonitorClient.swift`, `connectFailureLogged` is never reset after a
   `HelloAck`. The Kotlin client resets it there. A desktop that moves
   after a first good session fails without a log line.
@@ -50,4 +51,9 @@ file.
   breakpoint's hit when it is not edited, else after it, and that capture
   serves `RequestStarted` and the response breakpoint's hit.
   `BreakpointTest.aBodyHeldAtBothStagesIsCapturedOnce` counts the writes.
-  The other two items are open.
+- **Swift connect failure log** (the PR whose hit goes on when never
+  written, which touched `MonitorClient.swift`): `connectFailureLogged`
+  is reset at `HelloAck`, as in Kotlin.
+  `MonitorClientTests.aConnectFailureAfterAGoodSessionIsLoggedAgain`
+  fails without it. Only the `MonitorHolder.kt` trigger is left, and no
+  item of it is open.

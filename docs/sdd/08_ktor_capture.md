@@ -71,6 +71,8 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 - `Send` hooks outside the pipeline still see the call: `expectSuccess`
   throws on a mocked `503`. Plugins on the receive pipeline (`SaveBody`,
   response observers) do not run; the body can be read once.
+- WebSocket upgrades (`ws`, `wss`) are never mocked, as in SDD 05: the
+  lookup is skipped for them (`WebSocketCaptureTest`).
 - Tests: `MockAnswerTest` against `MockEngine` on the JVM, the Android
   host and the simulator (engine never called, streamed read,
   `expectSuccess`, failure, unmatched call untouched).

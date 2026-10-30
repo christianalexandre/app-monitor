@@ -171,6 +171,34 @@ struct MonitorClientTests {
         await client.join()
     }
 
+    @Test func aConnectFailureAfterAGoodSessionIsLoggedAgain() async throws {
+        let unreachable = TestDesktop(mode: .noUpgrade)
+        try await unreachable.start()
+        defer { unreachable.stop() }
+        let good = TestDesktop(mode: .ack(channels: [ProtocolConstants.channelCore]))
+        try await good.start()
+        let target = LockedLines()
+        target.append("unreachable")
+        let endpoints = ["unreachable": unreachable.endpoint, "good": good.endpoint]
+        let lines = LockedLines()
+        let client = Self.client(
+            { queue, found in
+                let endpoint = endpoints[target.all.last ?? ""]
+                queue.async { found(endpoint) }
+                return {}
+            }, log: lines.append)
+        client.start()
+        #expect(await eventually { lines.all.count == 1 })
+        target.append("good")
+        #expect(await eventually { client.state == .connected })
+        target.append("unreachable")
+        good.stop()
+
+        #expect(await eventually { lines.all.count == 2 })
+        client.stop()
+        await client.join()
+    }
+
     @Test func discoveryThatFindsNothingBacksOff() async throws {
         let client = Self.client({ _, _ in {} })
         client.start()

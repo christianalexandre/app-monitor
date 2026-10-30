@@ -87,10 +87,13 @@ internal class Breakpoints {
         }
     }
 
-    /** Sends [hit] by [send] and waits for its resume or abort, at most its timeout; unchanged outside a session. */
+    /**
+     * Sends [hit] by [send] and waits for its resume or abort, at most its timeout; unchanged outside a
+     * session, or at once when [send] reports the hit dropped before it was written.
+     */
     suspend fun hold(
         hit: BreakpointHit,
-        send: (BreakpointHit) -> Unit,
+        send: (hit: BreakpointHit, dropped: () -> Unit) -> Unit,
     ): BreakpointOutcome {
         val id = hit.request?.request_id ?: return BreakpointOutcome.UNCHANGED
         val key = id to hit.stage
@@ -100,7 +103,7 @@ internal class Breakpoints {
             held.put(key, outcome)?.complete(BreakpointOutcome.UNCHANGED)
         }
         try {
-            send(hit)
+            send(hit) { outcome.complete(BreakpointOutcome.UNCHANGED) }
             return withTimeoutOrNull(hit.timeout_ms) { outcome.await() } ?: BreakpointOutcome.UNCHANGED
         } finally {
             synchronized(lock) { if (held[key] === outcome) held.remove(key) }
