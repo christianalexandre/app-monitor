@@ -19,7 +19,7 @@ request and the response, what an edit may change, what goes in each
 `BreakpointHit`. A rule written for one is copied by hand into the
 other. Symptom: the two SDKs act differently on the same call. An
 external review found one: Ktor answered a WebSocket upgrade with a
-mock that OkHttp skips (fixed in `fix/no-mock-on-websockets-cancel-delay`).
+mock that OkHttp skips (fixed by #311).
 
 ## Why it was accepted
 

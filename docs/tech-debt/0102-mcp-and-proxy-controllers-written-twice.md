@@ -18,8 +18,8 @@ switch made during that read wins, a `Mutex` around start and stop,
 `close()` before the store closes. A fix to one does not reach the
 other. Symptom: the two behave differently under the same sequence. An
 external review found one: the "last switch wins" race was fixed in
-`McpController` (DEBT-0073) and not in `ProxyController`. It is fixed
-now in `fix/proxy-switch-leaf-renewal-writer-error`.
+`McpController` (DEBT-0073) but not in `ProxyController`, where #313
+fixes it.
 
 ## Why it was accepted
 
