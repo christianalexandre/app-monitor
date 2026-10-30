@@ -22,6 +22,10 @@ final class TestHTTPServer: @unchecked Sendable {
 
     var received: [Request] { queue.sync { requests } }
 
+    /// Paths whose whole response the network stack took.
+    var sent: [String] { queue.sync { sentPaths } }
+    private var sentPaths: [String] = []
+
     func url(_ path: String) -> URL { URL(string: "http://127.0.0.1:\(port)\(path)")! }
 
     func start() async throws {
@@ -72,7 +76,9 @@ final class TestHTTPServer: @unchecked Sendable {
                 if let response = Self.response(to: request) {
                     let delay: TimeInterval = request.path.hasPrefix("/slow") ? 1 : 0
                     queue.asyncAfter(deadline: .now() + delay) {
-                        connection.send(content: response, completion: .idempotent)
+                        connection.send(
+                            content: response,
+                            completion: .contentProcessed { [weak self] _ in self?.sentPaths.append(request.path) })
                     }
                 }
             }
@@ -93,6 +99,10 @@ final class TestHTTPServer: @unchecked Sendable {
             (status, headers, body) = ("401 Unauthorized", ["WWW-Authenticate: Basic realm=\"test\""], Data())
         case "/auth": (status, headers, body) = ("200 OK", [], Data("hello".utf8))
         case "/hang": return nil
+        case _ where path.hasPrefix("/partial/"):
+            let count = Int(path.dropFirst(9))!
+            return Data("HTTP/1.1 200 OK\r\nContent-Length: \(count * 2)\r\n\r\n".utf8)
+                + Data(repeating: UInt8(ascii: "a"), count: count)
         case _ where path.hasPrefix("/big/"):
             (status, headers, body) = ("200 OK", [], Data(repeating: UInt8(ascii: "a"), count: Int(path.dropFirst(5))!))
         default: (status, headers, body) = ("404 Not Found", [], Data())

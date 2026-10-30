@@ -16,7 +16,9 @@ paid_date:
 `takeFromWithExecutionContext` and the builder's `body` setter, all
 `@InternalAPI` in Ktor 3.6.0 (ADR-0115). A response a breakpoint edits
 is built the same way (`builtCall`), its streamed body read through
-`HttpResponse.rawContent`, also `@InternalAPI` (ADR-0123 E.1). Ktor may
+`HttpResponse.rawContent`, also `@InternalAPI` (ADR-0123 E.1). So is a
+saved body's capture in `Capture.kt`: `readRawBytes()` copies it whole
+twice, `rawContent` read up to the limit once. Ktor may
 change them in any release without a deprecation. Symptom: a mocked or
 edited Ktor call fails, or the SDK stops compiling, after a Ktor
 upgrade.
@@ -31,7 +33,7 @@ the simulator, so a break shows in the upgrade's own PR; so does
 ## Trigger
 
 The first PR that changes `ktor` in `gradle/libs.versions.toml`: check
-the three APIs in the new sources, then re-trigger on the next upgrade
+the four APIs in the new sources, then re-trigger on the next upgrade
 or pay it with a public API if one exists.
 
 ## How it was paid
