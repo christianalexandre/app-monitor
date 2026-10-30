@@ -184,7 +184,11 @@ a stack trace (DEBT-0010). See ADR-0010.
 - **iOS**: native Swift package `sdk/ios`, product `AppMonitor`, iOS 15, no
   Kotlin runtime (ADR-0003, ADR-0035). Code generated from the same schema
   by `scripts/swift_proto_gen.py`, on `ProtoWire.swift` and no dependency,
-  checked against `protocol/fixtures/` (ADR-0160).
+  checked against `protocol/fixtures/` (ADR-0160). The decoder follows the
+  protobuf encoding spec where Wire might not exercise it: a message field
+  read twice is merged, a field number outside 1 to 2^29 - 1 or a varint
+  past 64 bits throws `ProtoDecodingError`. The generator stops at a
+  repeated number, bool or enum, which Wire writes packed.
   Connection states, discovery and `stop()`: SDD 06 (ADR-0040 to ADR-0042).
 - **iOS entry point** (ADR-0035): `AppMonitor.start(options)` / `stop()`,
   static, from any thread; `AppMonitorOptions` holds the same fields as on

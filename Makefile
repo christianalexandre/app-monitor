@@ -27,6 +27,7 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_sim_list.sh
 	@scripts/test_e2e_lib.sh
 	@scripts/test_designsystem_check.sh
+	@scripts/test_swift_proto_gen.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.
 SAMPLE_BUILDS := -x :samples:android:build -x :samples:kmp:shared:build -x :samples:kmp:androidApp:build
