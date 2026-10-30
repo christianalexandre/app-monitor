@@ -50,8 +50,9 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   the packaged server's version (DEBT-0071, DEBT-0072, DEBT-0073,
   DEBT-0074); the live list and the store share one decoding and one
   filter match (DEBT-0104), and the H2 and H3 review findings
-  (DEBT-0092, DEBT-0093); a mock rule moves in its app's order
-  (DEBT-0082).
+  (DEBT-0092, DEBT-0093), and the H4 ones in `WriteQueue.kt`,
+  `ProxyController.kt`, `ProxyCa.kt` and `ExportHar.kt` (DEBT-0109, items
+  1, 3, 4 and 6); a mock rule moves in its app's order (DEBT-0082).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`; `SearchTest`'s no-match search
   over 100 000 exchanges under 100 ms, its time in the PR; a theme picked
@@ -71,9 +72,10 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   (DEBT-0103); headers CFNetwork adds at send time (DEBT-0037) and every
   end of a WebSocket (DEBT-0038) captured; a replay safe against a
   session being invalidated (DEBT-0084); breakpoints and the Bonjour
-  probe run on the simulator (DEBT-0086, DEBT-0054); a desktop socket
+  a breakpoint runs on the simulator (DEBT-0086); a desktop socket
   opened before discovery not reported (DEBT-0090); the M2 review
-  findings in `Masking.swift` (DEBT-0043).
+  findings in `Masking.swift` (DEBT-0043) and the H4 ones in
+  `Breakpoints.swift` and `ProtoWire.swift` (DEBT-0109, items 5 and 7).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`, a held call resumed in the end to end.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
@@ -90,7 +92,8 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   (DEBT-0013, DEBT-0016); `make check`'s time measured against
   DEBT-0002's bound, paid or dropped with the number; the M3 review
   findings in `e2e_lib.sh` and the Android sample (DEBT-0049,
-  DEBT-0051).
+  DEBT-0051); the 85 comments citing `SDD NN` (DEBT-0109, item 8), and the
+  SDK's permission request beside an app's (item 2).
   Accept: `make scripts-test`, with a session that traps `TERM` logged as
   a timeout and no child left; `make check` timed on a warm cache, the
   time in the PR; `make e2e-android`.

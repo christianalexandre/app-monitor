@@ -142,8 +142,8 @@ findings, none that normal use hits:
   and `dev` until M10, setup logs).
 - **Debt**:
   - Paid: DEBT-0040 (#301), DEBT-0054 (#317), DEBT-0089.
-  - Created: DEBT-0099 to DEBT-0108, and DEBT-0109 (this review's
-    findings 1, 2 and 4 to 9).
+  - Created: DEBT-0099 to DEBT-0108, DEBT-0110 (a CI timeout in #317),
+    and DEBT-0109 (this review's findings 1, 2 and 4 to 9).
   - No correctness finding that normal use hits is left open.
 - **Deviations**:
   - H4.1 to H4.4 merged as one PR, because they share the README and the
@@ -151,9 +151,28 @@ findings, none that normal use hits:
   - H4.6 and H4.7 were added during the plan, after the field test.
   - H4.5 found that AGP 9's built-in Kotlin 2.2 cannot compile against
     the SDK (DEBT-0108), and restored `make swift-sim`, broken since #309.
-- **Field test**: the owner re-runs it in the KMP app after H4.5. Its
-  findings are added here before this close merges, or go into
-  PLAN-0015.
+- **Field test** (2026-10-30, `dev` at `19f771a`, run by the agent at the
+  owner's request): the owner's KMP app (Mibo: Ktor, the Tuya SDK on
+  OkHttp, Firebase, configurations `Dev` and `Prod`) set up from the
+  README alone, two steps on Android and four on iOS; SDK and plugin
+  from `publishToMavenLocal` as the README says, no init script.
+  - Android, a Galaxy S10 (Android 12) on Wi-Fi with `make server`:
+    the app found the desktop by mDNS and sent the Tuya SDK's calls with
+    no code beyond the start. `devRelease` holds only the no-op stubs
+    (`dexdump`: 8 classes, `AppMonitor` with an empty body; no
+    `_appmonitor._tcp` string).
+  - iOS, the iPhone 17 Pro simulator: `Dev` shows the Kotlin code's Ktor
+    calls and Firebase's once each, from the Swift SDK alone. `Prod`
+    holds no `AppMonitor` symbol, and the Run Script left it as is.
+  - `samples/android` on the same S10, by mDNS: every call and the
+    WebSocket's frames. `make e2e-ios`, `make e2e-kmp-ios` (simulator),
+    `make e2e-android` and `make e2e-kmp-android` (emulator) passed.
+  - No setup log on either platform, as nothing was missing.
+  - Found: Xcode kept the first `dev` commit (`19717d7`, #301) after the
+    `Package.resolved` was deleted; the README now says how to update.
+  - Not covered: the flows after login (the owner's account), a
+    physical iPhone (PLAN-0015 H5.6), the desktop window (the field test
+    used `make server`).
 - **Lessons**:
   - A fresh project written from the README alone found what the samples
     hide (the Kotlin floor, the missing imports). Keep one for each
