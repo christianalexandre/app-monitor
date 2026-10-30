@@ -239,14 +239,19 @@ linked and has no stubs ([ADR-0155](docs/adr/0155-ios-sdk-left-out-of-release-bu
    ```
 
    If the app already has a script phase that edits the built `Info.plist`
-   (a build number, for one), Xcode may stop with `Multiple commands produce
-   '…/Info.plist'`. With sandboxing off, drop the `Info.plist` from the
-   output files and keep the stamp. With it on, the app's own phase has to
-   declare the same output.
+   (a build number, for one) and declares it as an output, Xcode stops with
+   `invalid task … with mutable output but no other virtual output node` or
+   `Multiple commands produce '…/Info.plist'`. Give that phase an output of
+   its own beside the `Info.plist`, a stamp such as
+   `$(DERIVED_FILE_DIR)/build-number.stamp`; this works with sandboxing on or
+   off. With sandboxing off, dropping the `Info.plist` from this phase's
+   output files and keeping the stamp works too.
 
-The simulator needs only steps 1 to 3: it reaches the desktop on
-`127.0.0.1`. Every `URLSession` is captured without further code, except a
-request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
+All four steps apply to a simulator-only app too. The simulator reaches
+the desktop on `127.0.0.1` without the local network keys, but the Run
+Script is the one check that fails a configuration which ships the SDK
+because step 3 was forgotten. Every `URLSession` is captured without
+further code, except a request carrying `X-AppMonitor-Capture`: `sdk/ktor` sets it on what it
 already captured ([ADR-0064](docs/adr/0064-ktor-swift-dedupe-by-correlation-header.md)). A socket the app's
 other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
 port, bytes and timing, no content; `captureConnections: false` in the
