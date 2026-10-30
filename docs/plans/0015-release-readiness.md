@@ -1,9 +1,9 @@
 ---
 id: PLAN-0015
 title: Release readiness — what publishing makes expensive
-status: Draft # Draft | Active | Done | Abandoned
+status: Active # Draft | Active | Done | Abandoned
 milestone: H5
-started:
+started: 2026-10-30
 finished:
 ---
 
