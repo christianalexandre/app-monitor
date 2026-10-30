@@ -12,7 +12,7 @@ public enum AppMonitor {
             if options.captureConnections { _ = ConnectionCapture.install() }
         }
         monitor.start(options) { options in
-            let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").info("\($0)") }
+            let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") }
             return MonitorClient(
                 hello: { appleHello() },
                 discover: discovery(options, mdns: BonjourBrowser(), onSimulator: isSimulator, log: log),
