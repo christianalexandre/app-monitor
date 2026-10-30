@@ -27,7 +27,11 @@ internal fun nsdBrowser(context: Context): () -> MdnsBrowser? {
         if (localNetworkGranted(context)) {
             NsdBrowser(context.getSystemService(NsdManager::class.java))
         } else {
-            if (!logged) platformLog("mDNS skipped: $ACCESS_LOCAL_NETWORK is not granted; request it, or set AppMonitorOptions.host")
+            if (!logged) {
+                platformLog(
+                    "mDNS skipped until $ACCESS_LOCAL_NETWORK is granted: the SDK asks on the first screen, or set AppMonitorOptions.host",
+                )
+            }
             logged = true
             null
         }

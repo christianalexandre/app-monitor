@@ -14,6 +14,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractNativeLibrary
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
@@ -104,6 +105,7 @@ public class AppMonitorPlugin : Plugin<Project> {
 }
 
 /** Fails a release build that still resolves a real SDK module, whoever declared it (ADR-0157). */
+@DisableCachingByDefault(because = "Reads the resolved graph and writes nothing")
 public abstract class NoSdkCheck : DefaultTask() {
     @get:Input
     public abstract val configurationName: Property<String>

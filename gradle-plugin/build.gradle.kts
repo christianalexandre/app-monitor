@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
     id("appmonitor.kotlin-jvm")
 }
 
@@ -50,6 +51,13 @@ val generateSdkVersion by tasks.registering {
     }
 }
 kotlin.sourceSets.main { kotlin.srcDir(generateSdkVersion) }
+
+// ADR-0162: `publishToMavenLocal` until M10 publishes the plugin with the SDK.
+group = "io.github.christianalexandre"
+version = sdkVersion.get()
+publishing.publications.withType<MavenPublication>().matching { it.name == "pluginMaven" }.configureEach {
+    artifactId = "appmonitor-gradle-plugin"
+}
 
 // The app's own AGP and KGP are the ones at run time; the functional tests put these on the plugin's classpath.
 val agp = configurations.create("agp")

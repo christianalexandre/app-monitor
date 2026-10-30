@@ -83,12 +83,20 @@ struct DiscoveryTests {
         #expect(logs.lines.first?.contains("NSBonjourServices") == true)
     }
 
+    static var keys: [String: Any] {
+        [
+            "NSLocalNetworkUsageDescription": "Debug traffic to the desktop",
+            "NSBonjourServices": ["_other._tcp", "_appmonitor._tcp"],
+        ]
+    }
+
     @Test func aFailingBrowserIsLoggedOncePerClient() async {
         let logs = Logs()
         let discover = discovery(
             AppMonitorOptions(),
             mdns: FakeBrowser(failure: "failed"),
             onSimulator: false,
+            infoPlist: Self.keys,
             config: Self.config,
             log: logs.append
         )
@@ -97,6 +105,55 @@ struct DiscoveryTests {
         #expect(first.reports.map(\.endpoint) == [nil])
         #expect(second.reports.map(\.endpoint) == [nil])
         #expect(logs.lines.count == 1)
+    }
+
+    @Test func aDeniedLocalNetworkPointsToTheSettings() async {
+        let logs = Logs()
+        let discover = discovery(
+            AppMonitorOptions(),
+            mdns: FakeBrowser(failure: localNetworkDenied),
+            onSimulator: false,
+            infoPlist: Self.keys,
+            config: Self.config,
+            log: logs.append
+        )
+        _ = await Self.run(discover, for: 0.1)
+        #expect(logs.lines.count == 1)
+        #expect(logs.lines.first?.contains("Settings, Privacy & Security, Local Network") == true)
+    }
+
+    @Test func aDeviceWithoutTheKeysLogsThemOncePerClient() async {
+        let logs = Logs()
+        let discover = discovery(
+            AppMonitorOptions(),
+            mdns: FakeBrowser(),
+            onSimulator: false,
+            infoPlist: ["NSBonjourServices": ["_other._tcp"]],
+            config: Self.config,
+            log: logs.append
+        )
+        _ = await Self.run(discover, for: 0.1)
+        _ = await Self.run(discover, for: 0.1)
+        #expect(
+            logs.lines == [
+                "Info.plist lacks NSLocalNetworkUsageDescription and NSBonjourServices (_appmonitor._tcp), so no "
+                    + "desktop can be found: add the README's Run Script (Installation, iOS) as the app target's "
+                    + "last build phase"
+            ])
+    }
+
+    @Test func theKeysAreNotCheckedOnTheSimulatorOrWithAHost() async {
+        let logs = Logs()
+        _ = discovery(
+            AppMonitorOptions(), mdns: FakeBrowser(), onSimulator: true, infoPlist: nil, config: Self.config,
+            log: logs.append)
+        _ = discovery(
+            AppMonitorOptions(host: "192.168.1.20"), mdns: FakeBrowser(), onSimulator: false, infoPlist: nil,
+            config: Self.config, log: logs.append)
+        _ = discovery(
+            AppMonitorOptions(), mdns: FakeBrowser(), onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append)
+        #expect(logs.lines.isEmpty)
     }
 
     @Test func aDeviceWaitsForMdnsUntilTheClientCancels() async {

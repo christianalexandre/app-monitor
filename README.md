@@ -23,7 +23,7 @@ checkout fail in the last run?"* straight from the captured traffic.
 > named runs, searchable and bounded by retention settings, and serves that
 > history to AI agents over a local MCP server. Everything below marked
 > *planned* does not exist yet. Current milestone:
-> [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md).
+> [H4 — Plug and play setup](docs/plans/0014-plug-and-play-setup.md).
 
 ## Why
 
@@ -114,6 +114,50 @@ Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 > [ADR-0035](docs/adr/0035-ios-sdk-public-api.md), the KMP one in
 > [ADR-0062](docs/adr/0062-kmp-sdk-public-api.md).
 
+Each platform: the dependency, the start call, then what is optional. The
+desktop app runs on the same network ([`make desktop`](#how-this-project-is-built),
+or a package from `./gradlew :desktop:app:packageDmg`).
+
+### Until it is published
+
+Nothing is on Maven Central, the Gradle Plugin Portal or a SwiftPM tag yet
+([ADR-0162](docs/adr/0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md)).
+
+**Android and KMP.** Publish the SDK and the plugin to your local Maven
+repository, version `0.1.0-SNAPSHOT`, once per update of the clone:
+
+```sh
+git clone https://github.com/christianalexandre/app-monitor
+cd app-monitor
+./gradlew publishToMavenLocal
+./gradlew -p gradle-plugin publishToMavenLocal
+```
+
+Then let the app's `settings.gradle.kts` read them, in both blocks:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        google()
+        mavenCentral()
+    }
+}
+```
+
+and use `version "0.1.0-SNAPSHOT"` for the plugin below.
+
+**iOS.** In *Add Package Dependencies…*, set the *Dependency Rule* to
+*Branch*, `dev`. In XcodeGen, `packages: AppMonitor: url: …, branch: dev`.
+
 ### Android
 
 Two steps. Release builds get the no-op artifacts, and a release that still
@@ -135,10 +179,18 @@ resolves the real SDK fails to build
 2. **Start it** in `Application.onCreate`:
 
    ```kotlin
+   import appmonitor.sdk.core.AppMonitor
+   import appmonitor.sdk.core.AppMonitorOptions
+
    AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
    ```
 
-Nothing else. On Android 17 the SDK asks for `ACCESS_LOCAL_NETWORK` itself,
+Nothing else. The app compiles with Kotlin 2.3 or newer
+([DEBT-0108](docs/tech-debt/0108-apps-on-kotlin-older-than-2-3-cannot-compile-against-the-sdk.md)).
+AGP 9's built-in Kotlin is 2.2 until the root `build.gradle.kts` declares
+a newer one beside AGP:
+`id("org.jetbrains.kotlin.android") version "2.4.21" apply false`.
+On Android 17 the SDK asks for `ACCESS_LOCAL_NETWORK` itself,
 once, on the first screen; it reaches the desktop's `ws://` whatever the
 app's network security config says
 ([ADR-0156](docs/adr/0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md)).
@@ -151,6 +203,10 @@ The SDK never brings OkHttp to an app or changes its version.
 `AppMonitorInterceptor()` and `AppMonitorWebSocketFactory(client)` then add
 it by hand ([SDD 05](docs/sdd/05_okhttp_capture.md)).
 A working app is in [`samples/android`](samples/android).
+
+**Nothing in the desktop?** The SDK says why once, in Logcat under the tag
+`AppMonitor`: the permission denied, or a desktop it cannot reach.
+`AppMonitorOptions(host = "192.168.1.20")` skips discovery.
 
 ### iOS
 
@@ -259,6 +315,12 @@ other code opens, a gRPC-Core SDK's for one, shows as a connection: host,
 port, bytes and timing, no content; `captureConnections: false` in the
 options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). A working app is in
 [`samples/ios`](samples/ios).
+
+**Nothing in the desktop?** The SDK says why once, in Xcode's console
+(subsystem `AppMonitor`): on a device, the Run Script's keys missing from
+`Info.plist`, or local network access denied in *Settings → Privacy &
+Security → Local Network*; anywhere, a desktop it cannot reach.
+`AppMonitorOptions(host: "192.168.1.20")` skips discovery.
 
 ```swift
 // iOS with gRPC Swift 2 — add the AppMonitorGRPC product too; AppMonitor* excludes it as well

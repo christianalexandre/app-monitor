@@ -49,8 +49,9 @@ private final class BonjourSession: @unchecked Sendable {
         browser.stateUpdateHandler = { [weak self, weak browser] state in
             guard let self, let browser, browser === self.browser else { return }
             switch state {
-            case .failed(let error),
-                .waiting(let error) where error == .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
+            case .waiting(let error) where error == .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
+                self.onFailure(localNetworkDenied)
+            case .failed(let error):
                 self.onFailure("\(error)")
             default:
                 break

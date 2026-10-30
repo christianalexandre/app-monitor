@@ -2,21 +2,30 @@ package appmonitor.sdk.core
 
 /**
  * Calls [ask] once, on the first screen that stays resumed [settleMs] (ADR-0156); with several resumed at once
- * (multi-window), on the last one. [schedule] runs its block after a delay and returns its cancel; every call
- * comes from one thread, Android's main one.
+ * (multi-window), on the last one. [answered] runs once, on the first screen resumed after [ask]: the dialog is
+ * gone. [schedule] runs its block after a delay and returns its cancel; every call comes from Android's main thread.
  */
 internal class FirstSettledScreen<S : Any>(
     private val settleMs: Long,
     private val schedule: (delayMs: Long, block: () -> Unit) -> () -> Unit,
     private val gone: (S) -> Boolean,
     private val ask: (S) -> Unit,
+    private val answered: (S) -> Unit = {},
 ) {
     private val resumed = mutableListOf<S>()
     private var cancel: (() -> Unit)? = null
     private var asked = false
+    private var done = false
 
     fun resumed(screen: S) {
-        if (asked || gone(screen)) return
+        if (asked) {
+            if (!done) {
+                done = true
+                answered(screen)
+            }
+            return
+        }
+        if (gone(screen)) return
         resumed.removeAll { it === screen }
         resumed += screen
         waitOnLast()

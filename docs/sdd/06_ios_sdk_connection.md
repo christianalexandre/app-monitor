@@ -41,9 +41,13 @@ the app's threads, behind an `NSLock`.
 Answers go through the same selection rule as `DesktopSelector` (ADR-0024):
 first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
-`/v1/ws`. A browser in `.waiting` with `kDNSServiceErr_PolicyDenied`, or
-`.failed`, logs one line per client naming `NSLocalNetworkUsageDescription`
-and `NSBonjourServices`, and counts as found nothing.
+`/v1/ws`. A browser in `.waiting` with `kDNSServiceErr_PolicyDenied` logs
+one line per client pointing at *Settings, Privacy & Security, Local
+Network*; one in `.failed` logs one naming `NSLocalNetworkUsageDescription`
+and `NSBonjourServices`. Either counts as found nothing. On a device without
+`host`, the client also reads `Bundle.main.infoDictionary` when it starts
+and logs once the keys of [Info.plist keys](#infoplist-keys) it lacks
+(ADR-0162).
 
 `NWBrowser` gives a name and a TXT record, no address. `BonjourBrowser`
 opens one IPv4-only `NWConnection` to each new name's `.service` endpoint,

@@ -53,18 +53,43 @@ struct DiscoveryConfig: Sendable {
     var txtGrace: Double = 0.5
 }
 
+/// The failure `BonjourBrowser` reports when the user denied the app local network access.
+let localNetworkDenied = "local network access denied"
+
+/// The keys `info` lacks for mDNS on a device (SDD 06): the usage text, and `_appmonitor._tcp` in
+/// `NSBonjourServices`.
+func missingLocalNetworkKeys(_ info: [String: Any]?) -> [String] {
+    var missing: [String] = []
+    if (info?["NSLocalNetworkUsageDescription"] as? String)?.isEmpty ?? true {
+        missing.append("NSLocalNetworkUsageDescription")
+    }
+    if !((info?["NSBonjourServices"] as? [String])?.contains(ProtocolConstants.mdnsServiceType) ?? false) {
+        missing.append("NSBonjourServices (\(ProtocolConstants.mdnsServiceType))")
+    }
+    return missing
+}
+
 /// The `Discover` of `MonitorClient` for `options` (SDD 06): a manual host is the only source; else
-/// `mdns`, then `simulatorHost` when `onSimulator`. A failing browser is logged once and finds nothing.
+/// `mdns`, then `simulatorHost` when `onSimulator`. Missing `infoPlist` keys on a device, and a failing
+/// browser, are each logged once; the failing browser finds nothing.
 func discovery(
     _ options: AppMonitorOptions,
     mdns: MdnsBrowser,
     onSimulator: Bool,
+    infoPlist: [String: Any]? = Bundle.main.infoDictionary,
     config: DiscoveryConfig = DiscoveryConfig(),
     log: @escaping @Sendable (String) -> Void
 ) -> Discover {
     if let host = options.host {
         ConnectionCapture.desktopFound(host: host, port: UInt16(options.port))
         return manualDiscovery(Endpoint(host: host, port: UInt16(options.port)))
+    }
+    let missing = missingLocalNetworkKeys(infoPlist)
+    if !onSimulator, !missing.isEmpty {
+        log(
+            "Info.plist lacks \(missing.joined(separator: " and ")), so no desktop can be found: add the "
+                + "README's Run Script (Installation, iOS) as the app target's last build phase"
+        )
     }
     let failureLogged = QueueFlag()
     return { queue, found in
@@ -73,8 +98,11 @@ func discovery(
             guard !failureLogged.value else { return }
             failureLogged.value = true
             log(
-                "mDNS discovery failed (\(reason)); on a device check NSLocalNetworkUsageDescription and "
-                    + "NSBonjourServices in Info.plist, or set AppMonitorOptions.host"
+                reason == localNetworkDenied
+                    ? "mDNS discovery failed (\(reason)): allow this app in Settings, Privacy & Security, "
+                        + "Local Network, or set AppMonitorOptions.host"
+                    : "mDNS discovery failed (\(reason)); on a device check NSLocalNetworkUsageDescription and "
+                        + "NSBonjourServices in Info.plist, or set AppMonitorOptions.host"
             )
         }
         return { round.cancel() }
