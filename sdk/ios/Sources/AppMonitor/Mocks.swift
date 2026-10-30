@@ -66,6 +66,15 @@ final class MockProtocol: URLProtocol, @unchecked Sendable {
     // Confined to the loading thread: URLSession calls startLoading and stopLoading on it.
     private var timer: Timer?
 
+    // iOS 16 answers `URLProtocol.task` with "unrecognized selector": the task given here is the one read.
+    private var appTask: URLSessionTask?
+
+    @objc convenience init(task: URLSessionTask, cachedResponse: CachedURLResponse?, client: URLProtocolClient?) {
+        let request = task.currentRequest ?? task.originalRequest ?? URLRequest(url: URL(fileURLWithPath: "/"))
+        self.init(request: request, cachedResponse: cachedResponse, client: client)
+        appTask = task
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { false }
 
     override class func canInit(with task: URLSessionTask) -> Bool {
@@ -75,7 +84,7 @@ final class MockProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
-        guard let task, let rule = Hooks.capture(of: task)?.mock else {
+        guard let task = appTask, let rule = Hooks.capture(of: task)?.mock else {
             return client?.urlProtocol(self, didFailWithError: URLError(.unknown)) ?? ()
         }
         guard rule.delayMs > 0 else { return answer(rule) }
