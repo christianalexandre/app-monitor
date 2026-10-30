@@ -61,7 +61,9 @@ always work from `origin/dev`, never `git switch dev`.
     `status: Active`, `started`, four to six tasks), remove its section from
     the roadmap, open a `docs/plan-<slug>` PR, merge it as in 7. Nothing
     else in that iteration, unless its first task is a `Proposed` ADR: then
-    write those ADRs in the same PR, as draft, and stop.
+    write those ADRs in the same PR, as draft, and stop. When the first
+    roadmap section links to a `Draft` plan, activate that plan as written
+    (`status: Active`, `started`, the index row) instead of writing one.
 
 ## 3. Branch
 
