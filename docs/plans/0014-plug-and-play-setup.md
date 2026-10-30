@@ -170,9 +170,22 @@ findings, none that normal use hits:
   - No setup log on either platform, as nothing was missing.
   - Found: Xcode kept the first `dev` commit (`19717d7`, #301) after the
     `Package.resolved` was deleted; the README now says how to update.
-  - Not covered: the flows after login (the owner's account), a
-    physical iPhone (PLAN-0015 H5.6), the desktop window (the field test
-    used `make server`).
+  - iPhone 8, iOS 16.7.16, on Wi-Fi: Mibo `Dev` (signed by the app's
+    team, installed with `ios-deploy`) found the desktop by mDNS once the
+    owner turned the app's Local Network access back on; 25 calls (Tuya,
+    easy4ip, the app's API, Firebase) captured, each answered.
+  - Found on the iPhone, both fixed outside the plan: with Local Network
+    off, iOS 16 fails the browse with `PolicyDenied` instead of waiting, so
+    the SDK named the `Info.plist` keys, at a level Console hides (#319);
+    every mocked call ended the app, `URLProtocol.task` raising
+    "unrecognized selector" on iOS 16 (#321, DEBT-0111). After #321 a
+    Firebase `batchlog` mocked on the iPhone got the rule's body.
+  - Firebase's `batchlog` on the simulator, unmocked, in a real desktop
+    store: the request is gzip over `application/x-protobuf`, stored as
+    sent, so the window shows its compressed bytes in hex (roadmap,
+    *Readable bodies*).
+  - Not covered: the flows after login beyond what the owner browsed, a
+    breakpoint on the iPhone, the desktop window by hand.
 - **Lessons**:
   - A fresh project written from the README alone found what the samples
     hide (the Kotlin floor, the missing imports). Keep one for each

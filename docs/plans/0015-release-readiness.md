@@ -76,14 +76,14 @@ This plan becomes `Active` once PLAN-0014 closes.
   Accept: `./gradlew :sdk:no-op:check` failing on a crafted constructor
   dropped from a no-op; `./gradlew -p gradle-plugin check
   :gradle-plugin:functionalTest` with a consumer forcing an older SDK.
-- [ ] **H5.6 The SDKs on a physical iPhone.** The owner connects an iPhone
-  to the Mac. The loop prepares what runs there: `make e2e-ios` and
-  `make e2e-kmp-ios` take a device id, sign with the owner's free team, and
-  assert Bonjour discovery and the local network prompt for the Swift SDK
-  (DEBT-0041) and for `sdk/core`'s BSD sockets (DEBT-0052). With no
-  device attached the task is `[!]`, waiting for the owner.
-  Accept: both end to ends green on the iPhone, its model and iOS version
-  in the PR.
+- [ ] **H5.6 The iOS SDK on the iOS it declares.** The SDK's tests, mocks
+  and breakpoints included, run on the lowest iOS `Package.swift` declares,
+  or that floor is raised to what runs (DEBT-0111). No end to end on a
+  physical iPhone (owner, 2026-10-30: the focus is the SDK and the
+  desktop): the H4 field test ran the Swift SDK on an iPhone 8, so
+  DEBT-0041 and DEBT-0052 are paid by it or dropped, with that reason.
+  Accept: `swift test` or `make swift-sim` on that iOS's simulator, its
+  version in the PR; a mocked and a held call answered there.
 
 ## Outcome
 

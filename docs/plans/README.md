@@ -87,6 +87,14 @@ swaps the SDK for its no-ops in release builds, published with the SDK
 (ADR-0093); its TestKit consumer then resolves the published
 `appmonitor-okhttp` too, the module names of ADR-0126 A.1.
 
+### Later — readable bodies
+
+A body the window cannot read today (owner, 2026-10-30, after Firebase's
+`batchlog` in the field test): first a gzip `Content-Encoding` opened
+before formatting, then protobuf decoded without a schema (field numbers
+and values), later with `.proto` files the developer adds. Product scope:
+the owner picks when.
+
 ### Later — more debug channels
 
 Logs, analytics events, app storage (DB, preferences), deeplinks, performance.
