@@ -34,7 +34,8 @@ class ProxyRecordingTest {
     fun eventsPastThePendingBytesAreDropped() =
         runBlocking {
             val sink = CountingSink()
-            val recording = ProxyRecording(sink, this, open = false)
+            val lines = mutableListOf<String>()
+            val recording = ProxyRecording(sink, this, open = false, log = { lines += it })
             val payload = ByteArray(1 shl 20).toByteString()
 
             repeat(80) { recording.record(Envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", payload)) }
@@ -43,5 +44,6 @@ class ProxyRecordingTest {
 
             assertEquals(64, sink.received.get())
             assertEquals(16, recording.dropped)
+            assertEquals(listOf("Proxy recording dropped 16 events: more than 64 MiB waited for the store"), lines)
         }
 }

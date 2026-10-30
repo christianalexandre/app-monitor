@@ -332,7 +332,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   commit that touches their table. The request list is the device's, or
   every device's, first `PAGE_SIZE` rows by id; scrolling within 50 rows of the end grows that
   limit by one page. The detail reads the selected exchange, its bodies and
-  its first `PAGE_SIZE` frames ("Show more frames" reads one more page)
+  its first `PAGE_SIZE` frames ("Show more frames" reads one more page,
+  shown while the source holds more than are read)
   again whenever its list row changes. A write failure shows
   "N events not saved: <error>" under the status.
 - Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
@@ -468,11 +469,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   visible chunks. A chunk ends at the line break after 100 lines or
   8 192 characters; only a line longer than 8 192 characters is cut inside. Indented JSON stops at
   `MAX_RENDERED_CHARS` (16 Mi) with a "… stopped at" line.
-- Frames: under "WebSocket frames (N)", one row per frame: direction (↑ sent,
+- Frames: under "WebSocket frames (N)", or "(last K of N)" once the live
+  list cut the oldest (SDD 09), one row per frame: direction (↑ sent,
   ↓ received), opcode, size ("N of M B" when cut, ADR-0028), time since the
   request started, and a one-line preview (text: first 512 bytes; close: code
   and reason). Clicking a row opens its payload with the body view and format
-  buttons; one frame is open at a time.
+  buttons; one frame is open at a time, followed by its id, so it stays
+  open when older frames are cut.
 
 ## Verification
 

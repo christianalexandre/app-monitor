@@ -181,6 +181,7 @@ class LiveTraffic(
                 request = exchange.request,
                 response = exchange.response,
                 replayOfId = row.replayOf?.let { exchangeIds[row.sessionId to it] },
+                framesKept = exchange.frames.size.toLong(),
             )
         }
 

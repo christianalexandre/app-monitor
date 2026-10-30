@@ -328,7 +328,8 @@ through the routed repositories below.
   and an ended session with it once it holds none. An exchange keeps its
   last 10 000 frames (`MAX_FRAMES_PER_EXCHANGE`) and at most a quarter of
   `MAX_BYTES` of them, its oldest frames going first; `frame_count`
-  still counts every frame received. An ended session that
+  still counts every frame received, and `exchange(id)` gives
+  `framesKept`, so the detail says "last K of N". An ended session that
   sent nothing is dropped at its end.
 - **Clear** empties the exchanges and the ended sessions; connected
   sessions stay, and their next exchange gets a new id.

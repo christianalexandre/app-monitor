@@ -23,6 +23,7 @@ class ProxyRecording(
     scope: CoroutineScope,
     open: Boolean = true,
     private val maxPendingBytes: Long = MAX_PENDING_BYTES,
+    private val log: (String) -> Unit = System.err::println,
 ) {
     private val sessionId = "proxy-${UUID.randomUUID()}"
     private val events = Channel<Envelope>(Channel.UNLIMITED)
@@ -64,6 +65,7 @@ class ProxyRecording(
         }
         writer.join()
         sink.disconnected(sessionId)
+        if (dropped > 0) log("Proxy recording dropped $dropped events: more than ${maxPendingBytes / 1024 / 1024} MiB waited for the store")
     }
 
     companion object {

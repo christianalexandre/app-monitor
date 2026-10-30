@@ -129,8 +129,9 @@ and the origin sent them, without HTTP/2's pseudo-headers (`:method`,
 `:path`, `:status` are already the method, URL and status). Events wait in a channel between the
 event loop and the store's queue, so the relay never blocks on the
 store; past 64 MiB of payloads waiting (`MAX_PENDING_BYTES`, as the
-store's queue) a new event is dropped and counted in `dropped`
-(`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
+store's queue) a new event is dropped and counted in `dropped`, and
+stopping the proxy logs the count when it is not zero, as the store logs
+its full-queue waits (`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
 
 ### Lifecycle
 

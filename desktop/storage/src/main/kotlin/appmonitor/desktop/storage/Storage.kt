@@ -1079,6 +1079,8 @@ data class ExchangeDetail(
     val response: ResponseReceived?,
     val mockRuleName: String? = null,
     val replayOfId: Long? = null,
+    /** Frames the source still holds; null when it holds all of `frame_count` (the store). */
+    val framesKept: Long? = null,
 ) {
     /** The bytes a connection moved, null for any other layer; each count null until it closed (ADR-0103). */
     val connectionBytes: ConnectionBytes?
