@@ -153,7 +153,9 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
 - **Ends** at the resume, the abort, the hit's timeout or the session's
   end, the last two unchanged. A task the app cancels while held drops
   the hold and sends the held `RequestStarted` before the capture's
-  `RequestFailed`.
+  `RequestFailed`: the held start waits on the task's `TaskCapture`, and
+  the end sends it first, under the capture's lock, when `stopLoading`
+  has not run yet.
 - **Captured as any task**: the connection hooks see what the protocol
   hands over, so `ResponseReceived` is what the app read.
 
