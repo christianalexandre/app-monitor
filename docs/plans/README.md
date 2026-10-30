@@ -52,19 +52,13 @@ record of how the milestone was actually built once it is done.
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
 | [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
-| [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Draft |
+| [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Active |
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Draft |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### H5 — Release readiness
-
-Written as [PLAN-0015](0015-release-readiness.md) (`Draft`): the gate,
-the protocol M10 freezes, desktop trust, release guarantees, a physical
-iPhone.
 
 ### H6 — Debt sweep before distribution
 
