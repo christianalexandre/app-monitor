@@ -51,7 +51,7 @@ record of how the milestone was actually built once it is done.
 | [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
-| [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Active |
+| [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Draft |
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Draft |
 
@@ -86,6 +86,14 @@ Central, SwiftPM tags, docs site, README with GIFs. The Gradle plugin that
 swaps the SDK for its no-ops in release builds, published with the SDK
 (ADR-0093); its TestKit consumer then resolves the published
 `appmonitor-okhttp` too, the module names of ADR-0126 A.1.
+
+### Later — readable bodies
+
+A body the window cannot read today (owner, 2026-10-30, after Firebase's
+`batchlog` in the field test): first a gzip `Content-Encoding` opened
+before formatting, then protobuf decoded without a schema (field numbers
+and values), later with `.proto` files the developer adds. Product scope:
+the owner picks when.
 
 ### Later — more debug channels
 

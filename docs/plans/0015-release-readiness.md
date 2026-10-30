@@ -36,8 +36,8 @@ This plan becomes `Active` once PLAN-0014 closes.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
   runner) and fixed at its cause, never skipped: DEBT-0032, DEBT-0056,
-  DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, and locally DEBT-0017
-  (Spotless). The mDNS and loopback tests
+  DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, and locally
+  DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
   in `desktop/mcp`).
@@ -70,18 +70,20 @@ This plan becomes `Active` once PLAN-0014 closes.
   public no-arg secondary constructor missing from a dump (DEBT-0026).
   The Gradle plugin rewrites `newWebSocket` only for an
   `appmonitor-okhttp` that has it, and fails the debug build with one
-  line otherwise (DEBT-0099).
+  line otherwise (DEBT-0099). The Kotlin an app needs to compile against
+  the SDK is settled before it is published: lowered, or stated with its
+  reason (DEBT-0108).
   Accept: `./gradlew :sdk:no-op:check` failing on a crafted constructor
   dropped from a no-op; `./gradlew -p gradle-plugin check
   :gradle-plugin:functionalTest` with a consumer forcing an older SDK.
-- [ ] **H5.6 The SDKs on a physical iPhone.** The owner connects an iPhone
-  to the Mac. The loop prepares what runs there: `make e2e-ios` and
-  `make e2e-kmp-ios` take a device id, sign with the owner's free team, and
-  assert Bonjour discovery and the local network prompt for the Swift SDK
-  (DEBT-0041) and for `sdk/core`'s BSD sockets (DEBT-0052). With no
-  device attached the task is `[!]`, waiting for the owner.
-  Accept: both end to ends green on the iPhone, its model and iOS version
-  in the PR.
+- [ ] **H5.6 The iOS SDK on the iOS it declares.** The SDK's tests, mocks
+  and breakpoints included, run on the lowest iOS `Package.swift` declares,
+  or that floor is raised to what runs (DEBT-0111). No end to end on a
+  physical iPhone (owner, 2026-10-30: the focus is the SDK and the
+  desktop): the H4 field test ran the Swift SDK on an iPhone 8, so
+  DEBT-0041 and DEBT-0052 are paid by it or dropped, with that reason.
+  Accept: `swift test` or `make swift-sim` on that iOS's simulator, its
+  version in the PR; a mocked and a held call answered there.
 
 ## Outcome
 

@@ -157,6 +157,9 @@ and use `version "0.1.0-SNAPSHOT"` for the plugin below.
 
 **iOS.** In *Add Package Dependencies…*, set the *Dependency Rule* to
 *Branch*, `dev`. In XcodeGen, `packages: AppMonitor: url: …, branch: dev`.
+Xcode keeps the `dev` commit it resolved first, even after the
+`Package.resolved` is deleted: *File → Packages → Update to Latest Package
+Versions* takes the newer one.
 
 ### Android
 

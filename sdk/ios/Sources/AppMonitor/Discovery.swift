@@ -56,7 +56,7 @@ struct DiscoveryConfig: Sendable {
 /// The failure `BonjourBrowser` reports when the user denied the app local network access.
 let localNetworkDenied = "local network access denied"
 
-/// The keys `info` lacks for mDNS on a device (SDD 06): the usage text, and `_appmonitor._tcp` in
+/// The keys `info` lacks for mDNS on a device (ADR-0162): the usage text, and `_appmonitor._tcp` in
 /// `NSBonjourServices`.
 func missingLocalNetworkKeys(_ info: [String: Any]?) -> [String] {
     var missing: [String] = []

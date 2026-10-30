@@ -1,7 +1,7 @@
 ---
 id: DEBT-0054
 title: The Swift SDK's Bonjour probe is not checked on the simulator
-status: Paid # Open | Paid | Dropped
+status: Paid
 date: 2026-10-24
 trigger: The next PR that touches `sdk/ios/Sources/AppMonitor/BonjourBrowser.swift`, or the first end to end that runs the Swift SDK on the simulator without a manual host
 paid_date: 2026-10-30

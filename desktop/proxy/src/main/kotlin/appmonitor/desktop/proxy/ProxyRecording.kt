@@ -69,7 +69,7 @@ class ProxyRecording(
     }
 
     companion object {
-        /** As the store's write queue (SDD 09): about 50 envelopes of `Protocol.MAX_FRAME_BYTES`. */
+        /** As the store's write queue: about 50 envelopes of `Protocol.MAX_FRAME_BYTES`. */
         const val MAX_PENDING_BYTES = 64L * 1024 * 1024
 
         /** What a proxy session shows for its device: none is known (ADR-0101 A.1). */
