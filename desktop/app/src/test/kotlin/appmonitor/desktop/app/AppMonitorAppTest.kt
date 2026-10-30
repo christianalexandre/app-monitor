@@ -60,6 +60,7 @@ import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
 import appmonitor.tools.fakeclient.Target
 import appmonitor.tools.fakeclient.replay
+import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.RequestFailed
@@ -176,6 +177,40 @@ class AppMonitorAppTest {
                 onNodeWithText("hell").performClick()
                 onNodeWithText("Truncated: 4 of 11 bytes shown").assertExists()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("hell").fetchSemanticsNodes().size == 2 }
+            }
+        }
+
+    @Test
+    fun `a websocket whose oldest frames were cut keeps its open frame and no endless show more`() =
+        withStorage { storage ->
+            val live = LiveTraffic(maxFramesPerExchange = 3)
+
+            fun frame(index: Int) =
+                envelope(
+                    WebSocketFrame("r1", Direction.DIRECTION_RECEIVED, Opcode.OPCODE_TEXT, "f$index".encodeUtf8(), false, 2),
+                    1_010L + index,
+                )
+
+            fun send(vararg envelopes: Envelope) = runBlocking { envelopes.forEach { live.received("s1", it) } }
+            runBlocking { live.connected("s1", HELLO, "127.0.0.1") }
+            send(envelope(RequestStarted(request_id = "r1", method = "GET", url = "wss://a.example/ws"), 1_000), *Array(5) { frame(it) })
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
+
+                awaitText("wss://a.example/ws")
+                onNodeWithText("wss://a.example/ws").performClick()
+                showTab("Body")
+                awaitText("WebSocket frames (last 3 of 5)")
+                onNodeWithText("Show more frames").assertDoesNotExist()
+                onNodeWithText("f3").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("f3").fetchSemanticsNodes().size == 2 }
+
+                send(frame(5), frame(6))
+
+                awaitText("WebSocket frames (last 3 of 7)")
+                onAllNodesWithText("f5").assertCountEquals(1)
+                onAllNodesWithText("f6").assertCountEquals(1)
             }
         }
 

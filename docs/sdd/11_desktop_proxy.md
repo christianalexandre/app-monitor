@@ -126,9 +126,12 @@ SDK sends (ADR-0105 C.1): `RequestStarted` once the request is in full,
 or when it fails first, with the time the request began; then
 `ResponseReceived` or `RequestFailed`. Headers are stored as the client
 and the origin sent them, without HTTP/2's pseudo-headers (`:method`,
-`:path`, `:status` are already the method, URL and status). Events wait in an unbounded channel between the
+`:path`, `:status` are already the method, URL and status). Events wait in a channel between the
 event loop and the store's queue, so the relay never blocks on the
-store. Stopping the proxy writes what is left, then the session's end.
+store; past 64 MiB of payloads waiting (`MAX_PENDING_BYTES`, as the
+store's queue) a new event is dropped and counted in `dropped`, and
+stopping the proxy logs the count when it is not zero, as the store logs
+its full-queue waits (`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
 
 ### Lifecycle
 

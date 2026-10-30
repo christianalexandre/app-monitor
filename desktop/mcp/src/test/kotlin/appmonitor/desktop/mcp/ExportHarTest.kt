@@ -1,7 +1,12 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.data.trafficQueryRepository
+import appmonitor.desktop.domain.CapturedFrame
+import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.domain.TrafficQueryRepository
+import appmonitor.desktop.domain.TrafficRepository.Companion.PAGE_SIZE
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.WebSocketFrame
@@ -191,6 +196,56 @@ class ExportHarTest {
                 maxText = 1_000,
             )
             assertEquals(32L * 1024 * 1024, ExportHar.MAX_TEXT)
+        }
+
+    @Test
+    fun framesPastTheCapStopTheReadAtTheirPage() =
+        withServer { running ->
+            val frames =
+                Array(3 * PAGE_SIZE.toInt()) { WebSocketFrame(request_id = "ws", payload = "z".repeat(100).encodeUtf8()) to 1_200L }
+            running.store(request("ws", url = "wss://echo.example.com/") to 1_000L, response("ws", 101) to 1_100L, *frames)
+            val base = running.storage.trafficQueryRepository()
+            var pages = 0
+            val counting =
+                object : TrafficQueryRepository by base {
+                    override suspend fun frames(
+                        exchangeId: Long,
+                        afterId: Long,
+                        limit: Long,
+                    ): List<CapturedFrame> = base.frames(exchangeId, afterId, limit).also { pages++ }
+                }
+
+            assertFailsWith<ToolError> { ExportHar.call(counting, null, "test", maxText = 10_000) }
+            assertEquals(1, pages)
+        }
+
+    private fun connection(id: String) =
+        request(id, method = "CONNECT", url = "tcp://push.example.com:5223").copy(capture_layer = CaptureLayer.CAPTURE_LAYER_CONNECTION)
+
+    @Test
+    fun onlyConnectionsInsideTheExportedSpanAreCounted() =
+        withServer { running ->
+            running.store(request("h1") to 1_000L, connection("c1") to 1_001L, connection("c2") to 1_002L, request("h2") to 1_003L)
+
+            val log = running.export(mapOf("max_entries" to 1)).json.obj("log")
+
+            assertEquals("first 1 matching exchanges; more matched", log.str("comment"))
+        }
+
+    @Test
+    fun theScanStopsAtItsBoundAndSaysSo() =
+        withServer { running ->
+            running.store(*Array(5) { connection("c$it") to 1_000L + it }, request("h1") to 2_000L)
+
+            val har = ExportHar.log(running.storage.trafficQueryRepository(), ExchangeFilter(), 10, ExportHar.CAP, "test", maxScanned = 3)
+
+            assertEquals(0, har.entries)
+            assertTrue(har.more)
+            assertEquals(
+                "stopped after 3 matching exchanges; more may match: narrow the filter; " +
+                    "3 connections left out: HAR holds HTTP exchanges only",
+                har.json.obj("log").str("comment"),
+            )
         }
 
     @Test

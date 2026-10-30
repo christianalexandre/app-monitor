@@ -322,9 +322,14 @@ through the routed repositories below.
 - **Ids** come from one counter starting at `LiveTraffic.FIRST_ID` (2^50)
   for sessions, exchanges and frames; `LiveTraffic.isLive(id)` tells a
   live id from a row id. A live session's `runId` is 0.
-- **Bound**: 10 000 exchanges and 128 MiB of bodies and frame payloads
-  (`MAX_EXCHANGES`, `MAX_BYTES`); past either the oldest exchange goes,
-  and an ended session with it once it holds none. An ended session that
+- **Bound**: 10 000 exchanges and 128 MiB of bodies and frames
+  (`MAX_EXCHANGES`, `MAX_BYTES`), a frame counted as its payload plus
+  `FRAME_OVERHEAD_BYTES` (128); past either the oldest exchange goes,
+  and an ended session with it once it holds none. An exchange keeps its
+  last 10 000 frames (`MAX_FRAMES_PER_EXCHANGE`) and at most a quarter of
+  `MAX_BYTES` of them, its oldest frames going first; `frame_count`
+  still counts every frame received, and `exchange(id)` gives
+  `framesKept`, so the detail says "last K of N". An ended session that
   sent nothing is dropped at its end.
 - **Clear** empties the exchanges and the ended sessions; connected
   sessions stay, and their next exchange gets a new id.
@@ -500,7 +505,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |
 | "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
-| Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
+| Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, empty frames counted, a WebSocket's last frames kept within its share, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
 | A run per endpoint and device: one column per device in the order it joined, a device reconnected during the run counted once, what came before Record left out, the filter applied, its own run id ignored | `StoredRepositoriesTest` in `desktop/data` (H3.3); the window's "By device" in `BenchmarksUiTest` (`devices.png`) |
 | Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |

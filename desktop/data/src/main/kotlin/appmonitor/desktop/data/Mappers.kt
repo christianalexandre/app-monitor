@@ -132,6 +132,7 @@ internal fun ExchangeDetail.toDomain(frames: List<StoredFrame>): HttpExchange {
         endedAtMs = row.endedAtMs,
         frames = frames.map { it.toDomain() },
         frameCount = row.frameCount,
+        framesKept = framesKept ?: row.frameCount,
         captureLayer = row.captureLayer,
         connection = connectionBytes?.let { ConnectionBytes(it.sent, it.received) },
         mockRuleId = row.mockRuleId,

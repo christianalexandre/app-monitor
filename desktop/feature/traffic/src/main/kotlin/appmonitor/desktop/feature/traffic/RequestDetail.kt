@@ -77,8 +77,13 @@ internal fun RequestDetail(
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
-    var openFrame by remember { mutableStateOf<Int?>(null) }
-    val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
+    // By id: the live list cuts the oldest frames, so an index would move to another one.
+    var openFrame by remember { mutableStateOf<Long?>(null) }
+    val frameBody =
+        openFrame
+            ?.let { id ->
+                exchange.frames.firstOrNull { it.id == id }
+            }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     val tabs = tabsOf(exchange)
     val tab = detail.tab.takeIf { it in tabs } ?: DetailTab.Summary
     val requestRendered = requestBody.rendered
@@ -256,19 +261,27 @@ private fun LazyListScope.summary(
 
 private fun LazyListScope.frames(
     exchange: HttpExchange,
-    openFrame: Int?,
+    openFrame: Long?,
     frameBody: BodyView?,
     query: String,
-    onFrame: (Int) -> Unit,
+    onFrame: (Long) -> Unit,
     onMoreFrames: () -> Unit,
 ) {
     if (exchange.frameCount == 0L) return
-    item { Section("WebSocket frames (${exchange.frameCount})") {} }
-    exchange.frames.forEachIndexed { index, frame ->
-        item { FrameRow(frame, exchange.startedAtMs, open = index == openFrame) { onFrame(index) } }
-        if (index == openFrame && frameBody != null) body(frameBody, query, null)
+    val count =
+        if (exchange.framesKept <
+            exchange.frameCount
+        ) {
+            "last ${exchange.framesKept} of ${exchange.frameCount}"
+        } else {
+            "${exchange.frameCount}"
+        }
+    item { Section("WebSocket frames ($count)") {} }
+    exchange.frames.forEach { frame ->
+        item { FrameRow(frame, exchange.startedAtMs, open = frame.id == openFrame) { onFrame(frame.id) } }
+        if (frame.id == openFrame && frameBody != null) body(frameBody, query, null)
     }
-    if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
+    if (exchange.frames.size < exchange.framesKept) item { TextButton("Show more frames", onClick = onMoreFrames) }
 }
 
 /** A tab's heading with the copy action of its [part]. */

@@ -125,6 +125,8 @@ data class HttpExchange(
     val endedAtMs: Long? = null,
     val frames: List<CapturedFrame> = emptyList(),
     val frameCount: Long = 0,
+    /** Frames the source still holds, the oldest of [frameCount] cut from the live list (SDD 09). */
+    val framesKept: Long = frameCount,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
     val connection: ConnectionBytes? = null,
     val mockRuleId: Long? = null,

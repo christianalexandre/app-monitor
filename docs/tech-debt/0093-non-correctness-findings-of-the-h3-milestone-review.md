@@ -58,6 +58,18 @@ The next PR that touches one of the files named in the frontmatter.
 That PR fixes the items about the file it touches, or says why it does
 not.
 
+`LiveTraffic.kt` fired in the PR that bounds the desktop's frames
+(#312, an external review's T4).
+"Observers rescan" is paid: an envelope off the `network` channel bumps
+only the sessions' counter, which `observeSessions` alone follows
+(`LiveTrafficTest.anEnvelopeOffTheNetworkChannelLeavesTheExchangesAlone`,
+which failed before). "In-flight exchange trimmed" is not. That PR keeps a
+WebSocket's frames within a quarter of `MAX_BYTES`, so its own frames no
+longer evict it. But 10 000 other exchanges still do, and keeping it
+needs an open-socket state `LiveTraffic` does not have: a `101` sets
+`endedAtMs` like any response. `LiveTraffic.kt` stays in the trigger for
+that item.
+
 `TrafficViewModel.kt` paid in the field test polish PR
 (`feat/desktop-polish`, ADR-0153), which touches it for the panes' layout
 and the copy note: the detail combines the sessions, so a request picked
