@@ -177,6 +177,13 @@ cancels the scope.
   ends within `closeTimeout`. It is not resent after a reconnect, so one the desktop rejected
   cannot end every later session.
 - Memory only: nothing captured is written to the app's storage.
+- Drops are reported (ADR-0166): right after `HelloAck`, before any
+  buffered envelope, and again before the next envelope whenever a count
+  grew, the client writes a `core` `DeliveryReport` with the envelopes
+  evicted and oversized since it started, and its previous session's
+  `HelloAck.session_id` with the frames it wrote on it (reports included).
+  A frame counts once handed to the session's `send`. Not sent when `core`
+  is not accepted.
 
 ### Kotlin/Native (iOS)
 
@@ -256,8 +263,9 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
 
 ## Limits
 
-- Dropped envelopes (full buffer, oversized, in flight when the socket
-  died) are invisible on the desktop (DEBT-0023).
+- Dropped envelopes reach the desktop as counts (`DeviceSession.drops`,
+  SDD 01) but not its window yet (DEBT-0023); those of a client's last
+  session are never reported.
 - An oversized envelope is lost rather than cut where it is built; bodies
   fit since `maxBodyBytes` is capped (ADR-0025), so only URL and headers
   over 256 KiB get there.

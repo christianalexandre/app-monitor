@@ -1,6 +1,7 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -28,14 +29,15 @@ import kotlinx.coroutines.ensureActive
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * A desktop for `commonTest` (ADR-0066 C): answers `Hello` with a `HelloAck` accepting every channel, then
- * records each envelope. [handler] replaces that after the upgrade; [silent] also stops answering pings.
+ * A desktop for `commonTest` (ADR-0066 C): answers `Hello` accepting every channel, records each envelope,
+ * `DeliveryReport`s in [reports]. [handler] replaces that after the upgrade; [silent] also stops answering pings.
  */
 internal class StandInDesktop private constructor(
     private val engine: EmbeddedServer<*, *>,
     val port: Int,
     val hellos: Channel<Hello>,
     val envelopes: Channel<Envelope>,
+    val reports: Channel<DeliveryReport>,
 ) {
     suspend fun stop() {
         engine.stopSuspend(0, 0)
@@ -49,11 +51,16 @@ internal class StandInDesktop private constructor(
         ): StandInDesktop {
             val hellos = Channel<Hello>(Channel.UNLIMITED)
             val envelopes = Channel<Envelope>(Channel.UNLIMITED)
+            val reports = Channel<DeliveryReport>(Channel.UNLIMITED)
             val serve: suspend WebSocketSession.() -> Unit =
                 handler ?: {
                     hellos.send(handshake())
                     if (silent) awaitCancellation()
-                    for (frame in incoming) if (frame is Frame.Binary) envelopes.send(Envelope.ADAPTER.decode(frame.readBytes()))
+                    for (frame in incoming) {
+                        if (frame !is Frame.Binary) continue
+                        val envelope = Envelope.ADAPTER.decode(frame.readBytes())
+                        if (envelope.isReport()) reports.send(DeliveryReport.ADAPTER.decode(envelope.payload)) else envelopes.send(envelope)
+                    }
                 }
             val engine =
                 bind(port) {
@@ -73,7 +80,7 @@ internal class StandInDesktop private constructor(
                     .resolvedConnectors()
                     .first()
                     .port
-            return StandInDesktop(engine, bound, hellos, envelopes)
+            return StandInDesktop(engine, bound, hellos, envelopes, reports)
         }
 
         // A desktop restarted on the port of one just stopped can find it still bound for a moment.
@@ -99,6 +106,9 @@ internal class StandInDesktop private constructor(
 }
 
 internal const val LOOPBACK: String = "127.0.0.1"
+
+/** ADR-0166: the SDK's own report, which tests counting captured envelopes set apart. */
+internal fun Envelope.isReport(): Boolean = channel == Protocol.CHANNEL_CORE && type == "DeliveryReport"
 
 private const val BIND_ATTEMPTS = 20
 

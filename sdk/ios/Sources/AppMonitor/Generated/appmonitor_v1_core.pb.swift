@@ -110,3 +110,32 @@ struct Appmonitor_V1_HelloAck: ProtoMessage, Hashable, Sendable {
         }
     }
 }
+
+struct Appmonitor_V1_DeliveryReport: ProtoMessage, Hashable, Sendable {
+    var evicted: Int64 = 0
+    var oversized: Int64 = 0
+    var previousSessionID: String = String()
+    var previousSessionWritten: Int64 = 0
+
+    var unknownFields = ProtoUnknownFields()
+
+    init() {}
+
+    func encode(to writer: inout ProtoWriter) {
+        if !(evicted == 0) { writer.int64(1, evicted) }
+        if !(oversized == 0) { writer.int64(2, oversized) }
+        if !(previousSessionID.isEmpty) { writer.string(3, previousSessionID) }
+        if !(previousSessionWritten == 0) { writer.int64(4, previousSessionWritten) }
+        writer.unknown(unknownFields)
+    }
+
+    mutating func decodeField(_ number: Int, from reader: inout ProtoReader) throws {
+        switch number {
+        case 1: evicted = Int64(bitPattern: try reader.varint())
+        case 2: oversized = Int64(bitPattern: try reader.varint())
+        case 3: previousSessionID = try reader.string()
+        case 4: previousSessionWritten = Int64(bitPattern: try reader.varint())
+        default: try reader.skip(into: &unknownFields)
+        }
+    }
+}

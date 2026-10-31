@@ -54,6 +54,7 @@ fun main(args: Array<String>) {
                 var replayAsked = false
                 session.envelopes.collect { envelope ->
                     println("[${session.id}] ${describe(envelope)}")
+                    if (envelope.type == "DeliveryReport") session.drops.value?.let { println("[${session.id}] ${describe(it)}") }
                     val asked = if (replayAsked) null else options.replayPath?.let { replayTarget(envelope, it) }
                     if (asked != null) {
                         replayAsked = true
@@ -115,6 +116,10 @@ private const val USAGE =
         "the proxy's CA directory, FILE mock rules as JSON, PATH a URL path starting with /"
 
 private const val MAX_PORT = 65_535
+
+/** ADR-0166: `drops: evicted N, oversized N, lost N`, `lost unknown` when a previous session is not known here. */
+internal fun describe(drops: Drops): String =
+    "drops: evicted ${drops.evicted}, oversized ${drops.oversized}, lost ${drops.lost ?: "unknown"}"
 
 internal fun describe(envelope: Envelope): String {
     val name = "${envelope.channel}/${envelope.type}"

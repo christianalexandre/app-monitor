@@ -49,3 +49,4 @@ GET $target/status/418 ResponseReceived mock:1"
 
 assert_envelopes "$app" "$expected" "$timeout" "logcat in $out/logcat.txt" "$host:$target_port"
 assert_app_name "$app" "AppMonitor Sample"
+assert_no_drops "$app"

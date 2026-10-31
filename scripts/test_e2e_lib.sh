@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `unnamed`, `foreign_urls`) on a crafted
-# server log; needs no device.
+# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `unnamed`, `dropping`,
+# `foreign_urls`) on a crafted server log; needs no device.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cd "$here/.."
@@ -82,6 +82,14 @@ check "sessions without the app name" "[s3]
   printf '%s\n' "[s1] app name: My App" "[s3] app name: My" "[s4] app name: Other" >>"$server_log"
   echo "$(unnamed dev.app "My App")"
   unnamed other.app "Other"
+)"
+check "sessions that dropped or did not report" "[s3]
+[s4]
+[s5]" "$(
+  printf '%s\n' "[s1] drops: evicted 1, oversized 0, lost 0" "[s1] drops: evicted 0, oversized 0, lost 0" \
+    "[s3] drops: evicted 0, oversized 0, lost unknown" "[s4] drops: evicted 2, oversized 0, lost 0" >>"$server_log"
+  dropping dev.app
+  dropping other.app
 )"
 check "the proxy's exchanges are not off the target" "GET https://httpbin.org/json
 GET wss://h/ws

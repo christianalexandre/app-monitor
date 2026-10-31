@@ -118,6 +118,51 @@ struct MonitorClientTests {
         await client.join()
     }
 
+    // ADR-0166: the buffer's and the size's drops, reported before the first event.
+    @Test func dropsAreReportedBeforeTheFirstEvent() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        var config = Self.config
+        config.bufferCount = 2
+        let client = Self.client(manualDiscovery(desktop.endpoint), config: config)
+        for index in 0..<5 { client.send(Self.event(index)) }
+        var big = Self.event(9)
+        big.payload = Data(count: ProtocolConstants.maxFrameBytes)
+        client.send(big)
+        client.start()
+        #expect(await eventually { desktop.events.count == 2 })
+        #expect(desktop.events.map(\.timestampMs) == [3, 4])
+        #expect(desktop.envelopes.dropFirst().first?.type == "DeliveryReport")
+        let report = try #require(desktop.reports.first)
+        #expect(report.evicted == 3 && report.oversized == 1 && report.previousSessionID.isEmpty)
+        client.stop()
+        await client.join()
+    }
+
+    // ADR-0166: the next session names the last one and the frames written on it, its report included.
+    @Test func aReconnectReportsWhatThePreviousSessionWrote() async throws {
+        let first = TestDesktop()
+        try await first.start()
+        let port = first.port
+        let client = Self.client(manualDiscovery(first.endpoint))
+        client.start()
+        for index in 0..<2 { client.send(Self.event(index)) }
+        #expect(await eventually { first.events.count == 2 })
+        first.stop()
+        #expect(await eventually { client.state != .connected })
+        let second = TestDesktop()
+        try await second.start(port: port)
+        defer { second.stop() }
+        #expect(await eventually { !second.reports.isEmpty })
+        let report = try #require(second.reports.first)
+        #expect(!report.previousSessionID.isEmpty)
+        #expect(report.previousSessionWritten == 3)
+        #expect(report.evicted == 0 && report.oversized == 0)
+        client.stop()
+        await client.join()
+    }
+
     @Test func channelsMissingFromHelloAckAreDropped() async throws {
         let desktop = TestDesktop(mode: .ack(channels: [ProtocolConstants.channelCore]))
         try await desktop.start()

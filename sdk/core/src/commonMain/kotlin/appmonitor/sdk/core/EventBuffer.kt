@@ -24,7 +24,7 @@ internal class EventBuffer(
     private var bytes = 0L
     private val available = Channel<Unit>(Channel.CONFLATED)
 
-    /** Frames dropped to make room, for tests until DEBT-0023 reports them. */
+    /** Frames dropped to make room since this buffer was made (ADR-0166). */
     val dropped: Long get() = synchronized(lock) { droppedCount }
 
     private var droppedCount = 0L

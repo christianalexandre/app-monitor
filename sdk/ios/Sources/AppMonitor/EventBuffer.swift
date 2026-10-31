@@ -35,7 +35,7 @@ final class EventBuffer: @unchecked Sendable {
         self.maxBytes = maxBytes
     }
 
-    /// Frames dropped to make room, for tests until DEBT-0023 reports them.
+    /// Frames dropped to make room since this buffer was made (ADR-0166).
     var dropped: Int { lock.withLock { droppedCount } }
 
     var count: Int { lock.withLock { frames.count - head } }

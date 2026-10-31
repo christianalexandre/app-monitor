@@ -101,6 +101,7 @@ private val MESSAGES =
         "Envelope",
         "Hello",
         "HelloAck",
+        "DeliveryReport",
         "Header",
         "RequestStarted",
         "ResponseReceived",

@@ -70,6 +70,11 @@ final class MonitorClient: @unchecked Sendable {
     private var connection: NWConnection?
     private var accepted: Set<String> = []
     private var sending = false
+    // ADR-0166: this session's HelloAck id, frames written after Hello on it, and the last one's.
+    private var sessionID: String?
+    private var written: Int64 = 0
+    private var previousSession: (id: String, written: Int64)?
+    private var reported: (evicted: Int, oversized: Int)?
     private var discoveryTimer: DispatchSourceTimer?
     private var connectTimer: DispatchSourceTimer?
     private var pingTimer: DispatchSourceTimer?
@@ -105,7 +110,7 @@ final class MonitorClient: @unchecked Sendable {
     /// The desktop's breakpoints and the tasks they hold; every held task goes on when a session ends (ADR-0118).
     let breakpoints = Breakpoints()
 
-    /// Envelopes dropped by the buffer or for their size (DEBT-0023).
+    /// Envelopes dropped by the buffer or for their size, reported to the desktop (ADR-0166).
     var dropped: Int { buffer.dropped + oversized.value }
 
     /// The delay of the latest backing off, for tests.
@@ -312,6 +317,9 @@ final class MonitorClient: @unchecked Sendable {
         backoff.reset()
         connectFailureLogged = false
         accepted = Set(ack.channels)
+        sessionID = ack.sessionID
+        written = 0
+        reported = nil
         setState(.connected)
         pump()
     }
@@ -354,24 +362,50 @@ final class MonitorClient: @unchecked Sendable {
     /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
     private func pump() {
         guard !stopping, current == .connected, !sending, let connection else { return }
+        let drops = (evicted: buffer.dropped, oversized: oversized.value)
+        if accepted.contains(ProtocolConstants.channelCore), reported.map({ $0 != drops }) ?? true {
+            reported = drops
+            write(deliveryReport(drops), on: connection)
+            return
+        }
         while let frame = buffer.poll(onAvailable: { [weak self] in self?.queue.async { self?.pump() } }) {
             guard accepted.contains(frame.channel) else {
                 frame.onDropped?()
                 continue
             }
-            sending = true
-            connection.send(
-                content: frame.bytes,
-                contentContext: Self.context(.binary),
-                isComplete: true,
-                completion: .contentProcessed { [weak self, weak connection] error in
-                    guard let self, let connection, connection === self.connection else { return }
-                    self.sending = false
-                    if error != nil { self.lose(.lost) } else { self.pump() }
-                }
-            )
+            write(frame.bytes, on: connection)
             return
         }
+    }
+
+    private func write(_ bytes: Data, on connection: NWConnection) {
+        sending = true
+        written += 1
+        connection.send(
+            content: bytes,
+            contentContext: Self.context(.binary),
+            isComplete: true,
+            completion: .contentProcessed { [weak self, weak connection] error in
+                guard let self, let connection, connection === self.connection else { return }
+                self.sending = false
+                if error != nil { self.lose(.lost) } else { self.pump() }
+            }
+        )
+    }
+
+    /// ADR-0166: counts from this client's start, and the frames written on its previous session.
+    private func deliveryReport(_ drops: (evicted: Int, oversized: Int)) -> Data {
+        var report = Appmonitor_V1_DeliveryReport()
+        report.evicted = Int64(drops.evicted)
+        report.oversized = Int64(drops.oversized)
+        report.previousSessionID = previousSession?.id ?? ""
+        report.previousSessionWritten = previousSession?.written ?? 0
+        var envelope = Appmonitor_V1_Envelope()
+        envelope.channel = ProtocolConstants.channelCore
+        envelope.type = "DeliveryReport"
+        envelope.payload = (try? report.serializedBytes()) ?? Data()
+        envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
+        return (try? envelope.serializedBytes()) ?? Data()
     }
 
     private func startPinger(_ connection: NWConnection) {
@@ -417,6 +451,8 @@ final class MonitorClient: @unchecked Sendable {
         pingTimer = nil
         pongTimer = nil
         sending = false
+        if let sessionID { previousSession = (sessionID, written) }
+        sessionID = nil
         mocks.clear()
         replays.clear()
         breakpoints.clear()

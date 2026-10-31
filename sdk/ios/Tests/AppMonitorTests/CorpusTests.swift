@@ -31,6 +31,7 @@ struct CorpusTests {
         "Envelope": codec(Appmonitor_V1_Envelope.self),
         "Hello": codec(Appmonitor_V1_Hello.self),
         "HelloAck": codec(Appmonitor_V1_HelloAck.self),
+        "DeliveryReport": codec(Appmonitor_V1_DeliveryReport.self),
         "Header": codec(Appmonitor_V1_Header.self),
         "RequestStarted": codec(Appmonitor_V1_RequestStarted.self),
         "ResponseReceived": codec(Appmonitor_V1_ResponseReceived.self),

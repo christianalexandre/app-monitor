@@ -5,18 +5,21 @@ import appmonitor.desktop.server.DeviceApproval
 import appmonitor.desktop.server.DeviceApprovals
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
+import appmonitor.desktop.server.Drops
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -88,6 +91,31 @@ class MonitorClientDesktopTest {
             assertEquals(ClientState.Connected, swift.state.value)
         }
 
+    // ADR-0166: the counts reach the real desktop before the first event, the buffer's and the size's apart.
+    @Test
+    fun dropsReachTheDesktopBeforeTheFirstEvent() =
+        runBlocking {
+            val (server, port) = desktop()
+            val client = client(port, start = false, bufferCount = 2)
+            repeat(5) { client.send(request("r$it")) }
+            client.send(request("big").copy(payload = ByteArray(Protocol.MAX_FRAME_BYTES.toInt()).toByteString()))
+            client.start()
+            val session = withTimeout(5.seconds) { server.sessions.first() }
+            assertEquals(listOf("r3", "r4"), session.requestIds(2))
+            assertEquals(Drops(evicted = 3, oversized = 1, lost = 0), session.drops.value)
+        }
+
+    @Test
+    fun aFreshClientReportsNothingDropped() =
+        runBlocking {
+            val (server, port) = desktop()
+            val client = client(port)
+            val session = withTimeout(5.seconds) { server.sessions.first() }
+            client.send(request("r0"))
+            assertEquals(listOf("r0"), session.requestIds(1))
+            assertEquals(Drops(evicted = 0, oversized = 0, lost = 0), session.drops.value)
+        }
+
     private suspend fun desktop(approval: DeviceApproval = DeviceApproval.ApproveAll): Pair<AppMonitorServer, Int> {
         val server = AppMonitorServer(ServerConfig(host = LOOPBACK, port = 0, advertise = false), approval = approval)
         val bound = server.start()
@@ -95,11 +123,15 @@ class MonitorClientDesktopTest {
         return server to bound
     }
 
-    private fun client(port: Int): MonitorClient {
-        val config = ClientConfig(backoffInitial = 50.milliseconds, backoffMax = 200.milliseconds)
+    private fun client(
+        port: Int,
+        start: Boolean = true,
+        bufferCount: Int = EventBuffer.MAX_COUNT,
+    ): MonitorClient {
+        val config = ClientConfig(backoffInitial = 50.milliseconds, backoffMax = 200.milliseconds, bufferCount = bufferCount)
         val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, {})
         cleanup += { client.stopAndJoin() }
-        client.start()
+        if (start) client.start()
         return client
     }
 
@@ -112,6 +144,10 @@ class MonitorClientDesktopTest {
 
     private suspend fun DeviceSession.requestIds(count: Int): List<String> =
         withTimeout(10.seconds) {
-            envelopes.take(count).map { RequestStarted.ADAPTER.decode(it.payload).request_id }.toList()
+            envelopes
+                .filter { !it.isReport() }
+                .take(count)
+                .map { RequestStarted.ADAPTER.decode(it.payload).request_id }
+                .toList()
         }
 }

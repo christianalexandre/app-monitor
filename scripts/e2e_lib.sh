@@ -164,6 +164,23 @@ assert_app_name() {
   echo "$tag: ok app name '$2'"
 }
 
+# $1 app id: prints, sorted, each session of the app whose last `drops:` line (`DeliveryReport`, ADR-0166)
+# is not all zero, or that logged none.
+dropping() {
+  awk -v a="$1" '
+    $2 == "connected:" { for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) s[$1] = 1; break } }
+    $2 == "drops:" { v = $0; sub(/^[^ ]+ /, "", v); d[$1] = v }
+    END { for (k in s) if (d[k] != "drops: evicted 0, oversized 0, lost 0") print k }' "$server_log" | sort
+}
+
+# $1 app id; fails on a session of it that dropped an envelope or reported nothing.
+assert_no_drops() {
+  local gaps
+  gaps="$(dropping "$1")"
+  [[ -z "$gaps" ]] || fail "session(s) of $1 dropped envelopes or sent no DeliveryReport: $(echo $gaps), server log in $server_log"
+  echo "$tag: ok no drops"
+}
+
 # $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is,
 # $5 the target's authority as for `foreign_urls`.
 # Waits until nothing is missing, then a settle for late duplicates, and prints one `ok` line per

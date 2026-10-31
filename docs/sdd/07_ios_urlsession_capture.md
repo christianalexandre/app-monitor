@@ -326,7 +326,7 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
   macOS host and, for background sessions, on the iOS simulator; the rest
   on iOS by M2.12 and M2.13.
 - An event whose URL and headers exceed 256 KiB is dropped whole by
-  `MonitorClient` (DEBT-0023).
+  `MonitorClient`, and counted in its `DeliveryReport` (ADR-0166).
 - The desktop shows a gRPC message as bytes; it has no `.proto` to decode
   fields (ADR-0099 C.1). A status other than OK after the server accepted
   the call is status 200 with `grpc-status`, which the desktop reads as an

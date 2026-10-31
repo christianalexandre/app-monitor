@@ -1,6 +1,7 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -79,6 +80,12 @@ class AppMonitorServer internal constructor(
 
     // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
     private val connections = ConcurrentHashMap<DefaultWebSocketServerSession, Hello>()
+
+    // ADR-0166: frames read and lost so far, per closed session, for the next session's DeliveryReport.
+    private val closedSessions =
+        object : LinkedHashMap<String, Received>() {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Received>) = size > CLOSED_SESSIONS_KEPT
+        }
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -259,10 +266,12 @@ class AppMonitorServer internal constructor(
             }
         }
         var writer: Job? = null
+        var received = 0L
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
             writer = launch { for (envelope in session.outgoing) send(Frame.Binary(true, envelope.encode())) }
             for (frame in incoming) {
+                received++
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
                     closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
@@ -273,6 +282,7 @@ class AppMonitorServer internal constructor(
                     closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
                     break
                 }
+                envelope.toDeliveryReport()?.let { session.report(drops(it, session.drops.value)) }
                 session.deliver(envelope)
             }
         } catch (_: FrameTooBigException) {
@@ -280,9 +290,36 @@ class AppMonitorServer internal constructor(
         } catch (_: ProtocolViolationException) {
             flushClose()
         } finally {
+            synchronized(closedSessions) {
+                closedSessions[session.id] = Received(received, session.drops.value?.lost)
+            }
             session.close()
             writer?.cancel()
         }
+    }
+
+    // The lost count is the previous session's plus the frames it wrote that were never read; set once per session.
+    private fun drops(
+        report: DeliveryReport,
+        current: Drops?,
+    ): Drops {
+        val lost =
+            when {
+                current != null -> {
+                    current.lost
+                }
+
+                report.previous_session_id.isEmpty() -> {
+                    0L
+                }
+
+                else -> {
+                    synchronized(closedSessions) { closedSessions[report.previous_session_id] }?.let { previous ->
+                        previous.lost?.plus((report.previous_session_written - previous.frames).coerceAtLeast(0))
+                    }
+                }
+            }
+        return Drops(report.evicted, report.oversized, lost)
     }
 
     // Closing TCP with the device's frames unread resets it, and the device may lose this close.
@@ -320,9 +357,15 @@ class AppMonitorServer internal constructor(
 
     private enum class Publication { PUBLISHED, FORGOTTEN, STOPPED }
 
+    private class Received(
+        val frames: Long,
+        val lost: Long?,
+    )
+
     private companion object {
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
         val CLOSE_GRACE = 1.seconds
+        const val CLOSED_SESSIONS_KEPT = 1024
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }
@@ -338,6 +381,15 @@ private fun Envelope.toHello(): Hello? {
     if (channel != Protocol.CHANNEL_CORE || type != "Hello") return null
     return try {
         Hello.ADAPTER.decode(payload)
+    } catch (_: IOException) {
+        null
+    }
+}
+
+private fun Envelope.toDeliveryReport(): DeliveryReport? {
+    if (channel != Protocol.CHANNEL_CORE || type != "DeliveryReport") return null
+    return try {
+        DeliveryReport.ADAPTER.decode(payload)
     } catch (_: IOException) {
         null
     }

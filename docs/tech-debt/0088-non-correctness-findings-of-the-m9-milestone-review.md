@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -53,6 +53,8 @@ now held at a response breakpoint, as in Ktor and iOS
 
 Paid in PLAN-0015 H5.3a's PR (`feat/hello-app-name`), which logs the
 app name in `Main.kt`: `parseArgs`' comment is one line, its flags by their ADRs.
+`Main.kt` left the trigger then; PLAN-0015 H5.3b (`feat/delivery-report`),
+which logs the drops there, found it still in the frontmatter and removed it.
 
 ## Why it was accepted
 

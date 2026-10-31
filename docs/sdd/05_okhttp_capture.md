@@ -174,4 +174,4 @@ ADR-0122 B.1):
   without the error.
 - Ping and pong frames are handled inside OkHttp and not seen (DEBT-0029).
 - An event whose URL and headers exceed 256 KiB is dropped whole by
-  `MonitorClient` (DEBT-0023).
+  `MonitorClient`, and counted in its `DeliveryReport` (ADR-0166).

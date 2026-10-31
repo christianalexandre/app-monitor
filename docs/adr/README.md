@@ -183,3 +183,4 @@ Rules:
 | [0163](0163-grpc-core-leaves-the-ios-end-to-end-for-a-gate-job-of-its-own.md) | gRPC-Core leaves the iOS sample and end to end for a release gate job of its own | Accepted |
 | [0164](0164-one-lan-address-filter-in-desktop-server.md) | One LAN address filter, in `desktop/server`, without tunnels | Accepted |
 | [0165](0165-hello-carries-the-app-name-the-options-set.md) | Hello carries the app name the options set, and the desktop shows it before the app id | Accepted |
+| [0166](0166-the-device-reports-what-it-dropped-in-a-delivery-report.md) | The device reports what it dropped in a DeliveryReport, the desktop counts what it lost | Accepted |
