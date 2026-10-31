@@ -3,7 +3,7 @@ id: DEBT-0093
 title: Findings of the H3 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
+trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
 paid_date:
 ---
 
@@ -84,6 +84,14 @@ lines. The file leaves the trigger.
 Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
 changes two lines of `Storage.close`: `clearAll`'s comment block is
 untouched. Kept as is.
+
+Fired by PLAN-0015 H5.3c (`feat/drops-in-devices-pane`), which adds a
+session's drops to all four storage files. `Storage.clearAll`'s KDoc is
+four lines now: `Storage.kt` leaves the trigger. The rest is kept: that
+PR adds a column to `Ingest`'s `Save` of a new session, not its skip of
+an exchange saved before, which needs to know what of a copy changed
+since; it adds `dropped` beside `Recorder`'s request map, which needs the
+exchange's end to forget it; the trimmed WebSocket stays as #312 left it.
 
 ## How it was paid
 

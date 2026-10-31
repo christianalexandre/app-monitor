@@ -1,4 +1,5 @@
--- One connection of an app; `hello` is the Hello as received.
+-- One connection of an app; `hello` is the Hello as received. `drops_*` are its latest DeliveryReport's, null before one;
+-- `drops_lost` is also null when the desktop could not count it (ADR-0166).
 CREATE TABLE sessions (
   id INTEGER PRIMARY KEY,
   run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
@@ -11,7 +12,10 @@ CREATE TABLE sessions (
   peer_address TEXT,
   connected_at_ms INTEGER NOT NULL,
   disconnected_at_ms INTEGER,
-  last_envelope_at_ms INTEGER
+  last_envelope_at_ms INTEGER,
+  drops_evicted INTEGER,
+  drops_oversized INTEGER,
+  drops_lost INTEGER
 );
 
 CREATE INDEX sessions_run_id ON sessions(run_id);
@@ -26,6 +30,9 @@ SELECT last_insert_rowid();
 
 touch:
 UPDATE sessions SET last_envelope_at_ms = :atMs WHERE id = :id;
+
+dropped:
+UPDATE sessions SET drops_evicted = :evicted, drops_oversized = :oversized, drops_lost = :lost WHERE id = :id;
 
 disconnect:
 UPDATE sessions SET disconnected_at_ms = :atMs WHERE id = :id;

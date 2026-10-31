@@ -34,6 +34,11 @@ internal sealed interface StorageItem {
         val atMs: Long,
     ) : StorageItem
 
+    data class Dropped(
+        override val sessionId: String,
+        val drops: StoredDrops,
+    ) : StorageItem
+
     data class Disconnected(
         override val sessionId: String,
         val atMs: Long,
@@ -273,6 +278,10 @@ internal class Ingest(
                 received(session, item.envelope)
             }
 
+            is StorageItem.Dropped -> {
+                sessionRow(item.sessionId)?.let { dropped(it, item.drops) }
+            }
+
             is StorageItem.Disconnected -> {
                 sessionRow(item.sessionId)?.let { database.sessionQueries.disconnect(item.atMs, it) }
                 connections.remove(item.sessionId)
@@ -372,6 +381,7 @@ internal class Ingest(
                 database.sessionQueries.idInRun(run, live.serverSessionId).executeAsOneOrNull()
                     ?: insertSession(run, live.serverSessionId, live.hello, live.peerAddress, live.connectedAtMs).also {
                         database.sessionQueries.disconnect(live.disconnectedAtMs ?: item.atMs, it)
+                        live.drops?.let { drops -> dropped(it, drops) }
                     }
             val stored =
                 database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull() ?: run {
@@ -493,6 +503,11 @@ internal class Ingest(
         rows = rows + (sessionId to id)
         return id
     }
+
+    private fun dropped(
+        session: Long,
+        drops: StoredDrops,
+    ) = database.sessionQueries.dropped(drops.evicted, drops.oversized, drops.lost, session)
 
     private fun insertSession(
         run: Long,

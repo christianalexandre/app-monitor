@@ -142,7 +142,7 @@ the next frame; a frame counts as written once handed to
 
 ## Limits
 
-- Everything in SDD 04's limits applies, DEBT-0020 and DEBT-0023 included.
+- Everything in SDD 04's limits applies, DEBT-0020 included.
 - A suspended app runs no timers: a connection the OS dropped meanwhile is
   noticed when the app resumes, by `.failed` or the pong deadline.
 - Local network privacy exists only on a device (TN3179, ADR-0036): the

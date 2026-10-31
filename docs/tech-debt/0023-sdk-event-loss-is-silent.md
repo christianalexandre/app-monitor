@@ -1,10 +1,10 @@
 ---
 id: DEBT-0023
 title: Events the SDK drops are invisible in the desktop window
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: PLAN-0015 H5.3c, the next task after H5.3b
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0023 — Events the SDK drops are invisible in the desktop window
@@ -32,4 +32,14 @@ PLAN-0015 H5.3c, the next task after H5.3b: the store keeps each session's
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0015 H5.3b put the counts on the wire (ADR-0166); H5.3c stores each
+session's latest in `sessions.drops_*` (migration 8) and the devices pane
+names them once one is above zero, "lost unknown" when the server could
+not count the loss (`DropsUiTest`, `drops.png`). `TrafficStore` reads
+`DeviceSession.drops` with each envelope rather than collecting the
+`StateFlow` apart: the server sets it before delivering the report, so the
+store sees it in order with the session's envelopes and no second
+coroutine races `disconnected`.
+
+Left: the last session of an SDK start never reports its drops (ADR-0166),
+and the MCP tools do not return them; no agent has asked for them.

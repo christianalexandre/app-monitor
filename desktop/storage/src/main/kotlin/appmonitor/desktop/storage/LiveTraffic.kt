@@ -31,6 +31,12 @@ interface TrafficSink {
         envelope: Envelope,
     )
 
+    /** The session's latest [StoredDrops], in order with its envelopes; a sink without sessions ignores it (ADR-0166). */
+    suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) = Unit
+
     suspend fun disconnected(sessionId: String)
 }
 
@@ -106,6 +112,16 @@ class LiveTraffic(
             }
             trim()
             changes.value += 1
+        }
+    }
+
+    override suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) {
+        change {
+            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return@change
+            session.row = session.row.copy(drops = drops)
         }
     }
 

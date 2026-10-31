@@ -40,7 +40,7 @@ Rules:
 | [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
 | [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Paid |
 | [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | The desktop logs "Storage queue was full" at close, or a session closed with 1011 "Ping timeout" while the device was reachable | Open |
-| [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible in the desktop window | PLAN-0015 H5.3c, the next task after H5.3b | Open |
+| [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible in the desktop window | PLAN-0015 H5.3c, the next task after H5.3b | Paid |
 | [0024](0024-app-name-not-sent.md) | `AppMonitorOptions.appName` is accepted but never sent | The desktop shows an app by name (M1.9 approval dialog or later), or `Hello` gains an app name field | Paid |
 | [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Paid |
 | [0026](0026-abi-dump-misses-secondary-constructor.md) | The ABI dump can miss a public no-arg secondary constructor | The Kotlin version in `gradle/libs.versions.toml` changes, or a public SDK class gets a non-public primary constructor | Open |
@@ -110,7 +110,7 @@ Rules:
 | [0090](0090-ios-desktop-socket-before-discovery-reported.md) | A desktop socket opened before the iOS SDK finds that desktop is reported | The first field-test session that shows a `CONNECTION` row to the desktop's own address and port, or the next PR that changes `ConnectionCapture` in `sdk/ios/Sources/AppMonitor/ConnectionCapture.swift` | Open |
 | [0091](0091-storage-tests-hung-once-on-ci.md) | Desktop storage tests hung twice on CI | A test in `desktop/storage/src/test/` fails on CI with `TimeoutException` | Paid |
 | [0092](0092-non-correctness-findings-of-the-h2-milestone-review.md) | Findings of the H2 milestone review that normal use does not hit | The next PR that touches one of the seven files it names | Open |
-| [0093](0093-non-correctness-findings-of-the-h3-milestone-review.md) | Findings of the H3 milestone review that normal use does not hit | The next PR that touches one of the five files it names | Open |
+| [0093](0093-non-correctness-findings-of-the-h3-milestone-review.md) | Findings of the H3 milestone review that normal use does not hit | The next PR that touches one of the four files it names | Open |
 | [0094](0094-server-lifecycle-tests-failed-once-on-a-taken-port.md) | Two server lifecycle tests failed once on a taken port | A test in `desktop/server/src/test/` fails again with `BindException`, locally or on CI | Paid |
 | [0095](0095-title-bar-follows-a-picked-theme-only-after-relaunch.md) | The macOS title bar follows a theme picked in Settings only after a relaunch | Someone reports the title bar's color not matching after picking Light or Dark in Settings | Open |
 | [0096](0096-no-jump-to-the-next-match-in-the-request-search.md) | The search inside a request has no jump to the next match | Someone searches a body longer than the detail pane and asks to be taken to the matches | Paid |

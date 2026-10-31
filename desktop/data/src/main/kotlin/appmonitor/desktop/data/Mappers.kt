@@ -8,6 +8,7 @@ import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.ConnectionBytes
 import appmonitor.desktop.domain.DeviceComparison
 import appmonitor.desktop.domain.DeviceEndpoint
+import appmonitor.desktop.domain.Drops
 import appmonitor.desktop.domain.Durations
 import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.EndpointChange
@@ -75,7 +76,17 @@ import appmonitor.desktop.storage.StatusClass as StoredStatusClass
 internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs, saved)
 
 internal fun StoredSession.toDomain(): Session =
-    Session(id, runId, serverSessionId, hello, peerAddress, connectedAtMs, disconnectedAtMs, lastEnvelopeAtMs)
+    Session(
+        id,
+        runId,
+        serverSessionId,
+        hello,
+        peerAddress,
+        connectedAtMs,
+        disconnectedAtMs,
+        lastEnvelopeAtMs,
+        drops?.let { Drops(it.evicted, it.oversized, it.lost) },
+    )
 
 internal fun StoredExchange.toDomain(): Exchange =
     Exchange(

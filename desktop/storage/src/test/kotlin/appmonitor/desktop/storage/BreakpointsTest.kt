@@ -72,6 +72,9 @@ class BreakpointsTest {
                     it.execute("DROP TABLE breakpoint_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("ALTER TABLE runs DROP COLUMN saved")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
                     it.execute("PRAGMA user_version = 5")
                 }
             }
@@ -81,7 +84,7 @@ class BreakpointsTest {
                 assertEquals(1, storage.observeActiveBreakpoints(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(8, dir.queryLong("PRAGMA user_version"))
+            assertEquals(9, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

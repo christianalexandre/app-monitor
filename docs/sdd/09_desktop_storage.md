@@ -53,7 +53,7 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 | `runs` | `name` (null = unnamed), `started_at_ms`, `ended_at_ms`, `saved` (1 for the "Saved" collection, 0 for a recording) | `started_at_ms` |
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
-| `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms` | `run_id`; `last_envelope_at_ms` |
+| `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms`, `drops_evicted`, `drops_oversized`, `drops_lost` (the latest `DeliveryReport`'s, null before one; `drops_lost` also null when the server could not count it, ADR-0166) | `run_id`; `last_envelope_at_ms` |
 | `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id`, `replay_of` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
 | `bodies` | `exchange_ref`, `part` (request or response), `codec`, `data`, `size` | primary key (`exchange_ref`, `part`) |
 | `frames` | `exchange_ref`, `at_ms`, `direction`, `opcode`, `payload_truncated`, `payload_size`, `stored_size` | (`exchange_ref`, `id`) |
@@ -106,7 +106,8 @@ schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
 (version 2 to 3) `exchanges.grpc_status`, `3.sqm` (version 3 to 4)
 `mock_rules`, `4.sqm` (version 4 to 5) `exchanges.mock_rule_id`, `5.sqm`
 (version 5 to 6) `breakpoint_rules`, `6.sqm` (version 6 to 7)
-`exchanges.replay_of`. The `.sq`
+`exchanges.replay_of`, `7.sqm` (version 7 to 8) `runs.saved`, `8.sqm`
+(version 8 to 9) the `sessions.drops_*` columns. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -322,8 +323,9 @@ row types. The device server (`TrafficStore`) and the proxy
 recording. The window, its exports and benchmarks, and the MCP server read
 through the routed repositories below.
 
-- **Fed** by `TrafficSink`'s `connected`, `received`, `disconnected`, which
-  `Storage` implements too. The four `network` events are decoded as
+- **Fed** by `TrafficSink`'s `connected`, `received`, `dropped`,
+  `disconnected`, which `Storage` implements too; `dropped` sets the
+  session's `drops` (a `StoredDrops`, ADR-0166). The four `network` events are decoded as
   `Ingest` does (status 0 is no status, the last `grpc-status`, an event
   for an unknown request creates it); other channels and payloads that do
   not decode are dropped.
@@ -374,6 +376,9 @@ goes to `LiveTraffic` first; then:
   its own `Hello`, peer and connection time, and `server_session_id`
   as the device sent it. A session spanning two recordings has a row in
   each, ended together when the device disconnects.
+- `dropped` keeps the session's latest `StoredDrops` and writes them to
+  each of its rows; a row written later starts with them. "Save" copies a
+  live session's drops into its saved row.
 - `forget()`, after `clearAll()`, drops which requests were recorded, so
   nothing more of them is written.
 
@@ -516,6 +521,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 | Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, empty frames counted, a WebSocket's last frames kept within its share, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
+| Drops: a session's latest kept live, written to its row in a recording when reported before or during it, copied by Save, read back after a restart; none without a report | `RecorderTest` (H5.3c); a real server's `DeliveryReport` in the devices pane, `DropsUiTest` in `desktop/app` (`drops.png`) |
 | A run per endpoint and device: one column per device in the order it joined, a device reconnected during the run counted once, what came before Record left out, the filter applied, its own run id ignored | `StoredRepositoriesTest` in `desktop/data` (H3.3); the window's "By device" in `BenchmarksUiTest` (`devices.png`) |
 | Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |

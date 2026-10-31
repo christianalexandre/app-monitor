@@ -93,6 +93,10 @@ device                         AppMonitorServer
   session kept for the 1024 latest). Null before a report (an older SDK);
   `lost` null when a previous session is not among them (ADR-0166). The
   headless server logs it as `drops: evicted N, oversized N, lost N`.
+  `TrafficStore` reads it with each envelope, so a new value reaches the
+  sink (`TrafficSink.dropped`, SDD 09) in order with the report; the
+  devices pane names a session's counts once one is above zero, in the
+  error color ("Dropped: 12 buffer full, 1 too large, lost unknown").
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an
   accepted channel, written in order after `HelloAck` (SDD 12).
 - Both flows are bounded/single-collector: a lagging collector stops socket
