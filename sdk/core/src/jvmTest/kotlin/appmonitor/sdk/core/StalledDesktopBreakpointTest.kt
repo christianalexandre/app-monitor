@@ -57,7 +57,7 @@ class StalledDesktopBreakpointTest {
                     device_id = "device-1",
                     channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
                 )
-            val config = ClientConfig(pingInterval = 60.seconds, bufferCount = 2)
+            val config = ClientConfig(pingInterval = 60.seconds, bufferCount = BUFFER_COUNT)
             val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, server.localPort) }, config, {})
             client.start()
             try {
@@ -65,16 +65,19 @@ class StalledDesktopBreakpointTest {
                     while (client.breakpoints.match("GET", "https://api.example.com/a", REQUEST) == null) delay(10)
                 }
                 val noise = Envelope(Protocol.CHANNEL_NETWORK, "Noise", ByteArray(64 shl 10).toByteString())
+                // One drop is a burst the writer may catch up with; stalled once a pause lets it take nothing.
                 withTimeout(30.seconds) {
-                    while (client.dropped == 0L) {
-                        client.send(noise)
-                        delay(1.milliseconds)
-                    }
+                    do {
+                        repeat(BUFFER_COUNT) { client.send(noise) }
+                        val dropped = client.dropped
+                        delay(QUIET)
+                        repeat(BUFFER_COUNT + 1) { client.send(noise) }
+                    } while (client.dropped - dropped < BUFFER_COUNT + 1)
                 }
                 val hit = BreakpointHit(rule_id = 1, stage = REQUEST, request = RequestStarted(request_id = "r1"), timeout_ms = 60_000)
 
                 val outcome = async(start = CoroutineStart.UNDISPATCHED) { client.hold(hit) }
-                repeat(2) { client.send(noise) }
+                repeat(BUFFER_COUNT) { client.send(noise) }
 
                 assertSame(BreakpointOutcome.UNCHANGED, withTimeout(5.seconds) { outcome.await() })
             } finally {
@@ -132,6 +135,8 @@ class StalledDesktopBreakpointTest {
 
     private companion object {
         val REQUEST = BreakpointStage.BREAKPOINT_STAGE_REQUEST
+        const val BUFFER_COUNT = 2
+        val QUIET = 200.milliseconds
         const val WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC11B85"
     }
 }

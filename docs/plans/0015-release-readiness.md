@@ -52,9 +52,17 @@ This plan becomes `Active` once PLAN-0014 closes.
   the held range where the old ones failed.
   Done: 50 of 50 green; under the held range the old tests failed 3 runs
   of 3, the changed ones passed in each (DEBT-0094).
+- [x] **H5.2c The stalled desktop breakpoint test's stall.** (`test/stalled-breakpoint-test-awaits-stall`)
+  Split from H5.2: DEBT-0110. One drop proved only a burst the writer
+  could catch up with, and then wrote the hit to a desktop that never
+  answers; the test now waits until a pause lets the writer take nothing.
+  Accept: the test 50 times green locally under CPU load, where the old
+  one failed.
+  Done: under ten `yes` processes the old test failed 3 of 18 runs, the
+  new one passed 50 of 50 (DEBT-0110).
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0110, and locally
+  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, and locally
   DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
