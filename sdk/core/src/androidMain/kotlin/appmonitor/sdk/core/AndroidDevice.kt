@@ -38,8 +38,11 @@ internal fun nsdBrowser(context: Context): () -> MdnsBrowser? {
     }
 }
 
-/** `Hello` for this install (ADR-0018 D): a random id in no-backup storage, the model, never the user-set name. */
-internal fun androidHello(context: Context): Hello {
+/** `Hello` for this install (ADR-0018 D): a random id in no-backup storage, the model, never the user-set name; [appName] from the options. */
+internal fun androidHello(
+    context: Context,
+    appName: String? = null,
+): Hello {
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     return Hello(
         protocol_version = Protocol.VERSION,
@@ -52,5 +55,6 @@ internal fun androidHello(context: Context): Hello {
         sdk_version = SDK_VERSION,
         channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
         sdk_name = SDK_NAME,
+        app_name = appName.orEmpty(),
     )
 }

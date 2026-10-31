@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `foreign_urls`) on a crafted
+# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `unnamed`, `foreign_urls`) on a crafted
 # server log; needs no device.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -76,6 +76,12 @@ check "a session per SDK, empty app version" "1 1" "$(
 check "an app id in the device name is not the app's" "1" "$(
   echo "[s6] connected: other.app (PLATFORM_ANDROID) third.app 1.0 kotlin" >>"$server_log"
   sessions other.app kotlin
+)"
+check "sessions without the app name" "[s3]
+[s5]" "$(
+  printf '%s\n' "[s1] app name: My App" "[s3] app name: My" "[s4] app name: Other" >>"$server_log"
+  echo "$(unnamed dev.app "My App")"
+  unnamed other.app "Other"
 )"
 check "the proxy's exchanges are not off the target" "GET https://httpbin.org/json
 GET wss://h/ws

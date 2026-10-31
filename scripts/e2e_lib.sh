@@ -147,6 +147,23 @@ sessions() {
     END { print n + 0 }' "$server_log"
 }
 
+# $1 app id, $2 an app name (`Hello.app_name`, ADR-0165): prints, sorted, each session of the app
+# the server did not log `app name: $2` for.
+unnamed() {
+  awk -v a="$1" -v n="$2" '
+    $2 == "connected:" { for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) s[$1] = 1; break } }
+    $2 == "app" && $3 == "name:" { v = $0; sub(/^[^ ]+ app name: /, "", v); named[$1] = v }
+    END { for (k in s) if (named[k] != n) print k }' "$server_log" | sort
+}
+
+# $1 app id, $2 the app name its sessions must carry; fails on one without it.
+assert_app_name() {
+  local gaps
+  gaps="$(unnamed "$1" "$2")"
+  [[ -z "$gaps" ]] || fail "session(s) of $1 without app name '$2': $(echo $gaps), server log in $server_log"
+  echo "$tag: ok app name '$2'"
+}
+
 # $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is,
 # $5 the target's authority as for `foreign_urls`.
 # Waits until nothing is missing, then a settle for late duplicates, and prints one `ok` line per

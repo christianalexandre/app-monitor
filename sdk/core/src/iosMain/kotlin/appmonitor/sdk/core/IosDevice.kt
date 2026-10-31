@@ -44,9 +44,12 @@ internal fun deviceName(environment: Map<Any?, Any?> = NSProcessInfo.processInfo
     }
 }
 
-/** `Hello` for this install (ADR-0018 D), as the Swift SDK builds it; reads or creates [file]. */
+/** `Hello` for this install (ADR-0018 D), as the Swift SDK builds it; reads or creates [file]; [appName] from the options. */
 @OptIn(ExperimentalForeignApi::class)
-internal fun iosHello(file: Path = deviceIdFile()): Hello {
+internal fun iosHello(
+    file: Path = deviceIdFile(),
+    appName: String? = null,
+): Hello {
     val id = deviceId(file)
     NSURL.fileURLWithPath(file.toString()).setResourceValue(true, NSURLIsExcludedFromBackupKey, null)
     val os =
@@ -65,5 +68,6 @@ internal fun iosHello(file: Path = deviceIdFile()): Hello {
         sdk_version = SDK_VERSION,
         channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
         sdk_name = SDK_NAME,
+        app_name = appName.orEmpty(),
     )
 }

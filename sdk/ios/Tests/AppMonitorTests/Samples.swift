@@ -19,6 +19,7 @@ enum Samples {
         $0.sdkVersion = "0.1.0"
         $0.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
         $0.sdkName = "kotlin"
+        $0.appName = "Sample"
     }
 
     static let helloAck = Appmonitor_V1_HelloAck.with {

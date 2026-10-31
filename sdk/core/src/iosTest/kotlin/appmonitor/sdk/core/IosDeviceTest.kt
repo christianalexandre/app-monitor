@@ -49,6 +49,12 @@ class IosDeviceTest {
         assertTrue(hello.app_id.isNotEmpty())
         assertEquals(SDK_VERSION, hello.sdk_version)
         assertEquals("kotlin", hello.sdk_name)
+        assertEquals("", hello.app_name)
+    }
+
+    @Test
+    fun helloCarriesTheAppNameOfTheOptions() {
+        assertEquals("Sample", iosHello(Path(dir, DEVICE_ID_FILE_NAME), appName = "Sample").app_name)
     }
 
     @Test

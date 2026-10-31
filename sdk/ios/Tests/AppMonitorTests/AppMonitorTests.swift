@@ -57,6 +57,8 @@ struct DeviceTests {
         #expect(!hello.appID.isEmpty)
         #expect(hello.sdkVersion == sdkVersion)
         #expect(hello.sdkName == "swift")
+        #expect(hello.appName.isEmpty)
+        #expect(appleHello(deviceIDFile: file, appName: "Sample").appName == "Sample")
         #expect(
             hello.channels == [
                 ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,

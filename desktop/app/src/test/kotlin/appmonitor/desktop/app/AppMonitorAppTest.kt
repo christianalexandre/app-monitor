@@ -272,7 +272,8 @@ class AppMonitorAppTest {
                         }
 
                         waitUntil(timeoutMillis = TIMEOUT_MS) { approvals.pending.value.isNotEmpty() }
-                        onNodeWithText("Pixel 9 (emulator) — dev.example.sample wants to connect").assertExists()
+                        onNodeWithText("Pixel 9 (emulator) — Sample wants to connect").assertExists()
+                        onNodeWithText("dev.example.sample", substring = true).assertExists()
                         onNodeWithText("Pixel 9 (emulator)").assertDoesNotExist()
 
                         onNodeWithText("Approve").performClick()

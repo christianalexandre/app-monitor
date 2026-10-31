@@ -5,7 +5,10 @@ public object AppMonitor {
     /** Starts the monitor; ignored while it runs or when [AppMonitorOptions.enabled] is false. Never blocks, never throws. */
     public fun start(options: AppMonitorOptions = AppMonitorOptions()) {
         monitor.start(options) {
-            MonitorClient(hello = { iosHello() }, discover = discovery(it, bonjourBrowser(), SIMULATOR_HOST.takeIf { isSimulator }))
+            MonitorClient(
+                hello = { iosHello(appName = it.appName) },
+                discover = discovery(it, bonjourBrowser(), SIMULATOR_HOST.takeIf { isSimulator }),
+            )
         }
     }
 

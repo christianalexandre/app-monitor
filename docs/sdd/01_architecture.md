@@ -35,7 +35,7 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 
 | Channel | Messages |
 | --- | --- |
-| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077), `HelloAck` |
+| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077; `app_name` from the options, ADR-0165), `HelloAck` |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
 | `interaction` | `MockRules`, `BreakpointRules`, `BreakpointResume`, `BreakpointAbort` (desktop → device); `BreakpointHit` (device → desktop) (SDD 12, ADR-0113, ADR-0118) |
 
@@ -393,8 +393,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   in benchmarks and the run diff.
 - Approval: `DeviceApprovals.pending`, read as `PendingApproval`s through
   `ApprovalStore` and `DecisionsViewModel`, drives a panel over the three panes,
-  one device at a time ("<device_name> — <app_id> wants to connect", OS, app
-  version, device id, "N more waiting"); Approve / Reject call
+  one device at a time ("<device_name> — <app> wants to connect", the app
+  being `Hello.app_name` else `app_id` (ADR-0165); the `app_id` when named,
+  OS, app version, device id, "N more waiting"); Approve / Reject call
   `ApprovalStore.decide`, which answers the connections at once and queues
   the answer to storage (ADR-0083). The store is built from the stored
   answers at launch, so an approved pair is admitted with no dialog and a

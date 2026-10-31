@@ -61,8 +61,10 @@ func deviceName(environment: [String: String] = ProcessInfo.processInfo.environm
     return withUnsafeBytes(of: &system.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
 }
 
-/// `Hello` for this install (ADR-0036 D); reads or creates the device id file.
-func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .main) -> Appmonitor_V1_Hello {
+/// `Hello` for this install (ADR-0036 D); reads or creates the device id file; `appName` from the options.
+func appleHello(
+    deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .main, appName: String? = nil
+) -> Appmonitor_V1_Hello {
     let os = ProcessInfo.processInfo.operatingSystemVersion
     var hello = Appmonitor_V1_Hello()
     hello.protocolVersion = ProtocolConstants.version
@@ -82,5 +84,6 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
         ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
     ]
     hello.sdkName = sdkName
+    hello.appName = appName ?? ""
     return hello
 }

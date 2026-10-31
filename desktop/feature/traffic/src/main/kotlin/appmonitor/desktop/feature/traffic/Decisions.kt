@@ -13,6 +13,7 @@ import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.domain.AskedReplay
 import appmonitor.desktop.domain.PendingApproval
+import appmonitor.desktop.domain.appLabel
 import org.koin.compose.viewmodel.koinViewModel
 
 /** The oldest replay an agent asked, then the oldest device to admit on top of it, each with how many more wait. */
@@ -35,12 +36,16 @@ private fun ApprovalDialog(
 ) {
     DialogCard(DialogWidth.Narrow) {
         Text(
-            "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.appId} wants to connect",
+            "${device.hello.device_name.ifEmpty { "Unnamed device" }} — ${device.hello.appLabel} wants to connect",
             role = TextRole.BodyStrong,
         )
         Text(
-            listOf(device.hello.os_version, device.hello.app_version, "device ${device.deviceId}")
-                .filter { it.isNotEmpty() }
+            listOf(
+                if (device.hello.app_name.isEmpty()) "" else device.appId,
+                device.hello.os_version,
+                device.hello.app_version,
+                "device ${device.deviceId}",
+            ).filter { it.isNotEmpty() }
                 .joinToString(" · "),
             role = TextRole.Caption,
         )
