@@ -53,6 +53,15 @@ class AppMonitorServerTest {
 
             withTimeout(TIMEOUT_MS) {
                 val session = async { server!!.sessions.first() }
+                // Collected meanwhile: the server answers the client's close once it delivered what came before.
+                val received =
+                    async {
+                        session
+                            .await()
+                            .envelopes
+                            .take(100)
+                            .toList()
+                    }
                 val ack =
                     connect(port) {
                         send(Frame.Binary(true, hello.encode()))
@@ -71,7 +80,7 @@ class AppMonitorServerTest {
                 assertEquals(helloAck.session_id, device.id)
                 assertEquals("device-0001", device.hello.device_id)
                 assertEquals("127.0.0.1", device.peerAddress)
-                assertEquals(sent, device.envelopes.take(100).toList())
+                assertEquals(sent, received.await())
             }
         }
 

@@ -41,7 +41,7 @@ class DeviceSession internal constructor(
      */
     fun send(envelope: Envelope): Boolean = envelope.channel in channels && outbox.trySend(envelope).isSuccess
 
-    // Suspends when the collector lags, which stops reading the socket (ADR-0009).
+    // Suspends when the collector lags; the socket is still read meanwhile (ADR-0167).
     internal suspend fun deliver(envelope: Envelope) = buffer.send(envelope)
 
     internal fun report(drops: Drops) {

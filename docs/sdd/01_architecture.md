@@ -99,8 +99,10 @@ device                         AppMonitorServer
   error color ("Dropped: 12 buffer full, 1 too large, lost unknown").
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an
   accepted channel, written in order after `HelloAck` (SDD 12).
-- Both flows are bounded/single-collector: a lagging collector stops socket
-  reads (TCP back-pressure), nothing is dropped.
+- Both flows have a single collector. `DeviceConnection` reads the socket
+  ahead of a lagging collector into an unbounded queue, pongs included:
+  nothing is dropped, the device is not slowed, and the desktop's memory
+  holds what waits (ADR-0167, DEBT-0113).
 - `AppMonitorServer` is single use: `stop()` completes `sessions` for good,
   and `start()` after `stop()` throws before building an engine; create a
   new instance.
@@ -159,15 +161,20 @@ device                         AppMonitorServer
   `Protocol.MAX_BODY_BYTES` (1 MiB) body plus 256 KiB for URL, headers and
   envelope. A larger frame is refused from its header and closes with 1009;
   a client still writing that frame may see the reset (1006) instead.
-- Closing: the server writes its close before the connection ends, Ktor's
-  own 1009 and 1002 included, and after each close it sends itself (1002,
-  1008, 1001) reads until the device's close, bounded at 1 s, so the device
-  reads that close instead of a reset (RFC 6455 section 7.1.1).
+- Closing: the device route is a raw Ktor session (`webSocketRaw`) read by
+  `DeviceConnection` (ADR-0167). The device's close is queued after the
+  frames before it and answered, with its own code, once the handler has
+  taken them; a frame rejected before it gets the handler's 1002 instead.
+  The server writes its close before the connection ends, Ktor's own 1009
+  and 1002 included, and after each close it sends itself (1002, 1008,
+  1001) reads until the device's close, bounded at 1 s, so the device reads
+  that close instead of a reset (RFC 6455 section 7.1.1). Fragmented
+  messages are joined, bounded by `Protocol.MAX_FRAME_BYTES` (1009).
 - Keep-alive: the server pings every 15 s; without the pong within 15 s it
   closes with 1011 and the session's `envelopes` completes, so a device gone
-  from Wi-Fi ends within ~30 s. Pongs are read behind data frames: a
-  collector stalled longer than the timeout ends a healthy session
-  (DEBT-0022).
+  from Wi-Fi ends within ~30 s. Pings are answered and pongs read as they
+  arrive, apart from data frames, so a lagging collector does not end a
+  healthy session (ADR-0167).
 
 ### Without the desktop UI
 
@@ -184,7 +191,7 @@ the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
 that closes or drops before `HelloAck` fails within the same 10 s. After the
 traffic the client sends a normal close and waits up to 10 s for the
 desktop's: a close that is not `NORMAL` (e.g. `PROTOCOL_ERROR` for a rejected
-frame) exits 1 with its reason; none at all counts as a dropped connection. A frame rejected after the desktop read that close still reads as `NORMAL` (DEBT-0014).
+frame) exits 1 with its reason; none at all counts as a dropped connection. The desktop answers that close after every frame before it, so a rejection of the last ones is the close read (ADR-0167).
 The client uses Ktor's raw CIO session, since the default one reports its own
 close instead of the desktop's. Any other failure (unresolvable host,
 non-WebSocket endpoint, mDNS bind on every interface, connection dropped while sending) exits 1

@@ -169,8 +169,8 @@ cancels the scope.
   once). After each frame the writer calls the session's `flush()`, which
   suspends until every frame sent before it is written to the connection.
   It does not mean the desktop received them. So at most one frame waits
-  in Ktor, and the socket's own buffers hold the rest. When the desktop
-  stops reading (its store full, ADR-0009), that write waits on TCP and
+  in Ktor, and the socket's own buffers hold the rest. When a peer
+  stops reading (the desktop reads ahead, ADR-0167), that write waits on TCP and
   new events pile up in this buffer, which drops the oldest
   (`StalledDesktopBreakpointTest`, against a raw socket that stops
   reading). The flush is cancelled with the session, so `stop()` still
