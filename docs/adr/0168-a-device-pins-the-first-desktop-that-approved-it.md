@@ -1,7 +1,7 @@
 ---
 id: ADR-0168
 title: A device pins the first desktop that approved it
-status: Proposed
+status: Accepted
 date: 2026-10-31
 superseded_by:
 ---
@@ -101,7 +101,15 @@ Questions for the owner, with the recommendation in each:
 
 ## Decision
 
-Empty while `Proposed`.
+Option 1, decided by the owner on 2026-10-31, with A, B and C as
+recommended:
+
+- **A.** A developer who moves a device to another desktop clears the
+  app's data, reinstalls, or sets `host`; the README and SDD 04 say so.
+- **B.** No shared id between one developer's desktops for now: a DEBT
+  whose trigger is a developer pairing one device with two desktops.
+- **C.** The headless server sends no id by default; `--desktop-id ID`
+  sends one, to test the pin. The end to ends keep their manual host.
 
 ## Consequences
 
