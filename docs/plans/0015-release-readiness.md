@@ -60,7 +60,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   one failed.
   Done: under ten `yes` processes the old test failed 3 of 18 runs, the
   new one passed 50 of 50 (DEBT-0110).
-- [x] **H5.2d The desktop's close, written and read back.** (`fix/server-writes-its-close-before-hanging-up`)
+- [x] **H5.2d The desktop's close, written and read back.** (`fix/server-close-before-hanging-up`)
   Split from H5.2: DEBT-0066. On an oversized frame Ktor only queued its
   1009 and the handler returned at once, so on Linux the close could be
   lost; after its own closes the desktop closed TCP with the device's

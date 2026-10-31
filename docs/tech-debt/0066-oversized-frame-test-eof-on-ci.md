@@ -45,7 +45,7 @@ EOF and check whether Ktor writes the close frame before closing.
 
 ## How it was paid
 
-Paid by PLAN-0015 H5.2d (`fix/server-writes-its-close-before-hanging-up`).
+Paid by PLAN-0015 H5.2d (`fix/server-close-before-hanging-up`).
 Both causes were in the handler. On an oversized frame Ktor queues its
 1009 and the handler returned at once, so the close could be lost; the
 handler now flushes it, bounded at 1 s, before it returns. After each
