@@ -2,11 +2,12 @@ import Foundation
 import Network
 import os
 
-/// Where a desktop listens.
+/// Where a desktop listens; `checksPin` false for a manual host, which neither checks nor pins (ADR-0168).
 struct Endpoint: Equatable, Sendable {
     var host: String
     var port: UInt16 = ProtocolConstants.defaultPort
     var path: String = ProtocolConstants.websocketPath
+    var checksPin = true
 
     /// An IPv6 zone id is sent as `%25` (RFC 6874), which older Foundation requires.
     var url: URL? {
@@ -54,6 +55,7 @@ final class MonitorClient: @unchecked Sendable {
     private let makeHello: @Sendable () -> Appmonitor_V1_Hello
     private let discover: Discover
     private let log: @Sendable (String) -> Void
+    private let pin: DesktopPin?
     private let buffer: EventBuffer
     private let oversized = LockedCount()
 
@@ -65,6 +67,8 @@ final class MonitorClient: @unchecked Sendable {
     private var backoff: Backoff
     private var hello: Appmonitor_V1_Hello?
     private var connectFailureLogged = false
+    private var pinRefusalLogged = false
+    private var endpoint: Endpoint?
     private var round = 0
     private var cancelDiscovery: (@Sendable () -> Void)?
     private var connection: NWConnection?
@@ -89,12 +93,14 @@ final class MonitorClient: @unchecked Sendable {
         discover: @escaping Discover,
         config: ClientConfig = ClientConfig(),
         log: @escaping @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") },
-        random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) }
+        random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) },
+        pin: DesktopPin? = nil
     ) {
         self.makeHello = hello
         self.discover = discover
         self.config = config
         self.log = log
+        self.pin = pin
         self.buffer = EventBuffer(maxCount: config.bufferCount, maxBytes: config.bufferBytes)
         self.backoff = Backoff(initial: config.backoffInitial, max: config.backoffMax, random: random)
     }
@@ -209,6 +215,7 @@ final class MonitorClient: @unchecked Sendable {
 
     private func connect(_ endpoint: Endpoint) {
         setState(.connecting)
+        self.endpoint = endpoint
         guard let url = endpoint.url else {
             logConnectFailure(endpoint, reason: "not a valid host")
             backOff()
@@ -314,6 +321,23 @@ final class MonitorClient: @unchecked Sendable {
             lose(.lost)
             return
         }
+        if let endpoint, endpoint.checksPin, !trusts(ack.desktopID) {
+            if !pinRefusalLogged {
+                pinRefusalLogged = true
+                log(
+                    "the desktop at \(endpoint.host):\(endpoint.port) is not the one this install paired with; "
+                        + "clear the app's data, or set AppMonitorOptions.host"
+                )
+            }
+            connection.send(
+                content: nil,
+                contentContext: Self.context(.close, code: .protocolCode(.normalClosure)),
+                isComplete: true,
+                completion: .contentProcessed { _ in }
+            )
+            lose(.rejected)
+            return
+        }
         backoff.reset()
         connectFailureLogged = false
         accepted = Set(ack.channels)
@@ -322,6 +346,13 @@ final class MonitorClient: @unchecked Sendable {
         reported = nil
         setState(.connected)
         pump()
+    }
+
+    /// ADR-0168: the pinned desktop only; the first one with an id is pinned.
+    private func trusts(_ desktopID: String) -> Bool {
+        guard let pin else { return true }
+        guard let pinned = pin.pinned() else { return desktopID.isEmpty || pin.pin(desktopID) == desktopID }
+        return desktopID == pinned
     }
 
     /// After `HelloAck` only the `interaction` messages below are read; anything else is dropped.

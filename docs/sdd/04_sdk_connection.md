@@ -32,7 +32,7 @@ it. The client is a state machine; exactly one state is current.
 | **idle** | Nothing; no client yet. Events are dropped. | `start()` with `enabled` → discovering. `start()` with `enabled = false` → stays idle. |
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
 | **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). The app's network security policy is not consulted: CIO's raw sockets ignore it, and it governs the app's traffic, not the SDK's (ADR-0156). `stop()` → stopped. |
-| **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
+| **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected, unless it names a desktop other than the pinned one ([Pinned desktop](#pinned-desktop)): then the device closes 1000 and backs off at the longest delay. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
 | **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, a `BreakpointRules` its breakpoints, a `BreakpointResume` or `BreakpointAbort` lets a held call go, a `ReplayRequest` sends a kept request again, anything else is ignored ([Mock rules](#mock-rules), [Breakpoints](#breakpoints), [Replays](#replays)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
 | **stopped** | Nothing; every resource released, buffer discarded. Events are dropped. | `start()` → a new client in discovering, empty buffer. |
@@ -117,6 +117,9 @@ Every client reads mDNS answers through `protocol` `DesktopSelector`
   case-insensitively; a `--name` filter (fake client) applies first.
 - Its path is the TXT key `path`. An answer without TXT waits up to 500 ms
   for a later one of the same name, then uses `/v1/ws`.
+- With a pinned desktop, only an answer whose TXT key `id` is that id is
+  kept: other ids, a TXT without `id`, and answers before their TXT are
+  skipped, so the round ends at the fallback host or the 5 s bound.
 - Resolves never block the browser's listener: JmDNS resolves run on their
   own coroutine; `NsdManager` uses `registerServiceInfoCallback` from API
   34 and one `resolveService` at a time below it.
@@ -124,6 +127,25 @@ Every client reads mDNS answers through `protocol` `DesktopSelector`
 The device id is read or created in `noBackupFilesDir` (Android) or
 `Application Support` (iOS) on the client's scope, not on the thread that
 called `start()`.
+
+### Pinned desktop
+
+A device trusts the first desktop that approved it (ADR-0168). The desktop
+creates a random UUID once, in its store's `settings` (`desktop.id`), and
+sends it in its TXT key `id` and in `HelloAck.desktop_id`; the headless
+server sends one only with `--desktop-id UUID`.
+
+- The pin is a file beside the device id, `appmonitor-desktop-id`, written
+  as the device id is (first writer wins, ADR-0078); on iOS both SDKs share
+  it. `DesktopPin` in `DeviceId.kt` reads and writes it.
+- An endpoint found by discovery (mDNS or the emulator and simulator
+  fallback) checks the `HelloAck`: no pin yet and an id in it → pinned; a
+  pin and another id, or none → closed 1000 *Paired with another desktop*,
+  one log line per client, backing off at the longest delay.
+- A manual `host` neither checks nor pins: the developer named that
+  desktop.
+- Moving a device to another desktop: clear the app's data, reinstall, or
+  set `host`. A desktop that sends no id is never pinned.
 
 ### Resources and their owners
 
@@ -269,8 +291,10 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
 - An oversized envelope is lost rather than cut where it is built; bodies
   fit since `maxBodyBytes` is capped (ADR-0025), so only URL and headers
   over 256 KiB get there.
-- The device connects to any desktop that advertises the service
-  (DEBT-0020).
+- The first connection of an install trusts whichever desktop answers,
+  and a host on the pinned desktop's LAN can copy its id from the TXT
+  record: the transport is plain `ws://` (ADR-0168). One device cannot
+  trust two desktops of one developer (DEBT-0115).
 - `NsdBrowser`, the permission check and request and the emulator test run only on
   Android; host tests use fake browsers (ADR-0024). The iOS
   `BonjourBrowser` runs for real on the simulator.

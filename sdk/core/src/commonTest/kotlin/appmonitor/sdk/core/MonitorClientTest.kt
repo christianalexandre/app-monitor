@@ -20,6 +20,7 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -31,6 +32,7 @@ import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -60,6 +62,44 @@ class MonitorClientTest {
             val client = client(desktop.port)
             assertEquals("device-1", withTimeout(5.seconds) { desktop.hellos.receive() }.device_id)
             client.awaitState(ClientState.Connected)
+        }
+
+    // ADR-0168: a second desktop found after the first one approved the install is refused, a manual host is not.
+    @Test
+    fun aSecondDesktopIsRefusedOnceTheFirstIsPinned() =
+        runBlocking {
+            val first = desktop(desktopId = "first")
+            val second = desktop(desktopId = "second")
+            val pin = MemoryPin()
+            val found = Channel<Endpoint>(Channel.UNLIMITED)
+            val logs = Channel<String>(Channel.UNLIMITED)
+            found.send(Endpoint(LOOPBACK, first.port))
+            val client = client(discover = { found.receive() }, log = { logs.trySend(it) }, pin = pin)
+            client.awaitState(ClientState.Connected)
+            assertEquals("first", pin.pinned())
+
+            first.stop()
+            found.send(Endpoint(LOOPBACK, second.port))
+            withTimeout(5.seconds) { second.hellos.receive() }
+            assertTrue(withTimeout(5.seconds) { logs.receive() }.contains("not the one this install paired with"))
+            client.send(request("kept"))
+            client.awaitState(ClientState.BackingOff)
+            assertEquals("first", pin.pinned())
+            assertTrue(second.envelopes.isEmpty)
+
+            found.send(Endpoint(LOOPBACK, second.port, checksPin = false))
+            assertEquals(listOf("kept"), second.requestIds(1))
+            client.awaitState(ClientState.Connected)
+        }
+
+    @Test
+    fun aDesktopWithoutAnIdIsNotPinned() =
+        runBlocking {
+            val desktop = desktop()
+            val pin = MemoryPin()
+            val client = client(desktop.port, pin = pin)
+            client.awaitState(ClientState.Connected)
+            assertNull(pin.pinned())
         }
 
     @Test
@@ -278,9 +318,10 @@ class MonitorClientTest {
     private suspend fun desktop(
         port: Int = 0,
         silent: Boolean = false,
+        desktopId: String = "",
         handler: (suspend WebSocketSession.() -> Unit)? = null,
     ): StandInDesktop {
-        val desktop = StandInDesktop.start(port, silent, handler)
+        val desktop = StandInDesktop.start(port, silent, desktopId, handler)
         cleanup += { runCatching { desktop.stop() } }
         return desktop
     }
@@ -290,10 +331,11 @@ class MonitorClientTest {
         config: ClientConfig = this.config,
         discover: suspend () -> Endpoint? = { Endpoint(LOOPBACK, port) },
         log: (String) -> Unit = {},
+        pin: DesktopPin? = null,
         openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
             { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
     ): MonitorClient {
-        val client = MonitorClient({ hello }, discover, config, log, openSession = openSession)
+        val client = MonitorClient({ hello }, discover, config, log, pin = pin, openSession = openSession)
         cleanup += { client.stopAndJoin() }
         client.start()
         return client
@@ -310,6 +352,14 @@ class MonitorClientTest {
         withTimeout(10.seconds) {
             List(count) { RequestStarted.ADAPTER.decode(envelopes.receive().payload).request_id }
         }
+}
+
+private class MemoryPin : DesktopPin {
+    private var id: String? = null
+
+    override fun pinned(): String? = id
+
+    override fun pin(desktopId: String): String = id ?: desktopId.also { id = it }
 }
 
 internal suspend fun MonitorClient.awaitState(expected: ClientState) {

@@ -61,7 +61,7 @@ emulator) / `127.0.0.1` (iOS simulator). See ADR-0002.
 `desktop/server` (`AppMonitorServer`) is a Ktor CIO WebSocket server on port
 `47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
 `_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
-address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`, ADR-0164); TXT keys `v` (protocol version) and `path`. See ADR-0009.
+address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`, ADR-0164); TXT keys `v` (protocol version), `path` and `id`, the desktop id devices pin (ADR-0168). See ADR-0009.
 Advertising is all or nothing: if one address fails to register (an `Error`
 included), the instances already created are closed and `start()` stops the
 HTTP server before rethrowing, so the port is free again.
@@ -72,7 +72,7 @@ device                         AppMonitorServer
   │                            │   → close 1002 (protocol error)
   │                            │ pending: DeviceApproval.approve(hello), no timeout
   │                            │   rejected → close 1008; any frame → close 1002
-  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network, interaction)
+  │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network, interaction), desktop_id
   │── DeliveryReport (core) ──►│ → DeviceSession.drops (ADR-0166)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
   │◄─ Envelope(…) ×N ──────────│ ← DeviceSession.send, after HelloAck only

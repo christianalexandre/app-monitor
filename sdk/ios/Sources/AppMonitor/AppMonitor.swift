@@ -13,10 +13,13 @@ public enum AppMonitor {
         }
         monitor.start(options) { options in
             let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") }
+            let pin = FileDesktopPin(file: defaultDesktopPinFile())
             return MonitorClient(
                 hello: { appleHello(appName: options.appName) },
-                discover: discovery(options, mdns: BonjourBrowser(), onSimulator: isSimulator, log: log),
-                log: log
+                discover: discovery(
+                    options, mdns: BonjourBrowser(), onSimulator: isSimulator, log: log, pinned: { pin.pinned() }),
+                log: log,
+                pin: pin
             )
         }
     }

@@ -65,7 +65,8 @@ internal class NsdBrowser(
         private fun answer(service: NsdServiceInfo) {
             val host = addresses(service).filterIsInstance<Inet4Address>().firstOrNull()?.hostAddress ?: return
             val path = service.attributes[Protocol.MDNS_TXT_PATH]?.decodeToString()
-            if (synchronized(this) { !closed }) onAnswer(DesktopAnswer(service.serviceName, host, service.port, path))
+            val id = service.attributes[Protocol.MDNS_TXT_ID]?.decodeToString()
+            if (synchronized(this) { !closed }) onAnswer(DesktopAnswer(service.serviceName, host, service.port, path, id))
         }
 
         @Suppress("DEPRECATION")

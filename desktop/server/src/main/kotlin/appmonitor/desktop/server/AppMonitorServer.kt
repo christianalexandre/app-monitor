@@ -57,7 +57,7 @@ class AppMonitorServer internal constructor(
     constructor(
         config: ServerConfig = ServerConfig(),
         approval: DeviceApproval = DeviceApproval.ApproveAll,
-    ) : this(config, approval = approval, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
+    ) : this(config, approval = approval, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port, config.desktopId) })
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
 
@@ -342,7 +342,7 @@ class AppMonitorServer internal constructor(
         Envelope(
             channel = Protocol.CHANNEL_CORE,
             type = "HelloAck",
-            payload = HelloAck(Protocol.VERSION, session.id, session.channels).encodeByteString(),
+            payload = HelloAck(Protocol.VERSION, session.id, session.channels, config.desktopId.orEmpty()).encodeByteString(),
             timestamp_ms = System.currentTimeMillis(),
         )
 

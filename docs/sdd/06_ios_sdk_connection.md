@@ -41,7 +41,10 @@ the app's threads, behind an `NSLock`.
 Answers go through the same selection rule as `DesktopSelector` (ADR-0024):
 first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
-`/v1/ws`. A browser in `.waiting` or `.failed` with
+`/v1/ws`; with a pinned desktop only an answer whose TXT `id` is that id
+(SDD 04, *Pinned desktop*, ADR-0168). The pin is `FileDesktopPin` in
+`Device.swift`, the same file as `sdk/core`'s; `handleAck` checks it as
+`sdk/core` does, a manual `host` excepted. A browser in `.waiting` or `.failed` with
 `kDNSServiceErr_PolicyDenied` logs one line per client pointing at
 *Settings, Privacy & Security, Local Network* (iOS 16 fails a denied browse,
 later versions wait on it); one failed otherwise logs one naming
@@ -142,7 +145,7 @@ the next frame; a frame counts as written once handed to
 
 ## Limits
 
-- Everything in SDD 04's limits applies, DEBT-0020 included.
+- Everything in SDD 04's limits applies, the pinned desktop's included.
 - A suspended app runs no timers: a connection the OS dropped meanwhile is
   noticed when the app resumes, by `.failed` or the pong deadline.
 - Local network privacy exists only on a device (TN3179, ADR-0036): the

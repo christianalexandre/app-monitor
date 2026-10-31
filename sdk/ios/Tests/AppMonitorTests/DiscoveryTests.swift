@@ -42,7 +42,7 @@ struct DiscoveryTests {
             log: { _ in }
         )
         let round = await Self.run(discover, for: 0.1)
-        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20", port: 4000)])
+        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20", port: 4000, checksPin: false)])
         #expect(browser.browses == 0)
     }
 
@@ -215,8 +215,8 @@ struct DiscoveryTests {
 
 /// `DesktopSelectorTest` of the `protocol` module, case for case.
 struct DesktopSelectorTests {
-    static func answer(_ name: String, host: String = "10.0.0.1", path: String?) -> DesktopAnswer {
-        DesktopAnswer(name: name, host: host, path: path)
+    static func answer(_ name: String, host: String = "10.0.0.1", path: String?, id: String? = nil) -> DesktopAnswer {
+        DesktopAnswer(name: name, host: host, path: path, id: id)
     }
 
     @Test func answerWithTxtIsChosenAtOnce() {
@@ -249,6 +249,29 @@ struct DesktopSelectorTests {
         _ = selector.offer(Self.answer("First", host: "10.0.0.1", path: nil))
         #expect(selector.offer(Self.answer("Second", host: "10.0.0.2", path: "/v1/ws")) == nil)
         #expect(selector.offer(Self.answer("FIRST", host: "10.0.0.1", path: "/v1/ws"))?.host == "10.0.0.1")
+    }
+
+    @Test func aPinnedSelectorSkipsOtherIdsAndAnswersWithoutTxt() {
+        var selector = DesktopSelector(pinnedID: "pinned")
+        #expect(selector.offer(Self.answer("Colleague", host: "10.0.0.2", path: "/v1/ws", id: "other")) == nil)
+        #expect(selector.offer(Self.answer("Old", host: "10.0.0.3", path: "/v1/ws")) == nil)
+        #expect(selector.offer(Self.answer("Mine", host: "10.0.0.1", path: nil)) == nil)
+        #expect(!selector.hasCandidate)
+        #expect(selector.settle() == nil)
+        #expect(selector.offer(Self.answer("Mine", host: "10.0.0.1", path: "/v1/ws", id: "pinned"))?.host == "10.0.0.1")
+    }
+
+    @Test func aPinnedDesktopKeepsItsIdOnALaterAnswerWithoutTxt() {
+        var selector = DesktopSelector(pinnedID: "pinned")
+        _ = selector.offer(Self.answer("Mine", host: "10.0.0.1", path: "/v1/ws", id: "pinned"))
+        #expect(
+            selector.offer(Self.answer("Mine", host: "10.0.0.2", path: nil))
+                == Self.answer("Mine", host: "10.0.0.2", path: "/v1/ws", id: "pinned"))
+    }
+
+    @Test func anUnpinnedSelectorKeepsTheIdItSaw() {
+        var selector = DesktopSelector()
+        #expect(selector.offer(Self.answer("AppMonitor", path: "/v1/ws", id: "first"))?.id == "first")
     }
 
     @Test func nothingKeptSettlesOnNil() {

@@ -25,8 +25,21 @@ class DiscoveryTest {
             val discover =
                 discovery(AppMonitorOptions(host = "192.168.1.20", port = 4000), { browser }, fallbackHost = EMULATOR_HOST, config)
 
-            assertEquals(Endpoint("192.168.1.20", 4000), discover())
+            assertEquals(Endpoint("192.168.1.20", 4000, checksPin = false), discover())
             assertEquals(0, browser.browses)
+        }
+
+    @Test
+    fun aPinnedDeviceSkipsOtherDesktops() =
+        runTest {
+            val browser =
+                FakeBrowser {
+                    it(answer("Colleague", "192.168.1.30", "/v1/ws", id = "theirs"))
+                    it(answer("Mine", "192.168.1.20", "/v1/ws", id = "mine"))
+                }
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config, pinned = { "mine" })
+
+            assertEquals(Endpoint("192.168.1.20", Protocol.DEFAULT_PORT, "/v1/ws"), discover())
         }
 
     @Test
@@ -132,7 +145,8 @@ class DiscoveryTest {
         name: String,
         host: String,
         path: String?,
-    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path)
+        id: String? = null,
+    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path, id)
 
     /** Answers with [onBrowse] when browsing starts, or later through [answer]. */
     private class FakeBrowser(

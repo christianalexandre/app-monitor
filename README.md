@@ -118,6 +118,11 @@ Each platform: the dependency, the start call, then what is optional. The
 desktop app runs on the same network ([`make desktop`](#how-this-project-is-built),
 or a package from `./gradlew :desktop:app:packageDmg`).
 
+A device keeps to the first desktop that
+approved it, so a colleague's on the same Wi-Fi never gets its traffic.
+To move it to another desktop, clear the app's data, reinstall it, or set
+`host` ([ADR-0168](docs/adr/0168-a-device-pins-the-first-desktop-that-approved-it.md)).
+
 ### Until it is published
 
 Nothing is on Maven Central, the Gradle Plugin Portal or a SwiftPM tag yet
@@ -208,7 +213,8 @@ it by hand ([SDD 05](docs/sdd/05_okhttp_capture.md)).
 A working app is in [`samples/android`](samples/android).
 
 **Nothing in the desktop?** The SDK says why once, in Logcat under the tag
-`AppMonitor`: the permission denied, or a desktop it cannot reach.
+`AppMonitor`: the permission denied, a desktop it cannot reach, or one it
+is not paired with.
 `AppMonitorOptions(host = "192.168.1.20")` skips discovery.
 
 ### iOS

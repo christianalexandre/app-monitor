@@ -18,7 +18,7 @@ class MdnsPartialFailureTest {
 
         val error =
             assertFailsWith<IOException> {
-                MdnsAdvertiser.start("test", 1, addresses) { address ->
+                MdnsAdvertiser.start("test", 1, addresses = addresses) { address ->
                     if (address == addresses[1]) throw IOException("register failed on $address")
                     Registration().also { created += it }
                 }
@@ -35,7 +35,7 @@ class MdnsPartialFailureTest {
         val addresses = listOf("10.0.0.1", "10.0.0.2").map { InetAddress.getByName(it) }
 
         assertFailsWith<StackOverflowError> {
-            MdnsAdvertiser.start("test", 1, addresses) { address ->
+            MdnsAdvertiser.start("test", 1, addresses = addresses) { address ->
                 if (address == addresses[1]) throw StackOverflowError("register failed on $address")
                 Registration().also { created += it }
             }
@@ -50,7 +50,7 @@ class MdnsPartialFailureTest {
         val addresses = listOf("10.0.0.1", "10.0.0.2", "10.0.0.3").map { InetAddress.getByName(it) }
         val registrations = List(3) { index -> Registration(errorOnClose = index == 0) }
         val next = registrations.iterator()
-        val advertiser = MdnsAdvertiser.start("test", 1, addresses) { next.next() }
+        val advertiser = MdnsAdvertiser.start("test", 1, addresses = addresses) { next.next() }
 
         assertFailsWith<StackOverflowError> { advertiser.close() }
 

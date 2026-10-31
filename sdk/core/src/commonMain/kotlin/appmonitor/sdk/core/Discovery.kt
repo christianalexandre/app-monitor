@@ -28,28 +28,31 @@ internal data class DiscoveryConfig(
 )
 
 /**
- * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only; else mDNS through [mdns] (null
- * when it may not run), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
+ * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only, its pin unchecked; else mDNS
+ * through [mdns] (null when it may not run), skipping desktops other than [pinned]'s (ADR-0168), then
+ * [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
 internal fun discovery(
     options: AppMonitorOptions,
     mdns: () -> MdnsBrowser?,
     fallbackHost: String?,
     config: DiscoveryConfig = DiscoveryConfig(),
     log: (String) -> Unit = ::platformLog,
+    pinned: () -> String? = { null },
 ): suspend () -> Endpoint? {
     val manual = options.host
-    if (manual != null) return { Endpoint(manual, options.port) }
+    if (manual != null) return { Endpoint(manual, options.port, checksPin = false) }
     return {
         val browser = mdns()
+        val pin = pinned()
         val found =
             try {
                 when {
                     browser == null -> null
 
                     // Bounded so the fallback host is tried inside MonitorClient's discovery timeout.
-                    fallbackHost != null -> withTimeoutOrNull(config.mdnsBeforeFallback) { discoverMdns(browser, config.txtGrace) }
+                    fallbackHost != null -> withTimeoutOrNull(config.mdnsBeforeFallback) { discoverMdns(browser, config.txtGrace, pin) }
 
-                    else -> discoverMdns(browser, config.txtGrace)
+                    else -> discoverMdns(browser, config.txtGrace, pin)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -65,9 +68,10 @@ internal fun discovery(
 internal suspend fun discoverMdns(
     browser: MdnsBrowser,
     txtGrace: Duration,
+    pinned: String? = null,
 ): Endpoint {
     val answers = Channel<DesktopAnswer>(Channel.UNLIMITED)
-    val selector = DesktopSelector()
+    val selector = DesktopSelector(pinnedId = pinned)
     val browsing = browser.browse { answers.trySend(it) }
     try {
         var chosen: DesktopAnswer? = null

@@ -43,6 +43,7 @@ private final class BonjourSession: @unchecked Sendable {
     private var probes: [String: NWConnection] = [:]
     private var addresses: [String: Address] = [:]
     private var paths: [String: String] = [:]
+    private var ids: [String: String] = [:]
 
     init(
         queue: DispatchQueue,
@@ -89,9 +90,10 @@ private final class BonjourSession: @unchecked Sendable {
         let key = name.lowercased()
         if case .bonjour(let txt) = result.metadata, let path = txt[ProtocolConstants.mdnsTxtPath] {
             paths[key] = path
+            ids[key] = txt[ProtocolConstants.mdnsTxtID]
         }
         if let address = addresses[key] {
-            onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: paths[key]))
+            onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: paths[key], id: ids[key]))
         } else if probes[key] == nil {
             probe(result.endpoint, name: name, key: key)
         }
@@ -111,7 +113,9 @@ private final class BonjourSession: @unchecked Sendable {
                 guard case .hostPort(.ipv4(let ip), let port)? = probe.currentPath?.remoteEndpoint else { return }
                 let address = Address(host: ip.rawValue.map(String.init).joined(separator: "."), port: port.rawValue)
                 self.addresses[key] = address
-                self.onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: self.paths[key]))
+                self.onAnswer(
+                    DesktopAnswer(
+                        name: name, host: address.host, port: address.port, path: self.paths[key], id: self.ids[key]))
             case .failed:
                 probe.cancel()
                 self.probes[key] = nil

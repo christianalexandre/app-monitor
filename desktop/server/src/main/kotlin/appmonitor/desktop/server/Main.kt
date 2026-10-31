@@ -14,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.PrintStream
 import java.nio.file.Path
+import java.util.UUID
 import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
@@ -32,10 +33,11 @@ fun main(args: Array<String>) {
                 exitProcess(2)
             }
         }
-    val server = AppMonitorServer(ServerConfig(port = options.port))
+    val server = AppMonitorServer(ServerConfig(port = options.port, desktopId = options.desktopId))
     runBlocking {
         val bound = startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook)
         println("Listening on port $bound, path ${Protocol.WEBSOCKET_PATH}; mDNS on ${server.advertisedAddresses}")
+        options.desktopId?.let { println("Desktop id $it") }
         options.proxyDirectory?.let { directory ->
             val proxy = ProxyServer(ProxyCa.loadOrCreate(directory), { println("[proxy] ${describe(it)}") }, port = 0)
             Runtime.getRuntime().addShutdownHook(shutdownHook { proxy.stop() })
@@ -83,9 +85,13 @@ internal data class ServerArgs(
     val proxyDirectory: Path? = null,
     val mocksFile: Path? = null,
     val replayPath: String? = null,
+    val desktopId: String? = null,
 )
 
-/** `--port`, `--proxy DIR` (ADR-0109), `--mocks FILE` (ADR-0116), `--replay PATH` (ADR-0122); null after one line on [err]. */
+/**
+ * `--port`, `--proxy DIR` (ADR-0109), `--mocks FILE` (ADR-0116), `--replay PATH` (ADR-0122), `--desktop-id UUID`
+ * (ADR-0168); null after one line on [err].
+ */
 internal fun parseArgs(
     args: Array<String>,
     err: PrintStream,
@@ -105,6 +111,7 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
                 "--proxy" -> options.copy(proxyDirectory = Path.of(value))
                 "--mocks" -> options.copy(mocksFile = Path.of(value))
                 "--replay" -> options.copy(replayPath = value.takeIf { it.startsWith("/") } ?: return null)
+                "--desktop-id" -> options.copy(desktopId = value.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null)
                 else -> return null
             }
     }
@@ -112,8 +119,9 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
 }
 
 private const val USAGE =
-    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--replay PATH], PORT from 0 (ephemeral) to 65535, DIR " +
-        "the proxy's CA directory, FILE mock rules as JSON, PATH a URL path starting with /"
+    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--replay PATH] [--desktop-id UUID], PORT from 0 " +
+        "(ephemeral) to 65535, DIR the proxy's CA directory, FILE mock rules as JSON, PATH a URL path starting with /, " +
+        "UUID the id devices pin"
 
 private const val MAX_PORT = 65_535
 

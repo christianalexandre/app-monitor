@@ -3,7 +3,7 @@ id: DEBT-0061
 title: Non-correctness findings of the third M4 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`
+trigger: "The next PR that changes how the device id is written: `publish` or `linkExclusive` in `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`"
 paid_date:
 ---
 
@@ -33,7 +33,11 @@ directory, the case the second review already rejected.
 
 ## Trigger
 
-The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`,
+The next PR that changes how the device id is written: `publish` or `linkExclusive` in `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`.
+
+Re-triggered by PLAN-0015 H5.4 (2026-10-31): it touched `DeviceId.kt` to write the desktop pin through the same first-writer path, without changing `publish`, the link or the lock, so both findings stand as they were.
+
+Before: The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`,
 `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt`
 or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`.
 

@@ -89,6 +89,7 @@ struct Appmonitor_V1_HelloAck: ProtoMessage, Hashable, Sendable {
     var protocolVersion: UInt32 = 0
     var sessionID: String = String()
     var channels: [String] = []
+    var desktopID: String = String()
 
     var unknownFields = ProtoUnknownFields()
 
@@ -98,6 +99,7 @@ struct Appmonitor_V1_HelloAck: ProtoMessage, Hashable, Sendable {
         if !(protocolVersion == 0) { writer.uint32(1, protocolVersion) }
         if !(sessionID.isEmpty) { writer.string(2, sessionID) }
         for value in channels { writer.string(3, value) }
+        if !(desktopID.isEmpty) { writer.string(4, desktopID) }
         writer.unknown(unknownFields)
     }
 
@@ -106,6 +108,7 @@ struct Appmonitor_V1_HelloAck: ProtoMessage, Hashable, Sendable {
         case 1: protocolVersion = UInt32(truncatingIfNeeded: try reader.varint())
         case 2: sessionID = try reader.string()
         case 3: channels.append(try reader.string())
+        case 4: desktopID = try reader.string()
         default: try reader.skip(into: &unknownFields)
         }
     }

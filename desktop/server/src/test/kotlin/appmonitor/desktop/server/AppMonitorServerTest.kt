@@ -75,6 +75,7 @@ class AppMonitorServerTest {
                 val helloAck = HelloAck.ADAPTER.decode(ack.payload)
                 assertEquals(Protocol.VERSION, helloAck.protocol_version)
                 assertEquals(listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK), helloAck.channels)
+                assertEquals("", helloAck.desktop_id)
 
                 val device = session.await()
                 assertEquals(helloAck.session_id, device.id)
@@ -143,10 +144,26 @@ class AppMonitorServerTest {
             assertEquals(CloseReason.Codes.PROTOCOL_ERROR.code, reason?.code)
         }
 
+    // ADR-0168: the id a device pins.
+    @Test
+    fun `the HelloAck carries the desktop id`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false, desktopId = DESKTOP_ID))
+            val ack =
+                withTimeout(TIMEOUT_MS) {
+                    connect(port) {
+                        send(Frame.Binary(true, hello.encode()))
+                        receiveEnvelope()
+                    }
+                }
+
+            assertEquals(DESKTOP_ID, HelloAck.ADAPTER.decode(ack.payload).desktop_id)
+        }
+
     @Test
     fun `advertised service resolves over mdns`() =
         runBlocking {
-            val port = start(ServerConfig(host = "0.0.0.0", port = 0, serviceName = SERVICE_NAME))
+            val port = start(ServerConfig(host = "0.0.0.0", port = 0, serviceName = SERVICE_NAME, desktopId = DESKTOP_ID))
             val address = server!!.advertisedAddresses.firstOrNull()
             assertNotNull(address, "No multicast-capable LAN address to advertise on")
 
@@ -155,6 +172,7 @@ class AppMonitorServerTest {
                 val info = withTimeout(TIMEOUT_MS) { browser.resolve(SERVICE_NAME) }
                 assertEquals(port, info.port)
                 assertEquals(Protocol.WEBSOCKET_PATH, info.getPropertyString("path"))
+                assertEquals(DESKTOP_ID, info.getPropertyString(Protocol.MDNS_TXT_ID))
                 assertTrue(info.inetAddresses.isNotEmpty())
             }
         }
@@ -234,6 +252,7 @@ class AppMonitorServerTest {
 
     private companion object {
         const val TIMEOUT_MS = 10_000L
+        const val DESKTOP_ID = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
         val SERVICE_NAME = "AppMonitor test ${ProcessHandle.current().pid()}"
 
         val hello =

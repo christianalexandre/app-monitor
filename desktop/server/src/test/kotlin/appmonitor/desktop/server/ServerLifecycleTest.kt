@@ -45,7 +45,7 @@ class ServerLifecycleTest {
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     val next = registrations.iterator()
-                    MdnsAdvertiser.start(name, boundPort, addresses) { next.next() }
+                    MdnsAdvertiser.start(name, boundPort, addresses = addresses) { next.next() }
                 }
             val port = server.start()
 
@@ -69,7 +69,7 @@ class ServerLifecycleTest {
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     bound.complete(boundPort)
                     MdnsAdvertiser
-                        .start(name, boundPort, addresses) {
+                        .start(name, boundPort, addresses = addresses) {
                             Registration(failOnClose = false).also { registrations += it }
                         }.also {
                             registering.complete(Unit)
@@ -100,7 +100,7 @@ class ServerLifecycleTest {
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     bound.complete(boundPort)
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
                     }
@@ -137,7 +137,7 @@ class ServerLifecycleTest {
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     bound.complete(boundPort)
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
                     }
@@ -167,7 +167,7 @@ class ServerLifecycleTest {
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     bound.complete(boundPort)
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
                     }
@@ -243,7 +243,7 @@ class ServerLifecycleTest {
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     bound.complete(boundPort)
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         proceed.await()
                     }
@@ -275,7 +275,7 @@ class ServerLifecycleTest {
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
             val port = server.start()
             val first = async(Dispatchers.Default) { server.stop() }
@@ -302,7 +302,7 @@ class ServerLifecycleTest {
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
             val port = server.start()
             val stopping = launch(Dispatchers.Default) { server.stop() }
@@ -328,7 +328,7 @@ class ServerLifecycleTest {
             val registration = Registration(failOnClose = true, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
             val port = server.start()
             val stopping = launch(Dispatchers.Default) { server.stop() }
@@ -353,7 +353,7 @@ class ServerLifecycleTest {
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
                 AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
-                    MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
+                    MdnsAdvertiser.start(name, boundPort, addresses = listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
             val port = server.start()
             val stopping = async(Dispatchers.Default) { server.stop() }

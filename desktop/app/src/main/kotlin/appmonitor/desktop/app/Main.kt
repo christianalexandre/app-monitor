@@ -30,6 +30,7 @@ import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
+import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
 import appmonitor.desktop.storage.LiveTraffic
@@ -53,6 +54,7 @@ import java.awt.Dimension
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -60,7 +62,7 @@ import kotlin.time.Duration
 fun main() {
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
-    val (storage, approvals, access, appearance, panes) =
+    val (storage, approvals, access, appearance, panes, desktopId) =
         try {
             openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
@@ -75,7 +77,7 @@ fun main() {
     val runRepository = storage.runRepository()
     val traffic = storage.trafficRepository(live)
     var status by mutableStateOf("Starting server…")
-    server = AppMonitorServer(approval = approvals.approvals)
+    server = AppMonitorServer(ServerConfig(desktopId = desktopId), approvals.approvals)
     val mcp = McpController(storage, live, access, replays = store.replays)
     val proxy = ProxyController(storage, recorder, directory)
     val stopServer = once(server::stop)
@@ -113,7 +115,7 @@ fun main() {
                                 onClearAll = {
                                     scope.launch {
                                         approvals.forgetAll()
-                                        storage.clearAll()
+                                        clearAllKeepingDesktopId(storage, desktopId)
                                         appearance.setTheme(appearance.theme.value)
                                         panes.setLayout(panes.layout.value)
                                         recorder.forget()
@@ -162,9 +164,22 @@ internal data class Services(
     val access: McpAccess,
     val appearance: AppearanceRepository,
     val panes: PaneLayoutRepository,
+    /** The id devices pin (ADR-0168), created once and kept in the store's `settings`. */
+    val desktopId: String,
 )
 
-/** Opens the store, its device answers, the MCP token, the theme and the panes' layout; on a failure the store is closed again and no server starts. */
+internal const val DESKTOP_ID_KEY = "desktop.id"
+
+/** "Clear all data" empties `settings` too; the id devices pinned is written back, or every one would refuse this desktop (ADR-0168). */
+internal suspend fun clearAllKeepingDesktopId(
+    storage: Storage,
+    desktopId: String,
+) {
+    storage.clearAll()
+    storage.settingRepository().setSetting(DESKTOP_ID_KEY, desktopId)
+}
+
+/** Opens the store, its device answers, the MCP token, the theme, the panes' layout and the desktop id; on a failure the store is closed again and no server starts. */
 internal fun openServices(
     directory: Path,
     disconnect: (DeviceKey) -> Unit,
@@ -179,6 +194,7 @@ internal fun openServices(
                 McpAccess.open(settings),
                 settings.appearanceRepository(),
                 settings.paneLayoutRepository(),
+                settings.setting(DESKTOP_ID_KEY) ?: UUID.randomUUID().toString().also { settings.setSetting(DESKTOP_ID_KEY, it) },
             )
         }
     } catch (e: Exception) {
