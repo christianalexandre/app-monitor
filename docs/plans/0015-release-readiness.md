@@ -24,7 +24,7 @@ This plan becomes `Active` once PLAN-0014 closes.
 
 ## Tasks
 
-- [~] **H5.1 A release gate that finishes, in time.** (`ci/release-gate-cache`)
+- [x] **H5.1 A release gate that finishes, in time.** (`ci/release-gate-cache`)
   gRPC-Core leaves `make ios-sample` and `make e2e-ios`: the sample's
   gRPC-Core call through the proxy moves to `make e2e-ios-grpc`, a release
   gate job of its own, the only one that builds it (owner, 2026-10-30;
@@ -37,6 +37,8 @@ This plan becomes `Active` once PLAN-0014 closes.
   `make scripts-test` green locally, their times in the PR; three
   `release-gate.yml` runs, dispatched by the owner, all jobs green,
   `e2e-ios-grpc` under its timeout; the job times in the PR.
+  Done: #323; release gate runs 41141294007, 41145340850 and 41148911458
+  on its head, all green, `e2e-ios-grpc` 39, 24 and 38 min of 50.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
   runner) and fixed at its cause, never skipped: DEBT-0032, DEBT-0056,
