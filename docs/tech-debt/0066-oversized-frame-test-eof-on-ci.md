@@ -20,6 +20,15 @@ MacBook Pro. The cause is not known: the server may close the TCP
 connection before its close frame is flushed, or the frame may be lost
 when the socket is reset while the client's unread bytes are pending.
 
+A likely cause, found by PLAN-0015 H5.2a (DEBT-0056): Ktor 3.6.0 sends
+the desktop's close without waiting for the client's
+(`DefaultWebSocketSession.sendCloseSequence`), and the handler returns, so
+TCP closes with the client's bytes unread and the kernel resets the
+connection. A peer resetting right after its close lost that close in 179
+of 200 Linux runs. Here the unread bytes are the rest of the oversized
+frame. A real SDK would see 1006, not 1009. The fix this suggests: the
+desktop reads until the client's close, bounded, before it closes TCP.
+
 ## Why it was accepted
 
 One failure in the CI history, on a change that does not touch

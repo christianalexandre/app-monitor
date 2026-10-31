@@ -18,6 +18,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import okio.ByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -177,10 +178,12 @@ class HandshakeFailureTest {
     }
 }
 
-/** Acks the Hello, then closes with `PROTOCOL_ERROR` as the desktop does on a frame it rejects. */
+/** Acks the Hello, then closes with `PROTOCOL_ERROR` as the desktop does on a frame it rejects, and reads until the client's close. */
 internal val ackThenClose: suspend DefaultWebSocketServerSession.() -> Unit = {
     incoming.receive()
     val ack = HelloAck(Protocol.VERSION, "session", listOf(Protocol.CHANNEL_CORE)).encodeByteString()
     send(Frame.Binary(true, Envelope(channel = Protocol.CHANNEL_CORE, type = "HelloAck", payload = ack).encode()))
     close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
+    // Closing TCP with the client's traffic unread resets it, and the client may lose this close (DEBT-0056).
+    withTimeoutOrNull(1_000) { for (frame in incoming) Unit }
 }
