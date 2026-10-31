@@ -62,6 +62,7 @@ GET $target/delay/10 RequestFailed
 GET $ws_scheme://$host:$target_port/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE"
 
 assert_envelopes "$app" "$expected" "$timeout" "$device_log" "$host:$target_port"
+assert_app_name "$app" "KMP sample"
 if [[ "$platform" == ios ]]; then
   # ADR-0158: on iOS the Swift SDK captures Ktor's Darwin calls; sdk/core is never started there.
   swift="$(sessions "$app" swift)" kotlin="$(sessions "$app" kotlin)"

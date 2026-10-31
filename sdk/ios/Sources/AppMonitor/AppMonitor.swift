@@ -14,7 +14,7 @@ public enum AppMonitor {
         monitor.start(options) { options in
             let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") }
             return MonitorClient(
-                hello: { appleHello() },
+                hello: { appleHello(appName: options.appName) },
                 discover: discovery(options, mdns: BonjourBrowser(), onSimulator: isSimulator, log: log),
                 log: log
             )

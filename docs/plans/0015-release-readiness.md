@@ -108,9 +108,19 @@ This plan becomes `Active` once PLAN-0014 closes.
   reproduce: the current test and the stored path #187 timed out on, 50 of
   50 each under CPU load and 10 of 10 each in a two-processor cold JVM;
   dropped, the session it waited for is read from memory since #277.
+- [x] **H5.3a The app name on the wire.** (`feat/hello-app-name`)
+  Split from H5.3: DEBT-0024. `Hello.app_name` carries
+  `AppMonitorOptions.appName` from both SDKs; the desktop names the app
+  by it, else by `app_id` (ADR-0165).
+  Accept: `./gradlew :protocol:allTests :sdk:core:allTests
+  :desktop:feature:traffic:test :desktop:app:test`; fixtures regenerated
+  and mirrored in `Samples.swift`, `make swift`; `make e2e-android` and
+  `make e2e-ios` asserting the app name.
+  Done: the suites, `make check` and `make e2e-android`, `make e2e-ios`
+  and `make e2e-kmp` green, each asserting its sample's name (DEBT-0024).
 - [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
   the wire carries what a later version cannot add without breaking an
-  old one: `Hello` sends `appName` (DEBT-0024); the desktop sees how many
+  old one (the app name in H5.3a): the desktop sees how many
   events a device dropped and why, oversized, evicted or lost with a
   socket (DEBT-0023); a frame the desktop rejects after the peer's close
   reaches the client as that rejection (DEBT-0014); a lagging collector

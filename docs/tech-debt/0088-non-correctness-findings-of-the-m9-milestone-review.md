@@ -32,8 +32,8 @@ not hit (ADR-0094):
   skips the headers that the `OutgoingContent` carries. It changes
   `Content-Type` only on a `ByteArrayContent`. A `WriteChannelContent`
   goes out unedited.
-- **Comment blocks longer than four lines** (guidelines 02): `parseArgs`
-  in `Main.kt` and `readMockRules` in `MockFile.kt`.
+- **Comment blocks longer than four lines** (guidelines 02):
+  `readMockRules` in `MockFile.kt`.
 
 Paid in PLAN-0012 H2.2b's PR (`refactor/desktop-traffic-feature`):
 "Show original" read only loaded rows, so an original older than the
@@ -50,6 +50,9 @@ nothing left in it here, and took it out of the trigger.
 Paid in M9.R2's PR: an empty OkHttp response (`Content-Length: 0`) is
 now held at a response breakpoint, as in Ktor and iOS
 (`BreakpointTest.anEmptyResponseIsHeldToo`).
+
+Paid in PLAN-0015 H5.3a's PR (`feat/hello-app-name`), which logs the
+app name in `Main.kt`: `parseArgs`' comment is one line, its flags by their ADRs.
 
 ## Why it was accepted
 
@@ -70,7 +73,6 @@ items in its file:
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `sdk/ios/Sources/AppMonitor/Replays.swift`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
-- `desktop/server/src/main/kotlin/appmonitor/desktop/server/Main.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
 
 `App.kt` fired by PLAN-0012 H2.1 (`refactor/desktop-design-system`),

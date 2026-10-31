@@ -15,7 +15,10 @@ public object AppMonitor {
         val app = context.applicationContext
         if (options.enabled && app is Application) requestLocalNetworkOnFirstActivity(app)
         monitor.start(options) {
-            MonitorClient(hello = { androidHello(app) }, discover = discovery(it, nsdBrowser(app), EMULATOR_HOST.takeIf { isEmulator() }))
+            MonitorClient(
+                hello = { androidHello(app, it.appName) },
+                discover = discovery(it, nsdBrowser(app), EMULATOR_HOST.takeIf { isEmulator() }),
+            )
         }
     }
 

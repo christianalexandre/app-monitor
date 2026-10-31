@@ -46,6 +46,7 @@ struct Appmonitor_V1_Hello: ProtoMessage, Hashable, Sendable {
     var sdkVersion: String = String()
     var channels: [String] = []
     var sdkName: String = String()
+    var appName: String = String()
 
     var unknownFields = ProtoUnknownFields()
 
@@ -62,6 +63,7 @@ struct Appmonitor_V1_Hello: ProtoMessage, Hashable, Sendable {
         if !(sdkVersion.isEmpty) { writer.string(8, sdkVersion) }
         for value in channels { writer.string(9, value) }
         if !(sdkName.isEmpty) { writer.string(10, sdkName) }
+        if !(appName.isEmpty) { writer.string(11, appName) }
         writer.unknown(unknownFields)
     }
 
@@ -77,6 +79,7 @@ struct Appmonitor_V1_Hello: ProtoMessage, Hashable, Sendable {
         case 8: sdkVersion = try reader.string()
         case 9: channels.append(try reader.string())
         case 10: sdkName = try reader.string()
+        case 11: appName = try reader.string()
         default: try reader.skip(into: &unknownFields)
         }
     }

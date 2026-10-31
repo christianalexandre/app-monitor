@@ -47,6 +47,7 @@ fun main(args: Array<String>) {
                 println(
                     "[${session.id}] connected: ${device.device_name} (${device.platform}) ${device.app_id} ${device.app_version} ${device.sdk_name}",
                 )
+                if (device.app_name.isNotEmpty()) println("[${session.id}] app name: ${device.app_name}")
                 if (mocks != null && session.send(mockRulesEnvelope(mocks, System.currentTimeMillis()))) {
                     println("[${session.id}] sent ${mocks.rules.size} mock rules")
                 }
@@ -83,12 +84,7 @@ internal data class ServerArgs(
     val replayPath: String? = null,
 )
 
-/**
- * `--port` (default [Protocol.DEFAULT_PORT]) and `--proxy DIR`, which also runs the proxy of SDD 11 with its CA in DIR
- * and logs its exchanges as the `proxy` session, and `--mocks FILE`, rules ([readMockRules]) sent to every device that
- * lists the `interaction` channel, and `--replay PATH`, the first request of each session to that URL path asked again
- * (ADR-0122 D.1); on a bad argument prints one line on [err] and returns null.
- */
+/** `--port`, `--proxy DIR` (ADR-0109), `--mocks FILE` (ADR-0116), `--replay PATH` (ADR-0122); null after one line on [err]. */
 internal fun parseArgs(
     args: Array<String>,
     err: PrintStream,

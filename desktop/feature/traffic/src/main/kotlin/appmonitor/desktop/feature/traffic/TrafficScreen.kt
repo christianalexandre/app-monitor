@@ -59,6 +59,7 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
+import appmonitor.desktop.domain.appLabel
 import appmonitor.desktop.domain.durationOf
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.statusOf
@@ -346,7 +347,7 @@ private fun DeviceList(
                     Modifier.fillMaxWidth().selectableItem(session.id == state.session?.id) { onSelect(session.id) }.padding(Spacing.lg),
                 ) {
                     Text(hello.device_name, role = TextRole.BodyStrong)
-                    Text("${hello.app_id} ${hello.app_version}", role = TextRole.Caption)
+                    Text("${hello.appLabel} ${hello.app_version}", role = TextRole.Caption)
                     val refused = state.refuses(session)
                     Text(
                         "${hello.os_version} · ${when {
@@ -368,7 +369,7 @@ private fun DeviceList(
                 Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(device.hello.device_name, role = TextRole.BodyStrong)
-                        Text(device.appId, role = TextRole.Caption)
+                        Text(device.hello.appLabel, role = TextRole.Caption)
                     }
                     TextButton(
                         "Reconnect",

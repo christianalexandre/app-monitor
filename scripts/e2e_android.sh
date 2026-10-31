@@ -48,3 +48,4 @@ GET $target/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OP
 GET $target/status/418 ResponseReceived mock:1"
 
 assert_envelopes "$app" "$expected" "$timeout" "logcat in $out/logcat.txt" "$host:$target_port"
+assert_app_name "$app" "AppMonitor Sample"

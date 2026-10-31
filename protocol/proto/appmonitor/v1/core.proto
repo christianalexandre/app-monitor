@@ -26,6 +26,8 @@ message Hello {
   repeated string channels = 9;
   // Which SDK opened the session: "kotlin" (sdk/core) or "swift" (sdk/ios).
   string sdk_name = 10;
+  // AppMonitorOptions.appName; empty when the app set none (ADR-0165).
+  string app_name = 11;
 }
 
 message HelloAck {
