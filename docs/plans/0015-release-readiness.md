@@ -83,14 +83,19 @@ This plan becomes `Active` once PLAN-0014 closes.
   Done: the old target failed 3 of 10 runs with the DEBT's
   `NoSuchFileException` on a churned file; the current one passed 50 of
   50, the root project's string targets 20 of 20 (DEBT-0017).
+- [x] **H5.2f One LAN filter, without tunnels.** (`fix/lan-filter-drops-tunnels`)
+  Split from H5.2: DEBT-0036 and DEBT-0005. The advertiser already
+  dropped point-to-point interfaces; the fake client's copy and
+  `LifecycleTest.bindsLoopbackOnly` did not. All three use
+  `LanAddresses` now (ADR-0164). No VPN on the loop's Mac: `make check`
+  with one up moved to DEBT-0036's trigger.
+  Accept: `LanAddressesTest` rejecting a tunnel's flags; the mDNS,
+  discovery and loopback tests 50 times green locally; `make check`.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065 and DEBT-0091. The mDNS and loopback tests
-  ignore point-to-point and tunnel interfaces, so a VPN no longer fails
-  `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
-  in `desktop/mcp`).
+  runner) and fixed at its cause, never skipped: DEBT-0065 and DEBT-0091.
   Accept: each test run 50 times in a row green locally, its command and
-  count in the PR; `make check` green on the Mac with the VPN up.
+  count in the PR.
 - [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
   the wire carries what a later version cannot add without breaking an
   old one: `Hello` sends `appName` (DEBT-0024); the desktop sees how many
