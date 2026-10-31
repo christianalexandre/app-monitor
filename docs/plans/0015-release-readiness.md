@@ -39,10 +39,14 @@ This plan becomes `Active` once PLAN-0014 closes.
   `e2e-ios-grpc` under its timeout; the job times in the PR.
   Done: #323; release gate runs 41141294007, 41145340850 and 41148911458
   on its head, all green, `e2e-ios-grpc` 39, 24 and 38 min of 50.
+- [x] **H5.2a The fake client's close reason.** (`test/flaky-tests-at-their-cause`)
+  Split from H5.2: DEBT-0032 and DEBT-0056 are one cause, a test desktop
+  that resets the connection after its close; reproduced on Linux with a
+  resetting peer, the test desktop now reads until the client's close.
+  Accept: `HandshakeFailureTest` and `MainTest` 50 times green locally.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0032, DEBT-0056,
-  DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, and locally
+  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, and locally
   DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
