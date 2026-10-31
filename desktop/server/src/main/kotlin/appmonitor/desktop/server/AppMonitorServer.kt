@@ -11,14 +11,10 @@ import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
-import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
-import io.ktor.server.websocket.webSocket
+import io.ktor.server.websocket.webSocketRaw
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
-import io.ktor.websocket.FrameTooBigException
-import io.ktor.websocket.ProtocolViolationException
-import io.ktor.websocket.close
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -79,7 +75,7 @@ class AppMonitorServer internal constructor(
     @Volatile private var stopped = false
 
     // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
-    private val connections = ConcurrentHashMap<DefaultWebSocketServerSession, Hello>()
+    private val connections = ConcurrentHashMap<DeviceConnection, Hello>()
 
     // ADR-0166: frames read and lost so far, per closed session, for the next session's DeliveryReport.
     private val closedSessions =
@@ -107,13 +103,17 @@ class AppMonitorServer internal constructor(
         try {
             val engine =
                 createEngine {
-                    install(WebSockets) {
-                        maxFrameSize = Protocol.MAX_FRAME_BYTES
-                        pingPeriodMillis = pingPeriod.inWholeMilliseconds
-                        timeoutMillis = pingTimeout.inWholeMilliseconds
-                    }
+                    install(WebSockets) { maxFrameSize = Protocol.MAX_FRAME_BYTES }
                     routing {
-                        webSocket(Protocol.WEBSOCKET_PATH) { serve() }
+                        webSocketRaw(Protocol.WEBSOCKET_PATH, negotiateExtensions = false) {
+                            val connection = DeviceConnection(this, call.request.local.remoteAddress, pingPeriod, pingTimeout, CLOSE_GRACE)
+                            connection.start()
+                            try {
+                                connection.serve()
+                            } finally {
+                                connection.finish()
+                            }
+                        }
                     }
                 }
             server = engine
@@ -204,7 +204,7 @@ class AppMonitorServer internal constructor(
         }
     }
 
-    private suspend fun DefaultWebSocketServerSession.serve() {
+    private suspend fun DeviceConnection.serve() {
         val first = withTimeoutOrNull(handshakeTimeout) { incoming.receiveCatching() }
         if (first == null) {
             closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
@@ -227,7 +227,7 @@ class AppMonitorServer internal constructor(
         }
     }
 
-    private suspend fun DefaultWebSocketServerSession.handshaken(hello: Hello) {
+    private suspend fun DeviceConnection.handshaken(hello: Hello) {
         val approved = awaitApproval(hello) ?: return
         if (!approved) {
             closeAndDrain(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
@@ -238,7 +238,7 @@ class AppMonitorServer internal constructor(
                 id = UUID.randomUUID().toString(),
                 hello = hello,
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
-                peerAddress = call.request.local.remoteAddress,
+                peerAddress = peerAddress,
             )
         // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
         val publication =
@@ -285,10 +285,6 @@ class AppMonitorServer internal constructor(
                 envelope.toDeliveryReport()?.let { session.report(drops(it, session.drops.value)) }
                 session.deliver(envelope)
             }
-        } catch (_: FrameTooBigException) {
-            flushClose()
-        } catch (_: ProtocolViolationException) {
-            flushClose()
         } finally {
             synchronized(closedSessions) {
                 closedSessions[session.id] = Received(received, session.drops.value?.lost)
@@ -323,18 +319,13 @@ class AppMonitorServer internal constructor(
     }
 
     // Closing TCP with the device's frames unread resets it, and the device may lose this close.
-    private suspend fun DefaultWebSocketServerSession.closeAndDrain(reason: CloseReason) {
+    private suspend fun DeviceConnection.closeAndDrain(reason: CloseReason) {
         close(reason)
-        withTimeoutOrNull(CLOSE_GRACE) { while (incoming.receiveCatching().isSuccess) Unit }
-    }
-
-    // Ktor only queued its 1009 or 1002 close: returning before it is written loses it, the device sees 1006.
-    private suspend fun DefaultWebSocketServerSession.flushClose() {
-        withTimeoutOrNull(CLOSE_GRACE) { flush() }
+        for (frame in incoming) Unit
     }
 
     // No timeout: the user may take minutes. The device leaving, or sending before HelloAck, withdraws the request.
-    private suspend fun DefaultWebSocketServerSession.awaitApproval(hello: Hello): Boolean? =
+    private suspend fun DeviceConnection.awaitApproval(hello: Hello): Boolean? =
         coroutineScope {
             val decision = async { approval.approve(hello) }
             select {

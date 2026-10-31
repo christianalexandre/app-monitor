@@ -84,6 +84,11 @@ Fired by PLAN-0015 H5.3b (`feat/delivery-report`), which counts the frames
 `DeviceSession.drops` (ADR-0166): `retryLost`, health, `close`,
 `whileOpen` and the handshake's outcomes are untouched. Kept as is.
 
+Fired by PLAN-0015 H5.3 (`fix/server-owns-websocket-close`), which moves
+`AppMonitorServer`'s route to a raw session read by `DeviceConnection`
+(ADR-0167): `retryLost`, health, `close`, `whileOpen` and the handshake's
+outcomes are untouched. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

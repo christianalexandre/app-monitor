@@ -211,10 +211,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
 
 - **Slow writer.** The queue absorbs it until 64 MiB of encoded envelopes
   are waiting (about 50 frames of `Protocol.MAX_FRAME_BYTES`). Below that
-  the collector never waits for SQLite, so `DeviceSession` keeps reading
-  the socket and its pongs (DEBT-0022). Full → `enqueue` suspends, which is
-  today's back-pressure (ADR-0009): nothing is dropped, and DEBT-0022 is
-  back for as long as it lasts. `queueFullWaits` counts those waits and
+  the collector never waits for SQLite. Full → `enqueue` suspends: nothing
+  is dropped, and the server keeps reading devices and their pongs into
+  memory meanwhile (ADR-0167, DEBT-0113). `queueFullWaits` counts those waits and
   `close` logs it when it is not zero. Measured in M5.4: 10 000 requests
   over one real session stored in 0.7 s with a high-water mark of 2.5 MiB
   of 64 MiB and no wait (`TrafficStoreTest` on the owner's MacBook Pro).

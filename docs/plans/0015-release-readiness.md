@@ -135,7 +135,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   Done: migration 8 adds `sessions.drops_*`; a real server's report shown
   as "Dropped: 12 buffer full, 1 too large, lost unknown" (`drops.png`,
   DEBT-0023).
-- [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
+- [x] **H5.3 The protocol M10 freezes.** (`fix/server-owns-websocket-close`) Before the first published SDK,
   the wire carries what a later version cannot add without breaking an
   old one (the app name in H5.3a, drop counts in H5.3b); a frame the
   desktop rejects after the peer's close reaches the client as that
@@ -147,6 +147,10 @@ This plan becomes `Active` once PLAN-0014 closes.
   :desktop:server:test`, `make swift`; the app name and drop count
   assertions of H5.3a and H5.3b still green in `make e2e-android` and
   `make e2e-ios`.
+  Done: the device route is a raw Ktor session read by `DeviceConnection`
+  (ADR-0167); a rejection before the close got 1000 from the old server,
+  1002 now (DEBT-0014). DEBT-0022 did not happen on Ktor 3.6.0, whose
+  channels are unbounded; a test pins it, the memory it costs is DEBT-0113.
 - [ ] **H5.4 A device trusts only the desktop its developer chose.** The
   SDK stops connecting to the first `_appmonitor._tcp` it finds
   (DEBT-0020). The ADR weighs pinning the first desktop approved against

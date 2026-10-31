@@ -1,10 +1,10 @@
 ---
 id: DEBT-0022
 title: A stalled collector makes a healthy device miss its ping timeout
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-22
 trigger: The desktop logs "Storage queue was full" at close, or a session is seen closed with 1011 "Ping timeout" while the device was reachable
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0022 — A stalled collector makes a healthy device miss its ping timeout
@@ -35,4 +35,10 @@ a 64 MiB write queue, so the collector only waits once that queue is full
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Did not happen on Ktor 3.6.0: its default channels are unbounded, so
+Ktor read the socket, pongs included, however far the collector lagged
+(ADR-0167 cites the sources). A test with a 100 ms ping, 500 envelopes and no
+collector for 1 s kept its session on the old server and on the new one
+(`ServerHardeningTest`). The raw session of ADR-0167 keeps that property on
+purpose: pongs are read by `DeviceConnection` apart from the handler. What
+is left is the unbounded memory it costs, DEBT-0113.

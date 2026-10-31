@@ -31,7 +31,7 @@ Rules:
 | [0011](0011-fake-client-discovery-listener.md) | Fake client discovery blocks the JmDNS listener and matches names by case | More than one `_appmonitor._tcp` service is seen on one LAN, or M1 `sdk/core` implements discovery | Paid |
 | [0012](0012-mdns-instances-share-names.md) | Per-address mDNS instances share a host and service name | A desktop with two addresses on one LAN is seen renamed or flapping, or an SDK option filters by service name | Open |
 | [0013](0013-loop-timeout-leaves-children.md) | Loop timeout kills only the session process | An iteration after a timeout fails on a held port or a Gradle lock | Open |
-| [0014](0014-late-frame-rejection-reported-normal.md) | A rejection of a late frame reaches the client as a normal close | An SDK or a test needs to know the desktop rejected one of the last frames it sent | Open |
+| [0014](0014-late-frame-rejection-reported-normal.md) | A rejection of a late frame reaches the client as a normal close | An SDK or a test needs to know the desktop rejected one of the last frames it sent | Paid |
 | [0015](0015-stop-bound-vs-jmdns-close.md) | The 5 s stop bound may cut a slow mDNS close | A "Server stop timed out" status or a shutdown hook timeout seen on a real desktop | Open |
 | [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Open |
 | [0017](0017-spotless-walks-build-dir.md) | Spotless walks build directories while tests write them | The same spotless failure on a build file appears a second time, locally or in CI | Paid |
@@ -39,7 +39,7 @@ Rules:
 | [0019](0019-sdk-bodies-not-masked.md) | The SDK masks headers and query parameters, never bodies | The first request to mask a field inside a request or response body | Open |
 | [0020](0020-device-trusts-any-desktop.md) | A device sends its traffic to any desktop that advertises the service | Before the first public release of an SDK | Open |
 | [0021](0021-sdk-frames-over-desktop-limit.md) | An SDK frame over the desktop's limit ends the session | M1.7 exposes `maxBodyBytes` in `sdk/android-okhttp` | Paid |
-| [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | The desktop logs "Storage queue was full" at close, or a session closed with 1011 "Ping timeout" while the device was reachable | Open |
+| [0022](0022-stalled-collector-misses-pongs.md) | A stalled collector makes a healthy device miss its ping timeout | The desktop logs "Storage queue was full" at close, or a session closed with 1011 "Ping timeout" while the device was reachable | Paid |
 | [0023](0023-sdk-event-loss-is-silent.md) | Events the SDK drops are invisible in the desktop window | PLAN-0015 H5.3c, the next task after H5.3b | Paid |
 | [0024](0024-app-name-not-sent.md) | `AppMonitorOptions.appName` is accepted but never sent | The desktop shows an app by name (M1.9 approval dialog or later), or `Hello` gains an app name field | Paid |
 | [0025](0025-websocket-frames-cut-silently.md) | WebSocket frame payloads are cut without a marker, pings unseen | The desktop renders WebSocket frames (M1.10), or a frame over `maxBodyBytes` is reported shown whole | Paid |
@@ -130,3 +130,4 @@ Rules:
 | [0110](0110-stalled-desktop-breakpoint-test-timed-out-on-ci.md) | A stalled desktop breakpoint test timed out once on CI | A second failure of `StalledDesktopBreakpointTest`, or PLAN-0015 H5.2 starts | Paid |
 | [0111](0111-ios-sdk-never-tested-below-ios-26.md) | The iOS SDK is tested on iOS 26 and macOS only, never on the iOS 15 it supports | PLAN-0015 H5.6 starts, or the next PR that changes `Mocks.swift`, `Breakpoints.swift` or the platforms of `Package.swift` | Open |
 | [0112](0112-held-task-cancelled-reports-its-end-first.md) | A held iOS task the app cancels can report its end before its start | A second failure of `aHeldTaskTheAppCancelsIsCapturedStartedThenFailed`, or PLAN-0015 H5.2 starts | Paid |
+| [0113](0113-device-frames-wait-in-memory-without-a-bound.md) | Device frames wait in the desktop's memory without a bound while the collector lags | The desktop logs "Storage queue was full", or runs out of heap with devices connected; or a change to `DeviceConnection.kt`'s frame queue | Open |
