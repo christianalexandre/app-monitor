@@ -99,11 +99,15 @@ This plan becomes `Active` once PLAN-0014 closes.
   pass within its timeout.
   Accept: a test holding a retention pass on the writer failing on the
   old `close`; `WriteQueueTest` 50 times green under CPU load.
-- [ ] **H5.2 A gate that fails only on a real failure.** Each test that
-  failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065.
+- [x] **H5.2 A gate that fails only on a real failure.** (`test/settings-ui-test-repeated`)
+  Each test that failed once on CI is reproduced (repeated runs, a held
+  port, a loaded runner) and fixed at its cause, never skipped: DEBT-0065.
   Accept: each test run 50 times in a row green locally, its command and
   count in the PR.
+  Done: H5.2a to H5.2g paid the rest. DEBT-0065's settings timeout did not
+  reproduce: the current test and the stored path #187 timed out on, 50 of
+  50 each under CPU load and 10 of 10 each in a two-processor cold JVM;
+  dropped, the session it waited for is read from memory since #277.
 - [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
   the wire carries what a later version cannot add without breaking an
   old one: `Hello` sends `appName` (DEBT-0024); the desktop sees how many
