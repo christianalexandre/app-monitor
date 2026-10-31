@@ -5,6 +5,7 @@ import appmonitor.v1.BreakpointAbort
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointResume
 import appmonitor.v1.BreakpointRules
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -110,10 +111,13 @@ internal class MonitorClient(
     /** The requests a `ReplayRequest` can name, kept by the capture modules; emptied when a session ends. */
     val replays: RecentRequests = RecentRequests()
 
-    /** Envelopes dropped by the buffer or for their size (DEBT-0023). */
+    /** Envelopes dropped by the buffer or for their size, reported to the desktop (ADR-0166). */
     val dropped: Long get() = buffer.dropped + synchronized(lock) { oversized }
 
     private var oversized = 0L
+
+    // The last session's HelloAck id and frames written after Hello on it (ADR-0166); under lock.
+    private var previousSession: Pair<String, Long>? = null
 
     private var connectFailureLogged = false
 
@@ -279,29 +283,62 @@ internal class MonitorClient(
         connectFailureLogged = false
         mutableState.value = ClientState.Connected
         val accepted = ack.channels.toSet()
-        coroutineScope {
-            val sender =
-                launch {
-                    while (true) {
-                        val frame = buffer.take()
-                        if (frame.channel in accepted) {
-                            ws.send(Frame.Binary(true, frame.bytes))
-                            ws.flush()
-                        } else {
-                            frame.onDropped?.invoke()
+        val reports = Protocol.CHANNEL_CORE in accepted
+        var written = 0L
+        try {
+            coroutineScope {
+                val sender =
+                    launch {
+                        var reported: Pair<Long, Long>? = null
+                        while (true) {
+                            val drops = buffer.dropped to synchronized(lock) { oversized }
+                            if (reports && drops != reported) {
+                                ws.send(Frame.Binary(true, deliveryReport(drops).encode()))
+                                synchronized(lock) { written++ }
+                                ws.flush()
+                                reported = drops
+                                continue
+                            }
+                            val frame = buffer.take()
+                            if (frame.channel in accepted) {
+                                ws.send(Frame.Binary(true, frame.bytes))
+                                synchronized(lock) { written++ }
+                                ws.flush()
+                            } else {
+                                frame.onDropped?.invoke()
+                            }
                         }
                     }
+                try {
+                    for (frame in ws.incoming) receive(frame, accepted)
+                } finally {
+                    mocks.clear()
+                    breakpoints.clear()
+                    replays.clear()
                 }
-            try {
-                for (frame in ws.incoming) receive(frame, accepted)
-            } finally {
-                mocks.clear()
-                breakpoints.clear()
-                replays.clear()
+                sender.cancel()
             }
-            sender.cancel()
+        } finally {
+            synchronized(lock) { previousSession = ack.session_id to written }
         }
         return closeOutcome(ws)
+    }
+
+    /** ADR-0166: counts from this client's start, and the frames written on its previous session. */
+    private fun deliveryReport(drops: Pair<Long, Long>): Envelope {
+        val previous = synchronized(lock) { previousSession }
+        return Envelope(
+            channel = Protocol.CHANNEL_CORE,
+            type = "DeliveryReport",
+            payload =
+                DeliveryReport(
+                    evicted = drops.first,
+                    oversized = drops.second,
+                    previous_session_id = previous?.first.orEmpty(),
+                    previous_session_written = previous?.second ?: 0L,
+                ).encodeByteString(),
+            timestamp_ms = Clock.System.now().toEpochMilliseconds(),
+        )
     }
 
     /** A desktop's envelope on an accepted channel; one this SDK does not know, or cannot decode, is ignored. */

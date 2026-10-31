@@ -118,19 +118,32 @@ This plan becomes `Active` once PLAN-0014 closes.
   `make e2e-ios` asserting the app name.
   Done: the suites, `make check` and `make e2e-android`, `make e2e-ios`
   and `make e2e-kmp` green, each asserting its sample's name (DEBT-0024).
-- [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
-  the wire carries what a later version cannot add without breaking an
-  old one (the app name in H5.3a): the desktop sees how many
-  events a device dropped and why, oversized, evicted or lost with a
-  socket (DEBT-0023); a frame the desktop rejects after the peer's close
-  reaches the client as that rejection (DEBT-0014); a lagging collector
-  no longer stops the server reading pongs, so a reachable device is not
-  closed with 1011 (DEBT-0022). New fields are optional: an SDK without
-  them still connects.
+- [x] **H5.3b Drop counts on the wire.** (`feat/delivery-report`)
+  Split from H5.3: DEBT-0023, its wire half. Both SDKs send a `core`
+  `DeliveryReport` (evicted, oversized, the previous session's written
+  frames); `AppMonitorServer` turns it into `DeviceSession.drops`, lost
+  included, and the headless server logs it (ADR-0166).
   Accept: `./gradlew :protocol:allTests :sdk:core:allTests
   :desktop:server:test`; fixtures regenerated and mirrored in
-  `Samples.swift`, `make swift`; `make e2e-android` and `make e2e-ios`
-  asserting the app name and a drop count of zero.
+  `Samples.swift`, `make swift`; `make e2e-android`, `make e2e-ios` and
+  `make e2e-kmp` asserting a drop count of zero.
+- [ ] **H5.3c Drops in the desktop window.** Split from H5.3: DEBT-0023's
+  rest. The store keeps each session's `DeviceSession.drops`, and the
+  devices pane shows a device's when one is not zero, lost unknown said so.
+  Accept: `./gradlew :desktop:storage:test :desktop:app:test`, a screenshot
+  of a device with drops.
+- [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
+  the wire carries what a later version cannot add without breaking an
+  old one (the app name in H5.3a, drop counts in H5.3b); a frame the
+  desktop rejects after the peer's close reaches the client as that
+  rejection (DEBT-0014); a lagging collector no longer stops the server
+  reading pongs, so a reachable device is not closed with 1011
+  (DEBT-0022). New fields are optional: an SDK without them still
+  connects.
+  Accept: `./gradlew :protocol:allTests :sdk:core:allTests
+  :desktop:server:test`, `make swift`; the app name and drop count
+  assertions of H5.3a and H5.3b still green in `make e2e-android` and
+  `make e2e-ios`.
 - [ ] **H5.4 A device trusts only the desktop its developer chose.** The
   SDK stops connecting to the first `_appmonitor._tcp` it finds
   (DEBT-0020). The ADR weighs pinning the first desktop approved against

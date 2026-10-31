@@ -1,6 +1,7 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
@@ -81,6 +82,24 @@ class MonitorClientTest {
             repeat(10) { client.send(request("q$it")) }
             val second = desktop(first.port)
             assertEquals(List(10) { "q$it" }, second.requestIds(10))
+        }
+
+    // ADR-0166: the next session names the last one and the frames written on it, its own report included.
+    @Test
+    fun aReconnectReportsWhatThePreviousSessionWrote() =
+        runBlocking {
+            val first = desktop()
+            val client = client(first.port)
+            repeat(2) { client.send(request("q$it")) }
+            assertEquals(listOf("q0", "q1"), first.requestIds(2))
+            assertEquals(DeliveryReport(), withTimeout(5.seconds) { first.reports.receive() })
+            first.stop()
+            client.awaitState(ClientState.BackingOff)
+            val second = desktop(first.port)
+            assertEquals(
+                DeliveryReport(previous_session_id = "stand-in", previous_session_written = 3),
+                withTimeout(5.seconds) { second.reports.receive() },
+            )
         }
 
     @Test

@@ -119,6 +119,13 @@ class MainTest {
         assertEquals("interaction/ReplayRequest", replayRequestEnvelope("r1", 0).run { "$channel/$type" })
     }
 
+    // The end to end scripts match this line (ADR-0166).
+    @Test
+    fun `drops are logged with each count, lost unknown when the previous session is not known`() {
+        assertEquals("drops: evicted 0, oversized 0, lost 0", describe(Drops(0, 0, 0)))
+        assertEquals("drops: evicted 3, oversized 1, lost unknown", describe(Drops(3, 1, null)))
+    }
+
     @Test
     fun `a refused replay is logged with its reason`() {
         val refused = ReplayRefused(request_id = "r1", reason = "not kept")

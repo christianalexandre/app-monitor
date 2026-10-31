@@ -1,6 +1,7 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -15,6 +16,7 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
@@ -30,6 +32,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AppMonitorServerTest {
@@ -165,6 +168,45 @@ class AppMonitorServerTest {
         return resolved.await()
     }
 
+    // ADR-0166: frames a session's device wrote that this desktop never read are lost, summed over the SDK's sessions.
+    @Test
+    fun `a delivery report counts what the previous session wrote and was never read as lost`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+            withTimeout(TIMEOUT_MS) {
+                val first = session(port, report(), requestStarted("req-1"), requestStarted("req-2"))
+                assertEquals(Drops(0, 0, 0), first.drops.value)
+
+                val second = session(port, report(evicted = 4, oversized = 1, previous = first.id, written = 5))
+                assertEquals(Drops(4, 1, 2), second.drops.value)
+
+                val third = session(port, report(evicted = 4, oversized = 1, previous = second.id, written = 1))
+                assertEquals(Drops(4, 1, 2), third.drops.value)
+
+                assertNull(session(port, report(previous = "another-desktop", written = 1)).drops.value?.lost)
+                assertNull(session(port, requestStarted("req-3")).drops.value)
+            }
+        }
+
+    // One whole session: Hello, then [frames] read by the desktop, then a normal close; returns once the desktop ended it.
+    private suspend fun CoroutineScope.session(
+        port: Int,
+        vararg frames: Envelope,
+    ): DeviceSession {
+        val published = async { server!!.sessions.first() }
+        connect(port) {
+            send(Frame.Binary(true, hello.encode()))
+            receiveEnvelope()
+            frames.forEach { send(Frame.Binary(true, it.encode())) }
+            published
+                .await()
+                .envelopes
+                .take(frames.size)
+                .toList()
+        }
+        return published.await().also { it.envelopes.toList() }
+    }
+
     private suspend fun start(config: ServerConfig): Int = AppMonitorServer(config).also { server = it }.start()
 
     private suspend fun <T> connect(
@@ -196,6 +238,17 @@ class AppMonitorServerTest {
                     channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, "unknown"),
                 ).encode(),
             )
+
+        fun report(
+            evicted: Long = 0,
+            oversized: Long = 0,
+            previous: String = "",
+            written: Long = 0,
+        ) = envelope(
+            Protocol.CHANNEL_CORE,
+            "DeliveryReport",
+            DeliveryReport(evicted, oversized, previous, written).encode(),
+        )
 
         fun requestStarted(id: String) =
             envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", RequestStarted(request_id = id, method = "GET").encode())

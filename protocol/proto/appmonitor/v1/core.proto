@@ -37,3 +37,17 @@ message HelloAck {
   // Subset of Hello.channels the desktop accepted.
   repeated string channels = 3;
 }
+
+// Sent by the device after HelloAck before any other envelope, then before the
+// next envelope whenever a count grew (ADR-0166). Counts run from the SDK's
+// start, across its sessions.
+message DeliveryReport {
+  // Oldest envelopes dropped to make room in the device's buffer.
+  int64 evicted = 1;
+  // Envelopes larger than a frame, dropped before the buffer.
+  int64 oversized = 2;
+  // HelloAck.session_id of this SDK start's previous session; empty for the first.
+  string previous_session_id = 3;
+  // Frames the device wrote after Hello on that session.
+  int64 previous_session_written = 4;
+}

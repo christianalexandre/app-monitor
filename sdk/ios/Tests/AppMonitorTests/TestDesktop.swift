@@ -36,7 +36,14 @@ final class TestDesktop: @unchecked Sendable {
 
     var envelopes: [Appmonitor_V1_Envelope] { queue.sync { received } }
 
-    var events: [Appmonitor_V1_Envelope] { envelopes.filter { $0.type != "Hello" } }
+    /// What the SDK captured: neither `Hello` nor its own `DeliveryReport` (ADR-0166).
+    var events: [Appmonitor_V1_Envelope] { envelopes.filter { $0.type != "Hello" && $0.type != "DeliveryReport" } }
+
+    var reports: [Appmonitor_V1_DeliveryReport] {
+        envelopes.filter { $0.type == "DeliveryReport" }.compactMap {
+            try? Appmonitor_V1_DeliveryReport(serializedBytes: $0.payload)
+        }
+    }
 
     var closes: [NWProtocolWebSocket.CloseCode] { queue.sync { closeCodes } }
 

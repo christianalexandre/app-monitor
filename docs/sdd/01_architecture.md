@@ -35,7 +35,7 @@ Schema `appmonitor.v1` in `protocol/proto/` (ADR-0008):
 
 | Channel | Messages |
 | --- | --- |
-| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077; `app_name` from the options, ADR-0165), `HelloAck` |
+| `core` | `Hello` (device → desktop, first frame; `sdk_name` `kotlin` or `swift`, ADR-0077; `app_name` from the options, ADR-0165), `HelloAck`, `DeliveryReport` (device → desktop, after `HelloAck` and whenever a drop count grew, ADR-0166) |
 | `network` | `RequestStarted`, `ResponseReceived`, `RequestFailed`, `WebSocketFrame` |
 | `interaction` | `MockRules`, `BreakpointRules`, `BreakpointResume`, `BreakpointAbort` (desktop → device); `BreakpointHit` (device → desktop) (SDD 12, ADR-0113, ADR-0118) |
 
@@ -73,6 +73,7 @@ device                         AppMonitorServer
   │                            │ pending: DeviceApproval.approve(hello), no timeout
   │                            │   rejected → close 1008; any frame → close 1002
   │◄─ Envelope(core, HelloAck) │ session_id, accepted channels (core, network, interaction)
+  │── DeliveryReport (core) ──►│ → DeviceSession.drops (ADR-0166)
   │── Envelope(…) ×N ─────────►│ → DeviceSession.envelopes
   │◄─ Envelope(…) ×N ──────────│ ← DeviceSession.send, after HelloAck only
   │                            │ channel not accepted, or a known network event
@@ -85,6 +86,13 @@ device                         AppMonitorServer
 - `DeviceSession.envelopes: Flow<Envelope>`: every envelope after `Hello`,
   in order; completes when the socket closes. A non-binary or undecodable
   frame closes the connection with 1002.
+- `DeviceSession.drops: StateFlow<Drops?>`: what the device's SDK dropped
+  since it started, from its latest `DeliveryReport`: `evicted` and
+  `oversized` as the device counted them, `lost` the frames it wrote on its
+  earlier sessions that this server never read (frames read per closed
+  session kept for the 1024 latest). Null before a report (an older SDK);
+  `lost` null when a previous session is not among them (ADR-0166). The
+  headless server logs it as `drops: evicted N, oversized N, lost N`.
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an
   accepted channel, written in order after `HelloAck` (SDD 12).
 - Both flows are bounded/single-collector: a lagging collector stops socket

@@ -79,6 +79,11 @@ which changes only how `AppMonitorServer` closes a connection (its close
 written, the device's read back): `retryLost`, health, `close`,
 `whileOpen` and the handshake's outcomes are untouched. Kept as is.
 
+Fired by PLAN-0015 H5.3b (`feat/delivery-report`), which counts the frames
+`AppMonitorServer` reads per session and turns a `DeliveryReport` into
+`DeviceSession.drops` (ADR-0166): `retryLost`, health, `close`,
+`whileOpen` and the handshake's outcomes are untouched. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

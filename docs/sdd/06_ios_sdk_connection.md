@@ -136,12 +136,13 @@ released once the last handler has run.
 SDD 04's, unchanged: any thread, never blocks beyond the lock, 4096
 envelopes and 8 MiB, oldest dropped, envelopes over
 `Protocol.MAX_FRAME_BYTES` dropped before entering, at most once, memory
-only.
+only. The same `DeliveryReport` (ADR-0166), written by `pump()` ahead of
+the next frame; a frame counts as written once handed to
+`NWConnection.send`.
 
 ## Limits
 
-- Everything in SDD 04's limits applies, DEBT-0020, DEBT-0023 and DEBT-0024
-  included.
+- Everything in SDD 04's limits applies, DEBT-0020 and DEBT-0023 included.
 - A suspended app runs no timers: a connection the OS dropped meanwhile is
   noticed when the app resumes, by `.failed` or the pong deadline.
 - Local network privacy exists only on a device (TN3179, ADR-0036): the

@@ -87,3 +87,4 @@ POST https://127.0.0.1:$grpc_port/grpcbin.GRPCBin/DummyUnary ResponseReceived DI
 
 assert_envelopes "$app" "$expected" "$timeout" "simulator log in $out/simulator.log" "127.0.0.1:$target_port"
 assert_app_name "$app" "iOS sample"
+assert_no_drops "$app"

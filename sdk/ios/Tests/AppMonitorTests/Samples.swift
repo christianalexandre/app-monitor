@@ -28,6 +28,13 @@ enum Samples {
         $0.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
     }
 
+    static let deliveryReport = Appmonitor_V1_DeliveryReport.with {
+        $0.evicted = 3
+        $0.oversized = 1
+        $0.previousSessionID = "session-0000"
+        $0.previousSessionWritten = 42
+    }
+
     static let requestStarted = Appmonitor_V1_RequestStarted.with {
         $0.requestID = requestId
         $0.method = "POST"
@@ -173,6 +180,7 @@ enum Samples {
     static let messages: [String: (channel: String, type: String, message: any ProtoMessage)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
         "hello_ack.bin": (ProtocolConstants.channelCore, "HelloAck", helloAck),
+        "delivery_report.bin": (ProtocolConstants.channelCore, "DeliveryReport", deliveryReport),
         "request_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", requestStarted),
         "response_received.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", responseReceived),
         "request_failed.bin": (ProtocolConstants.channelNetwork, "RequestFailed", requestFailed),
