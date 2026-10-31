@@ -61,7 +61,7 @@ emulator) / `127.0.0.1` (iOS simulator). See ADR-0002.
 `desktop/server` (`AppMonitorServer`) is a Ktor CIO WebSocket server on port
 `47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
 `_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
-address (point-to-point interfaces such as VPN tunnels excluded); TXT keys `v` (protocol version) and `path`. See ADR-0009.
+address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`, ADR-0164); TXT keys `v` (protocol version) and `path`. See ADR-0009.
 Advertising is all or nothing: if one address fails to register (an `Error`
 included), the instances already created are closed and `start()` stops the
 HTTP server before rethrowing, so the port is free again.
@@ -163,7 +163,7 @@ device                         AppMonitorServer
 per session connect/disconnect and per envelope, decoded for the `network`
 messages; with `--proxy <dir>` it also runs the proxy (SDD 11) and prints
 its exchanges as the `[proxy]` session. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
-the desktop over mDNS on every LAN IPv4 address, skipping one where JmDNS
+the desktop over mDNS on the same LAN IPv4 addresses (`LanAddresses`), skipping one where JmDNS
 cannot open (or at `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
 current time and closes. Any other first reply, or none within 10 s, closes

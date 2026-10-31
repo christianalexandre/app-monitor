@@ -22,7 +22,7 @@ Rules:
 | [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check` | Open |
 | [0003](0003-websocket-frames-not-shown.md) | Desktop app ignores WebSocket frames | The first SDK that emits `WebSocketFrame` lands | Paid |
 | [0004](0004-traffic-state-quadratic-ingest.md) | TrafficState ingest is linear per event | M5 replaces the in-memory store, or a session over 10k requests lags the UI | Paid |
-| [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or a JVM client of `sdk/core` needs mDNS | Open |
+| [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or a JVM client of `sdk/core` needs mDNS | Paid |
 | [0006](0006-body-rendering-unbounded.md) | Body rendering is synchronous and unbounded | The first SDK that captures real app bodies lands (M1), or a body freezes the detail pane | Paid |
 | [0007](0007-mdns-failure-stops-server.md) | mDNS failure on one interface stops the whole server | A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host | Open |
 | [0008](0008-accepted-channels-not-enforced.md) | Accepted channels are not enforced after the handshake | The first channel beyond `core` and `network` enters the protocol, or the M1 SDK sends envelopes | Paid |
@@ -53,7 +53,7 @@ Rules:
 | [0033](0033-m1-review-round-2-cleanups.md) | Non-correctness findings of the second M1 milestone review | The next PR that touches one of the files listed | Paid |
 | [0034](0034-m1-review-round-3-cleanups.md) | Non-correctness findings of the third M1 milestone review | The next PR that touches one of the files listed | Paid |
 | [0035](0035-non-http-location-not-masked.md) | A Location that is not an http or https URL is sent as received | The iOS SDK (M2) implements the URL masking rule, or a developer reports a secret seen in a custom-scheme redirect | Paid |
-| [0036](0036-mdns-test-fails-with-a-vpn-up.md) | The desktop's mDNS test fails while a VPN interface is up | The next PR that changes either LAN interface filter (DEBT-0005), or a device fails to find the desktop while the Mac has a VPN up | Open |
+| [0036](0036-mdns-test-fails-with-a-vpn-up.md) | The desktop's mDNS test fails while a VPN interface is up | `make check` runs on a Mac with a VPN up (its result in the PR that runs it), or a device fails to find the desktop while the Mac has a VPN up | Open |
 | [0037](0037-urlsession-send-time-headers.md) | Headers CFNetwork adds at send time are not captured on iOS | M2.13 compares the desktop with a server log of the same request, or a developer reports a header missing from an iOS request | Open |
 | [0038](0038-ios-websocket-ends-not-seen.md) | Some ends of an iOS WebSocket are not captured | M2.13 shows an iOS WebSocket ending differently from the Android sample's, or a developer reports an iOS WebSocket missing its close or failure | Open |
 | [0039](0039-background-tasks-from-an-earlier-launch.md) | Background tasks resumed before start() or in an earlier launch are not captured | M2.12's background download is missing from the desktop after the sample is relaunched, or a developer reports a background transfer missing | Paid |

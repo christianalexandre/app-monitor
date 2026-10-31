@@ -1,9 +1,7 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
-import java.net.Inet4Address
 import java.net.InetAddress
-import java.net.NetworkInterface
 import javax.jmdns.JmDNS
 import javax.jmdns.ServiceInfo
 
@@ -31,7 +29,7 @@ internal class MdnsAdvertiser private constructor(
         fun start(
             serviceName: String,
             port: Int,
-            addresses: List<InetAddress> = lanAddresses(),
+            addresses: List<InetAddress> = LanAddresses.current(),
             register: (InetAddress) -> AutoCloseable = { register(it, serviceName, port) },
         ): MdnsAdvertiser {
             val registrations = mutableListOf<Pair<InetAddress, AutoCloseable>>()
@@ -71,13 +69,5 @@ internal class MdnsAdvertiser private constructor(
                 0,
                 mapOf("v" to Protocol.VERSION.toString(), Protocol.MDNS_TXT_PATH to Protocol.WEBSOCKET_PATH),
             )
-
-        fun lanAddresses(): List<InetAddress> =
-            NetworkInterface
-                .networkInterfaces()
-                .toList()
-                .filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint && it.supportsMulticast() }
-                .flatMap { it.inetAddresses.toList() }
-                .filterIsInstance<Inet4Address>()
     }
 }

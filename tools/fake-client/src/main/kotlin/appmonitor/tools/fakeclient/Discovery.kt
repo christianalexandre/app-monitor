@@ -1,5 +1,6 @@
 package appmonitor.tools.fakeclient
 
+import appmonitor.desktop.server.LanAddresses
 import appmonitor.protocol.DesktopAnswer
 import appmonitor.protocol.DesktopSelector
 import appmonitor.protocol.Protocol
@@ -12,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Inet4Address
-import java.net.NetworkInterface
 import javax.jmdns.JmDNS
 import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
@@ -25,7 +25,7 @@ import javax.jmdns.ServiceListener
 internal suspend fun discover(
     timeoutMs: Long,
     serviceName: String? = null,
-    addresses: () -> List<Inet4Address> = ::lanAddresses,
+    addresses: () -> List<Inet4Address> = LanAddresses::current,
     resolve: (ServiceEvent) -> Unit = { it.dns.requestServiceInfo(it.type, it.name, timeoutMs) },
     browse: (Inet4Address, ServiceListener) -> AutoCloseable = ::browse,
 ): Target? {
@@ -125,11 +125,3 @@ private fun browse(
     }
     return jmdns
 }
-
-private fun lanAddresses(): List<Inet4Address> =
-    NetworkInterface
-        .networkInterfaces()
-        .toList()
-        .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.supportsMulticast() }
-        .flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>()

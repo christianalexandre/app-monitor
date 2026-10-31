@@ -9,12 +9,12 @@ application {
 
 dependencies {
     implementation(project(":protocol"))
+    implementation(project(":desktop:server"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.ktor.client.cio)
     implementation(libs.jmdns)
 
     testImplementation(kotlin("test"))
-    testImplementation(project(":desktop:server"))
     testImplementation(libs.ktor.server.cio)
     testImplementation(libs.ktor.server.websockets)
 }
