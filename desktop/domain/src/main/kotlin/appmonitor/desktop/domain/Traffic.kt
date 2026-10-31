@@ -26,7 +26,19 @@ data class Session(
     val connectedAtMs: Long,
     val disconnectedAtMs: Long?,
     val lastEnvelopeAtMs: Long?,
+    /** What the app's SDK reported dropping; null before its first report, or from an SDK that sends none (ADR-0166). */
+    val drops: Drops? = null,
 )
+
+/** Events an SDK dropped since it started: its buffer full, too large to send, or sent and never read; [lost] null when unknown. */
+data class Drops(
+    val evicted: Long,
+    val oversized: Long,
+    val lost: Long?,
+) {
+    /** True when any count is above zero; an unknown [lost] alone is not. */
+    val any: Boolean get() = evicted > 0 || oversized > 0 || (lost ?: 0) > 0
+}
 
 /** One request as lists and filters show it; no body, no headers. */
 data class Exchange(

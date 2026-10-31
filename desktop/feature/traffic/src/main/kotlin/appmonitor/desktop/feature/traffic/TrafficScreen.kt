@@ -357,6 +357,9 @@ private fun DeviceList(
                         }}",
                         role = TextRole.Caption,
                     )
+                    session.drops?.takeIf { it.any }?.let { drops ->
+                        Text(dropsLabel(drops), Modifier.testTag(DROPS + session.id), error = true, role = TextRole.Caption)
+                    }
                     if (state.canDisconnect && state.runs.shownRunId == null && !refused && session.disconnectedAtMs == null) {
                         TextButton("Disconnect", onClick = { viewModel.disconnect(session) }, Modifier.testTag(DISCONNECT + session.id))
                     }

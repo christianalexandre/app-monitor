@@ -179,6 +179,13 @@ class Storage private constructor(
         queue.enqueue(StorageItem.Received(sessionId, envelope, clock()))
     }
 
+    override suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) {
+        queue.enqueue(StorageItem.Dropped(sessionId, drops))
+    }
+
     override suspend fun disconnected(sessionId: String) {
         queue.enqueue(StorageItem.Disconnected(sessionId, clock()))
     }
@@ -452,9 +459,8 @@ class Storage private constructor(
     }
 
     /**
-     * Deletes everything, issues and settings included, rewrites the file and opens a new run when [open] did (ADR-0088).
-     * Ends the recording. Connected sessions are forgotten: close them first. Failures go to [retentionStatus]; nothing is
-     * done once the store is closing.
+     * Deletes everything, issues and settings included, rewrites the file, opens a new run when [open] did and ends the recording
+     * (ADR-0088). Connected sessions are forgotten: close them first. Failures go to [retentionStatus]; none once closing.
      */
     suspend fun clearAll() {
         flush()
@@ -918,6 +924,7 @@ private fun Sessions.toStored() =
         connectedAtMs = connected_at_ms,
         disconnectedAtMs = disconnected_at_ms,
         lastEnvelopeAtMs = last_envelope_at_ms,
+        drops = storedDrops(drops_evicted, drops_oversized, drops_lost),
     )
 
 private fun OfRun.toStored() =
@@ -930,7 +937,14 @@ private fun OfRun.toStored() =
         connectedAtMs = connected_at_ms,
         disconnectedAtMs = disconnected_at_ms,
         lastEnvelopeAtMs = last_envelope_at_ms,
+        drops = storedDrops(drops_evicted, drops_oversized, drops_lost),
     )
+
+private fun storedDrops(
+    evicted: Long?,
+    oversized: Long?,
+    lost: Long?,
+) = if (evicted == null || oversized == null) null else StoredDrops(evicted, oversized, lost)
 
 /** `appmonitor.db` was written by a newer App Monitor; nothing was written to it. */
 class NewerDatabaseException(
@@ -1003,7 +1017,19 @@ data class StoredSession(
     val connectedAtMs: Long,
     val disconnectedAtMs: Long?,
     val lastEnvelopeAtMs: Long?,
+    /** Its latest `DeliveryReport`'s counts; null before one, or from an SDK that sends none (ADR-0166). */
+    val drops: StoredDrops? = null,
 )
+
+/** What a device's SDK dropped since it started: full buffer, too large, written and not read; [lost] null when unknown (ADR-0166). */
+data class StoredDrops(
+    val evicted: Long,
+    val oversized: Long,
+    val lost: Long?,
+) {
+    /** True when any count is above zero; an unknown [lost] alone is not. */
+    val any: Boolean get() = evicted > 0 || oversized > 0 || (lost ?: 0) > 0
+}
 
 /** The columns lists and filters read; no body, no headers. */
 data class StoredExchange(

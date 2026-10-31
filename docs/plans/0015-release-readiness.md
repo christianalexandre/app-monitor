@@ -127,11 +127,14 @@ This plan becomes `Active` once PLAN-0014 closes.
   :desktop:server:test`; fixtures regenerated and mirrored in
   `Samples.swift`, `make swift`; `make e2e-android`, `make e2e-ios` and
   `make e2e-kmp` asserting a drop count of zero.
-- [ ] **H5.3c Drops in the desktop window.** Split from H5.3: DEBT-0023's
+- [x] **H5.3c Drops in the desktop window.** (`feat/drops-in-devices-pane`) Split from H5.3: DEBT-0023's
   rest. The store keeps each session's `DeviceSession.drops`, and the
   devices pane shows a device's when one is not zero, lost unknown said so.
   Accept: `./gradlew :desktop:storage:test :desktop:app:test`, a screenshot
   of a device with drops.
+  Done: migration 8 adds `sessions.drops_*`; a real server's report shown
+  as "Dropped: 12 buffer full, 1 too large, lost unknown" (`drops.png`,
+  DEBT-0023).
 - [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,
   the wire carries what a later version cannot add without breaking an
   old one (the app name in H5.3a, drop counts in H5.3b); a frame the

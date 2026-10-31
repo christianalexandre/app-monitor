@@ -3,6 +3,7 @@ package appmonitor.desktop.app.store
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.storage.Storage
+import appmonitor.desktop.storage.StoredDrops
 import appmonitor.desktop.storage.TrafficSink
 import appmonitor.protocol.Protocol
 import kotlinx.coroutines.Job
@@ -36,8 +37,14 @@ internal class TrafficStore(
                         }
                     val timeouts = Job(coroutineContext.job)
                     replays.opened(session)
+                    var reported: StoredDrops? = null
                     try {
                         session.envelopes.collect { envelope ->
+                            // The server sets drops before it delivers their report: read here, they stay in order (ADR-0166).
+                            session.drops.value?.let { StoredDrops(it.evicted, it.oversized, it.lost) }?.takeIf { it != reported }?.let {
+                                reported = it
+                                sink.dropped(session.id, it)
+                            }
                             heldCalls.hold(session, envelope)?.let { call ->
                                 launch(timeouts) {
                                     delay(call.hit.timeout_ms)

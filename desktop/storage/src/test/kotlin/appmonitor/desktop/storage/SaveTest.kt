@@ -116,6 +116,9 @@ class SaveTest {
             DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
                 connection.createStatement().use {
                     it.execute("ALTER TABLE runs DROP COLUMN saved")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
                     it.execute("PRAGMA user_version = 7")
                 }
             }
@@ -125,6 +128,6 @@ class SaveTest {
                 assertEquals(listOf(false), storage.runs().map { it.saved })
                 storage.close(5.seconds)
             }
-            assertEquals(8, dir.queryLong("PRAGMA user_version"))
+            assertEquals(9, dir.queryLong("PRAGMA user_version"))
         }
 }
