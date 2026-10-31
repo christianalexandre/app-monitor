@@ -74,6 +74,11 @@ pins that a retry written alone clears the error, and keeping another
 batch's error needs to know which lost item each error came from, which
 the health does not keep. Kept as is.
 
+Fired by PLAN-0015 H5.2d (`fix/server-writes-its-close-before-hanging-up`),
+which changes only how `AppMonitorServer` closes a connection (its close
+written, the device's read back): `retryLost`, health, `close`,
+`whileOpen` and the handshake's outcomes are untouched. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

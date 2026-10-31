@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import okio.ByteString.Companion.toByteString
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -31,6 +32,7 @@ import java.net.Socket
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -158,6 +160,41 @@ class ServerHardeningTest {
     @Test
     fun `an undecodable network event closes with protocol error`() =
         assertRejected(envelope(Protocol.CHANNEL_NETWORK, "RequestFailed", byteArrayOf(0x0A, 0x7F)))
+
+    @Test
+    fun `after its protocol error close the server reads until the client's close`() =
+        runBlocking {
+            val port = start()
+            val session = async { server!!.sessions.first() }
+
+            withContext(Dispatchers.IO) {
+                Socket(HOST, port).use { socket ->
+                    socket.soTimeout = TIMEOUT.inWholeMilliseconds.toInt()
+                    val output = DataOutputStream(socket.getOutputStream())
+                    val input = DataInputStream(socket.getInputStream())
+                    output.upgrade(input)
+                    output.writeMaskedFrame(hello.encode())
+                    input.readFrame()
+                    output.writeMaskedFrame(envelope("logs", "LogLine", ByteArray(0)).encode())
+                    val code =
+                        generateSequence { input.readFrame() }.first { it.first == 0x8 }.second.let {
+                            DataInputStream(it.inputStream()).readUnsignedShort()
+                        }
+                    assertEquals(
+                        CloseReason.Codes.PROTOCOL_ERROR.code
+                            .toInt(),
+                        code,
+                    )
+                    val envelopes = withTimeout(TIMEOUT) { session.await() }.envelopes
+                    // Still reading: the session ends only once the client's close comes, or the bound passes.
+                    assertNull(withTimeoutOrNull(300.milliseconds) { envelopes.toList() })
+                    // An empty close, masked with a zero key.
+                    output.write(byteArrayOf(0x88.toByte(), 0x80.toByte(), 0, 0, 0, 0))
+                    output.flush()
+                    assertEquals(emptyList(), withTimeout(500.milliseconds) { envelopes.toList() })
+                }
+            }
+        }
 
     @Test
     fun `a network type the server does not know passes through`() =

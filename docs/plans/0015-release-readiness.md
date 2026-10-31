@@ -60,9 +60,21 @@ This plan becomes `Active` once PLAN-0014 closes.
   one failed.
   Done: under ten `yes` processes the old test failed 3 of 18 runs, the
   new one passed 50 of 50 (DEBT-0110).
+- [x] **H5.2d The desktop's close, written and read back.** (`fix/server-writes-its-close-before-hanging-up`)
+  Split from H5.2: DEBT-0066. On an oversized frame Ktor only queued its
+  1009 and the handler returned at once, so on Linux the close could be
+  lost; after its own closes the desktop closed TCP with the device's
+  frames unread, as the test desktop of H5.2a did. The handler now writes
+  Ktor's close before it returns, and reads until the device's close,
+  bounded at 1 s, after its own.
+  Accept: `./gradlew :desktop:server:test`; a test failing on the old
+  server shows it reads until the client's close; the oversized frame
+  loop in a Linux container, old against new.
+  Done: the new test fails on the old server; in a Linux container the
+  old server hit EOF in 1 of 700 runs, the new one in 0 of 1000 (DEBT-0066).
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, and locally
+  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0091, and locally
   DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`

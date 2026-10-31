@@ -1,10 +1,10 @@
 ---
 id: DEBT-0066
 title: The oversized frame server test hit EOF once on CI
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: "`ServerHardeningTest`'s oversized frame test (`desktop/server/src/test/kotlin/appmonitor/desktop/server/ServerHardeningTest.kt`) fails on CI a second time"
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0066 — The oversized frame server test hit EOF once on CI
@@ -45,4 +45,18 @@ EOF and check whether Ktor writes the close frame before closing.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0015 H5.2d (`fix/server-writes-its-close-before-hanging-up`).
+Both causes were in the handler. On an oversized frame Ktor queues its
+1009 and the handler returned at once, so the close could be lost; the
+handler now flushes it, bounded at 1 s, before it returns. After each
+close the desktop sends itself (1002, 1008, 1001) it now reads until the
+device's close, bounded at 1 s, instead of closing TCP with the device's
+frames unread.
+
+Evidence: the oversized frame test's steps as a loop in an
+`eclipse-temurin:21-jdk` container (2 CPUs), old server against new:
+the old one hit EOF in 1 of 700 runs (1 of 200, then 0 of 500), the new
+one in 0 of 1000, every other run read 1009. The rate is too low for that
+alone to prove the fix; the new `ServerHardeningTest` case `after its
+protocol error close the server reads until the client's close` fails on
+the old server and passes on the new.
