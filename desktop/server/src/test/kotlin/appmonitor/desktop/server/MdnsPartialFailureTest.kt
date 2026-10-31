@@ -1,5 +1,6 @@
 package appmonitor.desktop.server
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.net.InetAddress
@@ -59,15 +60,16 @@ class MdnsPartialFailureTest {
     @Test
     fun `failed advertising releases the bound port`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { _, _ ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { _, boundPort ->
+                    bound.complete(boundPort)
                     throw IOException("mDNS unavailable")
                 }
 
             assertFailsWith<IOException> { server.start() }
 
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
             assertTrue(server.advertisedAddresses.isEmpty())
         }
 

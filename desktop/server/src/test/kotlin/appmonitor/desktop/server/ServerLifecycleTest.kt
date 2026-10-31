@@ -40,15 +40,14 @@ class ServerLifecycleTest {
     @Test
     fun `failing registration close still closes the rest, frees the port and completes sessions`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registrations = List(3) { index -> Registration(failOnClose = index == 0) }
             val addresses = listOf("10.0.0.1", "10.0.0.2", "10.0.0.3").map { InetAddress.getByName(it) }
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     val next = registrations.iterator()
                     MdnsAdvertiser.start(name, boundPort, addresses) { next.next() }
                 }
-            server.start()
+            val port = server.start()
 
             val error = assertFailsWith<IOException> { server.stop() }
 
@@ -61,13 +60,14 @@ class ServerLifecycleTest {
     @Test
     fun `cancelling start during advertising closes every registration and frees the port`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registrations = CopyOnWriteArrayList<Registration>()
             val registering = CompletableDeferred<Unit>()
             val release = CountDownLatch(1)
             val addresses = listOf("10.0.0.1", "10.0.0.2").map { InetAddress.getByName(it) }
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    bound.complete(boundPort)
                     MdnsAdvertiser
                         .start(name, boundPort, addresses) {
                             Registration(failOnClose = false).also { registrations += it }
@@ -85,20 +85,21 @@ class ServerLifecycleTest {
 
             assertEquals(2, registrations.size)
             assertTrue(registrations.all { it.closed })
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
             server.stop()
         }
 
     @Test
     fun `failed start keeps its failure when the advertiser close also fails`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registration = Registration(failOnClose = true)
             val registering = CompletableDeferred<Unit>()
             val release = CountDownLatch(1)
             val failure = CompletableDeferred<Throwable>()
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    bound.complete(boundPort)
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
@@ -122,19 +123,20 @@ class ServerLifecycleTest {
             assertIs<CancellationException>(error)
             assertEquals(listOf("close failed"), error.suppressed.map { it.message })
             assertTrue(registration.closed)
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
             server.stop()
         }
 
     @Test
     fun `stop while the advertiser is being created closes it and fails start`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registration = Registration(failOnClose = false)
             val registering = CompletableDeferred<Unit>()
             val release = CountDownLatch(1)
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    bound.complete(boundPort)
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
@@ -152,18 +154,19 @@ class ServerLifecycleTest {
             assertIs<IllegalStateException>(result.exceptionOrNull())
             assertTrue(registration.closed)
             assertEquals(emptyList(), server.advertisedAddresses)
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
         }
 
     @Test
     fun `stop racing start rethrows the advertiser close failure`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registration = Registration(failOnClose = true)
             val registering = CompletableDeferred<Unit>()
             val release = CountDownLatch(1)
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    bound.complete(boundPort)
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         release.await()
@@ -181,22 +184,28 @@ class ServerLifecycleTest {
             assertEquals("close failed", stopFailure.message)
             assertIs<IllegalStateException>(startFailure)
             assertTrue(registration.closed)
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
         }
 
     @Test
     fun `stop while the engine is starting waits for start and frees the port`() =
         runBlocking<Unit> {
-            val port = ServerSocket(0).use { it.localPort }
+            val bound = CompletableDeferred<Int>()
             val entered = CompletableDeferred<Unit>()
             val gate = CompletableDeferred<Unit>()
             val server =
                 AppMonitorServer(
-                    ServerConfig(host = "127.0.0.1", port = port, advertise = false),
+                    ServerConfig(host = "127.0.0.1", port = 0, advertise = false),
                     startEngine = {
                         entered.complete(Unit)
                         gate.await()
                         it.startSuspend(wait = false)
+                        bound.complete(
+                            it.engine
+                                .resolvedConnectors()
+                                .first()
+                                .port,
+                        )
                     },
                 ) { _, _ -> error("not advertising") }
             val starting = async(Dispatchers.Default) { runCatching { server.start() } }
@@ -208,7 +217,7 @@ class ServerLifecycleTest {
             gate.complete(Unit)
             withTimeout(TIMEOUT_MS) { stopping.await() }
 
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
             assertIs<IllegalStateException>(withTimeout(TIMEOUT_MS) { starting.await() }.exceptionOrNull())
         }
 
@@ -225,14 +234,15 @@ class ServerLifecycleTest {
     @Test
     fun `stop while a failing start is releasing waits until the port is free`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val registering = CompletableDeferred<Unit>()
             val proceed = CountDownLatch(1)
             val closing = CompletableDeferred<Unit>()
             val closeGate = CountDownLatch(1)
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
+            val bound = CompletableDeferred<Int>()
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
+                    bound.complete(boundPort)
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }.also {
                         registering.complete(Unit)
                         proceed.await()
@@ -253,22 +263,21 @@ class ServerLifecycleTest {
             }
             withTimeout(TIMEOUT_MS) { stopping.await() }
 
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
             withTimeout(TIMEOUT_MS) { starting.join() }
         }
 
     @Test
     fun `second stop during a slow first release waits for it`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val closing = CompletableDeferred<Unit>()
             val closeGate = CountDownLatch(1)
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
-            server.start()
+            val port = server.start()
             val first = async(Dispatchers.Default) { server.stop() }
             withTimeout(TIMEOUT_MS) { closing.await() }
 
@@ -288,15 +297,14 @@ class ServerLifecycleTest {
     @Test
     fun `cancelled stop still frees the port once the advertiser close returns`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val closing = CompletableDeferred<Unit>()
             val closeGate = CountDownLatch(1)
             val registration = Registration(failOnClose = false, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
-            server.start()
+            val port = server.start()
             val stopping = launch(Dispatchers.Default) { server.stop() }
             withTimeout(TIMEOUT_MS) { closing.await() }
 
@@ -315,15 +323,14 @@ class ServerLifecycleTest {
     @Test
     fun `second stop after a cancelled first one rethrows the advertiser close failure`() =
         runBlocking {
-            val port = ServerSocket(0).use { it.localPort }
             val closing = CompletableDeferred<Unit>()
             val closeGate = CountDownLatch(1)
             val registration = Registration(failOnClose = true, onClose = { closing.complete(Unit).also { closeGate.await() } })
             val server =
-                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = port)) { name, boundPort ->
+                AppMonitorServer(ServerConfig(host = "127.0.0.1", port = 0)) { name, boundPort ->
                     MdnsAdvertiser.start(name, boundPort, listOf(InetAddress.getByName("10.0.0.1"))) { registration }
                 }
-            server.start()
+            val port = server.start()
             val stopping = launch(Dispatchers.Default) { server.stop() }
             withTimeout(TIMEOUT_MS) { closing.await() }
 

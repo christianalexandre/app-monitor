@@ -44,9 +44,17 @@ This plan becomes `Active` once PLAN-0014 closes.
   that resets the connection after its close; reproduced on Linux with a
   resetting peer, the test desktop now reads until the client's close.
   Accept: `HandshakeFailureTest` and `MainTest` 50 times green locally.
+- [x] **H5.2b The server tests' taken port.** (`test/server-tests-bind-their-own-port`)
+  Split from H5.2: DEBT-0094. The `desktop/server` tests that picked a
+  port with `ServerSocket(0)` and bound it again failed under a held
+  ephemeral range; they now bind port 0 and read the port bound.
+  Accept: the three test classes 50 times green locally, and green under
+  the held range where the old ones failed.
+  Done: 50 of 50 green; under the held range the old tests failed 3 runs
+  of 3, the changed ones passed in each (DEBT-0094).
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0094, DEBT-0110, and locally
+  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0066, DEBT-0091, DEBT-0110, and locally
   DEBT-0017 (Spotless). The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`

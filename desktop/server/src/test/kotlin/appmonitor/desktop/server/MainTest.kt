@@ -147,16 +147,22 @@ class MainTest {
     @Test
     fun `the shutdown hook stops a server whose start is still running`() =
         runBlocking<Unit> {
-            val port = ServerSocket(0).use { it.localPort }
+            val bound = CompletableDeferred<Int>()
             val entered = CompletableDeferred<Unit>()
             val gate = CompletableDeferred<Unit>()
             val server =
                 AppMonitorServer(
-                    ServerConfig(host = "127.0.0.1", port = port, advertise = false),
+                    ServerConfig(host = "127.0.0.1", port = 0, advertise = false),
                     startEngine = {
                         entered.complete(Unit)
                         gate.await()
                         it.startSuspend(wait = false)
+                        bound.complete(
+                            it.engine
+                                .resolvedConnectors()
+                                .first()
+                                .port,
+                        )
                     },
                 ) { _, _ -> error("not advertising") }
             val hooks = CopyOnWriteArrayList<Thread>()
@@ -170,7 +176,7 @@ class MainTest {
             // The hook's stop may land before or after start returns; either way the port is freed.
             assertFalse(hook.isAlive)
             withTimeout(TIMEOUT_MS) { starting.await() }
-            ServerSocket(port, 0, InetAddress.getByName("127.0.0.1")).close()
+            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
         }
 
     private fun parse(vararg args: String): Pair<Int?, String> = parseOptions(*args).let { (options, err) -> options?.port to err }
