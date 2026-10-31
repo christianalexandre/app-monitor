@@ -91,9 +91,17 @@ This plan becomes `Active` once PLAN-0014 closes.
   with one up moved to DEBT-0036's trigger.
   Accept: `LanAddressesTest` rejecting a tunnel's flags; the mDNS,
   discovery and loopback tests 50 times green locally; `make check`.
+- [x] **H5.2g Close bounds its wait for the retention pass.** (`fix/storage-close-bounds-retention`)
+  Split from H5.2: DEBT-0091. The second hang left a stack:
+  `closeGivesUpAfterTimeout` waited in `Storage.close` for the retention
+  pass at open, queued on the writer behind the test's held writer, which
+  the test releases only after `close` returns. `close` now waits for the
+  pass within its timeout.
+  Accept: a test holding a retention pass on the writer failing on the
+  old `close`; `WriteQueueTest` 50 times green under CPU load.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065 and DEBT-0091.
+  runner) and fixed at its cause, never skipped: DEBT-0065.
   Accept: each test run 50 times in a row green locally, its command and
   count in the PR.
 - [ ] **H5.3 The protocol M10 freezes.** Before the first published SDK,

@@ -26,7 +26,6 @@ import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -499,7 +498,9 @@ class Storage private constructor(
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
         closing.value = true
-        retentionJob?.cancelAndJoin()
+        // A pass queued on the writer behind a long batch ends only when the writer reaches it.
+        retentionJob?.cancel()
+        withTimeoutOrNull(timeout) { retentionJob?.join() }
         withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")

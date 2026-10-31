@@ -245,7 +245,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   (ADR-0088); the server is not started, so devices are not admitted into
   a desktop that cannot keep them.
 - **Close.** On exit, after the server stops, `Storage.close(timeout)`
-  queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
+  cancels the retention coroutine, waiting for its pass within the same
+  timeout (a pass queued on the writer behind a long batch ends only when
+  the writer reaches it), queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
   the server; what is still queued after it, the batch being written
   included, is lost, logged and returned as a count. The next open closes
   what it left open. The writer stops at the next batch boundary and
@@ -475,6 +477,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A failed batch is counted, the next one is written | `WriteQueueTest.failedBatchIsCountedAndSkipped` |
 | Close drains the queue within the timeout | `WriteQueueTest.closeDrainsQueue` |
 | Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
+| A retention pass held on the writer does not keep close past its timeout | `WriteQueueTest.aRetentionPassOnTheWriterDoesNotHoldCloseBeyondItsTimeout` |
 | `flush`, `newRun`, `clearAll`, `applyRetention` and `setRetention` after close return | `WriteQueueTest.callsAfterCloseReturn` |
 | A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
 | Retention and clear calls queued on the writer during a timed out close do nothing and return | `WriteQueueTest.callsQueuedOnTheWriterDuringATimedOutCloseDoNothing` |
