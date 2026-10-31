@@ -15,6 +15,8 @@ import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.FrameTooBigException
+import io.ktor.websocket.ProtocolViolationException
 import io.ktor.websocket.close
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -198,16 +200,16 @@ class AppMonitorServer internal constructor(
     private suspend fun DefaultWebSocketServerSession.serve() {
         val first = withTimeoutOrNull(handshakeTimeout) { incoming.receiveCatching() }
         if (first == null) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
             return
         }
         val hello = (first.getOrNull() as? Frame.Binary)?.decodeEnvelope()?.toHello()
         if (hello == null) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "First frame must be a Hello envelope"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "First frame must be a Hello envelope"))
             return
         }
         if (hello.protocol_version != Protocol.VERSION) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
             return
         }
         connections[this] = hello
@@ -221,7 +223,7 @@ class AppMonitorServer internal constructor(
     private suspend fun DefaultWebSocketServerSession.handshaken(hello: Hello) {
         val approved = awaitApproval(hello) ?: return
         if (!approved) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
+            closeAndDrain(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
             return
         }
         val session =
@@ -243,12 +245,12 @@ class AppMonitorServer internal constructor(
         // Returning before disconnect's close is sent lets Ktor close with 1000.
         when (publication) {
             Publication.FORGOTTEN -> {
-                close(FORGOTTEN)
+                closeAndDrain(FORGOTTEN)
                 return
             }
 
             Publication.STOPPED -> {
-                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+                closeAndDrain(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
                 return
             }
 
@@ -263,20 +265,35 @@ class AppMonitorServer internal constructor(
             for (frame in incoming) {
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
-                    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
+                    closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
                     break
                 }
                 val violation = envelope.violation(session.channels)
                 if (violation != null) {
-                    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
+                    closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
                     break
                 }
                 session.deliver(envelope)
             }
+        } catch (_: FrameTooBigException) {
+            flushClose()
+        } catch (_: ProtocolViolationException) {
+            flushClose()
         } finally {
             session.close()
             writer?.cancel()
         }
+    }
+
+    // Closing TCP with the device's frames unread resets it, and the device may lose this close.
+    private suspend fun DefaultWebSocketServerSession.closeAndDrain(reason: CloseReason) {
+        close(reason)
+        withTimeoutOrNull(CLOSE_GRACE) { while (incoming.receiveCatching().isSuccess) Unit }
+    }
+
+    // Ktor only queued its 1009 or 1002 close: returning before it is written loses it, the device sees 1006.
+    private suspend fun DefaultWebSocketServerSession.flushClose() {
+        withTimeoutOrNull(CLOSE_GRACE) { flush() }
     }
 
     // No timeout: the user may take minutes. The device leaving, or sending before HelloAck, withdraws the request.
@@ -305,6 +322,7 @@ class AppMonitorServer internal constructor(
 
     private companion object {
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
+        val CLOSE_GRACE = 1.seconds
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }

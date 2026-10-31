@@ -147,6 +147,10 @@ device                         AppMonitorServer
   `Protocol.MAX_BODY_BYTES` (1 MiB) body plus 256 KiB for URL, headers and
   envelope. A larger frame is refused from its header and closes with 1009;
   a client still writing that frame may see the reset (1006) instead.
+- Closing: the server writes its close before the connection ends, Ktor's
+  own 1009 and 1002 included, and after each close it sends itself (1002,
+  1008, 1001) reads until the device's close, bounded at 1 s, so the device
+  reads that close instead of a reset (RFC 6455 section 7.1.1).
 - Keep-alive: the server pings every 15 s; without the pong within 15 s it
   closes with 1011 and the session's `envelopes` completes, so a device gone
   from Wi-Fi ends within ~30 s. Pongs are read behind data frames: a
