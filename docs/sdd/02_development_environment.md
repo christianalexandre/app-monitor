@@ -117,7 +117,11 @@ script's expected list.
 
 ### The iOS sample against a desktop
 
-`make ios-sample` builds `samples/ios` into `build/ios-sample/`. With
+`make ios-sample` builds `samples/ios` into `build/ios-sample/`, from
+`samples/ios/project.yml`, without gRPC-Core; `samples/ios/grpc.yml`
+includes that spec and adds gRPC-Core and its button in Debug
+(`SampleGrpc.xcodeproj`, `SAMPLE_GRPC`), built by `make e2e-ios-grpc` into
+`build/ios-sample-grpc/` (ADR-0163). With
 `make server` or `make desktop` running, install the Debug app on a booted
 simulator and launch it with `-runAll YES`, which runs every button in turn;
 the simulator finds the desktop on its host's loopback:
@@ -130,7 +134,7 @@ xcrun simctl launch booted dev.appmonitor.sample -runAll YES
 For the screenshots, run
 `./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=8`
 in the background instead of the server (the eight `URLSession` buttons, one
-exchange each; the ninth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
+exchange each; the gRPC build's ninth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
 Calls made before the approval wait in the SDK's buffer, so `-runAll` can
 start before the click. `-host H -port N` pin the SDK to that desktop, as
 `make e2e-ios` does.
@@ -138,21 +142,15 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 ### The iOS sample end to end, scripted
 
 `make e2e-ios` (ADR-0057) needs macOS with Xcode and XcodeGen; the
-internet only for the first build (gRPC-Core's makes it about four
-minutes cold, ADR-0109). It uses the booted iPhone simulator, or boots the first available
+internet only for the first build. It uses the booted iPhone simulator, or boots the first available
 one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample's Debug app
-for it (Release and its SDK name scan are `make ios-sample`'s, in
+without gRPC-Core for it (Release and its SDK name scan are `make ios-sample`'s, in
 `make samples`; ADR-0075) and the `installDist` of the server and of
-`tools/e2e-target`, starts the target with its TLS gRPC origin
-(`--grpc-trust`) and the server with its proxy (`--proxy`, trusting that
-origin), all on free ports, and launches the Debug app through the proxy
-(ADR-0108, ADR-0109):
+`tools/e2e-target`, starts both on free ports, and launches the Debug app:
 
 ```sh
-SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
-  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=<repo>/build/e2e-ios/proxy/proxy-ca.pem \
-  xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
-  -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
+xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -runAll YES
 ```
 
 The server gets `--mocks build/e2e-ios/mocks.json`, one rule (id 1) for
@@ -162,10 +160,26 @@ sample's `418, or a mock` button calls that path (ADR-0117). With
 through the app's `URLSession` (ADR-0124).
 It then waits up to `E2E_TIMEOUT` seconds (120) for the eight calls as
 `make e2e-android` does (the upload's `PUT`, the background download and
-the mocked call, asserted `mock 1`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
-and for the gRPC-Core call in the `[proxy]` session: `POST
-https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`, its request and
-response messages, its response.
+the mocked call, asserted `mock 1`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
+From an empty `build/ios-sample/` it took 28 s on an M-series Mac.
+
+`make e2e-ios-grpc` (`scripts/e2e_ios.sh --grpc`, ADR-0163) does the same
+with the gRPC build of the sample (gRPC-Core's C++ makes it about four
+minutes cold here, ADR-0109), logs in `build/e2e-ios-grpc/`: it starts the
+target with its TLS gRPC origin (`--grpc-trust`) and the server with its
+proxy (`--proxy`, trusting that origin), and launches the app through the
+proxy (ADR-0108):
+
+```sh
+SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
+  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=<repo>/build/e2e-ios-grpc/proxy/proxy-ca.pem \
+  xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
+```
+
+It asserts the eight calls above and the gRPC-Core call in the `[proxy]`
+session: `POST https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`,
+its request and response messages, its response.
 Server log, target log, the sample's simulator log and `build.log` in `build/e2e-ios/`. The three
 end to end scripts source `scripts/e2e_lib.sh` (device pick, server and target, assertions),
 whose assertions `scripts/test_e2e_lib.sh` tests on a crafted log in `make scripts-test`.
@@ -329,7 +343,7 @@ reports are uploaded on failure. The `samples` job, on macOS, installs
 XcodeGen and runs `make android-samples kmp-sample` (the Android sample's
 `build`, the Gradle plugin's TestKit tests, the KMP sample in debug and
 release with its SDK name scans); `samples-ios`, beside it, runs `make
-ios-sample` (the iOS sample in debug and release, gRPC-Core built cold);
+ios-sample` (the iOS sample in debug and release, without gRPC-Core, ADR-0163);
 their logs are uploaded on failure (ADR-0076, ADR-0154). The `e2e-android` job, on ubuntu,
 enables KVM, builds the debug APK and the `installDist` of the server and
 of `tools/e2e-target`, then
@@ -340,7 +354,9 @@ The `e2e-ios` job, on macOS, installs XcodeGen and runs `make e2e-ios`,
 which boots the runner's first available iPhone simulator; the sample
 reaches the server on `127.0.0.1`, so the runner's missing local network
 access (DEBT-0046) does not apply. `build/e2e-ios/` (server, simulator
-and build logs) is uploaded on failure.
+and build logs) is uploaded on failure. The `e2e-ios-grpc` job is the
+same with `make e2e-ios-grpc`, the only gate job that builds gRPC-Core,
+timeout 50 min, `build/e2e-ios-grpc/` uploaded on failure (ADR-0163).
 The `e2e-kmp-android` job, on ubuntu, is `e2e-android`'s with the KMP
 sample's debug APK and `make e2e-kmp-android`; the `e2e-kmp-ios` job, on
 macOS, is `e2e-ios`'s with `make e2e-kmp-ios` (ADR-0065 C.1). Their

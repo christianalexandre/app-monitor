@@ -3,7 +3,7 @@ id: DEBT-0050
 title: Non-correctness findings of the second M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The next PR that touches `pr-conventions.yml` or `debt_check.sh`, or the first `release/*` branch opened to `main`
+trigger: The next PR that touches `debt_check.sh`
 paid_date:
 ---
 
@@ -42,9 +42,7 @@ use today; they are noise, duplication or stale references.
 
 ## Trigger
 
-The next PR that touches `pr-conventions.yml` or `debt_check.sh` pays that
-file's item. The first `release/*` branch opened to `main` pays the
-squash-trailer item, or finds #132 merged.
+The next PR that touches `debt_check.sh` pays its item.
 
 ## How it was paid
 
@@ -66,3 +64,10 @@ paid items no longer sit under the template placeholder.
 `e2e_ios.sh` and `e2e_kmp.sh`, one parse of `sim_list.sh`'s output.
 `ios_lib.sh`'s `ios_device` stays: it names a simulator for `xcodebuild`
 without booting it, for the `make swift` scripts.
+
+`ci/release-gate-cache` (PLAN-0015 H5.1) paid both `pr-conventions.yml`
+items: the trailer check moved to `scripts/trailer_check.sh`, which matches
+`generated with` only at a line start, and `test_trailer_check.sh` checks a
+`release/x.y.z` branch cut from `dev` against `main` as M10 will open it.
+`origin/main..origin/dev` carries no trailer (`trailer_check.sh`,
+2026-10-30): #293 put #95 on `main`. The `debt_check.sh` item is left.

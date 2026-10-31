@@ -44,12 +44,13 @@ boot_simulator() {
   xcrun simctl bootstatus "$udid" -b >/dev/null
 }
 
-# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path: builds the Debug app for the picked
-# simulator, log in $out/build.log. Release and its SDK name scan are `make swift`'s (ADR-0075).
+# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path, $4 its project name if not the scheme's:
+# builds the Debug app for the picked simulator, log in $out/build.log. Release and its SDK name scan
+# are `make swift`'s (ADR-0075).
 build_ios_debug() {
   command -v xcodegen >/dev/null 2>&1 || fail "xcodegen not found ('brew install xcodegen'; ADR-0050)"
   xcodegen generate --quiet --spec "$1"
-  xcodebuild build -project "$(dirname "$1")/$2.xcodeproj" -scheme "$2" -configuration Debug \
+  xcodebuild build -project "$(dirname "$1")/${4:-$2}.xcodeproj" -scheme "$2" -configuration Debug \
     -destination "id=$udid" -derivedDataPath "$3" >"$out/build.log" 2>&1 \
     || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
 }

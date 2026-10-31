@@ -262,7 +262,7 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | OkHttp and Ktor answer a matching call without the network | `MockAnswerTest` in `sdk/android-okhttp` and `sdk/ktor` |
 | The Swift SDK runs the vector, keeps the last set, empties it when the session ends | `MockMatchingVectorTests`, `MonitorClientMocksTests` in `sdk/ios` |
 | `URLSession` answers a matching data or upload task without the network, after its delay, a failure and a cancel included | `MockAnswerTests` in `sdk/ios` |
-| A rule answers a call on a real emulator and simulator, end to end | `make e2e-android`, `make e2e-ios` |
+| A rule answers a call on a real emulator and simulator, end to end | `make e2e-android`, `make e2e-ios`, `make e2e-ios-grpc` |
 | A mocked exchange stored with its rule, marked in the list, named in the detail and `get_request` | `MockedExchangeTest` in `desktop/storage`, `MockedExchangeUiTest` (`mocked.png`), `GetRequestTest` |
 | The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `desktop/server` |
 | A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |

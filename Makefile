@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check check-full samples android-samples docs-check designsystem-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check check-full samples android-samples docs-check designsystem-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-ios-grpc e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -28,6 +28,9 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_e2e_lib.sh
 	@scripts/test_designsystem_check.sh
 	@scripts/test_swift_proto_gen.sh
+	@scripts/test_ruleset_check.sh
+	@scripts/test_trailer_check.sh
+	@scripts/ruleset_check.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.
 SAMPLE_BUILDS := -x :samples:android:build -x :samples:kmp:shared:build -x :samples:kmp:androidApp:build
@@ -60,6 +63,9 @@ e2e-android: ## Sample on a booted emulator against the headless server, envelop
 
 e2e-ios: ## Sample on an iPhone simulator against the headless server, envelopes asserted (SIM_DEVICE, ADR-0057)
 	@scripts/e2e_ios.sh
+
+e2e-ios-grpc: ## As e2e-ios, the sample built with gRPC-Core, its call through the proxy asserted too (ADR-0163)
+	@scripts/e2e_ios.sh --grpc
 
 e2e-kmp: e2e-kmp-android e2e-kmp-ios ## KMP sample on an emulator, then a simulator beside the Swift SDK, each exchange once (ADR-0075)
 

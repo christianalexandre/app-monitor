@@ -24,15 +24,19 @@ This plan becomes `Active` once PLAN-0014 closes.
 
 ## Tasks
 
-- [ ] **H5.1 A release gate that finishes, in time.** `samples-ios` and
-  `e2e-ios` stop building gRPC-Core cold: SwiftPM's checkouts and the
-  sample's derived data are cached across gate runs, keyed by
-  `Package.resolved` and the Xcode version (DEBT-0080). The ruleset's
-  required checks are compared with the workflow's job names by a script
-  in `make scripts-test` (DEBT-0048). `pr-conventions.yml` checks a
-  `release/*` → `main` PR the way M10 will open it (DEBT-0050).
-  Accept: three `release-gate.yml` runs on `dev` in a row, all jobs green,
-  `e2e-ios` under 35 minutes on a warm cache; the job times in the PR.
+- [~] **H5.1 A release gate that finishes, in time.** (`ci/release-gate-cache`)
+  gRPC-Core leaves `make ios-sample` and `make e2e-ios`: the sample's
+  gRPC-Core call through the proxy moves to `make e2e-ios-grpc`, a release
+  gate job of its own, the only one that builds it (owner, 2026-10-30;
+  ADR-0163, pays DEBT-0080); a cache only if that job needs one to stay
+  under its timeout. The ruleset's required checks are compared with the
+  workflow's job names by a script in `make scripts-test` (DEBT-0048).
+  `pr-conventions.yml` checks a `release/*` → `main` PR the way M10 will
+  open it (DEBT-0050).
+  Accept: `make e2e-ios`, `make e2e-ios-grpc`, `make ios-sample` and
+  `make scripts-test` green locally, their times in the PR; three
+  `release-gate.yml` runs, dispatched by the owner, all jobs green,
+  `e2e-ios-grpc` under its timeout; the job times in the PR.
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
   runner) and fixed at its cause, never skipped: DEBT-0032, DEBT-0056,
