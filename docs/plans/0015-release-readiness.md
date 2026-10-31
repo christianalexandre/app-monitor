@@ -151,7 +151,9 @@ This plan becomes `Active` once PLAN-0014 closes.
   (ADR-0167); a rejection before the close got 1000 from the old server,
   1002 now (DEBT-0014). DEBT-0022 did not happen on Ktor 3.6.0, whose
   channels are unbounded; a test pins it, the memory it costs is DEBT-0113.
-- [ ] **H5.4 A device trusts only the desktop its developer chose.** The
+- [!] **H5.4 A device trusts only the desktop its developer chose.** (`feat/device-pins-its-desktop`)
+  Waiting for the owner: ADR-0168 `Proposed` (security / privacy, no
+  standing decision covers which desktop a device trusts). The
   SDK stops connecting to the first `_appmonitor._tcp` it finds
   (DEBT-0020). The ADR weighs pinning the first desktop approved against
   a pairing code; an option that adds a setup step or changes the public

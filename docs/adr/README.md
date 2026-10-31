@@ -185,3 +185,4 @@ Rules:
 | [0165](0165-hello-carries-the-app-name-the-options-set.md) | Hello carries the app name the options set, and the desktop shows it before the app id | Accepted |
 | [0166](0166-the-device-reports-what-it-dropped-in-a-delivery-report.md) | The device reports what it dropped in a DeliveryReport, the desktop counts what it lost | Accepted |
 | [0167](0167-the-desktop-reads-device-frames-over-a-raw-websocket.md) | The desktop reads device frames over a raw WebSocket session and answers the close after them | Accepted |
+| [0168](0168-a-device-pins-the-first-desktop-that-approved-it.md) | A device pins the first desktop that approved it | Proposed |
