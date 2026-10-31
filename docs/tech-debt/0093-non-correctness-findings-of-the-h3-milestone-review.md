@@ -81,6 +81,10 @@ nor counted as failures ("Clear empties…", "Save with only stored…",
 "Save stores the marked live requests…"); `TrafficState`'s KDoc is four
 lines. The file leaves the trigger.
 
+Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
+changes two lines of `Storage.close`: `clearAll`'s comment block is
+untouched. Kept as is.
+
 ## How it was paid
 
 > Filled when closing.

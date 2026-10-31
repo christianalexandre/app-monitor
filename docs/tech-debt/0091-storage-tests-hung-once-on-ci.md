@@ -1,10 +1,10 @@
 ---
 id: DEBT-0091
 title: Desktop storage tests hung twice on CI
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "A test in `desktop/storage/src/test/` fails on CI with `TimeoutException` (its stack in the `test-reports` artifact)"
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0091 — Desktop storage tests hung twice on CI
@@ -49,4 +49,23 @@ names.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0015 H5.2g. The third sample left its stack (`check` job of
+`dev`, run 41112636074, ubuntu): `WriteQueueTest.closeGivesUpAfterTimeout`
+timed out after 2 minutes inside `runBlocking`, with the queue's own close
+already past its 300 ms. `Storage.close` started with
+`retentionJob?.cancelAndJoin()`, unbounded. The retention pass at open runs
+on `Dispatchers.Default` and hops to the writer thread; when the test's
+`holdWriter` reached the writer first, the pass was queued behind the held
+writer, and the test releases it only after `close` returns. Cancelling a
+coroutine queued on an executor completes only when the executor runs it,
+so `close` waited for ever. In the app, the same wait kept `close` past its
+`STOP_TIMEOUT` for as long as a batch or a retention chunk held the writer.
+
+`close` now cancels the retention coroutine and waits for it within its
+timeout. `WriteQueueTest.aRetentionPassOnTheWriterDoesNotHoldCloseBeyondItsTimeout`
+stalls a retention chunk on the writer and closes with 300 ms: on the old
+`close` it timed out at `Storage.kt:502`, the `cancelAndJoin`; it passes
+with the fix. The race itself is narrow: on
+the owner's MacBook (10 cores) with ten `yes` processes running, the old
+`closeGivesUpAfterTimeout` passed 25 of 25. With the fix, `WriteQueueTest`
+passed 50 of 50 under the same load.

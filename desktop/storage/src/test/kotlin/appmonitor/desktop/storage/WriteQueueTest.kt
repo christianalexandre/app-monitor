@@ -26,6 +26,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -293,6 +294,33 @@ class WriteQueueTest {
                 held.release()
                 assertEquals(12, lost, "Connected, ten envelopes and the run's end")
             }
+        }
+
+    // DEBT-0091: the at-open pass queued behind a held writer kept close waiting for ever.
+    @Test
+    fun aRetentionPassOnTheWriterDoesNotHoldCloseBeyondItsTimeout() =
+        withDataDir { dir ->
+            val old = Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES, retentionInterval = null) {}
+            runBlocking {
+                old.connected("s1", hello(), null)
+                old.disconnected("s1")
+                assertEquals(0, old.close(5.seconds))
+            }
+            val entered = CountDownLatch(1)
+            val stall = CountDownLatch(1)
+            val storage =
+                Storage.open(dir, { 8.days.inWholeMilliseconds }, Storage.MAX_QUEUE_BYTES, afterRetentionChunk = {
+                    entered.countDown()
+                    stall.await()
+                }) {}
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS), "the pass at open reached its first chunk")
+                runBlocking { withTimeout(5.seconds) { storage.close(300.milliseconds) } }
+            } finally {
+                stall.countDown()
+            }
+            val executor = storage.writerDispatcher.executor as ExecutorService
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "closed once the pass left the writer")
         }
 
     @Test

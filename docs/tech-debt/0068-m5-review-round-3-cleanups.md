@@ -82,3 +82,7 @@ written, the device's read back): `retryLost`, health, `close`,
 ## How it was paid
 
 > Filled when closing.
+
+Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
+bounds `close`'s wait for the retention coroutine by its timeout: `close`'s
+lost count, `retryLost`, health and `whileOpen` are untouched. Kept as is.
