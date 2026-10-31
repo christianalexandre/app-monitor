@@ -36,6 +36,8 @@ message HelloAck {
   string session_id = 2;
   // Subset of Hello.channels the desktop accepted.
   repeated string channels = 3;
+  // The desktop's id, also in its TXT record; empty when it has none (ADR-0168).
+  string desktop_id = 4;
 }
 
 // Sent by the device after HelloAck before any other envelope, then before the

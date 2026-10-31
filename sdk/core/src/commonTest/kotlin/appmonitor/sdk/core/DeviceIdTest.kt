@@ -36,6 +36,17 @@ class DeviceIdTest {
     }
 
     @Test
+    fun theFirstDesktopPinnedStays() {
+        val pin = FileDesktopPin(Path(dir, DESKTOP_PIN_FILE_NAME))
+        val first = Uuid.random().toString()
+
+        assertEquals(null, pin.pinned())
+        assertEquals(first, pin.pin(first))
+        assertEquals(first, pin.pin(Uuid.random().toString()))
+        assertEquals(first, FileDesktopPin(Path(dir, DESKTOP_PIN_FILE_NAME)).pinned())
+    }
+
+    @Test
     fun aCorruptFileIsReplaced() {
         SystemFileSystem.createDirectories(dir)
         val file = Path(dir, "appmonitor-device-id")

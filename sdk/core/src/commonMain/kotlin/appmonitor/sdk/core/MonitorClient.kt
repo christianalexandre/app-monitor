@@ -48,11 +48,12 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-/** Where a desktop listens. */
+/** Where a desktop listens; [checksPin] false for a manual host, which neither checks nor pins (ADR-0168). */
 internal data class Endpoint(
     val host: String,
     val port: Int = Protocol.DEFAULT_PORT,
     val path: String = Protocol.WEBSOCKET_PATH,
+    val checksPin: Boolean = true,
 )
 
 /** The states of SDD 04; [Idle] until [MonitorClient.start]. */
@@ -80,6 +81,7 @@ internal class MonitorClient(
     private val config: ClientConfig = ClientConfig(),
     private val log: (String) -> Unit = ::platformLog,
     random: Random = Random.Default,
+    private val pin: DesktopPin? = null,
     private val openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
         { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
 ) {
@@ -120,6 +122,8 @@ internal class MonitorClient(
     private var previousSession: Pair<String, Long>? = null
 
     private var connectFailureLogged = false
+
+    private var pinRefusalLogged = false
 
     fun start() {
         synchronized(lock) {
@@ -215,7 +219,7 @@ internal class MonitorClient(
                     launch {
                         http.openSession(endpoint) {
                             upgraded.complete(Unit)
-                            outcome.complete(session(this))
+                            outcome.complete(session(this, endpoint))
                         }
                     }
                 select {
@@ -246,12 +250,15 @@ internal class MonitorClient(
     /** The session's outcome when it ended before the call's teardown failed, else [Outcome.Lost]. */
     private suspend fun settled(outcome: CompletableDeferred<Outcome>): Outcome = if (outcome.isCompleted) outcome.await() else Outcome.Lost
 
-    private suspend fun session(ws: DefaultClientWebSocketSession): Outcome {
+    private suspend fun session(
+        ws: DefaultClientWebSocketSession,
+        endpoint: Endpoint,
+    ): Outcome {
         if (stopRequested.isCompleted) return closeNormally(ws)
         mutableState.value = ClientState.Handshaking
         return coroutineScope {
             val stop = async { stopRequested.await() }
-            val serve = async { serveUntilClosed(ws) }
+            val serve = async { serveUntilClosed(ws, endpoint) }
             select {
                 serve.onAwait { outcome ->
                     stop.cancel()
@@ -266,9 +273,12 @@ internal class MonitorClient(
     }
 
     /** [serve], and the desktop's close when a write fails: a 1008 can arrive before `Hello` is written. */
-    private suspend fun serveUntilClosed(ws: DefaultClientWebSocketSession): Outcome =
+    private suspend fun serveUntilClosed(
+        ws: DefaultClientWebSocketSession,
+        endpoint: Endpoint,
+    ): Outcome =
         try {
-            serve(ws)
+            serve(ws, endpoint)
         } catch (e: CancellationException) {
             currentCoroutineContext().ensureActive()
             closeOutcome(ws)
@@ -276,9 +286,23 @@ internal class MonitorClient(
             closeOutcome(ws)
         }
 
-    private suspend fun serve(ws: DefaultClientWebSocketSession): Outcome {
+    private suspend fun serve(
+        ws: DefaultClientWebSocketSession,
+        endpoint: Endpoint,
+    ): Outcome {
         ws.send(Frame.Binary(true, helloEnvelope().encode()))
         val ack = awaitHelloAck(ws) ?: return closeOutcome(ws)
+        if (endpoint.checksPin && !trusts(ack.desktop_id)) {
+            if (!pinRefusalLogged) {
+                pinRefusalLogged = true
+                log(
+                    "the desktop at ${endpoint.host}:${endpoint.port} is not the one this install paired with; " +
+                        "clear the app's data, or set AppMonitorOptions.host",
+                )
+            }
+            ws.close(CloseReason(CloseReason.Codes.NORMAL, PIN_REFUSAL))
+            return Outcome.Rejected
+        }
         backoff.reset()
         connectFailureLogged = false
         mutableState.value = ClientState.Connected
@@ -404,6 +428,13 @@ internal class MonitorClient(
         )
     }
 
+    /** ADR-0168: the pinned desktop only; the first one with an id is pinned. */
+    private fun trusts(desktopId: String): Boolean {
+        val pin = pin ?: return true
+        val pinned = pin.pinned() ?: return desktopId.isEmpty() || pin.pin(desktopId) == desktopId
+        return desktopId == pinned
+    }
+
     /** The `HelloAck`, or null when the connection ended or broke the handshake (then closed 1002). */
     private suspend fun awaitHelloAck(ws: DefaultClientWebSocketSession): HelloAck? {
         val frame = ws.incoming.receiveCatching().getOrNull() ?: return null
@@ -436,4 +467,9 @@ internal class MonitorClient(
         )
 
     private enum class Outcome { Lost, Rejected, Stopped }
+
+    companion object {
+        /** The close reason a device sends a desktop other than the one it pinned (ADR-0168). */
+        const val PIN_REFUSAL: String = "Paired with another desktop"
+    }
 }

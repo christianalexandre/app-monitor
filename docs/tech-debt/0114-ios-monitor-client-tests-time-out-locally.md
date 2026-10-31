@@ -3,7 +3,7 @@ id: DEBT-0114
 title: The iOS MonitorClientTests time out in most local `make swift` runs
 status: Open
 date: 2026-10-31
-trigger: The next PR that runs `make swift`, or one that changes `MonitorClientTests.swift` or `TestDesktop.swift`
+trigger: A `make swift` run fails on an `eventually` in `MonitorClientTests.swift`, or a PR changes `TestDesktop.swift`'s timing
 paid_date:
 ---
 
@@ -29,7 +29,11 @@ in parallel, or the VPN (as in ADR-0164) are both open.
 
 ## Trigger
 
-The next PR that runs `make swift`, or one that changes
+A `make swift` run fails on an `eventually` in `MonitorClientTests.swift`, or a PR changes `TestDesktop.swift`'s timing.
+
+Re-triggered by PLAN-0015 H5.4 (2026-10-31), which changed both files: four runs on the owner's Mac were green (`swift test` once, `make swift` inside `make check`, `make swift` twice more), so nothing to reproduce on the older commits; the next failure is the case to study.
+
+Before: The next PR that runs `make swift`, or one that changes
 `MonitorClientTests.swift` or `TestDesktop.swift`. That PR reproduces it on
 the commit before #336 and on `origin/dev` to find the cause.
 

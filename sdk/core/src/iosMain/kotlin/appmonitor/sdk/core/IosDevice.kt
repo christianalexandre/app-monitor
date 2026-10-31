@@ -25,9 +25,14 @@ import platform.posix.utsname
 internal expect val isSimulator: Boolean
 
 /** The Swift SDK's device id file, so both SDKs in one app send one id (ADR-0064 B.1). */
-internal fun deviceIdFile(): Path {
+internal fun deviceIdFile(): Path = Path(supportDirectory(), DEVICE_ID_FILE_NAME)
+
+/** Beside [deviceIdFile] (ADR-0168). */
+internal fun desktopPinFile(): Path = Path(supportDirectory(), DESKTOP_PIN_FILE_NAME)
+
+private fun supportDirectory(): String {
     val support = NSFileManager.defaultManager.URLsForDirectory(NSApplicationSupportDirectory, NSUserDomainMask).firstOrNull() as NSURL?
-    return Path(support?.path ?: NSTemporaryDirectory(), DEVICE_ID_FILE_NAME)
+    return support?.path ?: NSTemporaryDirectory()
 }
 
 internal const val DEVICE_ID_FILE_NAME: String = "appmonitor-device-id"

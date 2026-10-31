@@ -29,8 +29,9 @@ internal class MdnsAdvertiser private constructor(
         fun start(
             serviceName: String,
             port: Int,
+            desktopId: String? = null,
             addresses: List<InetAddress> = LanAddresses.current(),
-            register: (InetAddress) -> AutoCloseable = { register(it, serviceName, port) },
+            register: (InetAddress) -> AutoCloseable = { register(it, serviceName, port, desktopId) },
         ): MdnsAdvertiser {
             val registrations = mutableListOf<Pair<InetAddress, AutoCloseable>>()
             try {
@@ -46,10 +47,11 @@ internal class MdnsAdvertiser private constructor(
             address: InetAddress,
             serviceName: String,
             port: Int,
+            desktopId: String?,
         ): JmDNS {
             val jmdns = JmDNS.create(address)
             try {
-                jmdns.registerService(serviceInfo(serviceName, port))
+                jmdns.registerService(serviceInfo(serviceName, port, desktopId))
             } catch (e: Exception) {
                 runCatching { jmdns.close() }
                 throw e
@@ -57,9 +59,11 @@ internal class MdnsAdvertiser private constructor(
             return jmdns
         }
 
-        private fun serviceInfo(
+        /** TXT `v`, `path`, and `id` when there is one (ADR-0168). */
+        internal fun serviceInfo(
             serviceName: String,
             port: Int,
+            desktopId: String?,
         ): ServiceInfo =
             ServiceInfo.create(
                 Protocol.MDNS_SERVICE_TYPE,
@@ -67,7 +71,8 @@ internal class MdnsAdvertiser private constructor(
                 port,
                 0,
                 0,
-                mapOf("v" to Protocol.VERSION.toString(), Protocol.MDNS_TXT_PATH to Protocol.WEBSOCKET_PATH),
+                mapOf("v" to Protocol.VERSION.toString(), Protocol.MDNS_TXT_PATH to Protocol.WEBSOCKET_PATH) +
+                    listOfNotNull(desktopId?.let { Protocol.MDNS_TXT_ID to it }),
             )
     }
 }

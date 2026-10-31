@@ -3,7 +3,7 @@ id: DEBT-0068
 title: Non-correctness findings of the third M5 milestone review
 status: Open
 date: 2026-10-24
-trigger: "The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`"
+trigger: The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or how `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt` writes to storage
 paid_date:
 ---
 
@@ -46,7 +46,11 @@ M5.R9 and M5.R10 fix the two races that do change them.
 
 ## Trigger
 
-The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`.
+The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or how `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt` writes to storage.
+
+Re-triggered by PLAN-0015 H5.4 (2026-10-31): it touched `AppMonitorServer.kt` only to send the desktop id in `HelloAck` and the TXT record, nothing on the storage path the findings are about.
+
+Before: The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`.
 
 Fired by PLAN-0007 M6.3, whose `Storage` change is read-only (its new
 reads go through the existing read guard) and whose `Ingest` change is one

@@ -11,12 +11,38 @@ import kotlin.uuid.Uuid
 internal fun deviceId(
     file: Path,
     link: (existing: Path, target: Path) -> Boolean? = ::linkExclusive,
+): String = firstWritten(file, Uuid.random().toString(), link)
+
+/** The UUID kept in [file], or [candidate] written there when it holds none: the first writer wins. */
+private fun firstWritten(
+    file: Path,
+    candidate: String,
+    link: (existing: Path, target: Path) -> Boolean? = ::linkExclusive,
 ): String {
     storedDeviceId(file)?.let { return it }
-    val id = Uuid.random().toString()
-    runCatching { publish(id, file, link) }
-    return storedDeviceId(file) ?: id
+    runCatching { publish(candidate, file, link) }
+    return storedDeviceId(file) ?: candidate
 }
+
+/** The desktop a device trusts once one approved it (ADR-0168); null [pinned] until then. */
+internal interface DesktopPin {
+    fun pinned(): String?
+
+    /** Pins [desktopId] unless another is already; returns the one pinned. */
+    fun pin(desktopId: String): String
+}
+
+/** [DesktopPin] kept in [file], beside the device id and shared with the Swift SDK on iOS. */
+internal class FileDesktopPin(
+    private val file: Path,
+) : DesktopPin {
+    override fun pinned(): String? = storedDeviceId(file)
+
+    override fun pin(desktopId: String): String = firstWritten(file, desktopId)
+}
+
+/** The pin file's name, beside the device id's in both SDKs (ADR-0168). */
+internal const val DESKTOP_PIN_FILE_NAME: String = "appmonitor-desktop-id"
 
 /** Hard links [id], written whole beside [file], to it, or moves it there under a file lock without links: the first writer wins (ADR-0078, ADR-0080). */
 private fun publish(

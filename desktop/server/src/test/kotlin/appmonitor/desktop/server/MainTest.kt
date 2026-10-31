@@ -108,6 +108,13 @@ class MainTest {
     }
 
     @Test
+    fun `the desktop id is a UUID`() {
+        val id = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
+        assertEquals(ServerArgs(desktopId = id), parseOptions("--desktop-id", id).first)
+        assertNull(parseOptions("--desktop-id", "mine").first)
+    }
+
+    @Test
     fun `the first request of an app to the replay path is asked again, not its replay`() {
         val started = RequestStarted(request_id = "r1", method = "GET", url = "http://h:8080/json?x=1")
         val envelope = Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = started.encodeByteString())

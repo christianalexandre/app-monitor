@@ -20,6 +20,7 @@ final class TestDesktop: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "test.desktop")
     private let mode: Mode
+    private let desktopID: String
     private var listener: NWListener?
     private var connections: [NWConnection] = []
     private var received: [Appmonitor_V1_Envelope] = []
@@ -28,8 +29,12 @@ final class TestDesktop: @unchecked Sendable {
 
     private(set) var port: UInt16 = 0
 
-    init(mode: Mode = .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork])) {
+    init(
+        mode: Mode = .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]),
+        desktopID: String = ""
+    ) {
         self.mode = mode
+        self.desktopID = desktopID
     }
 
     var endpoint: Endpoint { Endpoint(host: "127.0.0.1", port: port) }
@@ -142,6 +147,7 @@ final class TestDesktop: @unchecked Sendable {
         ack.protocolVersion = ProtocolConstants.version
         ack.sessionID = UUID().uuidString
         ack.channels = channels
+        ack.desktopID = desktopID
         var envelope = Appmonitor_V1_Envelope()
         envelope.channel = ProtocolConstants.channelCore
         envelope.type = "HelloAck"

@@ -53,6 +53,7 @@ object Samples {
             protocol_version = Protocol.VERSION,
             session_id = "session-0001",
             channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+            desktop_id = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10",
         )
 
     val deliveryReport =

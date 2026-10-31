@@ -23,6 +23,31 @@ func deviceID(file: URL) -> String {
     return storedDeviceID(file: file) ?? id
 }
 
+/// The desktop a device trusts once one approved it (ADR-0168); `pinned()` nil until then.
+protocol DesktopPin: Sendable {
+    func pinned() -> String?
+    /// Pins `desktopID` unless another is already; returns the one pinned.
+    func pin(_ desktopID: String) -> String
+}
+
+/// `DesktopPin` kept in `file`, beside the device id and shared with `sdk/core` on iOS.
+struct FileDesktopPin: DesktopPin {
+    let file: URL
+
+    func pinned() -> String? { storedDeviceID(file: file) }
+
+    func pin(_ desktopID: String) -> String {
+        if let stored = storedDeviceID(file: file) { return stored }
+        publish(desktopID, to: file)
+        return storedDeviceID(file: file) ?? desktopID
+    }
+}
+
+/// Where the pin lives: beside the device id (ADR-0168).
+func defaultDesktopPinFile() -> URL {
+    defaultDeviceIDFile().deletingLastPathComponent().appendingPathComponent("appmonitor-desktop-id")
+}
+
 /// Hard links `id`, written whole beside `file`, to it: the first writer wins, `sdk/core`'s
 /// included (ADR-0078).
 private func publish(_ id: String, to file: URL) {

@@ -26,6 +26,7 @@ enum Samples {
         $0.protocolVersion = ProtocolConstants.version
         $0.sessionID = "session-0001"
         $0.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
+        $0.desktopID = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
     }
 
     static let deliveryReport = Appmonitor_V1_DeliveryReport.with {

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0020
 title: A device sends its traffic to any desktop that advertises the service
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: Before the first public release of an SDK
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0020 — A device sends its traffic to any desktop that advertises the service
@@ -28,4 +28,12 @@ Before the first public release of an SDK.
 
 ## How it was paid
 
-> Filled when closing.
+ADR-0168, PLAN-0015 H5.4. The desktop keeps a random id in its store and
+sends it in the TXT key `id` and in `HelloAck.desktop_id`; the SDK pins
+the first id it gets from a desktop found by discovery, in a file beside
+its device id, and from then on skips other ids in mDNS and closes a
+session whose `HelloAck` names another. A manual `host` neither checks nor
+pins. Left open, tied to the plain `ws://` transport (ADR-0018): the first
+connection of an install, and a host on the desktop's own LAN that copies
+the id from its TXT record. One device paired with two desktops of one
+developer is DEBT-0115.

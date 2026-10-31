@@ -83,7 +83,9 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 - `approvals` and `settings` are in the version-1 schema, so M5.5 and M5.8
   needed no migration. `settings` holds `retention.max_age_days` (days, or
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
-  default. `mcp.token` is the MCP server's bearer token and `mcp.enabled`
+  default. `desktop.id` is the UUID devices pin, created at the first
+  launch and written back after "Clear all data" (SDD 04, *Pinned desktop*,
+  ADR-0168). `mcp.token` is the MCP server's bearer token and `mcp.enabled`
   its switch (SDD 10); `ui.theme` is the window's theme (`system`, `light`
   or `dark`, missing or unreadable = `system`, ADR-0145), read at launch (also
   macOS's title bar appearance, ADR-0150) and

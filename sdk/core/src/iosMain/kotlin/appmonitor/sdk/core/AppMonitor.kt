@@ -5,9 +5,11 @@ public object AppMonitor {
     /** Starts the monitor; ignored while it runs or when [AppMonitorOptions.enabled] is false. Never blocks, never throws. */
     public fun start(options: AppMonitorOptions = AppMonitorOptions()) {
         monitor.start(options) {
+            val pin = FileDesktopPin(desktopPinFile())
             MonitorClient(
                 hello = { iosHello(appName = it.appName) },
-                discover = discovery(it, bonjourBrowser(), SIMULATOR_HOST.takeIf { isSimulator }),
+                discover = discovery(it, bonjourBrowser(), SIMULATOR_HOST.takeIf { isSimulator }, pinned = pin::pinned),
+                pin = pin,
             )
         }
     }

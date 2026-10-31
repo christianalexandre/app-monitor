@@ -47,6 +47,7 @@ internal class StandInDesktop private constructor(
         suspend fun start(
             port: Int = 0,
             silent: Boolean = false,
+            desktopId: String = "",
             handler: (suspend WebSocketSession.() -> Unit)? = null,
         ): StandInDesktop {
             val hellos = Channel<Hello>(Channel.UNLIMITED)
@@ -54,7 +55,7 @@ internal class StandInDesktop private constructor(
             val reports = Channel<DeliveryReport>(Channel.UNLIMITED)
             val serve: suspend WebSocketSession.() -> Unit =
                 handler ?: {
-                    hellos.send(handshake())
+                    hellos.send(handshake(desktopId))
                     if (silent) awaitCancellation()
                     for (frame in incoming) {
                         if (frame !is Frame.Binary) continue
@@ -112,14 +113,14 @@ internal fun Envelope.isReport(): Boolean = channel == Protocol.CHANNEL_CORE && 
 
 private const val BIND_ATTEMPTS = 20
 
-/** Reads `Hello`, answers a `HelloAck` accepting all its channels. */
-internal suspend fun WebSocketSession.handshake(): Hello {
+/** Reads `Hello`, answers a `HelloAck` accepting all its channels, with [desktopId]. */
+internal suspend fun WebSocketSession.handshake(desktopId: String = ""): Hello {
     var hello: Hello? = null
     while (hello == null) {
         val frame = incoming.receive() as? Frame.Binary ?: continue
         hello = Hello.ADAPTER.decode(Envelope.ADAPTER.decode(frame.readBytes()).payload)
     }
-    val ack = HelloAck(protocol_version = Protocol.VERSION, session_id = "stand-in", channels = hello.channels)
+    val ack = HelloAck(protocol_version = Protocol.VERSION, session_id = "stand-in", channels = hello.channels, desktop_id = desktopId)
     val envelope = Envelope(channel = Protocol.CHANNEL_CORE, type = "HelloAck", payload = ack.encodeByteString())
     send(Frame.Binary(true, envelope.encode()))
     return hello

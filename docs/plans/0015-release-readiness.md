@@ -151,9 +151,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   (ADR-0167); a rejection before the close got 1000 from the old server,
   1002 now (DEBT-0014). DEBT-0022 did not happen on Ktor 3.6.0, whose
   channels are unbounded; a test pins it, the memory it costs is DEBT-0113.
-- [~] **H5.4 A device trusts only the desktop its developer chose.** (`feat/device-pins-its-desktop`)
-  ADR-0168 accepted by the owner (2026-10-31): option 1, A, B and C as
-  recommended. The
+- [x] **H5.4 A device trusts only the desktop its developer chose.** The
   SDK stops connecting to the first `_appmonitor._tcp` it finds
   (DEBT-0020). The ADR weighs pinning the first desktop approved against
   a pairing code; an option that adds a setup step or changes the public
@@ -163,6 +161,13 @@ This plan becomes `Active` once PLAN-0014 closes.
   is refused by an SDK paired with the first, on Android, KMP and iOS;
   `./gradlew :sdk:core:allTests`, `make swift`, `make e2e-android`,
   `make e2e-ios`.
+  Done: ADR-0168, accepted by the owner (2026-10-31) after a first PR
+  stopped on it as `Proposed`: the device pins the first `desktop_id` a
+  discovered desktop sends (TXT `id`, `HelloAck.desktop_id`), a manual
+  `host` neither checks nor pins. Refusal tested with two stand-in
+  desktops in `sdk/core` (JVM, Android host, iOS simulator) and
+  `swift test`; the end to ends keep their manual host. DEBT-0020 paid,
+  two desktops of one developer is DEBT-0115.
 - [ ] **H5.5 Release builds keep their guarantees.** The no-op check sees a
   public no-arg secondary constructor missing from a dump (DEBT-0026).
   The Gradle plugin rewrites `newWebSocket` only for an

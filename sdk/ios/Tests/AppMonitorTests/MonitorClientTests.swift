@@ -29,9 +29,10 @@ struct MonitorClientTests {
     static func client(
         _ discover: @escaping Discover,
         config: ClientConfig = config,
-        log: @escaping @Sendable (String) -> Void = { _ in }
+        log: @escaping @Sendable (String) -> Void = { _ in },
+        pin: DesktopPin? = nil
     ) -> MonitorClient {
-        MonitorClient(hello: hello, discover: discover, config: config, log: log, random: { _ in 0 })
+        MonitorClient(hello: hello, discover: discover, config: config, log: log, random: { _ in 0 }, pin: pin)
     }
 
     static func event(_ index: Int, channel: String = ProtocolConstants.channelNetwork) -> Appmonitor_V1_Envelope {
@@ -67,6 +68,56 @@ struct MonitorClientTests {
         let first = try #require(desktop.envelopes.first)
         #expect(first.channel == ProtocolConstants.channelCore && first.type == "Hello")
         #expect(try Appmonitor_V1_Hello(serializedBytes: first.payload) == Self.hello())
+        client.stop()
+        await client.join()
+    }
+
+    // ADR-0168: a second desktop found after the first one approved the install is refused, a manual host is not.
+    @Test func aSecondDesktopIsRefusedOnceTheFirstIsPinned() async throws {
+        let first = TestDesktop(desktopID: "first")
+        let second = TestDesktop(desktopID: "second")
+        try await first.start()
+        try await second.start()
+        defer {
+            first.stop()
+            second.stop()
+        }
+        let pin = MemoryPin()
+        let found = Locked<[Endpoint]>([first.endpoint])
+        let logs = Locked<[String]>([])
+        let discover: Discover = { queue, report in
+            queue.async { report(found.update { $0.isEmpty ? nil : $0.removeFirst() }) }
+            return {}
+        }
+        let client = Self.client(discover, log: { line in logs.update { $0.append(line) } }, pin: pin)
+        client.start()
+        #expect(await eventually { client.state == .connected })
+        #expect(pin.pinned() == "first")
+
+        first.stop()
+        found.update { $0 = [second.endpoint] }
+        #expect(await eventually { logs.value.contains { $0.contains("not the one this install paired with") } })
+        client.send(Self.event(0))
+        #expect(pin.pinned() == "first")
+        #expect(second.events.isEmpty)
+
+        var manual = second.endpoint
+        manual.checksPin = false
+        found.update { $0 = [manual] }
+        #expect(await eventually { second.events.count == 1 })
+        client.stop()
+        await client.join()
+    }
+
+    @Test func aDesktopWithoutAnIdIsNotPinned() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        let pin = MemoryPin()
+        let client = Self.client(manualDiscovery(desktop.endpoint), pin: pin)
+        client.start()
+        #expect(await eventually { client.state == .connected })
+        #expect(pin.pinned() == nil)
         client.stop()
         await client.join()
     }
@@ -322,4 +373,35 @@ final class LockedLines: @unchecked Sendable {
     var all: [String] { lock.withLock { lines } }
 
     func append(_ line: String) { lock.withLock { lines.append(line) } }
+}
+
+/// A pin in memory, for the tests of ADR-0168.
+final class MemoryPin: DesktopPin, @unchecked Sendable {
+    private let id = Locked<String?>(nil)
+
+    func pinned() -> String? { id.value }
+
+    func pin(_ desktopID: String) -> String {
+        id.update { stored in
+            if stored == nil { stored = desktopID }
+            return stored!
+        }
+    }
+}
+
+/// A value behind a lock, read and changed from any thread.
+final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value
+
+    init(_ value: Value) { stored = value }
+
+    var value: Value { update { $0 } }
+
+    @discardableResult
+    func update<Result>(_ change: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return change(&stored)
+    }
 }
