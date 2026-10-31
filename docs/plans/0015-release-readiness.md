@@ -72,10 +72,20 @@ This plan becomes `Active` once PLAN-0014 closes.
   loop in a Linux container, old against new.
   Done: the new test fails on the old server; in a Linux container the
   old server hit EOF in 1 of 700 runs, the new one in 0 of 1000 (DEBT-0066).
+- [x] **H5.2e Spotless reads sources only.** (`docs/spotless-reads-sources-only`)
+  Split from H5.2: DEBT-0017. Reproduced the failure with the target it
+  was seen under (`target("src/**/*.kt")` with
+  `targetExclude("**/build/**")`) while files are written and deleted in
+  `desktop/app/build/`; the `fileTree("src")` target #148 put in its place
+  is run under the same load.
+  Accept: the old target failing under that load, the current one 50
+  times green under it.
+  Done: the old target failed 3 of 10 runs with the DEBT's
+  `NoSuchFileException` on a churned file; the current one passed 50 of
+  50, the root project's string targets 20 of 20 (DEBT-0017).
 - [ ] **H5.2 A gate that fails only on a real failure.** Each test that
   failed once on CI is reproduced (repeated runs, a held port, a loaded
-  runner) and fixed at its cause, never skipped: DEBT-0065, DEBT-0091, and locally
-  DEBT-0017 (Spotless). The mDNS and loopback tests
+  runner) and fixed at its cause, never skipped: DEBT-0065 and DEBT-0091. The mDNS and loopback tests
   ignore point-to-point and tunnel interfaces, so a VPN no longer fails
   `make check` (DEBT-0036, extended with `LifecycleTest.bindsLoopbackOnly`
   in `desktop/mcp`).
