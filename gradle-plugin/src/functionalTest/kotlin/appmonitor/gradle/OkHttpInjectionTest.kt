@@ -211,6 +211,7 @@ class OkHttpInjectionTest {
         gradle(":app:assembleDebug", ":app:assembleRelease").build()
 
         assertTrue(hasClass("app/build/outputs/apk/debug/app-debug.apk", "Lappmonitor/sdk/core/RealCore;"))
+        assertEquals(1, entryCalls("app/build/outputs/apk/debug/app-debug.apk", "newWebSocket"))
         val release = "app/build/outputs/apk/release/app-release-unsigned.apk"
         assertTrue(hasClass(release, "Lappmonitor/sdk/core/NoOpCore;"))
         assertFalse(hasClass(release, "Lappmonitor/sdk/core/RealCore;"))
@@ -259,18 +260,42 @@ class OkHttpInjectionTest {
         }
     }
 
+    /** An empty `io.github.christianalexandre:[artifact]:[version]` in `repo/`, as from Maven. */
+    private fun emptyArtifact(
+        artifact: String,
+        version: String,
+    ) {
+        val module = dir.resolve("repo/io/github/christianalexandre/$artifact/$version").apply { mkdirs() }
+        module.resolve("$artifact-$version.pom").writeText(
+            """
+            <project><modelVersion>4.0.0</modelVersion><groupId>io.github.christianalexandre</groupId>
+            <artifactId>$artifact</artifactId><version>$version</version></project>
+            """.trimIndent(),
+        )
+        ZipOutputStream(module.resolve("$artifact-$version.jar").outputStream()).use { it.putNextEntry(ZipEntry("META-INF/")) }
+    }
+
+    @Test
+    fun `fails a debug build that forces another appmonitor-okhttp, before rewriting OkHttp`() {
+        consumer("forced", local = false)
+        emptyArtifact("appmonitor-okhttp", "0.0.1")
+        app(
+            "forced",
+            """configurations.configureEach { resolutionStrategy.force("io.github.christianalexandre:appmonitor-okhttp:0.0.1") }""",
+        )
+
+        val result = gradle(":forced:assembleDebug").buildAndFail()
+
+        val line = "AppMonitor: debug resolves appmonitor-okhttp 0.0.1, the plugin rewrites OkHttp for $sdkVersion"
+        assertTrue(line in result.output, result.output)
+        assertTrue(":forced:appMonitorOkHttpCheckDebug FAILED" in result.output, result.output)
+    }
+
     @Test
     fun `fails a release build that resolves a real SDK artifact`() {
         consumer("leaky")
         // A per-target artifact the swap does not name, declared by hand.
-        val module = dir.resolve("repo/io/github/christianalexandre/appmonitor-core-android/1.0").apply { mkdirs() }
-        module.resolve("appmonitor-core-android-1.0.pom").writeText(
-            """
-            <project><modelVersion>4.0.0</modelVersion><groupId>io.github.christianalexandre</groupId>
-            <artifactId>appmonitor-core-android</artifactId><version>1.0</version></project>
-            """.trimIndent(),
-        )
-        ZipOutputStream(module.resolve("appmonitor-core-android-1.0.jar").outputStream()).use { it.putNextEntry(ZipEntry("META-INF/")) }
+        emptyArtifact("appmonitor-core-android", "1.0")
         app("leaky", """dependencies { releaseImplementation("io.github.christianalexandre:appmonitor-core-android:1.0") }""")
 
         val result = gradle(":leaky:assembleRelease").buildAndFail()

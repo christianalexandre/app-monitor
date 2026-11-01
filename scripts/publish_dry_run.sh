@@ -61,6 +61,46 @@ echo "publish: Maven files in $repo"
 find "$repo" -type f \( -name '*.jar' -o -name '*.aar' -o -name '*.klib' -o -name '*.pom' -o -name '*.module' \) |
   sed "s|^$group_dir/||" | sort
 
+# ADR-0169: an app on the oldest Kotlin the README states compiles against the published SDK.
+kotlin_floor=2.2.0
+version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+floor=build/kotlin-floor
+rm -rf "$floor"
+mkdir -p "$floor/src/main/kotlin"
+cat >"$floor/settings.gradle.kts" <<EOF
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
+dependencyResolutionManagement { repositories { mavenCentral(); maven(url = uri("$PWD/$repo")) } }
+rootProject.name = "kotlin-floor"
+EOF
+cat >"$floor/build.gradle.kts" <<EOF
+plugins { kotlin("jvm") version "$kotlin_floor" }
+kotlin { jvmToolchain(21) }
+dependencies {
+    implementation("io.github.christianalexandre:appmonitor-core:$version")
+    implementation("io.github.christianalexandre:appmonitor-okhttp:$version")
+    implementation("io.github.christianalexandre:appmonitor-ktor:$version")
+}
+EOF
+cat >"$floor/src/main/kotlin/Main.kt" <<'EOF'
+import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.ktor.AppMonitorKtor
+import appmonitor.sdk.okhttp.AppMonitorInterceptor
+import io.ktor.client.HttpClientConfig
+
+fun main() {
+    println(AppMonitorOptions(appName = "floor"))
+    println(AppMonitorInterceptor())
+}
+
+fun HttpClientConfig<*>.monitored() = install(AppMonitorKtor)
+EOF
+./gradlew -q -p "$floor" compileKotlin >build/kotlin-floor.log 2>&1 || {
+  cat build/kotlin-floor.log >&2
+  echo "publish: an app on Kotlin $kotlin_floor does not compile against the SDK (ADR-0169)" >&2
+  exit 1
+}
+echo "publish: an app on Kotlin $kotlin_floor compiles against the SDK"
+
 if [[ "$(uname -s)" != "Darwin" ]] || ! command -v swift >/dev/null 2>&1; then
   echo "publish-swift: SKIPPED (needs macOS with swift on the PATH; ADR-0037)"
   exit 0

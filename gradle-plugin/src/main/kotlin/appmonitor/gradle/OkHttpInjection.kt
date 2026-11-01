@@ -22,12 +22,18 @@ private const val NEW_WEB_SOCKET = "(Lokhttp3/Request;Lokhttp3/WebSocketListener
 // The published module and its Android variant; this repository's project is matched by path.
 private val SDK_MODULES = setOf("appmonitor-okhttp", "appmonitor-okhttp-android")
 
-/** Whether the graph under [root] holds `io.github.christianalexandre:appmonitor-okhttp`. */
-internal fun hasSdk(root: ResolvedComponentResult): Boolean =
-    components(root).any { component ->
+/**
+ * The version of `io.github.christianalexandre:appmonitor-okhttp` in the graph under [root], [SDK_VERSION] for this
+ * repository's project, null without it.
+ */
+internal fun okHttpSdkVersion(root: ResolvedComponentResult): String? =
+    components(root).firstNotNullOfOrNull { component ->
         val module = component.moduleVersion
-        (module != null && module.group == GROUP && module.name in SDK_MODULES) ||
-            (component.id as? ProjectComponentIdentifier)?.projectPath == SdkModule.OKHTTP.path
+        when {
+            (component.id as? ProjectComponentIdentifier)?.projectPath == SdkModule.OKHTTP.path -> SDK_VERSION
+            module != null && module.group == GROUP && module.name in SDK_MODULES -> module.version
+            else -> null
+        }
     }
 
 /** Calls `AppMonitorOkHttp.install(builder)` on entry of `OkHttpClient(builder)`, when the SDK is on the classpath. */

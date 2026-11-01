@@ -1,10 +1,10 @@
 ---
 id: DEBT-0099
 title: An older appmonitor-okhttp beside a newer Gradle plugin breaks WebSockets in debug
-status: Open
+status: Paid
 date: 2026-10-29
 trigger: The first SDK release after the one that adds `AppMonitorOkHttp.newWebSocket`, or an app reports a `NoSuchMethodError` on it
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0099 — An older appmonitor-okhttp beside a newer Gradle plugin breaks WebSockets in debug
@@ -32,4 +32,10 @@ only when the resolved `appmonitor-okhttp` is the plugin's version.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid before the first publication. The rewrite runs only when the
+resolved `appmonitor-okhttp` is the plugin's version, and
+`appMonitorOkHttpCheck<Variant>` fails the debug build with one line
+naming both versions and `injectOkHttp = false` otherwise.
+`OkHttpInjectionTest` forces a published 0.0.1 and reads that line
+(ADR-0169). A newer SDK than the plugin fails too: aligning both is the
+answer, as the plugin adds its own version.

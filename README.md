@@ -193,11 +193,11 @@ resolves the real SDK fails to build
    AppMonitor.start(this, AppMonitorOptions(appName = "My App"))
    ```
 
-Nothing else. The app compiles with Kotlin 2.3 or newer
-([DEBT-0108](docs/tech-debt/0108-apps-on-kotlin-older-than-2-3-cannot-compile-against-the-sdk.md)).
-AGP 9's built-in Kotlin is 2.2 until the root `build.gradle.kts` declares
-a newer one beside AGP:
-`id("org.jetbrains.kotlin.android") version "2.4.21" apply false`.
+Nothing else. The app compiles with Kotlin 2.2 or newer, AGP 9's built-in
+Kotlin included
+([ADR-0169](docs/adr/0169-release-builds-keep-their-guarantees.md)). The
+plugin adds the SDK at its own version; a debug build that forces another
+`appmonitor-okhttp` fails with one line.
 On Android 17 the SDK asks for `ACCESS_LOCAL_NETWORK` itself,
 once, on the first screen; it reaches the desktop's `ws://` whatever the
 app's network security config says
