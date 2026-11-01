@@ -11,7 +11,7 @@ extension RecordingSink {
                 .map { try Appmonitor_V1_WebSocketFrame(serializedBytes: $0.payload) }
                 .filter { $0.requestID == requestID }
             if frames.count >= count { return Array(frames.prefix(count)) }
-            try await Task.sleep(for: .milliseconds(50))
+            try await Task.sleep(nanoseconds: 50_000_000)
         }
         throw CaptureTestError.noExchange(requestID)
     }
@@ -125,7 +125,7 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         defer { task.cancel() }
         // As Ktor's Darwin engine does: its receive loop starts before the task is resumed.
         let reply = Task { try await task.receive() }
-        try await Task.sleep(for: .milliseconds(50))
+        try await Task.sleep(nanoseconds: 50_000_000)
         task.resume()
 
         try await task.send(.string("hi"))
