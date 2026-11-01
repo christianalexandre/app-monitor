@@ -1,9 +1,12 @@
 [versions]
 kotlin = "2.4.21"
+sdk-kotlin-api = "2.3" # ADR-0169: what the published SDK and protocol compile to
+sdk-kotlin-stdlib = "2.3.21" # ADR-0169: Ktor 3.6's
 compose-multiplatform = "1.12.2"
 spotless = "8.10.4"
 ktlint = "1.8.0"
 wire = "7.1.0"
+asm = "9.11.1" # ADR-0169
 android-gradle-plugin = "9.3.3"
 android-compileSdk = "36"
 android-kmp-sample-compileSdk = "37" # ADR-0073: Compose Multiplatform 1.12 and Ktor's OkHttp 5.5
@@ -38,6 +41,8 @@ spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradl
 sqldelight-gradle-plugin = { module = "app.cash.sqldelight:gradle-plugin", version.ref = "sqldelight" }
 
 # Libraries
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+kotlin-metadata-jvm = { module = "org.jetbrains.kotlin:kotlin-metadata-jvm", version.ref = "kotlin" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

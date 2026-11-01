@@ -168,7 +168,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   desktops in `sdk/core` (JVM, Android host, iOS simulator) and
   `swift test`; the end to ends keep their manual host. DEBT-0020 paid,
   two desktops of one developer is DEBT-0115.
-- [ ] **H5.5 Release builds keep their guarantees.** The no-op check sees a
+- [x] **H5.5 Release builds keep their guarantees.** (`fix/release-builds-keep-guarantees`) The no-op check sees a
   public no-arg secondary constructor missing from a dump (DEBT-0026).
   The Gradle plugin rewrites `newWebSocket` only for an
   `appmonitor-okhttp` that has it, and fails the debug build with one
@@ -178,6 +178,12 @@ This plan becomes `Active` once PLAN-0014 closes.
   Accept: `./gradlew :sdk:no-op:check` failing on a crafted constructor
   dropped from a no-op; `./gradlew -p gradle-plugin check
   :gradle-plugin:functionalTest` with a consumer forcing an older SDK.
+  Done: `ConstructorMatchTest` reads constructors from the JVM classes; a
+  crafted `Probe` failed it while `ApiMatchTest` passed (DEBT-0026). The
+  plugin rewrites OkHttp only for its own SDK version, a forced 0.0.1
+  fails the debug build (DEBT-0099). The SDK compiles to Kotlin 2.3: an
+  app on Kotlin 2.2.0 compiles against it, in `make publish-dry-run`
+  (DEBT-0108, ADR-0169); the iOS klib floor is DEBT-0117.
 - [ ] **H5.6 The iOS SDK on the iOS it declares.** The SDK's tests, mocks
   and breakpoints included, run on the lowest iOS `Package.swift` declares,
   or that floor is raised to what runs (DEBT-0111). No end to end on a

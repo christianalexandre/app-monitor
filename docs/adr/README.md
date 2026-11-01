@@ -186,3 +186,4 @@ Rules:
 | [0166](0166-the-device-reports-what-it-dropped-in-a-delivery-report.md) | The device reports what it dropped in a DeliveryReport, the desktop counts what it lost | Accepted |
 | [0167](0167-the-desktop-reads-device-frames-over-a-raw-websocket.md) | The desktop reads device frames over a raw WebSocket session and answers the close after them | Accepted |
 | [0168](0168-a-device-pins-the-first-desktop-that-approved-it.md) | A device pins the first desktop that approved it | Accepted |
+| [0169](0169-release-builds-keep-their-guarantees.md) | The no-op check reads constructors from the classes, the plugin rewrites OkHttp for its own SDK version, and the SDK compiles to Kotlin 2.3 | Accepted |

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0108
 title: Apps on Kotlin older than 2.3 cannot compile against the SDK
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "M10's plan is written, or an app on Kotlin older than 2.3 asks for the SDK"
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0108 — Apps on Kotlin older than 2.3 cannot compile against the SDK
@@ -37,4 +37,11 @@ and publish that floor.
 
 ## How it was paid
 
-> Filled when closing.
+Lowered to Kotlin 2.2, AGP 9's built-in Kotlin. The published modules
+compile with `languageVersion` and `apiVersion` 2.3 and
+`coreLibrariesVersion` 2.3.21 (Ktor 3.6.0's), which is metadata 2.3.0, as
+in Ktor 3.6.0 and kotlinx-io 0.9.1. A consumer on Kotlin 2.2.0 compiles
+against `appmonitor-core`, `-okhttp` and `-ktor`. On 2.1.21 it fails on the
+SDK's and on Ktor's metadata. `make publish-dry-run` keeps that 2.2.0
+consumer (ADR-0169). An iOS consumer's klib floor was not measured:
+DEBT-0117.

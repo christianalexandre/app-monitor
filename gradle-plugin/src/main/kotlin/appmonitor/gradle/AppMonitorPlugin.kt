@@ -56,9 +56,22 @@ public class AppMonitorPlugin : Plugin<Project> {
                 }
                 if (!extension.injectOkHttp.get()) return@onVariants
                 val graph = variant.runtimeConfiguration.incoming.resolutionResult.rootComponent
+                // ADR-0169: the rewrite calls the entry points of the plugin's own SDK version, none other.
+                val version = graph.map { okHttpSdkVersion(it).orEmpty() }
                 variant.instrumentation.transformClassesWith(OkHttpInjection::class.java, InstrumentationScope.ALL) {
-                    it.sdkOnClasspath.set(graph.map(::hasSdk))
+                    it.sdkOnClasspath.set(version.map { found -> found == SDK_VERSION })
                 }
+                val check =
+                    project.tasks.register(
+                        "appMonitorOkHttpCheck${variant.name.replaceFirstChar(Char::uppercase)}",
+                        OkHttpVersionCheck::class.java,
+                    ) {
+                        it.variantName.set(variant.name)
+                        it.found.set(version)
+                    }
+                project.tasks
+                    .matching { it.name == "pre${variant.name.replaceFirstChar(Char::uppercase)}Build" }
+                    .configureEach { it.dependsOn(check) }
                 variant.instrumentation.setAsmFramesComputationMode(FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS)
             }
         }
@@ -119,6 +132,27 @@ public abstract class NoSdkCheck : DefaultTask() {
         if (found.isNotEmpty()) {
             throw GradleException(
                 "AppMonitor: ${configurationName.get()} resolves the real SDK ($found) in a release build; remove that dependency (ADR-0157)",
+            )
+        }
+    }
+}
+
+/** Fails a debug build whose `appmonitor-okhttp` is not the plugin's version, which the OkHttp rewrite calls (ADR-0169). */
+@DisableCachingByDefault(because = "Reads the resolved graph and writes nothing")
+internal abstract class OkHttpVersionCheck : DefaultTask() {
+    @get:Input
+    abstract val variantName: Property<String>
+
+    @get:Input
+    abstract val found: Property<String>
+
+    @TaskAction
+    fun check() {
+        val found = found.get()
+        if (found.isNotEmpty() && found != SDK_VERSION) {
+            throw GradleException(
+                "AppMonitor: ${variantName.get()} resolves appmonitor-okhttp $found, the plugin rewrites OkHttp for $SDK_VERSION; " +
+                    "use the same version for both, or set appMonitor { injectOkHttp = false } (ADR-0169)",
             )
         }
     }
