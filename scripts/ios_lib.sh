@@ -12,10 +12,13 @@ for tool in xcodebuild xcrun xcodegen; do
     || ios_fail "$tool not found (needs macOS with Xcode and 'brew install xcodegen'; ADR-0047)"
 done
 
-# Prints SIM_DEVICE, else the name of the first available iPhone simulator; fails when there is none.
+# Prints SIM_DEVICE, else the name of the first available iPhone simulator, on the iOS SIM_OS names when
+# set; fails when there is none.
 ios_device() {
-  local device="${SIM_DEVICE:-$(xcrun simctl list devices available | scripts/sim_list.sh | head -1 | cut -d' ' -f2-)}"
-  [[ -n "$device" ]] || ios_fail "no available iPhone simulator (install one in Xcode > Settings > Components)"
+  local device="${SIM_DEVICE:-$(xcrun simctl list devices available \
+    | awk -v os="-- iOS ${SIM_OS:-} --" '/^-- / { on = (os == "-- iOS  --" || $0 == os) } on' \
+    | scripts/sim_list.sh | head -1 | cut -d' ' -f2-)}"
+  [[ -n "$device" ]] || ios_fail "no available iPhone simulator${SIM_OS:+ on iOS $SIM_OS} (install one in Xcode > Settings > Components)"
   echo "$device"
 }
 

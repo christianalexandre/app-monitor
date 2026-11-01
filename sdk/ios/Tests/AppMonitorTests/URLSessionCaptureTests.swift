@@ -234,7 +234,7 @@ extension ProcessWideHooks {
             let streamed = await withCheckedContinuation { continuation in
                 let task = session.uploadTask(withStreamedRequest: request)
                 Task {
-                    while task.state != .completed { try? await Task.sleep(for: .milliseconds(20)) }
+                    while task.state != .completed { try? await Task.sleep(nanoseconds: 20_000_000) }
                     continuation.resume(returning: task.error == nil)
                 }
                 task.resume()

@@ -29,6 +29,13 @@ PLAN-0015 H5.6 starts, or the next PR that changes `Mocks.swift`, `Breakpoints.s
 platforms of `Package.swift`. Then the SDK's tests, mocks and breakpoints included, run on the
 lowest iOS it declares, or that floor is raised to what is tested.
 
+Progress on 2026-10-31 (PLAN-0015 H5.6): the package's suite, mocks and breakpoints included,
+now builds for the iOS floor and runs on the simulator in `make swift-sim`, and `SIM_OS` picks the
+runtime (ADR-0170). Still open: `xcodebuild -downloadPlatform` serves no iOS 15 runtime, the image
+needs an Apple ID, and the iOS 16.0 download failed four times on the loop's network. ADR-0171
+(`Proposed`) asks the owner to install a runtime, then `SIM_OS=<version> make swift-sim`, or to
+raise the floor.
+
 ## How it was paid
 
 > Filled when closing.

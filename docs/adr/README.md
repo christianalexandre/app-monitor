@@ -187,3 +187,5 @@ Rules:
 | [0167](0167-the-desktop-reads-device-frames-over-a-raw-websocket.md) | The desktop reads device frames over a raw WebSocket session and answers the close after them | Accepted |
 | [0168](0168-a-device-pins-the-first-desktop-that-approved-it.md) | A device pins the first desktop that approved it | Accepted |
 | [0169](0169-release-builds-keep-their-guarantees.md) | The no-op check reads constructors from the classes, the plugin rewrites OkHttp for its own SDK version, and the SDK compiles to Kotlin 2.3 | Accepted |
+| [0170](0170-the-ios-sdk-suite-runs-on-the-simulator.md) | The iOS SDK's package suite runs on the simulator too, on the iOS SIM_OS picks | Accepted |
+| [0171](0171-the-ios-floor-the-sdk-declares.md) | The iOS floor the SDK declares, against the runtimes it can be tested on | Proposed |

@@ -184,7 +184,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   fails the debug build (DEBT-0099). The SDK compiles to Kotlin 2.3: an
   app on Kotlin 2.2.0 compiles against it, in `make publish-dry-run`
   (DEBT-0108, ADR-0169); the iOS klib floor is DEBT-0117.
-- [ ] **H5.6 The iOS SDK on the iOS it declares.** The SDK's tests, mocks
+- [!] **H5.6 The iOS SDK on the iOS it declares.** (`test/ios-sdk-on-its-lowest-ios`, DEBT-0111) The SDK's tests, mocks
   and breakpoints included, run on the lowest iOS `Package.swift` declares,
   or that floor is raised to what runs (DEBT-0111). No end to end on a
   physical iPhone (owner, 2026-10-30: the focus is the SDK and the
@@ -192,6 +192,11 @@ This plan becomes `Active` once PLAN-0014 closes.
   DEBT-0041 and DEBT-0052 are paid by it or dropped, with that reason.
   Accept: `swift test` or `make swift-sim` on that iOS's simulator, its
   version in the PR; a mocked and a held call answered there.
+  Blocked: `make swift-sim` now runs the whole package suite on the
+  simulator, `SIM_OS` its runtime (ADR-0170), green on iOS 26.5. No iOS 15
+  runtime can be installed without an Apple ID, and the iOS 16.0 download
+  (6.28 GB) failed four times on this network: ADR-0171, `Proposed`, asks
+  the owner to install one or to raise the floor.
 
 ## Outcome
 
