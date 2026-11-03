@@ -227,7 +227,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   with the next batch, so one bad moment does not stop ingest or close a
   device. `Storage.health` (a `StateFlow`) holds the count and the last
   error; the window shows "N events not saved: <error>" until a later batch
-  holding events succeeds. An exchange whose `RequestStarted` was in a lost batch is
+  holding events, or a retry, is written and no retry fails. An exchange whose `RequestStarted` was in a lost batch is
   created by its next event, with what that event carries; a session whose
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected` is committed. A
@@ -235,13 +235,19 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   in its own transaction, so the session does not stay connected for the
   rest of the launch and a disconnect that keeps failing never takes the
   next batch or another lost disconnect with it; once written it leaves
-  the count and clears the error.
+  the count and clears the error, whichever batch set it. A retry that
+  fails shows its error. `Ingest` keeps what it holds besides rows in one
+  immutable state, replaced whole: a lost batch goes back to the state
+  before it, plus its sessions.
 - **Error in a batch** (an `Error`, not an exception: out of memory, an
   assertion). Counted as a failed batch and settled like one (a flush
   barrier in it returns), then the writer ends. It closes
   the queue on its way out, so every later `enqueue` returns false
   (`NotSaved`) instead of waiting for room no one frees
-  (`WriteQueueTest.anErrorInAWriteClosesTheQueue`).
+  (`WriteQueueTest.anErrorInAWriteClosesTheQueue`,
+  `anEnqueueRacingADeadWriterDoesNotWaitForGood`). What it leaves queued is
+  counted as not saved and in what `close` returns
+  (`itemsLeftByADeadWriterAreCounted`).
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
   file, stored approvals that cannot be read). The app opens without storage: the window shows the error, the
   path and "Clear all data", which deletes `appmonitor.db`, `-wal` and
@@ -255,7 +261,8 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   timeout (a pass queued on the writer behind a long batch ends only when
   the writer reaches it), queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
   the server; what is still queued after it, the batch being written
-  included, is lost, logged and returned as a count. The next open closes
+  included, and any disconnect no retry has written, is lost, logged and
+  returned as a count. The next open closes
   what it left open. The writer stops at the next batch boundary and
   completes what it will not write, so a `flush` or `newRun` waiting on it
   returns; the database is closed on the writer thread, behind what is
@@ -290,14 +297,13 @@ every `RETENTION_INTERVAL` (10 minutes) from a coroutine `close` cancels:
    it is no longer a candidate. Then unnamed, ended runs left without
    sessions and older than the limit.
 2. **Size.** While live pages (`page_count − freelist_count`, times
-   `page_size`) pass the limit, the oldest such session goes, one per
-   statement, until they are under 90 % of it; then every unnamed, ended run
-   without sessions.
-3. Devices and apps no session refers to are deleted, and the free pages
+   `page_size`) pass the limit, the oldest such sessions go, up to 50 per
+   transaction and measured after each, until they are under 90 % of it; then
+   every unnamed, ended run without sessions.
+3. Devices and apps no session refers to are deleted, after a pass that
+   pruned something or followed one that did not finish, and the free pages
    handed back with `PRAGMA incremental_vacuum`, one page per statement (the
-   driver steps a statement once), 1 000 per transaction. Every pass runs
-   this step, so one that deleted nothing still cleans up after a superseded
-   one.
+   driver steps a statement once), 1 000 per transaction.
 
 The writer yields between transactions, so batches pass during a long pass.
 A pass whose settings changed (`setRetention`, which runs its own pass with

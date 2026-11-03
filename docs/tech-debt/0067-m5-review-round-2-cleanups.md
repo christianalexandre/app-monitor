@@ -1,10 +1,10 @@
 ---
 id: DEBT-0067
 title: Non-correctness findings of the second M5 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: "The first PR that changes `Ingest.write`'s rollback or `Storage.applyRetention`, or touches `desktop/storage/src/test/kotlin/appmonitor/desktop/storage/StorageOpenTest.kt`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0067 — Non-correctness findings of the second M5 milestone review
@@ -75,11 +75,22 @@ Fired by PLAN-0013 H3.2 (`feat/record-runs`), the same way: one rollback
 line (the recording put back, as the current run is). The code these
 findings name is unchanged.
 
-## How it was paid
-
-> Filled when closing.
-
 Fired by PLAN-0013 H3.2b, whose rollback change is one more outcome
 cleared (the `Save` item, ADR-0143). The rollback, allocation, idle-pass
 cleanup and `/tmp` test these findings name are unchanged; the trigger
 stays.
+
+## How it was paid
+
+Paid by PLAN-0016 H6.2a (`fix/store-write-path-debts`).
+
+`Ingest` keeps what it holds besides rows in one immutable `State`, replaced
+whole, which pays the rollback and both allocations: a lost batch goes back to
+the state before it plus its sessions, nothing is copied per batch and the
+batch is not rescanned per disconnect. The rollback is not quite "drop the
+copy": a lost batch's `Connected` items stay so their next event can write them
+again. A failure partway through a batch now keeps the `Connected` items after
+it too. The cleanup runs after a pass that pruned or one left unfinished
+(`aPassWithNothingPrunedLeavesTheCleanupAlone`). The `/tmp` test is deleted:
+`keepsTheModeOfAnExistingDirectory` already fails if an existing directory is
+chmodded, and since ADR-0175 the old test also left its lock file in `/tmp`.

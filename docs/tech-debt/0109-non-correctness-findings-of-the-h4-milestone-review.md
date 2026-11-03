@@ -3,7 +3,7 @@ id: DEBT-0109
 title: Findings of the H4 milestone review that normal use does not hit
 status: Open
 date: 2026-10-30
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt` or `sdk/ios/Sources/AppMonitor/ProtoWire.swift`"
+trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt` or `sdk/ios/Sources/AppMonitor/ProtoWire.swift`"
 paid_date:
 ---
 
@@ -51,6 +51,10 @@ of comments.
 The next PR that touches one of the files above. Then fix the finding of
 that file, or say why not in the PR. Item 8 is paid one file at a time,
 whenever a PR touches a comment that cites an SDD.
+
+Item 1 is paid by PLAN-0016 H6.2a, with DEBT-0106's `WriteQueue.kt` items, and
+`WriteQueue.kt` leaves the trigger. Item 8 went down by the citations in the
+comments that PR rewrote.
 
 ## How it was paid
 

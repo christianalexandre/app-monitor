@@ -18,9 +18,6 @@ insert:
 INSERT INTO breakpoint_rules(app_id, position, name, enabled, rule, created_at_ms, updated_at_ms)
 VALUES (:appId, (SELECT coalesce(max(position), -1) + 1 FROM breakpoint_rules WHERE app_id = :appId), :name, 1, :rule, :atMs, :atMs);
 
-lastId:
-SELECT last_insert_rowid();
-
 exists:
 SELECT count(*) FROM breakpoint_rules WHERE id = ?;
 

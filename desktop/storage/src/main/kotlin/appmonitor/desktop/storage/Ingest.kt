@@ -178,7 +178,26 @@ internal sealed interface StorageItem {
     }
 }
 
-/** Turns [StorageItem]s into rows. Writer thread only; [write] is one transaction. */
+/** What [Ingest] keeps besides rows; each connection holds the run current when it arrived (ADR-0084 A.1). */
+private data class State(
+    val currentRun: Long,
+    val recording: Long?,
+    val retention: RetentionSettings,
+    val connections: Map<String, Pair<StorageItem.Connected, Long>> = emptyMap(),
+    val rows: Map<String, Long> = emptyMap(),
+) {
+    // A lost batch's sessions stay known, in a run that exists: their next event writes them again from the Hello.
+    fun afterLost(batch: List<StorageItem>): State =
+        copy(
+            connections =
+                connections +
+                    batch.filterIsInstance<StorageItem.Connected>().associate {
+                        it.sessionId to (it to minOf(it.run ?: currentRun, currentRun))
+                    },
+        )
+}
+
+/** Turns [StorageItem]s into rows. Writer thread only, unless a member says otherwise; [write] is one transaction. */
 internal class Ingest(
     private val database: AppMonitorDatabase,
     runId: Long,
@@ -187,59 +206,61 @@ internal class Ingest(
     // A store opened without a run opens none on clear either (ADR-0142).
     private val startsRuns = runId != LiveTraffic.NO_RUN
 
+    // Replaced whole: a batch rolled back leaves only its sessions behind (afterLost).
+    private var state = State(runId, null, database.retentionSettings())
+
     /** The run new sessions join: the launch's, then each [StorageItem.NewRun]'s; [LiveTraffic.NO_RUN] before the first. */
-    var currentRun: Long = runId
-        private set
+    val currentRun: Long get() = state.currentRun
 
     /** The run being recorded (ADR-0140 B): the last recorded [StorageItem.NewRun]'s until an [StorageItem.EndRun]. */
-    var recording: Long? = null
-        private set
+    val recording: Long? get() = state.recording
 
     /** The stored retention settings, as of the last batch written. */
-    var retention: RetentionSettings = database.retentionSettings()
-        private set
+    val retention: RetentionSettings get() = state.retention
 
-    // `connections` outlive a rolled back batch, `rows` do not: a lost session row is inserted again.
-    // Each connection keeps the run current when it arrived (ADR-0084 A.1).
-    private val connections = mutableMapOf<String, Pair<StorageItem.Connected, Long>>()
-    private var rows = mapOf<String, Long>()
+    // The last envelope's time of each session in the batch being applied: one UPDATE per session.
+    private val touched = mutableMapOf<Long, Long>()
 
     // Each rolled back disconnect is retried before each next batch, in its own transaction: its session sends nothing more.
+    @Volatile
     private var lostDisconnects = listOf<StorageItem.Disconnected>()
 
-    /** Writes each lost disconnect alone; returns how many were written, the others are kept for the next retry. */
-    fun retryLost(): Int {
+    /** Disconnects no retry has written yet; the next open ends their sessions. Any thread. */
+    val lostDisconnectCount: Int get() = lostDisconnects.size
+
+    /** Writes each lost disconnect alone; the others are kept for the next retry. */
+    fun retryLost(): Retried {
         val retried = lostDisconnects
-        if (retried.isEmpty()) return 0
-        lostDisconnects = retried.filterNot(::retry)
-        return retried.size - lostDisconnects.size
+        if (retried.isEmpty()) return Retried(0)
+        var error: Exception? = null
+        lostDisconnects =
+            retried.filter { item ->
+                retry(item)?.also { error = it } != null
+            }
+        return Retried(retried.size - lostDisconnects.size, error)
     }
 
-    private fun retry(item: StorageItem.Disconnected): Boolean {
-        val before = rows
-        val beforeConnections = connections.toMap()
+    private fun retry(item: StorageItem.Disconnected): Exception? {
+        val before = state
         return try {
             database.transaction {
                 apply(item)
                 beforeCommit(listOf(item))
             }
-            true
-        } catch (_: Exception) {
-            rows = before
-            connections.putAll(beforeConnections)
-            false
+            null
+        } catch (e: Exception) {
+            state = before
+            e
         }
     }
 
     fun write(batch: List<StorageItem>) {
-        val before = rows
-        val beforeRun = currentRun
-        val beforeRecording = recording
-        val beforeRetention = retention
-        val beforeConnections = connections.toMap()
+        val before = state
+        touched.clear()
         try {
             database.transaction {
                 batch.forEach(::apply)
+                touched.forEach { (session, atMs) -> database.sessionQueries.touch(atMs, session) }
                 beforeCommit(batch)
             }
         } catch (e: Exception) {
@@ -249,18 +270,9 @@ internal class Ingest(
                 if (it is StorageItem.SaveBreakpoint) it.outcome = null
                 if (it is StorageItem.Save) it.outcome = null
             }
-            val disconnects = batch.filterIsInstance<StorageItem.Disconnected>()
-            disconnects.forEach { item ->
-                val connected = batch.filterIsInstance<StorageItem.Connected>().lastOrNull { it.sessionId == item.sessionId }
-                (beforeConnections[item.sessionId] ?: connected?.let { it to beforeRun })?.let { connections[item.sessionId] = it }
-            }
-            lostDisconnects = lostDisconnects + disconnects.filter { it.sessionId in connections }
-            rows = before.filterKeys { it in connections }
-            // Runs opened by the lost batch are gone; the current run is always the highest id.
-            currentRun = beforeRun
-            recording = beforeRecording
-            retention = beforeRetention
-            connections.replaceAll { _, (connected, run) -> connected to minOf(run, beforeRun) }
+            state = before.afterLost(batch)
+            lostDisconnects =
+                lostDisconnects + batch.filterIsInstance<StorageItem.Disconnected>().filter { it.sessionId in state.connections }
             throw e
         }
     }
@@ -268,13 +280,13 @@ internal class Ingest(
     private fun apply(item: StorageItem) {
         when (item) {
             is StorageItem.Connected -> {
-                connections[item.sessionId] = item to (item.run ?: currentRun)
+                state = state.copy(connections = state.connections + (item.sessionId to (item to (item.run ?: currentRun))))
                 sessionRow(item.sessionId)
             }
 
             is StorageItem.Received -> {
                 val session = sessionRow(item.sessionId) ?: return
-                database.sessionQueries.touch(item.atMs, session)
+                touched[session] = item.atMs
                 received(session, item.envelope)
             }
 
@@ -284,20 +296,19 @@ internal class Ingest(
 
             is StorageItem.Disconnected -> {
                 sessionRow(item.sessionId)?.let { database.sessionQueries.disconnect(item.atMs, it) }
-                connections.remove(item.sessionId)
-                rows = rows - item.sessionId
+                state = state.copy(connections = state.connections - item.sessionId, rows = state.rows - item.sessionId)
             }
 
             is StorageItem.EndRun -> {
                 database.runQueries.end(item.atMs, currentRun)
-                recording = null
+                state = state.copy(recording = null)
             }
 
             is StorageItem.NewRun -> {
                 database.runQueries.end(item.atMs, currentRun)
                 database.runQueries.insert(item.atMs)
-                currentRun = database.runQueries.lastId().executeAsOne()
-                recording = currentRun.takeIf { item.record }
+                val run = database.insertedQueries.lastId().executeAsOne()
+                state = state.copy(currentRun = run, recording = run.takeIf { item.record })
             }
 
             is StorageItem.Renamed -> {
@@ -327,7 +338,7 @@ internal class Ingest(
 
             is StorageItem.SetRetention -> {
                 database.putRetentionSettings(item.settings)
-                retention = item.settings
+                state = state.copy(retention = item.settings)
             }
 
             is StorageItem.SetSetting -> {
@@ -373,7 +384,7 @@ internal class Ingest(
         val run =
             database.runQueries.savedId().executeAsOneOrNull() ?: run {
                 database.runQueries.insertSaved(item.atMs)
-                database.runQueries.lastId().executeAsOne()
+                database.insertedQueries.lastId().executeAsOne()
             }
         return item.copies.associate { copy ->
             val live = copy.session
@@ -410,7 +421,7 @@ internal class Ingest(
                     created_at_ms = item.atMs,
                     updated_at_ms = item.atMs,
                 )
-                queries.lastId().executeAsOne()
+                database.insertedQueries.lastId().executeAsOne()
             } else {
                 if (queries.exists(item.id).executeAsOne() == 0L) return IssueWrite.UnknownIssue
                 queries.update(change.title, change.note, change.status?.stored, item.atMs, item.id)
@@ -439,7 +450,7 @@ internal class Ingest(
                 rule = checkNotNull(change.rule).stored(),
                 atMs = item.atMs,
             )
-            return MockWrite.Saved(queries.lastId().executeAsOne())
+            return MockWrite.Saved(database.insertedQueries.lastId().executeAsOne())
         }
         if (queries.exists(item.id).executeAsOne() == 0L) return MockWrite.UnknownMock
         queries.update(change.name, change.enabled?.let { if (it) 1L else 0L }, change.rule?.stored(), item.atMs, item.id)
@@ -457,7 +468,7 @@ internal class Ingest(
                 rule = checkNotNull(change.rule).stored(),
                 atMs = item.atMs,
             )
-            return BreakpointWrite.Saved(queries.lastId().executeAsOne())
+            return BreakpointWrite.Saved(database.insertedQueries.lastId().executeAsOne())
         }
         if (queries.exists(item.id).executeAsOne() == 0L) return BreakpointWrite.UnknownBreakpoint
         queries.update(change.name, change.enabled?.let { if (it) 1L else 0L }, change.rule?.stored(), item.atMs, item.id)
@@ -469,7 +480,7 @@ internal class Ingest(
      * connected are forgotten: what they send next is dropped.
      */
     fun clear(atMs: Long) {
-        currentRun =
+        val run =
             database.transactionWithResult {
                 database.issueQueries.deleteAll()
                 database.mockQueries.deleteAll()
@@ -483,24 +494,21 @@ internal class Ingest(
                 database.settingQueries.deleteAll()
                 if (startsRuns) {
                     database.runQueries.insert(atMs)
-                    database.runQueries.lastId().executeAsOne()
+                    database.insertedQueries.lastId().executeAsOne()
                 } else {
                     LiveTraffic.NO_RUN
                 }
             }
-        recording = null
-        retention = RetentionSettings()
-        connections.clear()
-        rows = emptyMap()
+        state = State(run, null, RetentionSettings())
         lostDisconnects = emptyList()
     }
 
     private fun sessionRow(sessionId: String): Long? {
-        rows[sessionId]?.let { return it }
-        val (connected, run) = connections[sessionId] ?: return null
+        state.rows[sessionId]?.let { return it }
+        val (connected, run) = state.connections[sessionId] ?: return null
         if (run == LiveTraffic.NO_RUN) return null
         val id = insertSession(run, connected.serverSessionId, connected.hello, connected.peerAddress, connected.atMs)
-        rows = rows + (sessionId to id)
+        state = state.copy(rows = state.rows + (sessionId to id))
         return id
     }
 
@@ -531,7 +539,7 @@ internal class Ingest(
             peer_address = peerAddress,
             connected_at_ms = atMs,
         )
-        return database.sessionQueries.lastId().executeAsOne()
+        return database.insertedQueries.lastId().executeAsOne()
     }
 
     private fun received(
@@ -609,7 +617,7 @@ internal class Ingest(
                     stored_size = event.payload.size.toLong(),
                 )
                 if (event.payload.size > 0) {
-                    val frame = database.frameQueries.lastId().executeAsOne()
+                    val frame = database.insertedQueries.lastId().executeAsOne()
                     val encoded = Codec.encode(event.payload.toByteArray())
                     database.frameQueries.putPayload(frame, encoded.codec, encoded.data)
                 }

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0068
 title: Non-correctness findings of the third M5 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or how `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt` writes to storage
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0068 — Non-correctness findings of the third M5 milestone review
@@ -93,10 +93,25 @@ Fired by PLAN-0015 H5.3 (`fix/server-owns-websocket-close`), which moves
 (ADR-0167): `retryLost`, health, `close`, `whileOpen` and the handshake's
 outcomes are untouched. Kept as is.
 
-## How it was paid
-
-> Filled when closing.
-
 Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
 bounds `close`'s wait for the retention coroutine by its timeout: `close`'s
 lost count, `retryLost`, health and `whileOpen` are untouched. Kept as is.
+
+## How it was paid
+
+Paid by PLAN-0016 H6.2a (`fix/store-write-path-debts`).
+
+- **A failed retry leaves no error:** paid. `retryLost` returns the error, and it
+  stays in `health` while the retry fails, even past later written batches
+  (`aDisconnectThatAlwaysFailsDoesNotBlockLaterBatches`, which pinned the old
+  behaviour).
+- **`close`'s lost count:** paid, disconnects still waiting are in it.
+- **`whileOpen`:** paid, a cancellation while the store is not closing is
+  rethrown (`aCancellationInsideAPassIsNotReadAsClosing`).
+- **Rollback copied:** paid with DEBT-0067.
+- **Dropped, a retry clears another batch's error:** telling them apart needs
+  each error tied to its lost item, for a status line, and
+  `aLostDisconnectRetriedByALoneFlushClearsTheError` pins the rule.
+- **Dropped, one closing guard:** every driver call already goes through `read`
+  or `whileOpen`, and each answers its own default when closing. A guard on the
+  driver could only throw, so each method would map it back to that default.

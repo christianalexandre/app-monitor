@@ -46,18 +46,22 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   Accept: `./gradlew :desktop:server:test :desktop:storage:test
   :tools:fake-client:test`; a second `make desktop` on the same
   `APPMONITOR_DATA_DIR` shows the refusal.
+- [x] **H6.2a The store's write path.** (`fix/store-write-path-debts`) The
+  write queue's edges (DEBT-0106's two `WriteQueue.kt` items, DEBT-0109 item 1)
+  and the review findings on `Ingest`, `WriteQueue` and `Storage` (DEBT-0064,
+  DEBT-0067, DEBT-0068). Split from H6.2: the size pass measured 4.4 times
+  faster, and each debt's dropped items say why in the DEBT.
+  Accept: `./gradlew :desktop:storage:test`.
 - [ ] **H6.2 Desktop store, proxy and controllers.** Text search and
   "failed only" on an index (DEBT-0063); the title bar follows a theme at
   once (DEBT-0095); one switch and lifecycle for the MCP and proxy
-  controllers (DEBT-0102); the write queue's edges (DEBT-0106) and the
-  review findings on `Ingest`, `WriteQueue` and `Storage` (DEBT-0064,
-  DEBT-0067, DEBT-0068); the MCP tools' closing check in one place and
-  the packaged server's version (DEBT-0071, DEBT-0072, DEBT-0073,
-  DEBT-0074); the live list and the store share one decoding and one
-  filter match (DEBT-0104), and the H2 and H3 review findings
-  (DEBT-0092, DEBT-0093), and the H4 ones in `WriteQueue.kt`,
-  `ProxyController.kt`, `ProxyCa.kt` and `ExportHar.kt` (DEBT-0109, items
-  1, 3, 4 and 6); a mock rule moves in its app's order (DEBT-0082); "Clear
+  controllers (DEBT-0102); DEBT-0106's two proxy items; the MCP tools' closing
+  check in one place and the packaged server's version (DEBT-0071, DEBT-0072,
+  DEBT-0073, DEBT-0074); the live list and the store share one decoding and one
+  filter match (DEBT-0104), and the H2 and H3 review findings (DEBT-0092,
+  DEBT-0093), and the H4 ones in `ProxyController.kt`, `ProxyCa.kt` and
+  `ExportHar.kt` (DEBT-0109, items 3, 4 and 6); a mock rule moves in its app's
+  order (DEBT-0082); "Clear
   all data" keeps the desktop id in one step (DEBT-0120, item 1).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`; `SearchTest`'s no-match search
