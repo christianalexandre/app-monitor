@@ -1,10 +1,10 @@
 ---
 id: DEBT-0101
 title: The OkHttp and Ktor captures are written twice
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "A capture bug fixed in one of `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/AppMonitorInterceptor.kt` and `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/AppMonitorKtor.kt` (or its `Breakpoints.kt`) that the other has too, or a third Kotlin capture module"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0101 — The OkHttp and Ktor captures are written twice
@@ -45,4 +45,9 @@ and rebuilds its own call.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.3b (ADR-0182): `CallCapture` in `sdk/core` takes the decisions, inline at
+the two points that wait, so OkHttp blocks and Ktor suspends in the same code. What it taught:
+the two already differed in three small ways, listed in the ADR. Left, on purpose: each library
+keeps the order of its own pipeline, the part a shared flow would have needed `runBlocking`
+around `chain.proceed` for. The case lists are still written by hand, but what they would catch
+now has one implementation, `CallCaptureTest`; the cases one list lacked were added.

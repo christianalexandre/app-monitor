@@ -1,5 +1,10 @@
 package appmonitor.sdk.ktor
 
+import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.v1.BreakpointResume
+import appmonitor.v1.BreakpointRule
+import appmonitor.v1.BreakpointStage
+import appmonitor.v1.Header
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -87,6 +92,26 @@ class ReplayTest {
         client.close()
         assertEquals("The app closed its HTTP client", replay(client, app, bytes, "id"))
     }
+
+    @Test
+    fun aStreamedBodyAnEditWrappedIsStillRefused() =
+        runTest {
+            val edited =
+                RecordingSink(breakpoints = listOf(BreakpointRule(id = 3, path = "/upload", request = true, timeout_ms = 60_000))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST,
+                            set_headers = listOf(Header("Content-Type", "application/json")),
+                        ),
+                    )
+                }
+            val client = HttpClient(engine) { install(appMonitorKtor(edited, marksCaptured = false)) }
+
+            client.post("https://api.example.com/upload") { setBody(ChannelReadContent()) }
+
+            assertEquals("Its body could be sent only once", edited.replays.getValue(edited.started().request_id).invoke())
+        }
 
     private class ChannelReadContent : OutgoingContent.ReadChannelContent() {
         override fun readFrom() = ByteReadChannel("once")

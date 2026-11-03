@@ -13,17 +13,28 @@ import appmonitor.v1.MockRule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import okio.ByteString.Companion.encodeUtf8
@@ -93,7 +104,7 @@ class BreakpointTest {
             assertEquals("Bearer real", out.headers[HttpHeaders.Authorization])
             assertEquals("yes", out.headers["X-Edited"])
             assertNull(out.headers["X-Drop"])
-            assertEquals("edited", (out.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
+            assertEquals("edited", out.body.toByteArray().decodeToString())
             val started = sink.started()
             assertEquals(hit.request!!.request_id, started.request_id)
             assertEquals("https://api.example.com/items/2", started.url)
@@ -202,5 +213,107 @@ class BreakpointTest {
             )
             assertEquals(9L, sink.started().mock_rule_id)
             assertEquals(404, sink.received().status_code)
+        }
+
+    @Test
+    fun aStreamedBodyTakesTheEditOfItsOwnHeadersAndType() =
+        runTest {
+            val body =
+                object : OutgoingContent.WriteChannelContent() {
+                    override val contentType = ContentType.Text.Plain
+                    override val headers = headersOf("X-Own", "kept")
+
+                    override suspend fun writeTo(channel: ByteWriteChannel) = channel.writeStringUtf8("streamed")
+                }
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = request,
+                            set_headers = listOf(Header("X-Own", "edited"), Header("Content-Type", "application/json")),
+                        ),
+                    )
+                }
+
+            client(sink).post("https://api.example.com/items") { setBody(body) }.bodyAsText()
+
+            val out = sent.single()
+            assertEquals("application/json", out.body.contentType.toString())
+            assertEquals("edited", out.body.headers["X-Own"])
+            assertEquals("streamed", out.body.toByteArray().decodeToString())
+            val started = sink.started()
+            assertEquals(listOf("edited"), started.headers.filter { it.name == "X-Own" }.map { it.value_ })
+            assertEquals(listOf("application/json"), started.headers.filter { it.name == "Content-Type" }.map { it.value_ })
+        }
+
+    @Test
+    fun anEditedBodyKeepsTheHeadersItsContentCarried() =
+        runTest {
+            val carrying =
+                object : OutgoingContent.ByteArrayContent() {
+                    override val contentType = ContentType.Text.Plain
+                    override val headers = headersOf("X-Own", "kept")
+
+                    override fun bytes() = "original".encodeToByteArray()
+                }
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(request_id = it.request!!.request_id, stage = request, body = "edited".encodeUtf8()),
+                    )
+                }
+
+            client(sink).post("https://api.example.com/items") { setBody(carrying) }.bodyAsText()
+
+            val out = sent.single()
+            assertEquals("edited", out.body.toByteArray().decodeToString())
+            assertEquals(6L, out.body.contentLength)
+            assertEquals("kept", out.body.headers["X-Own"])
+            assertEquals(
+                "text/plain",
+                out.body.contentType
+                    ?.withoutParameters()
+                    .toString(),
+            )
+        }
+
+    @Test
+    fun aReplacedStreamedBodyLetsItsOriginalGo() =
+        runTest {
+            val original = ByteChannel(autoFlush = true)
+            val streaming =
+                HttpClient(
+                    MockEngine { respond(original, HttpStatusCode.OK) },
+                ) { install(appMonitorKtor(replacingSink(), marksCaptured = false)) }
+
+            val read = streaming.prepareGet("https://api.example.com/items").execute { it.bodyAsText() }
+
+            assertEquals("edited", read)
+            assertTrue(original.isClosedForWrite, "the engine's writer sees the body is not wanted")
+        }
+
+    private fun replacingSink() =
+        RecordingSink(breakpoints = listOf(rule("/items", response = true))) {
+            BreakpointOutcome.Resume(BreakpointResume(request_id = it.request!!.request_id, stage = response, body = "edited".encodeUtf8()))
+        }
+
+    @Test
+    fun aHeldCallTheAppCancelsFails() =
+        runTest {
+            val held = CompletableDeferred<Unit>()
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    held.complete(Unit)
+                    awaitCancellation()
+                }
+
+            val call = launch(Dispatchers.Default) { client(sink).get("https://api.example.com/items") }
+            held.await()
+            call.cancelAndJoin()
+
+            assertTrue(sent.isEmpty())
+            val started = sink.started()
+            assertEquals(started.request_id, sink.failed().request_id)
         }
 }

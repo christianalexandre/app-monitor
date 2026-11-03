@@ -1,13 +1,12 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.protocol.Protocol
+import appmonitor.sdk.core.CallCapture
 import appmonitor.sdk.core.CaptureSink
 import appmonitor.sdk.core.CapturedBody
 import appmonitor.sdk.core.Masking
 import appmonitor.sdk.core.MonitorSink
 import appmonitor.sdk.core.emit
-import appmonitor.sdk.core.newRequestId
-import appmonitor.sdk.core.requestFailed
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.plugins.api.ClientPlugin
 import io.ktor.client.plugins.api.createClientPlugin
@@ -48,25 +47,25 @@ internal fun appMonitorKtor(
             if (options == null || sent !is OutgoingContent) return@intercept
             val request = context
             if (marks) request.headers[Protocol.CAPTURE_HEADER] = Protocol.CAPTURE_HEADER_KTOR
-            val id = newRequestId()
-            request.attributes.put(REQUEST_ID, id)
+            val capture = CallCapture(sink)
+            request.attributes.put(REQUEST_ID, capture.id)
             val masking = Masking(options)
             val replayOf = request.attributes.getOrNull(REPLAY_OF)
             val webSocket = request.url.protocol.isWebsocket()
-            val content = if (webSocket) sent else sink.holdRequest(request, sent, id, masking, options.maxBodyBytes, replayOf)
+            val content = if (webSocket) sent else capture.holdRequest(request, sent, masking, options.maxBodyBytes, replayOf)
             if (content !== sent) subject = content
             val mock = if (webSocket) null else sink.mockFor(request.method.value, request.url.buildString())
-            sink.emit("RequestStarted") {
-                requestStarted(id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id, replayOf)
+            capture.started {
+                requestStarted(capture.id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id, replayOf)
             }
             val app = request.attributes.getOrNull(APP_REQUEST)
-            sink.keepForReplay(id) { replay(httpClient, app, content, id) }
+            sink.keepForReplay(capture.id) { replay(httpClient, app, content, capture.id) }
             if (mock != null) {
                 // ADR-0115: the engine and the receive pipeline are skipped; the Send hooks still see the call.
-                val answered = answer(httpClient, sink, request, content, mock, id)
-                val known = checkNotNull(mock.response).body.let { CapturedBody(it, truncated = false, size = it.size.toLong()) }
-                val (call, body) = sink.holdResponse(httpClient, request, content, answered, known, id, masking, options.maxBodyBytes)
-                sink.emit("ResponseReceived") { responseReceived(id, call.response, masking, body) }
+                val answered = answer(httpClient, capture, request, content, mock)
+                val known = CapturedBody.whole(checkNotNull(mock.response).body)
+                val (call, body) = capture.holdResponse(httpClient, request, content, answered, known, masking, options.maxBodyBytes)
+                capture.received { responseReceived(capture.id, call.response, masking, body) }
                 subject = call
                 finish()
                 return@intercept
@@ -75,7 +74,7 @@ internal fun appMonitorKtor(
                 try {
                     proceed()
                 } catch (e: Throwable) {
-                    sink.emit("RequestFailed") { requestFailed(id, e) }
+                    capture.failed(e)
                     throw e
                 }
             if (call !is HttpClientCall) return@intercept
@@ -83,19 +82,19 @@ internal fun appMonitorKtor(
                 try {
                     call.response.capture(options.maxBodyBytes)
                 } catch (e: CancellationException) {
-                    sink.emit("RequestFailed") { requestFailed(id, e) }
+                    capture.failed(e)
                     throw e
                 } catch (e: Exception) {
                     call.response.unread()
                 }
             if (webSocket) {
-                sink.emit("ResponseReceived") { responseReceived(id, call.response, masking, captured) }
+                capture.received { responseReceived(capture.id, call.response, masking, captured) }
                 return@intercept
             }
             // Read by the pipeline once this interceptor returns, as Monitoring's mock answer is.
-            val (held, body) = sink.holdResponse(httpClient, request, content, call, captured, id, masking, options.maxBodyBytes)
+            val (held, body) = capture.holdResponse(httpClient, request, content, call, captured, masking, options.maxBodyBytes)
             if (held !== call) subject = held
-            sink.emit("ResponseReceived") { responseReceived(id, held.response, masking, body) }
+            capture.received { responseReceived(capture.id, held.response, masking, body) }
         }
 
         // ADR-0070: before HttpResponsePipeline.Transform, where WebSockets wraps the engine's session.

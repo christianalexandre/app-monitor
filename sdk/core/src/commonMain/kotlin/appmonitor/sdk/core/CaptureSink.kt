@@ -79,6 +79,9 @@ public class CapturedBody(
     public companion object {
         public val NONE: CapturedBody = CapturedBody(ByteString.EMPTY, truncated = false, size = null)
         public val EMPTY: CapturedBody = CapturedBody(ByteString.EMPTY, truncated = false, size = 0)
+
+        /** A body known whole: a mock's, or one an edit replaced. */
+        public fun whole(bytes: ByteString): CapturedBody = CapturedBody(bytes, truncated = false, size = bytes.size.toLong())
     }
 }
 
