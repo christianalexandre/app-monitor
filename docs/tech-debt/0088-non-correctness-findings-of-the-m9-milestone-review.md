@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -14,10 +14,6 @@ paid_date:
 Findings of the `code-review` of `ee3b172..c93a2fc` that normal use does
 not hit (ADR-0094):
 
-- **A replaced Ktor body leaves the original open.** In `Breakpoints.kt`,
-  `holdResponse` builds a new call over the edited body and does not
-  cancel the original's `rawContent` when the body was streamed, not
-  saved. The engine's connection is not given back to its pool.
 - **Recent requests keep their bodies.** `RecentRequests.kt` keeps up to
   200 replay closures. Each one holds its OkHttp `Call` or Ktor request,
   with its body, until the session ends. The Swift SDK's
@@ -28,10 +24,6 @@ not hit (ADR-0094):
   query parameter then goes out as the placeholder. The same happens to
   the masked values of a header group when one value of the group is
   edited.
-- **Some Ktor request edits are dropped.** In `Breakpoints.kt`, `edit()`
-  skips the headers that the `OutgoingContent` carries. It changes
-  `Content-Type` only on a `ByteArrayContent`. A `WriteChannelContent`
-  goes out unedited.
 - **Comment blocks longer than four lines** (guidelines 02):
   `readMockRules` in `MockFile.kt`.
 
@@ -56,11 +48,18 @@ app name in `Main.kt`: `parseArgs`' comment is one line, its flags by their ADRs
 `Main.kt` left the trigger then; PLAN-0015 H5.3b (`feat/delivery-report`),
 which logs the drops there, found it still in the frontmatter and removed it.
 
+Paid in PLAN-0016 H6.3b's PR (`refactor/one-kotlin-capture-flow`), which rewrites
+`Breakpoints.kt` and `AppMonitorInterceptor.kt`, both out of the trigger now: a Ktor body
+replaced at a breakpoint cancels the original's channel when it was streamed
+(`aReplacedStreamedBodyLetsItsOriginalGo`), and a request edit reaches the headers an
+`OutgoingContent` carries and the type of any body, a stream's too, through a wrapper
+(`aStreamedBodyTakesTheEditOfItsOwnHeadersAndType`, and `EditedContentEnginesTest` on CIO and
+OkHttp's wire).
+
 ## Why it was accepted
 
-Each one needs an edited streamed body, a session of hundreds of large
-uploads, an edited URL that carries a masked token, a Ktor body that is
-not a `ByteArrayContent`, or a page made mostly of replays. None
+Each one needs a session of hundreds of large uploads, an edited URL that
+carries a masked token, or a page made mostly of replays. None
 of them is wrong stored data, a crash or a hang in a normal debug
 session. The plan's two review tasks, M9.R1 and M9.R2, cover the
 findings that normal use does hit.
@@ -70,8 +69,6 @@ findings that normal use does hit.
 The next PR that touches one of the files named above. That PR pays the
 items in its file:
 
-- `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/AppMonitorInterceptor.kt`
-- `sdk/ktor/src/commonMain/kotlin/appmonitor/sdk/ktor/Breakpoints.kt`
 - `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `sdk/ios/Sources/AppMonitor/Replays.swift`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`

@@ -119,7 +119,8 @@ interceptor answers without `chain.proceed` (ADR-0115):
 
 When `MonitorBridge.breakpointFor` returns a rule (SDD 04, ADR-0118,
 ADR-0123), the interceptor holds the call on its own thread
-(`runBlocking`), checking `Call.isCanceled()` every 50 ms:
+(`runBlocking`), checking `Call.isCanceled()` every 50 ms. What each outcome
+does is `sdk/core`'s `CallCapture`, the same as Ktor's (ADR-0182):
 
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |

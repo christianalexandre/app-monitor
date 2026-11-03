@@ -199,3 +199,4 @@ Rules:
 | [0179](0179-a-write-committed-as-the-store-closes-is-answered-saved.md) | A write committed as the store closes is answered saved | Accepted |
 | [0180](0180-up-and-down-move-a-rule-in-its-apps-order.md) | "Up" and "Down" move a rule in its app's order | Accepted |
 | [0181](0181-one-kotlin-masking-in-sdk-core.md) | One Kotlin masking in sdk/core, each library resolving its own Location | Accepted |
+| [0182](0182-one-call-capture-flow-in-sdk-core.md) | One capture flow in sdk/core, inline so a call may block or suspend | Accepted |

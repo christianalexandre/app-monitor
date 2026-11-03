@@ -32,6 +32,14 @@ public sealed class BreakpointOutcome {
         public val changesHeaders: Boolean get() =
             changes != null &&
                 (changes.set_headers.isNotEmpty() || changes.removed_headers.isNotEmpty())
+
+        /** True when a held request would go out changed; a status is not a request's. */
+        public val changesRequest: Boolean get() =
+            changes != null && (changes.method != null || changes.url != null || changes.body != null || changesHeaders)
+
+        /** True when a held response would reach the app changed. */
+        public val changesResponse: Boolean get() =
+            changes != null && (changes.status_code != null || changes.body != null || changesHeaders)
     }
 
     /** Fails the call as a mock failure does, with [message]. */

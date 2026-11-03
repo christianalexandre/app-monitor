@@ -17,7 +17,12 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
 import kotlinx.io.readString
 import okio.ByteString.Companion.encodeUtf8
@@ -107,6 +112,24 @@ class MockAnswerTest {
             val failed = sink.failed()
             assertEquals(started.request_id, failed.request_id)
             assertContains(failed.error, "mocked reset")
+        }
+
+    @Test
+    fun aCallCancelledDuringTheDelayFailsAtOnce() =
+        runTest {
+            val slow = MockRule(id = 10, path = "/slow", delay_ms = 60_000, response = MockResponse(status_code = 200))
+            val slowSink = RecordingSink(AppMonitorOptions(), listOf(slow))
+            val client = HttpClient(engine) { install(appMonitorKtor(slowSink, marksCaptured = false)) }
+
+            val call = launch(Dispatchers.Default) { client.get("https://api.example.com/slow") }
+            withContext(Dispatchers.Default) {
+                while (slowSink.pending == 0) delay(5)
+            }
+            call.cancelAndJoin()
+
+            val requested = slowSink.started()
+            assertEquals(requested.request_id, slowSink.failed().request_id)
+            assertTrue(engine.requestHistory.isEmpty())
         }
 
     @Test

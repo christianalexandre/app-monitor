@@ -1,14 +1,9 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.BreakpointOutcome
-import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.CallCapture
 import appmonitor.sdk.core.CapturedBody
 import appmonitor.sdk.core.Masking
-import appmonitor.sdk.core.emit
-import appmonitor.sdk.core.requestFailed
-import appmonitor.v1.BreakpointHit
-import appmonitor.v1.BreakpointStage
-import appmonitor.v1.RequestStarted
 import io.ktor.client.HttpClient
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.plugins.isSaved
@@ -16,6 +11,7 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
+import io.ktor.http.HeadersBuilder
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -24,52 +20,33 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.takeFrom
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
+import io.ktor.utils.io.cancel
 import kotlinx.coroutines.cancel
 import kotlinx.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
 
 /** An absolute URL, as a resume's `url` must be. */
 private val ABSOLUTE = Regex("^[A-Za-z][A-Za-z0-9+.-]*://")
 
-/**
- * ADR-0111 A.1, C.1: the body [request] goes out with once its breakpoint lets it go, [request] edited in place; an
- * abort or an edit Ktor refuses fails the call with an [IOException], its `RequestStarted` captured first.
- */
-internal suspend fun CaptureSink.holdRequest(
+/** The body [request] goes out with once its breakpoint lets it go, [request] edited in place. */
+internal suspend fun CallCapture.holdRequest(
     request: HttpRequestBuilder,
     content: OutgoingContent,
-    id: String,
     masking: Masking,
     limit: Int,
     replayOf: String?,
 ): OutgoingContent {
-    val stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST
-    val rule = breakpointFor(request.method.value, request.url.buildString(), stage) ?: return content
+    val rule = requestBreakpoint(request.method.value, request.url.buildString()) ?: return content
     val started = requestStarted(id, request, content, masking, content.capture(limit), replayOf = replayOf)
-    val failure =
-        try {
-            when (val outcome = hold(BreakpointHit(rule_id = rule.id, stage = stage, request = started, timeout_ms = rule.timeout_ms))) {
-                is BreakpointOutcome.Abort -> IOException(outcome.message)
-                is BreakpointOutcome.Resume -> return edit(request, content, outcome)
-            }
-        } catch (e: CancellationException) {
-            fail(started, e)
-            throw e
-        } catch (e: IOException) {
-            e
-        } catch (e: Exception) {
-            IOException("Breakpoint edit refused: ${e.message}", e)
-        }
-    fail(started, failure)
-    throw failure
+    return holdRequest(rule, started, { sink.hold(it) }) { edit(request, content, it) }
 }
 
-private fun CaptureSink.fail(
-    started: RequestStarted,
-    error: Throwable,
-) {
-    emit("RequestStarted") { started }
-    emit("RequestFailed") { requestFailed(started.request_id, error) }
+/** [content] with [type] and [headers] in place of its own, its bytes and how they are sent left as they are. */
+private class EditedContent(
+    content: OutgoingContent,
+    override val contentType: ContentType?,
+    override val headers: Headers,
+) : OutgoingContent.ContentWrapper(content) {
+    override fun copy(delegate: OutgoingContent): ContentWrapper = EditedContent(delegate, contentType, headers)
 }
 
 /** [request] with the resume's method, URL and headers, and the body it goes out with. */
@@ -81,77 +58,71 @@ private fun edit(
     val changes = outcome.changes ?: return content
     changes.method?.let { request.method = HttpMethod.parse(it) }
     changes.url?.let {
-        if (!ABSOLUTE.containsMatchIn(it)) throw IOException("Breakpoint edit refused: not a URL: $it")
+        if (!ABSOLUTE.containsMatchIn(it)) throw IOException("${CallCapture.EDIT_REFUSED}not a URL: $it")
         request.url.takeFrom(it)
     }
     var type = content.contentType
+    var own = content.headers
     if (outcome.changesHeaders) {
-        val own = content.headers.names().mapTo(HashSet()) { it.lowercase() }
+        val carried = content.headers.names().mapTo(HashSet()) { it.lowercase() }
         val edited = outcome.headers(capturedHeaders(request, content))
         type = edited.firstOrNull { it.first.equals(HttpHeaders.ContentType, ignoreCase = true) }?.let { ContentType.parse(it.second) }
+        val kept = HeadersBuilder()
         request.headers.clear()
         for ((name, value) in edited) {
             val lower = name.lowercase()
-            if (lower == "content-type" || lower == "content-length" || lower in own) continue
-            request.headers.append(name, value)
+            when {
+                lower == "content-type" || lower == "content-length" -> Unit
+                lower in carried -> kept.append(name, value)
+                else -> request.headers.append(name, value)
+            }
         }
+        own = kept.build()
     }
-    val bytes =
-        changes.body?.toByteArray()
-            ?: (content as? OutgoingContent.ByteArrayContent)?.takeIf { type != content.contentType }?.bytes()
-            ?: return content
-    return ByteArrayContent(bytes, type)
+    val bytes = changes.body?.toByteArray()
+    if (bytes == null && type == content.contentType && own == content.headers) return content
+    // ByteArrayContent's own type is dropped: the wrapper answers for it, an edit to none included.
+    return EditedContent(bytes?.let { ByteArrayContent(it) } ?: content, type, own)
 }
 
-/**
- * ADR-0111 A.1, C.1: the call the app reads once its breakpoint lets the response go, with its captured body;
- * [body] is what was captured of [call]'s. An abort fails the call with an [IOException].
- */
+/** The call the app reads once its breakpoint lets the response go, with its captured body; [body] is what was captured of [call]'s. */
 @OptIn(InternalAPI::class) // DEBT-0083
-internal suspend fun CaptureSink.holdResponse(
+internal suspend fun CallCapture.holdResponse(
     client: HttpClient,
     request: HttpRequestBuilder,
     content: OutgoingContent,
     call: HttpClientCall,
     body: CapturedBody,
-    id: String,
     masking: Masking,
     limit: Int,
 ): Pair<HttpClientCall, CapturedBody> {
-    val stage = BreakpointStage.BREAKPOINT_STAGE_RESPONSE
     val response = call.response
-    if (response.status == HttpStatusCode.SwitchingProtocols) return call to body
-    val rule = breakpointFor(request.method.value, request.url.buildString(), stage) ?: return call to body
-    val hit =
-        BreakpointHit(
-            rule_id = rule.id,
-            stage = stage,
-            request = requestStarted(id, request, content, masking, content.capture(limit)),
-            response = responseReceived(id, response, masking, body),
-            timeout_ms = rule.timeout_ms,
-        )
-    val outcome =
-        try {
-            hold(hit)
-        } catch (e: CancellationException) {
-            emit("RequestFailed") { requestFailed(id, e) }
-            throw e
-        }
-    if (outcome is BreakpointOutcome.Abort) {
-        response.cancel()
-        val failure = IOException(outcome.message)
-        emit("RequestFailed") { requestFailed(id, failure) }
-        throw failure
-    }
-    val resume = outcome as BreakpointOutcome.Resume
-    val changes = resume.changes ?: return call to body
-    if (changes.status_code == null && changes.body == null && !resume.changesHeaders) return call to body
+    val rule = responseBreakpoint(request.method.value, request.url.buildString(), response.status.value) ?: return call to body
+    val resume =
+        holdResponse(
+            rule,
+            requestStarted(id, request, content, masking, content.capture(limit)),
+            responseReceived(id, response, masking, body),
+            { sink.hold(it) },
+            { response.cancel() },
+        ) ?: return call to body
+    val changes = checkNotNull(resume.changes)
     val replaced = changes.body
     val channel =
         when {
-            replaced != null -> ByteReadChannel(replaced.toByteArray())
-            response.isSaved -> ByteReadChannel(response.readRawBytes())
-            else -> response.rawContent
+            replaced != null -> {
+                // The original's engine connection goes back to its pool; the edited call shares its context, so only the channel.
+                if (!response.isSaved) response.rawContent.cancel()
+                ByteReadChannel(replaced.toByteArray())
+            }
+
+            response.isSaved -> {
+                ByteReadChannel(response.readRawBytes())
+            }
+
+            else -> {
+                response.rawContent
+            }
         }
     val headers =
         Headers.build {
@@ -168,6 +139,5 @@ internal suspend fun CaptureSink.holdResponse(
             response.version,
             response.requestTime,
         ) { response.coroutineContext }
-    val captured = replaced?.let { CapturedBody(it, truncated = false, size = it.size.toLong()) } ?: body
-    return edited to captured
+    return edited to (replaced?.let { CapturedBody.whole(it) } ?: body)
 }

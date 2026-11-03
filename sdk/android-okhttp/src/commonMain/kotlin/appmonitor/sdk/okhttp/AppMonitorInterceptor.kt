@@ -2,17 +2,13 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol.CAPTURE_HEADER
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CallCapture
 import appmonitor.sdk.core.CaptureSink
 import appmonitor.sdk.core.CapturedBody
 import appmonitor.sdk.core.Masking
 import appmonitor.sdk.core.MonitorSink
-import appmonitor.sdk.core.emit
-import appmonitor.sdk.core.newRequestId
-import appmonitor.sdk.core.requestFailed
 import appmonitor.v1.BreakpointHit
-import appmonitor.v1.BreakpointStage
 import appmonitor.v1.MockRule
-import appmonitor.v1.RequestStarted
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -69,187 +65,130 @@ public class AppMonitorInterceptor : Interceptor {
         if (original.header(CAPTURE_HEADER) != null) return chain.proceed(original.newBuilder().removeHeader(CAPTURE_HEADER).build())
         val options = sink.options
         if (options == null || original.tag(WebSocketCapture::class.java) != null) return chain.proceed(original)
-        val id = newRequestId()
+        val capture = CallCapture(sink)
         val masking = okHttpMasking(options)
         val call = chain.call()
         val replayOf = replays[call]
         // ADR-0128: OkHttp throws when a network interceptor skips proceed() or changes the host or port.
         val network = chain.connection() != null
-        val (request, held) = holdRequest(call, original, id, masking, options.maxBodyBytes, replayOf, network)
+        val (request, held) = holdRequest(capture, call, original, masking, options.maxBodyBytes, replayOf, network)
         val sent = held ?: request.body.capture(options.maxBodyBytes)
         val mock = if (network) null else sink.mockFor(request.method, request.url.toString())
-        sink.emit("RequestStarted") { requestStarted(id, request, masking, sent, mock?.id, replayOf) }
-        sink.keepForReplay(id) { replay(call, id) }
+        capture.started { requestStarted(capture.id, request, masking, sent, mock?.id, replayOf) }
+        sink.keepForReplay(capture.id) { replay(call, capture.id) }
         if (mock != null) {
-            val answered = answer(chain, request, mock, id)
-            val known = checkNotNull(mock.response).body.let { CapturedBody(it, truncated = false, size = it.size.toLong()) }
-            val (mocked, body) = holdResponse(call, request, sent, answered, known, id, masking, options.maxBodyBytes)
-            sink.emit("ResponseReceived") { responseReceived(id, mocked, masking, checkNotNull(body)) }
+            val answered = answer(capture, chain, request, mock)
+            val known = CapturedBody.whole(checkNotNull(mock.response).body)
+            val (mocked, body) = holdResponse(capture, call, request, sent, answered, known, masking, options.maxBodyBytes)
+            capture.received { responseReceived(capture.id, mocked, masking, checkNotNull(body)) }
             return mocked
         }
         val received =
             try {
                 chain.proceed(request)
             } catch (e: Exception) {
-                sink.emit("RequestFailed") { requestFailed(id, e) }
+                capture.failed(e)
                 throw e
             }
-        if (received.code == SWITCHING_PROTOCOLS) {
-            sink.emit("ResponseReceived") { responseReceived(id, received, masking, CapturedBody.NONE) }
+        if (received.code == CallCapture.SWITCHING_PROTOCOLS) {
+            capture.received { responseReceived(capture.id, received, masking, CapturedBody.NONE) }
             return received
         }
         val known = if (received.body.contentLength() == 0L) CapturedBody.EMPTY else null
-        val (response, replaced) = holdResponse(call, request, sent, received, known, id, masking, options.maxBodyBytes)
+        val (response, replaced) = holdResponse(capture, call, request, sent, received, known, masking, options.maxBodyBytes)
         if (replaced != null) {
-            sink.emit("ResponseReceived") { responseReceived(id, response, masking, replaced) }
+            capture.received { responseReceived(capture.id, response, masking, replaced) }
             return response
         }
         val capturing =
             CapturingResponseBody(response.body, options.maxBodyBytes) { captured ->
-                sink.emit("ResponseReceived") { responseReceived(id, response, masking, captured) }
+                capture.received { responseReceived(capture.id, response, masking, captured) }
             }
         return response.newBuilder().body(capturing).build()
     }
 
-    /**
-     * ADR-0111 A.1, C.1: [request] as its breakpoint lets it go, edited or not, with its captured body when it was
-     * captured for the hit and not edited; an abort or a bad edit fails the call.
-     */
+    /** [request] as its breakpoint lets it go, with its captured body when it was captured for the hit and not edited. */
     private fun holdRequest(
+        capture: CallCapture,
         call: Call,
         request: Request,
-        id: String,
         masking: Masking,
         limit: Int,
         replayOf: String?,
         network: Boolean,
     ): Pair<Request, CapturedBody?> {
-        val stage = BreakpointStage.BREAKPOINT_STAGE_REQUEST
-        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return request to null
+        val rule = capture.requestBreakpoint(request.method, request.url.toString()) ?: return request to null
         val body = request.body.capture(limit)
-        val started = requestStarted(id, request, masking, body, replayOf = replayOf)
-        val outcome =
-            held(call, id, started) { BreakpointHit(rule_id = rule.id, stage = stage, request = started, timeout_ms = rule.timeout_ms) }
-        val failure =
-            when (outcome) {
-                is BreakpointOutcome.Abort -> {
-                    IOException(outcome.message)
-                }
-
-                is BreakpointOutcome.Resume -> {
-                    try {
-                        return edited(request, outcome, network)?.let { it to null } ?: (request to body)
-                    } catch (e: IOException) {
-                        e
-                    }
-                }
-            }
-        sink.emit("RequestStarted") { started }
-        sink.emit("RequestFailed") { requestFailed(id, failure) }
-        throw failure
+        val started = requestStarted(capture.id, request, masking, body, replayOf = replayOf)
+        return capture.holdRequest(rule, started, { hold(call, it) }) { resume ->
+            if (resume.changesRequest) edited(request, resume, network) to null else request to body
+        }
     }
 
-    /** [request] with the resume's fields; null when unchanged; throws an [IOException] for an edit OkHttp refuses. */
+    /** [request] with the resume's fields; throws an [IOException] for an edit OkHttp refuses. */
     private fun edited(
         request: Request,
         outcome: BreakpointOutcome.Resume,
         network: Boolean,
-    ): Request? {
-        val changes = outcome.changes ?: return null
-        if (changes.method == null && changes.url == null && changes.body == null && !outcome.changesHeaders) return null
-        val headers =
-            Headers
-                .Builder()
-                .apply {
-                    outcome.headers(request.headers.toList()).forEach { (n, v) ->
-                        addUnsafeNonAscii(n, v)
-                    }
-                }.build()
-        val url = changes.url?.let { it.toHttpUrlOrNull() ?: throw IOException("Breakpoint edit refused: not a URL: $it") } ?: request.url
+    ): Request {
+        val changes = checkNotNull(outcome.changes)
+        val headers = headersOf(outcome.headers(request.headers.toList()))
+        val url = changes.url?.let { it.toHttpUrlOrNull() ?: throw IOException("${CallCapture.EDIT_REFUSED}not a URL: $it") } ?: request.url
         if (network && (url.host != request.url.host || url.port != request.url.port)) {
-            throw IOException("Breakpoint edit refused: a network interceptor keeps the host and port")
+            throw IOException("${CallCapture.EDIT_REFUSED}a network interceptor keeps the host and port")
         }
         val type = (headers["Content-Type"] ?: request.body?.contentType()?.toString())?.toMediaTypeOrNull()
         val body = changes.body?.toRequestBody(type) ?: request.body
-        return try {
-            request
-                .newBuilder()
-                .url(url)
-                .headers(headers)
-                .method(changes.method ?: request.method, body)
-                .build()
-        } catch (e: IllegalArgumentException) {
-            throw IOException("Breakpoint edit refused: ${e.message}", e)
-        }
+        return request
+            .newBuilder()
+            .url(url)
+            .headers(headers)
+            .method(changes.method ?: request.method, body)
+            .build()
     }
 
     /**
-     * ADR-0111 A.1, C.1: [response] as its breakpoint lets the app read it, with the body when it was replaced or
-     * known as [body]; an abort fails the call. The held body is peeked, so the app still reads it whole.
+     * [response] as its breakpoint lets the app read it, with the body when it was replaced or known as [body]. The
+     * held body is peeked, so the app still reads it whole.
      */
     private fun holdResponse(
+        capture: CallCapture,
         call: Call,
         request: Request,
         requestBody: CapturedBody,
         response: Response,
         body: CapturedBody?,
-        id: String,
         masking: Masking,
         limit: Int,
     ): Pair<Response, CapturedBody?> {
-        val stage = BreakpointStage.BREAKPOINT_STAGE_RESPONSE
-        val rule = sink.breakpointFor(request.method, request.url.toString(), stage) ?: return response to body
+        val rule = capture.responseBreakpoint(request.method, request.url.toString(), response.code) ?: return response to body
         val seen =
             body ?: try {
                 peek(response, limit)
             } catch (e: IOException) {
                 response.close()
-                sink.emit("RequestFailed") { requestFailed(id, e) }
+                capture.failed(e)
                 throw e
             }
-        val outcome =
-            try {
-                held(call, id, null) {
-                    BreakpointHit(
-                        rule_id = rule.id,
-                        stage = stage,
-                        request = requestStarted(id, request, masking, requestBody),
-                        response = responseReceived(id, response, masking, seen),
-                        timeout_ms = rule.timeout_ms,
-                    )
-                }
-            } catch (e: IOException) {
-                response.close()
-                throw e
-            }
-        val changes =
-            when (outcome) {
-                is BreakpointOutcome.Abort -> {
-                    response.close()
-                    val failure = IOException(outcome.message)
-                    sink.emit("RequestFailed") { requestFailed(id, failure) }
-                    throw failure
-                }
-
-                is BreakpointOutcome.Resume -> {
-                    outcome.changes ?: return response to body
-                }
-            }
-        val headers =
-            Headers
-                .Builder()
-                .apply {
-                    outcome.headers(response.headers.toList()).forEach { (n, v) ->
-                        addUnsafeNonAscii(n, v)
-                    }
-                }.build()
+        val resume =
+            capture.holdResponse(
+                rule,
+                requestStarted(capture.id, request, masking, requestBody),
+                responseReceived(capture.id, response, masking, seen),
+                { hold(call, it) },
+                { response.close() },
+            ) ?: return response to body
+        val changes = checkNotNull(resume.changes)
+        val headers = headersOf(resume.headers(response.headers.toList()))
         val edited = response.newBuilder().code(changes.status_code ?: response.code).headers(headers)
         val replaced = changes.body ?: return edited.build() to body
         response.close()
         val type = (headers["Content-Type"] ?: response.body.contentType()?.toString())?.toMediaTypeOrNull()
-        return edited.body(replaced.toResponseBody(type)).build() to
-            CapturedBody(replaced, truncated = false, size = replaced.size.toLong())
+        return edited.body(replaced.toResponseBody(type)).build() to CapturedBody.whole(replaced)
     }
+
+    private fun headersOf(pairs: List<Pair<String, String>>): Headers =
+        Headers.Builder().apply { for ((name, value) in pairs) addUnsafeNonAscii(name, value) }.build()
 
     /** At most [limit] bytes of [response]'s body, read ahead of the app without consuming them. */
     private fun peek(
@@ -263,40 +202,28 @@ public class AppMonitorInterceptor : Interceptor {
         return CapturedBody(bytes, truncated = more, size = if (more) length else bytes.size.toLong())
     }
 
-    /**
-     * Sends the [hit] and blocks the call's thread until the desktop answers (ADR-0111 B.1); a cancel or an interrupt
-     * fails the call. [started] is captured before the failure when the request was not yet.
-     */
-    private fun held(
+    /** Sends the [hit] and blocks the call's thread until the desktop answers (ADR-0111 B.1); a cancel or an interrupt throws. */
+    private fun hold(
         call: Call,
-        id: String,
-        started: RequestStarted?,
-        hit: () -> BreakpointHit,
-    ): BreakpointOutcome {
-        val failure: IOException =
-            try {
-                return runBlocking {
-                    val outcome = async { sink.hold(hit()) }
-                    var answered: BreakpointOutcome? = null
-                    while (answered == null) {
-                        answered = withTimeoutOrNull(CANCEL_POLL_MS) { outcome.await() }
-                        if (answered == null && call.isCanceled()) {
-                            outcome.cancel()
-                            throw IOException("Canceled")
-                        }
+        hit: BreakpointHit,
+    ): BreakpointOutcome =
+        try {
+            runBlocking {
+                val outcome = async { sink.hold(hit) }
+                var answered: BreakpointOutcome? = null
+                while (answered == null) {
+                    answered = withTimeoutOrNull(CANCEL_POLL_MS) { outcome.await() }
+                    if (answered == null && call.isCanceled()) {
+                        outcome.cancel()
+                        throw IOException("Canceled")
                     }
-                    answered
                 }
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                InterruptedIOException("interrupted")
-            } catch (e: IOException) {
-                e
+                answered
             }
-        if (started != null) sink.emit("RequestStarted") { started }
-        sink.emit("RequestFailed") { requestFailed(id, failure) }
-        throw failure
-    }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw InterruptedIOException("interrupted")
+        }
 
     /** ADR-0122 B.1: a clone of the app's call through its own client, read to the end so its response is captured whole. */
     private fun replay(
@@ -304,7 +231,7 @@ public class AppMonitorInterceptor : Interceptor {
         id: String,
     ): String? {
         val body = call.request().body
-        if (body != null && (body.isOneShot() || body.isDuplex())) return "Its body could be sent only once"
+        if (body != null && (body.isOneShot() || body.isDuplex())) return CallCapture.SENT_ONCE
         val clone = call.clone()
         replays[clone] = id
         clone.enqueue(
@@ -332,50 +259,46 @@ public class AppMonitorInterceptor : Interceptor {
         return null
     }
 
-    /** ADR-0110 C.1: the rule's answer after its delay, without the network; a failure is an [IOException]. */
+    /** ADR-0110 C.1: the rule's answer after its delay, without the network. */
     private fun answer(
+        capture: CallCapture,
         chain: Interceptor.Chain,
         request: Request,
         rule: MockRule,
-        id: String,
     ): Response {
+        val mocked = capture.answer(rule) { delayMs -> waitFor(chain.call(), delayMs) }
+        val headers = headersOf(mocked.headers.map { it.name to it.value_ })
+        val now = System.currentTimeMillis()
+        return Response
+            .Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(mocked.status_code)
+            .message("")
+            .headers(headers)
+            .body(mocked.body.toResponseBody(headers["Content-Type"]?.toMediaTypeOrNull()))
+            .sentRequestAtMillis(now)
+            .receivedResponseAtMillis(now)
+            .build()
+    }
+
+    private fun waitFor(
+        call: Call,
+        delayMs: Long,
+    ) {
         try {
-            val until = System.nanoTime() + rule.delay_ms * 1_000_000
-            while (!chain.call().isCanceled() && System.nanoTime() < until) {
+            val until = System.nanoTime() + delayMs * 1_000_000
+            while (!call.isCanceled() && System.nanoTime() < until) {
                 Thread.sleep(minOf(CANCEL_POLL_MS, (until - System.nanoTime()) / 1_000_000).coerceAtLeast(0))
             }
-            if (chain.call().isCanceled()) throw IOException("Canceled")
-            rule.failure?.let { throw IOException(it.message) }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
-            val interrupted = InterruptedIOException("interrupted")
-            sink.emit("RequestFailed") { requestFailed(id, interrupted) }
-            throw interrupted
-        } catch (e: IOException) {
-            sink.emit("RequestFailed") { requestFailed(id, e) }
-            throw e
+            throw InterruptedIOException("interrupted")
         }
-        val mocked = checkNotNull(rule.response)
-        val headers = Headers.Builder().apply { for (header in mocked.headers) addUnsafeNonAscii(header.name, header.value_) }.build()
-        val now = System.currentTimeMillis()
-        val response =
-            Response
-                .Builder()
-                .request(request)
-                .protocol(Protocol.HTTP_1_1)
-                .code(mocked.status_code)
-                .message("")
-                .headers(headers)
-                .body(mocked.body.toResponseBody(headers["Content-Type"]?.toMediaTypeOrNull()))
-                .sentRequestAtMillis(now)
-                .receivedResponseAtMillis(now)
-                .build()
-        return response
+        if (call.isCanceled()) throw IOException("Canceled")
     }
 
     private companion object {
-        const val SWITCHING_PROTOCOLS = 101
-
         // How often a held call checks that the app did not cancel it.
         const val CANCEL_POLL_MS = 50L
     }

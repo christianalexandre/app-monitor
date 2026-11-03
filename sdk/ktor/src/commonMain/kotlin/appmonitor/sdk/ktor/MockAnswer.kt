@@ -1,8 +1,6 @@
 package appmonitor.sdk.ktor
 
-import appmonitor.sdk.core.CaptureSink
-import appmonitor.sdk.core.emit
-import appmonitor.sdk.core.requestFailed
+import appmonitor.sdk.core.CallCapture
 import appmonitor.v1.MockRule
 import io.ktor.client.HttpClient
 import io.ktor.client.call.HttpClientCall
@@ -17,33 +15,17 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.io.IOException
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.cancellation.CancellationException
 
-/**
- * ADR-0110 C.1: the rule's answer after its delay, as a call built without the engine, its `ResponseReceived` left
- * to the caller; a failure is an [IOException].
- */
+/** ADR-0110 C.1: the rule's answer after its delay, as a call built without the engine, its `ResponseReceived` left to the caller. */
 internal suspend fun answer(
     client: HttpClient,
-    sink: CaptureSink,
+    capture: CallCapture,
     request: HttpRequestBuilder,
     content: OutgoingContent,
     rule: MockRule,
-    id: String,
 ): HttpClientCall {
-    try {
-        delay(rule.delay_ms)
-        rule.failure?.let { throw IOException(it.message) }
-    } catch (e: CancellationException) {
-        sink.emit("RequestFailed") { requestFailed(id, e) }
-        throw e
-    } catch (e: IOException) {
-        sink.emit("RequestFailed") { requestFailed(id, e) }
-        throw e
-    }
-    val mocked = checkNotNull(rule.response)
+    val mocked = capture.answer(rule) { delay(it) }
     return builtCall(
         client,
         request,
