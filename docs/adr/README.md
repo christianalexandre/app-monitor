@@ -204,3 +204,4 @@ Rules:
 | [0184](0184-the-monitors-connect-has-one-timeout-its-own.md) | The monitor's connect has one timeout, its own, not CIO's | Accepted |
 | [0185](0185-what-an-edit-left-masked-goes-out-as-the-devices-own.md) | What an edit left masked goes out as the device's own | Accepted |
 | [0186](0186-an-ios-replay-catches-the-sessions-raise.md) | An iOS replay catches the session's raise in Objective-C | Accepted |
+| [0187](0187-one-method-hook-for-the-ios-capture.md) | One method hook for the iOS capture | Accepted |

@@ -142,15 +142,17 @@ enum MockHooks {
             return false
         }
         typealias Original = @convention(c) (AnyObject, Selector) -> NSArray?
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject) -> NSArray? = { object in
-            let classes = original(object, selector)
-            guard (object as? URLSessionConfiguration)?.identifier == nil else { return classes }
-            let others = (classes as? [AnyClass] ?? []).filter { $0 != HoldProtocol.self && $0 != MockProtocol.self }
-            return ([HoldProtocol.self, MockProtocol.self] + others) as NSArray
+        MethodHook.replace(method, arguments: 0, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject) -> NSArray? = { object in
+                let classes = original(object, selector)
+                guard (object as? URLSessionConfiguration)?.identifier == nil else { return classes }
+                let others = (classes as? [AnyClass] ?? []).filter {
+                    $0 != HoldProtocol.self && $0 != MockProtocol.self
+                }
+                return ([HoldProtocol.self, MockProtocol.self] + others) as NSArray
+            }
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
         installed = true
         return true
     }
