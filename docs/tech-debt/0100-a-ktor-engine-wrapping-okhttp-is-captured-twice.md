@@ -1,10 +1,10 @@
 ---
 id: DEBT-0100
 title: A Ktor engine that wraps Ktor's OkHttp engine is captured twice
-status: Open
+status: Paid
 date: 2026-10-29
 trigger: An app reports each Ktor call twice beside appmonitor-okhttp, or the next PR that changes how `Platform.android.kt` tells the engine
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0100 — A Ktor engine that wraps Ktor's OkHttp engine is captured twice
@@ -34,4 +34,6 @@ engine.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0016 H6.3c (`fix/ktor-wrapped-engine-one-seam`, ADR-0183): the engine is known by `engine.config is OkHttpConfig`,
+so a wrapper written `HttpClientEngine by delegate` is marked and captured once (`OkHttpEngineDedupeTest`). What is
+left: a wrapper with a config of its own is still captured twice, pinned by `aWrapperWithItsOwnConfigIsNotKnown`.

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0058
 title: Non-correctness findings of the first M4 milestone review
-status: Open
+status: Dropped
 date: 2026-10-24
 trigger: The first desktop or MCP feature that matches a whole URL exactly
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0058 — Non-correctness findings of the first M4 milestone review
@@ -55,4 +55,7 @@ whole URL is left to pick a scheme; no feature does one yet.
 
 ## How it was paid
 
-> Filled when closing.
+Dropped in PLAN-0016 H6.3c (`fix/ktor-wrapped-engine-one-seam`). The two comment blocks were already paid and are 4
+lines today. The scheme stays as each library reports it: endpoint grouping drops it (SDD 10), no feature matches a
+whole URL, and the desktop reads Ktor's `ws` (`RequestDetail.kt`, `AskReplay.kt`), so rewriting it to `http` would
+take away what those two checks see. An exact URL match, if one is ever built, picks a scheme in its own ADR.

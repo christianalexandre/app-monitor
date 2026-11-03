@@ -1,5 +1,7 @@
 package appmonitor.sdk.ktor
 
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.HttpClientEngineConfig
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respondOk
@@ -21,4 +23,21 @@ class JvmMarkingTest {
 
     @Test
     fun anEngineIsKnownByItsClassNotItsName() = assertEquals(false, passesAnotherCapture(LookalikeEngine()))
+
+    @Test
+    fun anEngineThatWrapsOkHttpsAnswersWithItsConfig() = assertEquals(true, passesAnotherCapture(WrappingEngine(OkHttp.create())))
+
+    @Test
+    fun aWrapperWithItsOwnConfigIsNotKnown() {
+        val wrapper =
+            object : HttpClientEngine by OkHttp.create() {
+                override val config = HttpClientEngineConfig()
+            }
+        assertEquals(false, passesAnotherCapture(wrapper))
+    }
 }
+
+/** An app's engine that hands every call to [delegate]. */
+internal class WrappingEngine(
+    delegate: HttpClientEngine,
+) : HttpClientEngine by delegate

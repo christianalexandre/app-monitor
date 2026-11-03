@@ -49,4 +49,22 @@ class OkHttpEngineDedupeTest {
             assertEquals(0, sink.pending)
             assertNull(server.takeRequest().headers[Protocol.CAPTURE_HEADER])
         }
+
+    @Test
+    fun aCallOnAnEngineWrappingOkHttpsIsOneExchangeAndTheMarkStaysOnTheDevice() =
+        runTest {
+            val sink = RecordingSink()
+            server.enqueue(MockResponse.Builder().body("ok").build())
+            val client =
+                HttpClient(WrappingEngine(OkHttp.create { addInterceptor(AppMonitorInterceptor()) })) {
+                    install(appMonitorKtor(sink))
+                }
+
+            assertEquals("ok", client.get(server.url("/items").toString()).bodyAsText())
+
+            assertContains(sink.started().headers, Header(Protocol.CAPTURE_HEADER, Protocol.CAPTURE_HEADER_KTOR))
+            sink.received()
+            assertEquals(0, sink.pending)
+            assertNull(server.takeRequest().headers[Protocol.CAPTURE_HEADER])
+        }
 }
