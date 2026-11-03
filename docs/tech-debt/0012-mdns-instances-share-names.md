@@ -1,10 +1,10 @@
 ---
 id: DEBT-0012
 title: Per-address mDNS instances share a host and service name
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: A desktop with two addresses on one LAN is seen renamed or flapping, or an SDK option filters by service name
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0012 — Per-address mDNS instances share a host and service name
@@ -36,4 +36,7 @@ SDK option filters by service name.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.1 (ADR-0174). One host name per address,
+`appmonitor-<address>`, instead of what the reverse lookup answers. The service
+name can still be renamed `AppMonitor (2)` when one instance hears another; that
+was so with the default names too (measured), and DEBT-0123 tracks where it matters.

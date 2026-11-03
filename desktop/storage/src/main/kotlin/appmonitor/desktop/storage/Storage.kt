@@ -68,6 +68,7 @@ class Storage private constructor(
     val file: Path,
     /** The run this launch opened (ADR-0084), [LiveTraffic.NO_RUN] when none; [clearAll] deletes it, [currentRun] follows. */
     val runId: Long,
+    internal val directoryLock: AutoCloseable,
     private val driver: JdbcSqliteDriver,
     private val database: AppMonitorDatabase,
     private val clock: () -> Long,
@@ -507,7 +508,7 @@ class Storage private constructor(
         // A pass queued on the writer behind a long batch ends only when the writer reaches it.
         retentionJob?.cancel()
         withTimeoutOrNull(timeout) { retentionJob?.join() }
-        withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
+        withTimeoutOrNull(timeout - start.elapsedNow()) { queue.enqueue(StorageItem.EndRun(clock())) }
         val lost = queue.close(timeout - start.elapsedNow())
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
         if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
@@ -524,6 +525,7 @@ class Storage private constructor(
             writerDispatcher.close()
         }
         withTimeoutOrNull(timeout - start.elapsedNow()) { driverClosed.await() }
+        directoryLock.close()
         return lost
     }
 
@@ -811,7 +813,8 @@ class Storage private constructor(
 
         /**
          * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (SDD 09, ADR-0142).
-         * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched.
+         * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched, and
+         * [DataDirectoryInUseException] while another store holds [directory] (ADR-0175).
          */
         fun open(
             directory: Path,
@@ -829,10 +832,12 @@ class Storage private constructor(
             beforeCommit: (List<StorageItem>) -> Unit,
         ): Storage {
             val file = createOwnerOnly(directory)
-            val url = "jdbc:sqlite:$file"
-            prepare(url)
-            val driver = JdbcSqliteDriver(url, connectionProperties())
+            val directoryLock = DataDirectoryLock.acquire(directory)
+            var driver: JdbcSqliteDriver? = null
             try {
+                val url = "jdbc:sqlite:$file"
+                prepare(url)
+                driver = JdbcSqliteDriver(url, connectionProperties())
                 val database = AppMonitorDatabase(driver)
                 val runId =
                     database.transactionWithResult {
@@ -853,9 +858,21 @@ class Storage private constructor(
                             LiveTraffic.NO_RUN
                         }
                     }
-                return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, afterRetentionChunk, beforeCommit)
+                return Storage(
+                    file,
+                    runId,
+                    directoryLock,
+                    driver,
+                    database,
+                    clock,
+                    maxQueueBytes,
+                    retentionInterval,
+                    afterRetentionChunk,
+                    beforeCommit,
+                )
             } catch (e: Throwable) {
-                driver.close()
+                driver?.close()
+                directoryLock.close()
                 throw e
             }
         }

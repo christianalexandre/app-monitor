@@ -22,6 +22,7 @@ import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.feature.settings.DataDirectoryInUse
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
@@ -33,6 +34,7 @@ import appmonitor.desktop.server.STOP_TIMEOUT
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
+import appmonitor.desktop.storage.DataDirectoryInUseException
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Recorder
 import appmonitor.desktop.storage.Storage
@@ -66,7 +68,15 @@ fun main() {
         try {
             openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
-            exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
+            exitAfter {
+                runBlocking {
+                    if (e is DataDirectoryInUseException) {
+                        showDataDirectoryInUse(directory.toString())
+                    } else {
+                        showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e)
+                    }
+                }
+            }
             return
         }
     // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
@@ -232,6 +242,12 @@ internal suspend fun stopAll(
     }
 }
 
+private suspend fun showDataDirectoryInUse(directory: String) {
+    awaitApplication {
+        Window(onCloseRequest = ::exitApplication, title = "App Monitor") { DataDirectoryInUse(directory) }
+    }
+}
+
 private suspend fun showStorageFailure(
     file: String,
     failure: Exception,
@@ -310,7 +326,7 @@ internal suspend fun runServer(
 ) {
     try {
         val port = start()
-        onStatus("Listening on port $port")
+        onStatus("Listening on port $port" + server.advertisingProblem?.let { "; $it" }.orEmpty())
         collect(server.sessions)
         onStatus("Server stopped")
     } catch (e: CancellationException) {

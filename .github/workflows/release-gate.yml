@@ -66,6 +66,8 @@ jobs:
         env:
           APPMONITOR_NO_LOCAL_NETWORK: ${{ runner.os == 'macOS' && '1' || '' }} # DEBT-0046
         run: ./gradlew :desktop:server:test
+      - name: Headless server tests
+        run: ./gradlew :tools:headless-server:test
       - name: Protocol JVM tests
         run: ./gradlew :protocol:jvmTest
       - name: Test reports
@@ -221,7 +223,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build the sample and the server
-        run: ./gradlew :samples:android:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
+        run: ./gradlew :samples:android:assembleDebug :tools:headless-server:installDist :tools:e2e-target:installDist
       - name: Android end to end
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -315,7 +317,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build the KMP sample and the server
-        run: ./gradlew :samples:kmp:androidApp:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
+        run: ./gradlew :samples:kmp:androidApp:assembleDebug :tools:headless-server:installDist :tools:e2e-target:installDist
       - name: KMP Android end to end
         uses: reactivecircus/android-emulator-runner@v2
         with:

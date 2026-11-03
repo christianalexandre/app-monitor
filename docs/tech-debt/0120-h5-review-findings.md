@@ -20,8 +20,8 @@ None of them is hit in normal use (PLAN-0015, *H5 milestone review*):
 2. `FileDesktopPin` (`Device.swift`) and `DeviceId.kt`: the pin file is not
    excluded from backup, unlike the device id beside it. A restore onto a new
    phone brings the old pin back with a new device id.
-3. `Storage.close`: `queue.enqueue(EndRun)` gets the full `timeout` after the
-   retention join may have used it, so close can wait about twice its bound.
+3. Paid in PLAN-0016 H6.1: `Storage.close` gave `queue.enqueue(EndRun)` the full
+   `timeout` after the retention join may have used it.
 4. `MonitorClient.kt`, and `pump` and `poll` in `MonitorClient.swift`: a
    report waits for the next envelope, since an oversized drop never enters
    the buffer to wake the sender. An idle app's last oversized envelope is
@@ -41,6 +41,10 @@ PLAN-0016 (H6) sweeps the backlog before M10.
 ## Trigger
 
 The next PR that touches one of the files above; PLAN-0016's sweep otherwise.
+
+Fired in H6.1, on `Main.kt` and `Storage.kt`. Item 3 was paid there; the rest is
+placed in PLAN-0016's tasks, each the PR that works in those files: item 1 in
+H6.2, items 2 and 4 in H6.3 and H6.4, items 5 and 6 in H6.6.
 
 ## How it was paid
 

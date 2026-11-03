@@ -1,10 +1,10 @@
 ---
 id: DEBT-0028
 title: The fake client gives up on HelloAck after 10 s, approval included
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: A script runs the fake client against the desktop app unattended
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0028 — The fake client gives up on HelloAck after 10 s, approval included
@@ -43,4 +43,6 @@ left.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.1. 120 s by default, `--handshake-timeout MS` to bound it, and
+the first line says it may wait. The protocol has no "pending" signal, so a desktop
+that never answers also takes the 120 s.

@@ -28,7 +28,9 @@ Opening (`Storage.open(dir)`):
 
 1. Create the directory with `0700` if absent; an existing one, such as an
    `APPMONITOR_DATA_DIR` the developer chose, keeps its mode. Create
-   `appmonitor.db` empty with `0600` if absent.
+   `appmonitor.db` empty with `0600` if absent. Take `appmonitor.lock` in the
+   directory, held until `close`; another holder is
+   `DataDirectoryInUseException`, with nothing else touched (ADR-0175).
 2. Open the driver with the connection properties of ADR-0085 (WAL,
    `foreign_keys`, `secure_delete`, `busy_timeout`).
 3. `user_version` is read first on one plain connection, without the
@@ -245,7 +247,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   path and "Clear all data", which deletes `appmonitor.db`, `-wal` and
   `-shm` after a confirmation and asks the developer to reopen the app
   (ADR-0088); the server is not started, so devices are not admitted into
-  a desktop that cannot keep them.
+  a desktop that cannot keep them. Another desktop holding the directory has its
+  own window, the directory and what to do, without "Clear all data": those
+  files are the other desktop's (ADR-0175, `data-in-use.png`).
 - **Close.** On exit, after the server stops, `Storage.close(timeout)`
   cancels the retention coroutine, waiting for its pass within the same
   timeout (a pass queued on the writer behind a long batch ends only when
@@ -490,6 +494,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A read in flight keeps the database open until it returns, reads after close return nothing, observed queries end without an exception | `WriteQueueTest.aReadInFlightKeepsTheDriverOpenUntilItReturns`, `WriteQueueTest.observedQueriesEndWhenTheStoreCloses` (M5.R10) |
 | Run summaries page newest first with sessions and counts; settings kept across launches, deleted by clear all, null once closing | `RunsTest.runSummariesPageNewestFirstWithSessionsAndCounts`, `RunsTest.settingsAreKeptUntilClearAll` |
 | Data directory per OS and its override | `DataDirectoryTest` |
+| A second process refused until the first closes or is killed, the first's run left alone | `DataDirectoryLockTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
 | A 10k-request session listed in bounded time and not stored, a stored run one click away after a restart, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4, H3.1b) |
@@ -531,5 +536,5 @@ Each case above, with the test that proves it (M5.3 unless noted):
 
 - Not encrypted: owner-only permissions are the protection (ADR-0081 C.1).
 - One desktop per data directory: a second instance on the same directory
-  is not detected (DEBT-0062); `APPMONITOR_DATA_DIR` separates them.
+  is refused (ADR-0175); `APPMONITOR_DATA_DIR` separates them.
 - A batch lost to a write failure is not retried.

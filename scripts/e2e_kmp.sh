@@ -19,14 +19,14 @@ mkdir -p "$out"
 if [[ "$platform" == android ]]; then
   app=appmonitor.sample.kmp host=10.0.2.2
   boot_emulator
-  ./gradlew -q :samples:kmp:androidApp:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
+  ./gradlew -q :samples:kmp:androidApp:assembleDebug :tools:headless-server:installDist :tools:e2e-target:installDist
   trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
   device_log="logcat in $out/logcat.txt"
 else
   app=dev.appmonitor.kmpsample host=127.0.0.1
   boot_simulator
   build_ios_debug samples/kmp/iosApp/project.yml KmpSample build/kmp-sample
-  ./gradlew -q :desktop:server:installDist :tools:e2e-target:installDist
+  ./gradlew -q :tools:headless-server:installDist :tools:e2e-target:installDist
   started="$(date '+%Y-%m-%d %H:%M:%S')"
   trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true
     xcrun simctl spawn "$udid" log show --style compact --start "$started" \

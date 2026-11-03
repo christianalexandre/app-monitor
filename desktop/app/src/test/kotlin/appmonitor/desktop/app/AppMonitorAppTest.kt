@@ -28,6 +28,7 @@ import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.CLEAR_ALL
 import appmonitor.desktop.feature.settings.CONFIRM_CLEAR
+import appmonitor.desktop.feature.settings.DataDirectoryInUse
 import appmonitor.desktop.feature.settings.MCP_STATUS
 import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
@@ -803,6 +804,18 @@ class AppMonitorAppTest {
 
                 onNodeWithText(statuses.last()).assertExists()
             }
+        }
+    }
+
+    @Test
+    fun `a data directory another desktop holds says so and offers no clearing`() {
+        runDesktopComposeUiTest(width = 900, height = 300) {
+            setContent { DataDirectoryInUse("/Users/dev/Library/Application Support/appmonitor") }
+
+            onNodeWithText("already open", substring = true).assertExists()
+            onNodeWithText("/Users/dev/Library/Application Support/appmonitor").assertExists()
+            assertTrue(onAllNodesWithText("Clear all data").fetchSemanticsNodes().isEmpty())
+            screenshot("data-in-use.png")
         }
     }
 

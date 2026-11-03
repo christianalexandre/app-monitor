@@ -1,4 +1,4 @@
-package appmonitor.desktop.server
+package appmonitor.tools.headlessserver
 
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope

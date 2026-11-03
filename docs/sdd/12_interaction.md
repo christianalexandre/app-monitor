@@ -239,7 +239,7 @@ or `Mocked by deleted rule <id>` once the rule is gone, and MCP rows carry
 `response` with `status_code`, `headers` and a UTF-8 `body`, or `failure`
 with `message`), and sends the set once to every session that accepted
 `interaction`, logging `sent N mock rules`. A mocked `RequestStarted` is
-logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
+logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt`,
 `Main.kt`); `make e2e-android` uses it (SDD 02, ADR-0116).
 
 ### Tests that drive it
@@ -264,7 +264,7 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | `URLSession` answers a matching data or upload task without the network, after its delay, a failure and a cancel included | `MockAnswerTests` in `sdk/ios` |
 | A rule answers a call on a real emulator and simulator, end to end | `make e2e-android`, `make e2e-ios`, `make e2e-ios-grpc` |
 | A mocked exchange stored with its rule, marked in the list, named in the detail and `get_request` | `MockedExchangeTest` in `desktop/storage`, `MockedExchangeUiTest` (`mocked.png`), `GetRequestTest` |
-| The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `desktop/server` |
+| The headless server's rules file read, bad ones refused, a mocked request logged with its rule | `MainTest` in `tools/headless-server` |
 | A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |
 | The breakpoint messages round-trip, fixture bytes match on Kotlin and Swift; an absent resume field kept apart from an empty one | `RoundTripTest.breakpointMessages`, `RoundTripTest.aResumeKeepsAnUnchangedFieldApartFromAnEmptyOne`, `FixtureTest`, Swift `FixtureTests` |
 | Breakpoints per app in order, enabled only, a new list only on a change, kept, cleared, refused | `BreakpointsTest` in `desktop/storage` |
@@ -279,7 +279,7 @@ logged with ` mock <id>` at the end. Code: `desktop/server` (`MockFile.kt`,
 | A real OkHttp call on an emulator sent again on the headless server's `ReplayRequest` | `make e2e-android` |
 | `URLSession` sends a task again through its session, its delegate left out, marked `replay_of`; a streamed body and an invalidated session refused; an unknown request refused on the wire | `ReplayTests` in `sdk/ios` |
 | A real `URLSession` task on a simulator sent again on the headless server's `ReplayRequest` | `make e2e-ios` |
-| The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `desktop/server` |
+| The headless server's replay path read, the first request asked, not a replay; `replay_of` and a refusal logged | `MainTest` in `tools/headless-server` |
 | A replay asked over MCP reaches a stand-in device only after "Send again" in its dialog, not after "Refuse" | `ReplayTest` (`replay-asked.png`) |
 | An asked replay waits once, up to 20, not for an ended session or a device without `interaction`, and goes with its session | `ReplayTest` |
 | A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end; a hit over a frame or dropped unwritten goes on unchanged at once, also when a desktop that stops reading fills the buffer | `MonitorClientBreakpointsTest`, `EventBufferTest`, `StalledDesktopBreakpointTest` (JVM) in `sdk/core` |

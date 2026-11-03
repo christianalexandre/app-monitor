@@ -191,3 +191,6 @@ Rules:
 | [0171](0171-the-ios-floor-the-sdk-declares.md) | The iOS floor the SDK declares, against the runtimes it can be tested on | Accepted |
 | [0172](0172-a-lost-count-waits-for-the-previous-session-to-close.md) | A session's lost count waits for its previous session to close | Accepted |
 | [0173](0173-the-sdks-log-lines-are-public.md) | The SDKs' log lines are readable outside a debugger | Accepted |
+| [0174](0174-mdns-failure-does-not-stop-the-server.md) | An mDNS failure does not stop the server | Accepted |
+| [0175](0175-a-lock-file-holds-the-data-directory.md) | A lock file holds the data directory | Accepted |
+| [0176](0176-the-headless-server-is-a-tool-module.md) | The headless server is a tool module | Accepted |
