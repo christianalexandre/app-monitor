@@ -9,7 +9,7 @@ import appmonitor.v1.MockRule
 /** Marks the API capture modules use to reach `sdk/core`; apps never call it (ADR-0025). */
 @RequiresOptIn("Used by AppMonitor capture modules only.", RequiresOptIn.Level.ERROR)
 @Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
 public annotation class InternalAppMonitorApi
 
 /** What a capture module hands to the running monitor. */

@@ -2,6 +2,13 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol.CAPTURE_HEADER
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.CapturedBody
+import appmonitor.sdk.core.Masking
+import appmonitor.sdk.core.MonitorSink
+import appmonitor.sdk.core.emit
+import appmonitor.sdk.core.newRequestId
+import appmonitor.sdk.core.requestFailed
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointStage
 import appmonitor.v1.MockRule
@@ -63,7 +70,7 @@ public class AppMonitorInterceptor : Interceptor {
         val options = sink.options
         if (options == null || original.tag(WebSocketCapture::class.java) != null) return chain.proceed(original)
         val id = newRequestId()
-        val masking = Masking(options)
+        val masking = okHttpMasking(options)
         val call = chain.call()
         val replayOf = replays[call]
         // ADR-0128: OkHttp throws when a network interceptor skips proceed() or changes the host or port.

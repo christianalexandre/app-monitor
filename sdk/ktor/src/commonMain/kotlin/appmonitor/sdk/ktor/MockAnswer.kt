@@ -1,5 +1,8 @@
 package appmonitor.sdk.ktor
 
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.emit
+import appmonitor.sdk.core.requestFailed
 import appmonitor.v1.MockRule
 import io.ktor.client.HttpClient
 import io.ktor.client.call.HttpClientCall

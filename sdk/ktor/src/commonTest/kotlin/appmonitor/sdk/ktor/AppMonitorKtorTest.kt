@@ -2,6 +2,7 @@ package appmonitor.sdk.ktor
 
 import appmonitor.protocol.Protocol
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.CaptureSink
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import io.ktor.client.HttpClient

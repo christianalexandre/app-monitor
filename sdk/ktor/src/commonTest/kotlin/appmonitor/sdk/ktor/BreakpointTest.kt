@@ -2,6 +2,8 @@ package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.MASK
 import appmonitor.v1.BreakpointResume
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage

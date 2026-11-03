@@ -20,7 +20,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   engine, goes on with the header removed and nothing captured, whether
   the monitor runs or not (SDD 08, ADR-0129). Tests:
   `AppMonitorInterceptorTest`, and `OkHttpEngineDedupeTest` in `sdk/ktor`.
-- **Masking**, on the device before the envelope is built:
+- **Masking**, on the device before the envelope is built, by `sdk/core`'s
+  `Masking` on the URL as `HttpUrl` prints it, a masked URL's other fields kept
+  (ADR-0181):
   `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` plus
   `maskedHeaders` keep their name and get the value `██`;
   `maskedQueryParameters` do the same in the URL's query and in a
@@ -30,7 +32,8 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   resolved against the request URL and get the same URL rule; a value with
   another scheme (`com.example.app:/oauth?code=…`) gets it by RFC 3986
   generic syntax, only the masked spans changed (ADR-0044), and so is a
-  value `HttpUrl` does not resolve, with or without a scheme. That syntax,
+  value `HttpUrl` does not resolve, with or without a scheme. Resolving is
+  `HttpUrl.resolve`, what OkHttp follows, so `https:\\\\user:pw@h\\x` is masked too. That syntax,
   the same in every SDK and pinned by `protocol/fixtures/masking.json`: an
   optional scheme, a letter then letters, digits, `+`, `.` or `-` up to the
   first `:`; a query after the first `?`, a fragment after the first `#`;

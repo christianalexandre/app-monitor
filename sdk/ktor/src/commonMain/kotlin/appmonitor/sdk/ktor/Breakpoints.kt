@@ -1,6 +1,11 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.CapturedBody
+import appmonitor.sdk.core.Masking
+import appmonitor.sdk.core.emit
+import appmonitor.sdk.core.requestFailed
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointStage
 import appmonitor.v1.RequestStarted
