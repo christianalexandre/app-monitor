@@ -29,7 +29,7 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
 
 ## Tasks
 
-- [x] **H6.1 Desktop server and discovery.** (`fix/server-discovery-debts`) One LAN interface filter
+- [x] **H6.1 Desktop server and discovery.** (#346) One LAN interface filter
   for the server and the fake client (DEBT-0005); one interface that
   fails JmDNS no longer stops the server, and zero advertised addresses
   is reported (DEBT-0007); a taken port is one line, not a stack trace
