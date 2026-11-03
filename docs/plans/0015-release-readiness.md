@@ -261,21 +261,25 @@ two that normal use hits:
     which found a `Location` sent unmasked (#341).
   - H5.R1: a reconnect's lost count settled (#342). H5.R2: a refused desktop
     logged, in lines readable outside a debugger (#343).
-  - Outside the tasks: a held iOS task's start sent before its end (#324, #325).
+  - Outside the tasks: a held iOS task's start sent before its end (#324, #325);
+    a client refusing the proxy's leaf after its handshake stored (#344), which
+    had turned H5.R2's `check` red.
 - **Decisions**: ADR-0163 to ADR-0173. ADR-0168 and ADR-0171 are the owner's
   (2026-10-31 and 2026-11-03).
 - **Debt**:
   - Paid: DEBT-0005, 0014, 0017, 0020, 0022, 0023, 0024, 0026, 0032, 0041, 0043,
     0044, 0048, 0056, 0066, 0080, 0091, 0094, 0099, 0108, 0110, 0112.
   - Dropped: DEBT-0052 (ADR-0158), DEBT-0065 (did not reproduce).
-  - Created and open: DEBT-0113 to DEBT-0121, this review's findings 4 to 7, 9
+  - Created and open: DEBT-0113 to DEBT-0122, this review's findings 4 to 7, 9
     and 10 in DEBT-0120.
   - Still open, against the Goal: DEBT-0036 (needs `make check` with a VPN up;
     the loop's Mac has none), DEBT-0111 (macOS 26 refuses the iOS 15.0 runtime,
     ADR-0171), DEBT-0055 (re-triggered), DEBT-0050 (touched by #323, its trigger
     is the next PR on `debt_check.sh`).
-  - DEBT-0098 widened: its failure, until now Windows only, hit `ubuntu-latest`
-    once on #343's CI, unrelated to that PR; cause not found. H6.5 pays it.
+  - DEBT-0098 found its cause and is fixed (#344): curl 8.23 refuses the leaf after
+    its handshake. It stays open until the release gate's Windows job runs the
+    test. DEBT-0122: `:desktop:proxy:test` was `FROM-CACHE`, so a runner's new curl
+    went unseen.
   - No correctness finding that normal use hits is left open.
 - **Deviations**:
   - H5.2 split into H5.2a to H5.2g and H5.3 into H5.3a to H5.3c, one cause or
@@ -287,12 +291,12 @@ two that normal use hits:
     available (DEBT-0121).
   - DEBT-0022 did not happen on Ktor 3.6.0: a test pins it, its memory cost is
     DEBT-0113.
-  - H5.R2's PR also carries this close and DEBT-0098's new evidence, added when
-    its `check` went red.
+  - #344 was added when H5.R2's `check` went red on a test its PR did not touch.
 - **Lessons**:
   - A once-on-CI failure can be reproduced with load, a held port or a Linux
-    container: most of H5.2 was. A test report's timing and stderr come first;
-    the artifact is kept for each run.
+    container: most of H5.2 was. A green CI can be a cached one: when a test goes
+    red on a PR that did not touch it, look for `FROM-CACHE` in the runs before
+    calling it a flake.
   - The iOS 16 simulator found a bug the runs on iOS 26 did not. A platform
     floor is worth a run before it is declared.
   - A code path no test reached can crash on first use: `sdk/core`'s iOS
