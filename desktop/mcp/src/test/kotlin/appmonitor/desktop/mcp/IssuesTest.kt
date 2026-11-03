@@ -1,6 +1,8 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.data.settingRepository
+import appmonitor.desktop.domain.IssueRepository
+import appmonitor.desktop.domain.IssueWrite
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.IssueChange
 import appmonitor.desktop.storage.IssueSource
@@ -22,9 +24,12 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import appmonitor.desktop.domain.IssueSource as DomainIssueSource
+import appmonitor.desktop.domain.IssueStatus as DomainIssueStatus
 
 class IssuesTest {
     @Test
@@ -184,6 +189,38 @@ class IssuesTest {
             val list = running.client { it.callTool(ListIssues.NAME, emptyMap()) }
             assertEquals(CLOSING, list.text)
         }
+
+    @Test
+    fun aSaveCommittedAsTheStoreClosesIsAnsweredSaved() {
+        var committed: IssueWrite? = null
+        withServer(wrap = { storage, repositories ->
+            val base = repositories.issues
+            val closing =
+                object : IssueRepository by base {
+                    override suspend fun create(
+                        title: String,
+                        note: String,
+                        tags: Collection<String>,
+                        exchangeIds: Collection<Long>,
+                        source: DomainIssueSource,
+                        status: DomainIssueStatus,
+                    ) = base.create(title, note, tags, exchangeIds, source, status).also {
+                        committed = it
+                        storage.close(5.seconds)
+                    }
+                }
+            McpRepositories(repositories.runs, repositories.queries, repositories.benchmarks, closing, repositories.mocks)
+        }) { running ->
+            val (r1) = exchanges(running.storage, "r1")
+
+            val result = running.client { it.callTool(SaveIssue.NAME, mapOf("title" to "A", "exchange_ids" to listOf(r1))) }
+
+            assertEquals(false, result.isError ?: false, result.text)
+            val issue = result.json["issue"]!!.jsonObject
+            assertEquals(assertIs<IssueWrite.Saved>(committed).id, issue["id"]!!.jsonPrimitive.long)
+            assertEquals(true, result.json["created"]!!.jsonPrimitive.boolean)
+        }
+    }
 
     @Test
     fun aLostWriteIsAnErrorThatSaysWhy() =

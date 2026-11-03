@@ -93,10 +93,11 @@ internal fun withServer(
     beforeTool: suspend () -> Unit = {},
     replays: ReplayAsks? = null,
     live: LiveTraffic? = null,
+    wrap: (Storage, McpRepositories) -> McpRepositories = { _, repositories -> repositories },
     block: suspend (Running) -> Unit,
 ) = withStorage { storage ->
     val access = McpAccess.open(storage.settingRepository())
-    val repositories = storage.repositories(live)
+    val repositories = wrap(storage, storage.repositories(live))
     val server = McpServer(repositories, access, 0, "test", { health() ?: repositories.queries.health }, beforeTool, replays)
     val port = server.start()
     try {

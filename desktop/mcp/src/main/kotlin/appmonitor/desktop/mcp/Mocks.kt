@@ -81,6 +81,7 @@ internal object CreateMock {
         mocks: MockRepository,
         arguments: JsonObject?,
         health: () -> StoreHealth,
+        closing: () -> Boolean,
     ): JsonObject {
         val appId = arguments.required("app_id")
         val name = arguments.required("name")
@@ -116,8 +117,10 @@ internal object CreateMock {
                 MockWrite.UnknownMock -> throw ToolError("the rule was not saved")
                 MockWrite.NotSaved -> throw ToolError("the rule was not saved" + (health().lastError?.let { ": $it" } ?: ""))
             }
+        val stored = mocks.mocks().firstOrNull { it.id == id }
+        if (stored == null && closing()) return savedWhileClosing("mock", id)
         // Deleted in the window between the write and this read.
-        val stored = mocks.mocks().firstOrNull { it.id == id } ?: throw ToolError("no mock rule with id $id")
+        if (stored == null) throw ToolError("no mock rule with id $id")
         return buildJsonObject { put("mock", stored.toJson()) }
     }
 

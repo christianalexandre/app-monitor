@@ -12,25 +12,35 @@ object Exports {
 
     private val pretty = Json { prettyPrint = true }
 
-    /** The first [MAX_ENTRIES] exchanges [filter] matches, oldest first, bodies whole; refused past `export_har`'s 32 MiB. */
+    /** Text one HAR holds, `export_har`'s. */
+    const val MAX_TEXT = ExportHar.MAX_TEXT
+
+    /** The first [MAX_ENTRIES] exchanges [filter] matches, oldest first, bodies whole; refused past [maxText] or while the store closes. */
     suspend fun har(
         queries: TrafficQueryRepository,
         filter: ExchangeFilter,
         version: String = "dev",
+        maxText: Long = MAX_TEXT,
     ): Har {
-        val har = refusals { ExportHar.log(queries, filter, MAX_ENTRIES, ExportHar.FULL, version) }
+        val har =
+            refusals(
+                queries,
+            ) { ExportHar.log(queries, filter, MAX_ENTRIES, ExportHar.FULL, version, maxText, tooLargeHint = "narrow the filter") }
         return Har(pretty.encodeToString(JsonObject.serializer(), har.json), har.entries, har.more, har.connections)
     }
 
-    /** Exchange [id]'s request as `to_curl` writes it; refused when the exchange or its request is not stored. */
+    /** Exchange [id]'s request as `to_curl` writes it; refused when the exchange or its request is not stored, or the store closes. */
     suspend fun curl(
         queries: TrafficQueryRepository,
         id: Long,
-    ): String = refusals { ToCurl.command(queries, id) }
+    ): String = refusals(queries) { ToCurl.command(queries, id) }
 
-    private inline fun <T> refusals(block: () -> T): T =
+    private inline fun <T> refusals(
+        queries: TrafficQueryRepository,
+        block: () -> T,
+    ): T =
         try {
-            block()
+            queries.closingChecked(call = block)
         } catch (e: ToolError) {
             throw ExportRefused(e.message!!)
         }

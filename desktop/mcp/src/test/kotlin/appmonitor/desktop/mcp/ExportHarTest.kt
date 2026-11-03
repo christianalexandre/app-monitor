@@ -282,6 +282,44 @@ class ExportHarTest {
             assertEquals(CLOSING, running.client { it.callTool(ExportHar.NAME, emptyMap()) }.text)
         }
 
+    @Test
+    fun theWindowsExportsAreRefusedWhileTheStoreCloses() =
+        withServer { running ->
+            running.store(request("r1") to 1_000L)
+            val queries = running.storage.trafficQueryRepository()
+            val id = queries.search(ExchangeFilter(), 0, 1).single().id
+            running.storage.close(5.seconds)
+
+            assertEquals(CLOSING, assertFailsWith<ExportRefused> { Exports.har(queries, ExchangeFilter()) }.message)
+            assertEquals(CLOSING, assertFailsWith<ExportRefused> { Exports.curl(queries, id) }.message)
+        }
+
+    @Test
+    fun theWindowsRefusalNamesOnlyWhatTheWindowHas() =
+        withServer { running ->
+            running.store(request("r1") to 1_000L, response("r1", body = "x".repeat(4_000).encodeUtf8()) to 1_001L)
+            val queries = running.storage.trafficQueryRepository()
+
+            val refused = assertFailsWith<ExportRefused> { Exports.har(queries, ExchangeFilter(), maxText = 1_000) }
+
+            assertEquals("the HAR is past 0 MiB: narrow the filter", refused.message)
+        }
+
+    @Test
+    fun theSizeIsCheckedAfterEveryFrame() =
+        withServer { running ->
+            val frames = Array(5) { WebSocketFrame(request_id = "ws", payload = "z".repeat(100).encodeUtf8()) to 1_200L }
+            running.store(request("ws", url = "wss://echo.example.com/") to 1_000L, response("ws", 101) to 1_100L, *frames)
+            val queries = running.storage.trafficQueryRepository()
+            val id = queries.search(ExchangeFilter(), 0, 1).single().id
+            val sizes = mutableListOf<Long>()
+
+            ExportHar.webSocketMessages(queries, id, 5, ExportHar.FULL) { sizes += it }
+
+            assertEquals(5, sizes.size, "one page of 5 frames")
+            assertEquals(sizes.sorted(), sizes)
+        }
+
     private fun JsonObject.obj(name: String) = this[name]!!.jsonObject
 
     private fun JsonObject.str(name: String) = this[name]!!.jsonPrimitive.content

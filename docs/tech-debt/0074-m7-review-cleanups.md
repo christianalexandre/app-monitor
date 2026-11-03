@@ -1,10 +1,10 @@
 ---
 id: DEBT-0074
 title: Non-correctness findings of the M7 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The first PR that changes the tool wrapper's closing check in `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/McpServer.kt` or adds a seam between a tool's write and its read-back, or changes the order of `Storage.updateIssue`'s checks in `desktop/storage`, or the closing checks of `ExportHar.log` or `ToCurl.command`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0074 — Non-correctness findings of the M7 milestone review
@@ -88,4 +88,16 @@ check and hint, and the order of `updateIssue`'s checks.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`).
+
+- **The committed write.** A write's answer stands while the store closes (ADR-0179):
+  `IssuesTest.aSaveCommittedAsTheStoreClosesIsAnsweredSaved` and
+  `MocksTest.aRuleCommittedAsTheStoreClosesIsAnsweredSaved` close the store right after the
+  commit, a seam through the repositories, and both failed with "App Monitor is closing" before.
+- **One closing check.** `closingChecked` in `ToolResults.kt` holds the rule for the wrapper and
+  for `Exports`, so the window's exports are refused while the store closes
+  (`ExportHarTest.theWindowsExportsAreRefusedWhileTheStoreCloses`).
+- **The hint.** The window's refusal says "narrow the filter" alone
+  (`ExportHarTest.theWindowsRefusalNamesOnlyWhatTheWindowHas`).
+- **The order.** An update of an unknown issue answers so before looking at its exchanges
+  (`IssuesTest.unknownExchangesAndIssuesWriteNothing` in `desktop/storage`).

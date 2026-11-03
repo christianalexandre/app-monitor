@@ -13,9 +13,11 @@ import appmonitor.v1.BreakpointStage
 import appmonitor.v1.RequestStarted
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -65,6 +67,21 @@ class BreakpointsViewModelTest {
                     .map { it.name },
             )
             assertEquals(60_000L, viewModel.maxTimeoutMs)
+        }
+
+    @Test
+    fun `a held call shows before the breakpoints query answers`() =
+        runTest {
+            val silent =
+                object : BreakpointRepository by repository {
+                    override fun observeBreakpoints(): Flow<List<Breakpoint>> = flow { awaitCancellation() }
+                }
+            val viewModel = BreakpointsViewModel(silent, heldCalls)
+            val call = held("r1")
+
+            heldCalls.held.value = listOf(call)
+
+            assertEquals(listOf(call), viewModel.state.value.held)
         }
 
     @Test

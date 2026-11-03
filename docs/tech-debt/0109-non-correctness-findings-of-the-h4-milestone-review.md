@@ -3,7 +3,7 @@ id: DEBT-0109
 title: Findings of the H4 milestone review that normal use does not hit
 status: Open
 date: 2026-10-30
-trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift`, `desktop/mcp/src/main/kotlin/appmonitor/desktop/mcp/ExportHar.kt` or `sdk/ios/Sources/AppMonitor/ProtoWire.swift`"
+trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift` or `sdk/ios/Sources/AppMonitor/ProtoWire.swift`"
 paid_date:
 ---
 
@@ -58,6 +58,9 @@ comments that PR rewrote.
 
 Items 3 and 4 are paid by PLAN-0016 H6.2c (`refactor/service-switch`), with DEBT-0106's items of the same
 two files, which leave the trigger.
+
+Item 6 is paid by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`): the size is checked after every frame
+(`ExportHarTest.theSizeIsCheckedAfterEveryFrame`). `ExportHar.kt` leaves the trigger.
 
 ## How it was paid
 

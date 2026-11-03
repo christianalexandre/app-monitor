@@ -30,9 +30,8 @@ data class PendingDevice(
 )
 
 /**
- * Asks once per [DeviceKey] and remembers the answer, starting from [remembered], until [forget]. Connections of the
- * same key share one pending entry; it disappears when the last of them is cancelled (the device left) or on [decide].
- * A key [disconnect]ed is refused without asking, whatever its answer, until [reconnect] (ADR-0144).
+ * Asks once per [DeviceKey] and remembers the answer until [forget]; connections of a key share one pending entry, gone
+ * with the last of them or on [decide]. A key [disconnect]ed is refused without asking until [reconnect] (ADR-0144).
  */
 class DeviceApprovals(
     remembered: Map<DeviceKey, Boolean> = emptyMap(),

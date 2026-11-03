@@ -399,6 +399,7 @@ internal class Ingest(
     private fun saveIssue(item: StorageItem.SaveIssue): IssueWrite {
         val queries = database.issueQueries
         val change = item.change
+        if (item.id != null && queries.exists(item.id).executeAsOne() == 0L) return IssueWrite.UnknownIssue
         change.exchangeIds?.let { ids ->
             val unknown = ids.distinct().filter { database.exchangeQueries.exists(it).executeAsOne() == 0L }
             if (unknown.isNotEmpty()) return IssueWrite.UnknownExchanges(unknown)
@@ -415,7 +416,6 @@ internal class Ingest(
                 )
                 database.insertedQueries.lastId().executeAsOne()
             } else {
-                if (queries.exists(item.id).executeAsOne() == 0L) return IssueWrite.UnknownIssue
                 queries.update(change.title, change.note, change.status?.stored, item.atMs, item.id)
                 item.id
             }

@@ -146,6 +146,7 @@ internal object SaveIssue {
         issues: IssueRepository,
         arguments: JsonObject?,
         health: () -> StoreHealth,
+        closing: () -> Boolean,
     ): JsonObject {
         val id = arguments.long("id", 1..Long.MAX_VALUE, null)
         val title = arguments.string("title")?.also { if (it.isBlank()) throw ToolError("title must not be blank") }
@@ -182,6 +183,7 @@ internal object SaveIssue {
                 }
             }
         val issue = issues.page(IssueFilter(), beforeId = saved + 1, limit = 1).firstOrNull { it.issue.id == saved }
+        if (issue == null && closing()) return savedWhileClosing("issue", saved, created = id == null)
         // Deleted in the window between the write and this read.
         if (issue == null) throw ToolError("no issue with id $saved")
         return buildJsonObject {
