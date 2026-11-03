@@ -39,7 +39,10 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   module, so `desktop/server` no longer depends on the proxy (DEBT-0105);
   the fake client waits for an approval (DEBT-0028). DEBT-0005 was already
   paid, by H5.2f. Measuring the close found DEBT-0015's trigger already met
-  here, and browsing the LAN opened DEBT-0123.
+  here, and browsing the LAN opened DEBT-0123. CI found `ackThenClose`
+  answering the client's close with `NORMAL` when it arrived first (forced
+  by a 50 ms pause: 40 of 40 returned the ack, 0 of 40 on a raw session),
+  also red on `dev` in run 41671215315: the test desktop is now raw.
   Accept: `./gradlew :desktop:server:test :desktop:storage:test
   :tools:fake-client:test`; a second `make desktop` on the same
   `APPMONITOR_DATA_DIR` shows the refusal.

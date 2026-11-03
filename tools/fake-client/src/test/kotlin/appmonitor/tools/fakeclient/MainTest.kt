@@ -10,7 +10,7 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
-import io.ktor.server.websocket.webSocket
+import io.ktor.server.websocket.webSocketRaw
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
@@ -125,7 +125,7 @@ class MainTest {
         val server =
             embeddedServer(CIO, host = "127.0.0.1", port = 0) {
                 install(WebSockets)
-                routing { webSocket(Protocol.WEBSOCKET_PATH) { ackThenClose() } }
+                routing { webSocketRaw(Protocol.WEBSOCKET_PATH) { ackThenClose() } }
             }
         server.startSuspend(wait = false)
         this.server = server
