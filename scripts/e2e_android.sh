@@ -18,7 +18,7 @@ source scripts/e2e_lib.sh
 boot_emulator
 serial=$ANDROID_SERIAL
 
-./gradlew -q :samples:android:assembleDebug :desktop:server:installDist :tools:e2e-target:installDist
+./gradlew -q :samples:android:assembleDebug :tools:headless-server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
 trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
 # One rule for the last call of runAll, by then connected (ADR-0110); the target would answer 418.

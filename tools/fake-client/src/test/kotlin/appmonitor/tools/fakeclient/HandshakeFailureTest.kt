@@ -7,10 +7,13 @@ import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.server.websocket.WebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
+import io.ktor.server.websocket.webSocketRaw
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
@@ -145,7 +148,7 @@ class HandshakeFailureTest {
     @Test
     fun `fails with the close reason when the desktop closes after HelloAck`() =
         runBlocking {
-            val port = serve(ackThenClose)
+            val port = serveRoutes { webSocketRaw(Protocol.WEBSOCKET_PATH) { ackThenClose() } }
 
             val error =
                 withTimeout(TIMEOUT_MS) {
@@ -156,11 +159,14 @@ class HandshakeFailureTest {
             assertContains(error.message.orEmpty(), "Frames must be binary envelopes")
         }
 
-    private suspend fun serve(handler: suspend DefaultWebSocketServerSession.() -> Unit): Int {
+    private suspend fun serve(handler: suspend DefaultWebSocketServerSession.() -> Unit): Int =
+        serveRoutes { webSocket(Protocol.WEBSOCKET_PATH) { handler() } }
+
+    private suspend fun serveRoutes(routes: Route.() -> Unit): Int {
         val server =
             embeddedServer(CIO, host = "127.0.0.1", port = 0) {
                 install(WebSockets)
-                routing { webSocket(Protocol.WEBSOCKET_PATH) { handler() } }
+                routing(routes)
             }
         server.startSuspend(wait = false)
         this.server = server
@@ -178,12 +184,15 @@ class HandshakeFailureTest {
     }
 }
 
-/** Acks the Hello, then closes with `PROTOCOL_ERROR` as the desktop does on a frame it rejects, and reads until the client's close. */
-internal val ackThenClose: suspend DefaultWebSocketServerSession.() -> Unit = {
+/**
+ * Acks the Hello, closes with `PROTOCOL_ERROR` as the desktop does on a frame it rejects, reads until the client's close.
+ * Raw, as the desktop: a default session answers a client's close arriving first with `NORMAL`, and the client then succeeds.
+ */
+internal val ackThenClose: suspend WebSocketServerSession.() -> Unit = {
     incoming.receive()
     val ack = HelloAck(Protocol.VERSION, "session", listOf(Protocol.CHANNEL_CORE)).encodeByteString()
     send(Frame.Binary(true, Envelope(channel = Protocol.CHANNEL_CORE, type = "HelloAck", payload = ack).encode()))
     close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
     // Closing TCP with the client's traffic unread resets it, and the client may lose this close (DEBT-0056).
-    withTimeoutOrNull(1_000) { for (frame in incoming) Unit }
+    withTimeoutOrNull(1_000) { for (frame in incoming) if (frame is Frame.Close) break }
 }

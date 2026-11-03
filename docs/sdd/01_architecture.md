@@ -62,9 +62,12 @@ emulator) / `127.0.0.1` (iOS simulator). See ADR-0002.
 `47474` (`Protocol.DEFAULT_PORT`), path `/v1/ws`. It advertises
 `_appmonitor._tcp` with JmDNS on every up, multicast-capable LAN IPv4
 address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`, ADR-0164); TXT keys `v` (protocol version), `path` and `id`, the desktop id devices pin (ADR-0168). See ADR-0009.
-Advertising is all or nothing: if one address fails to register (an `Error`
-included), the instances already created are closed and `start()` stops the
-HTTP server before rethrowing, so the port is free again.
+Each address has its own instance and host name, `appmonitor-<address with
+dashes>`. An address that fails to register is skipped; the server listens
+whatever happens to mDNS, and `advertisingProblem` says which address failed, or
+that none took it and devices need the machine's address (ADR-0174). An `Error`
+closes the instances already created and `start()` stops the HTTP server before
+rethrowing, so the port is free again. A taken port is a `BindException` from `start()`.
 
 ```
 device                         AppMonitorServer
@@ -180,17 +183,17 @@ device                         AppMonitorServer
 
 ### Without the desktop UI
 
-`desktop/server` has a headless `main` (`make server`) that prints one line
+`tools/headless-server` (ADR-0176) is a `main` over `desktop/server` (`make server`) that prints one line
 per session connect/disconnect and per envelope, decoded for the `network`
-messages; with `--proxy <dir>` it also runs the proxy (SDD 11) and prints
+messages, and `mDNS: <problem>` after `Listening` when `advertisingProblem` has one; with `--proxy <dir>` it also runs the proxy (SDD 11) and prints
 its exchanges as the `[proxy]` session. `tools/fake-client` (`make fake-traffic`) plays a device: it finds
 the desktop over mDNS on the same LAN IPv4 addresses (`LanAddresses`), skipping one where JmDNS
 cannot open (or at `--host`), sends `protocol/fixtures/hello.bin`,
 waits for `HelloAck`, sends the four `network` fixtures stamped with the
-current time and closes. Any other first reply, or none within 10 s, closes
+current time and closes. Against the desktop app a new device waits for its approval, with no signal until then, so the wait for `HelloAck` is 120 s, `--handshake-timeout MS` for an unattended script. Any other first reply, or none within it, closes
 the socket with `PROTOCOL_ERROR` and exits 1 with what the desktop sent; a
 `HelloAck` whose payload does not decode counts as another reply. A desktop
-that closes or drops before `HelloAck` fails within the same 10 s. After the
+that closes or drops before `HelloAck` fails at once. After the
 traffic the client sends a normal close and waits up to 10 s for the
 desktop's: a close that is not `NORMAL` (e.g. `PROTOCOL_ERROR` for a rejected
 frame) exits 1 with its reason; none at all counts as a dropped connection. The desktop answers that close after every frame before it, so a rejection of the last ones is the close read (ADR-0167).
@@ -201,8 +204,8 @@ with one line on stderr, never a stack trace. The close reason is cut to the 123
 UTF-8 bytes RFC 6455 allows. Bad arguments (`--timeout` of 0 or less, a
 `--port` out of range: 1–65535 for the fake client, 0–65535 for the server)
 print the usage line and exit 2; `--help` is only an option, never the value
-of one (`--name --help` names a service). A server port that cannot be bound is still
-a stack trace (DEBT-0010). See ADR-0010.
+of one (`--name --help` names a service). A server port that cannot be bound is
+one line and exit 1. See ADR-0010.
 
 ## SDKs
 
@@ -313,6 +316,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   window shows the error and the file's path and no server starts (SDD 09).
   Then it starts `AppMonitorServer` with the default config and feeds
   `TrafficStore` through `runServer`; the window shows "Listening on port N",
+  followed by `advertisingProblem` when there is one,
   "Server stopped" when `sessions` completes because someone else stopped
   the server, or "Server failed" with any startup or session failure, `Error`s included
   (a `VirtualMachineError` is rethrown after it). A `CancellationException`
@@ -434,9 +438,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   in again as its answer says. Nothing of it is stored: a restart
   reconnects every pair. The SDK keeps retrying with its backoff, as for a
   rejected device.
-  `make fake-traffic` against the app must be approved within its 10 s
-  handshake wait the first time; its fixture `Hello` is always the same
-  pair, so later runs are admitted with no dialog (DEBT-0028).
+  `make fake-traffic` against the app waits up to 120 s for the approval the
+  first time; its fixture `Hello` is always the same pair, so later runs are
+  admitted with no dialog.
 - UI (ADR-0146): a toolbar over three panes (devices, requests of the
   selected device, detail). "◂ Devices" hides the devices pane and
   "▸ Devices" brings it back; the rule after the devices and after the

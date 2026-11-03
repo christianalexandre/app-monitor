@@ -177,6 +177,7 @@ class AppMonitorServerTest {
                 assertEquals(Protocol.WEBSOCKET_PATH, info.getPropertyString("path"))
                 assertEquals(DESKTOP_ID, info.getPropertyString(Protocol.MDNS_TXT_ID))
                 assertTrue(info.inetAddresses.isNotEmpty())
+                assertTrue(info.server.startsWith("appmonitor-"), info.server)
             }
         }
 

@@ -85,7 +85,7 @@ desktop: ## Run the desktop app (listens for devices on port 47474)
 	@./gradlew -q :desktop:app:run
 
 server: ## Headless desktop server, logs every envelope (ARGS="--port N")
-	@./gradlew -q :desktop:server:run $(if $(ARGS),--args="$(ARGS)")
+	@./gradlew -q :tools:headless-server:run $(if $(ARGS),--args="$(ARGS)")
 
 fake-traffic: ## Replay protocol fixtures to a desktop (ARGS="--host H --port N --name S")
 	@./gradlew -q :tools:fake-client:run $(if $(ARGS),--args="$(ARGS)")

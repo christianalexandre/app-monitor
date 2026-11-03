@@ -33,3 +33,12 @@ fun shutdownHook(
         worker.join(timeout.inWholeMilliseconds)
         if (worker.isAlive) onFailure(TimeoutException("stop did not return within $timeout"))
     }
+
+/** Registers a hook that stops [server] before starting it, so a shutdown during [AppMonitorServer.start] still releases it. */
+suspend fun startWithShutdownHook(
+    server: AppMonitorServer,
+    addShutdownHook: (Thread) -> Unit,
+): Int {
+    addShutdownHook(shutdownHook { server.stop() })
+    return server.start()
+}

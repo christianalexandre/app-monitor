@@ -75,9 +75,9 @@ listen() {
   fail "$1 did not print its port, log in $2"
 }
 
-# Starts desktop/server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
+# Starts tools/headless-server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
 start_server() {
-  listen desktop/server/build/install/server/bin/server "$server_log" "$@"
+  listen tools/headless-server/build/install/headless-server/bin/headless-server "$server_log" "$@"
   server_pid=$listener_pid port=$listener_port
 }
 

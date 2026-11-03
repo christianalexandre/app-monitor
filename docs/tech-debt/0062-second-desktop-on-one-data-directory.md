@@ -1,10 +1,10 @@
 ---
 id: DEBT-0062
 title: A second desktop on the same data directory is not detected
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-24
 trigger: The desktop's port becomes configurable in the app, or two desktops are seen writing the same `appmonitor.db`
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0062 — A second desktop on the same data directory is not detected
@@ -29,4 +29,6 @@ desktops are seen writing the same `appmonitor.db`.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.1 (ADR-0175). `appmonitor.lock` held by `Storage.open`, a
+second process refused before touching anything, and a window without "Clear all
+data", which would have deleted the running desktop's files.

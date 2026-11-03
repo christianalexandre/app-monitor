@@ -15,6 +15,7 @@ import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocketRaw
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -32,6 +33,7 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.net.BindException
 import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -85,7 +87,10 @@ class AppMonitorServer internal constructor(
     /** Addresses the mDNS service is published on; empty when not advertising. */
     val advertisedAddresses: List<InetAddress> get() = advertiser?.addresses.orEmpty()
 
-    /** Starts listening and advertising; returns the bound port. On failure, cancellation or [stop], the port and mDNS are released. */
+    /** Why a device may not find this server over mDNS, or null; the server listens either way (ADR-0174). */
+    val advertisingProblem: String? get() = advertiser?.problem
+
+    /** Starts listening and advertising; returns the bound port, throws [BindException] when it is taken. On failure, cancellation or [stop], the port and mDNS are released. */
     suspend fun start(): Int {
         val startup = CompletableDeferred<Throwable?>()
         synchronized(lock) {
@@ -113,7 +118,12 @@ class AppMonitorServer internal constructor(
                     }
                 }
             server = engine
-            startEngine(engine)
+            try {
+                startEngine(engine)
+            } catch (e: CancellationException) {
+                // Ktor's CIO reports a taken port as a cancellation caused by the BindException.
+                throw generateSequence<Throwable>(e) { it.cause }.firstOrNull { it is BindException } ?: e
+            }
             val port =
                 engine.engine
                     .resolvedConnectors()

@@ -29,7 +29,7 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
 
 ## Tasks
 
-- [ ] **H6.1 Desktop server and discovery.** One LAN interface filter
+- [x] **H6.1 Desktop server and discovery.** (#346) One LAN interface filter
   for the server and the fake client (DEBT-0005); one interface that
   fails JmDNS no longer stops the server, and zero advertised addresses
   is reported (DEBT-0007); a taken port is one line, not a stack trace
@@ -37,7 +37,12 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   covers a slow JmDNS close (DEBT-0015); a second desktop on the same data
   directory is refused (DEBT-0062); the headless server in its own
   module, so `desktop/server` no longer depends on the proxy (DEBT-0105);
-  the fake client waits for an approval (DEBT-0028).
+  the fake client waits for an approval (DEBT-0028). DEBT-0005 was already
+  paid, by H5.2f. Measuring the close found DEBT-0015's trigger already met
+  here, and browsing the LAN opened DEBT-0123. CI found `ackThenClose`
+  answering the client's close with `NORMAL` when it arrived first (forced
+  by a 50 ms pause: 40 of 40 returned the ack, 0 of 40 on a raw session),
+  also red on `dev` in run 41671215315: the test desktop is now raw.
   Accept: `./gradlew :desktop:server:test :desktop:storage:test
   :tools:fake-client:test`; a second `make desktop` on the same
   `APPMONITOR_DATA_DIR` shows the refusal.
@@ -52,7 +57,8 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   filter match (DEBT-0104), and the H2 and H3 review findings
   (DEBT-0092, DEBT-0093), and the H4 ones in `WriteQueue.kt`,
   `ProxyController.kt`, `ProxyCa.kt` and `ExportHar.kt` (DEBT-0109, items
-  1, 3, 4 and 6); a mock rule moves in its app's order (DEBT-0082).
+  1, 3, 4 and 6); a mock rule moves in its app's order (DEBT-0082); "Clear
+  all data" keeps the desktop id in one step (DEBT-0120, item 1).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`; `SearchTest`'s no-match search
   over 100 000 exchanges under 100 ms, its time in the PR; a theme picked
@@ -64,7 +70,8 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   captured once (DEBT-0100); a cancelled iOS connect closes its socket
   (DEBT-0053); path operations safe on Apple (DEBT-0059); the M4 and M9
   review findings in `sdk/core` and `sdk/ktor` (DEBT-0058, DEBT-0061,
-  DEBT-0088).
+  DEBT-0088); the H5 ones in `DeviceId.kt` and `MonitorClient.kt` (DEBT-0120,
+  items 2 and 4).
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android`
   and `make e2e-kmp`.
@@ -75,7 +82,9 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   a breakpoint runs on the simulator (DEBT-0086); a desktop socket
   opened before discovery not reported (DEBT-0090); the M2 review
   findings in `Masking.swift` (DEBT-0043) and the H4 ones in
-  `Breakpoints.swift` and `ProtoWire.swift` (DEBT-0109, items 5 and 7).
+  `Breakpoints.swift` and `ProtoWire.swift` (DEBT-0109, items 5 and 7), and
+  the H5 ones in `Device.swift` and `MonitorClient.swift` (DEBT-0120, items 2
+  and 4).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`, a held call resumed in the end to end.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
@@ -93,7 +102,8 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   DEBT-0002's bound, paid or dropped with the number; the M3 review
   findings in `e2e_lib.sh` and the Android sample (DEBT-0049,
   DEBT-0051); the 85 comments citing `SDD NN` (DEBT-0109, item 8), and the
-  SDK's permission request beside an app's (item 2).
+  SDK's permission request beside an app's (item 2); `trailer_check.sh` and
+  the two long KDocs (DEBT-0120, items 5 and 6).
   Accept: `make scripts-test`, with a session that traps `TERM` logged as
   a timeout and no child left; `make check` timed on a warm cache, the
   time in the PR; `make e2e-android`.

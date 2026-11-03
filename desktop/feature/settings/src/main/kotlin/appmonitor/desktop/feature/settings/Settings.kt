@@ -84,6 +84,20 @@ fun StorageUnavailable(
     }
 }
 
+/** What the window shows when another desktop holds [directory]: nothing to clear, it is that one's data (ADR-0175). */
+@Composable
+fun DataDirectoryInUse(directory: String) {
+    AppMonitorTheme(isSystemInDarkTheme()) {
+        AppSurface {
+            Column(Modifier.padding(Spacing.xxl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("App Monitor is already open on this data", role = TextRole.Title)
+                Text(directory, role = TextRole.Code)
+                Text("Quit the other one, or start this one with another APPMONITOR_DATA_DIR.", role = TextRole.Caption)
+            }
+        }
+    }
+}
+
 /** The command the settings show; [path] and the header are what the server checks (ADR-0090). */
 fun claudeMcpAdd(
     port: Int,

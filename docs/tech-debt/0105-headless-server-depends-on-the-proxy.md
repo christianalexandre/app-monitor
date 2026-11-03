@@ -1,10 +1,10 @@
 ---
 id: DEBT-0105
 title: The headless server module depends on the proxy
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "The headless server becomes a distributed artifact, or `desktop/proxy/build.gradle.kts` needs a dependency on `desktop/server`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0105 — The headless server module depends on the proxy
@@ -35,4 +35,4 @@ keeps only the device server.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.1 (ADR-0176), as the trigger said: `tools/headless-server`.

@@ -1,7 +1,12 @@
-package appmonitor.desktop.server
+package appmonitor.tools.headlessserver
 
 import appmonitor.desktop.proxy.ProxyCa
 import appmonitor.desktop.proxy.ProxyServer
+import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.Drops
+import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.server.shutdownHook
+import appmonitor.desktop.server.startWithShutdownHook
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.ReplayRefused
@@ -13,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.PrintStream
+import java.net.BindException
 import java.nio.file.Path
 import java.util.UUID
 import kotlin.io.path.readText
@@ -21,6 +27,11 @@ import kotlin.system.exitProcess
 /** Headless server: logs every session and envelope to stdout until the process is stopped. */
 fun main(args: Array<String>) {
     val options = parseArgs(args, System.err) ?: exitProcess(2)
+    val uncaught = Thread.getDefaultUncaughtExceptionHandler()
+    // Ktor's CIO also throws a taken port at this handler, a stack trace beside startOrNull's line.
+    Thread.setDefaultUncaughtExceptionHandler { thread, failure ->
+        if (failure !is BindException) uncaught?.uncaughtException(thread, failure) ?: failure.printStackTrace()
+    }
     val mocks =
         options.mocksFile?.let { file ->
             try {
@@ -35,8 +46,11 @@ fun main(args: Array<String>) {
         }
     val server = AppMonitorServer(ServerConfig(port = options.port, desktopId = options.desktopId))
     runBlocking {
-        val bound = startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook)
+        val bound =
+            startOrNull(options.port, System.err) { startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook) }
+                ?: exitProcess(1)
         println("Listening on port $bound, path ${Protocol.WEBSOCKET_PATH}; mDNS on ${server.advertisedAddresses}")
+        server.advertisingProblem?.let { println("mDNS: $it") }
         options.desktopId?.let { println("Desktop id $it") }
         options.proxyDirectory?.let { directory ->
             val proxy = ProxyServer(ProxyCa.loadOrCreate(directory), { println("[proxy] ${describe(it)}") }, port = 0)
@@ -79,14 +93,18 @@ fun main(args: Array<String>) {
     }
 }
 
-/** Registers a hook that stops [server] before starting it, so a shutdown during [AppMonitorServer.start] still releases it. */
-internal suspend fun startWithShutdownHook(
-    server: AppMonitorServer,
-    addShutdownHook: (Thread) -> Unit,
-): Int {
-    addShutdownHook(shutdownHook { server.stop() })
-    return server.start()
-}
+/** What [start] returned; null after one line on [err] when the port cannot be bound. */
+internal suspend fun startOrNull(
+    port: Int,
+    err: PrintStream,
+    start: suspend () -> Int,
+): Int? =
+    try {
+        start()
+    } catch (e: BindException) {
+        err.println("Cannot listen on port $port: ${e.message}")
+        null
+    }
 
 internal data class ServerArgs(
     val port: Int = Protocol.DEFAULT_PORT,

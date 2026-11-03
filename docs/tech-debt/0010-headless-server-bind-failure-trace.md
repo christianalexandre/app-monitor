@@ -1,10 +1,10 @@
 ---
 id: DEBT-0010
 title: Headless server prints a stack trace when the port is taken
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: The headless server is started by something other than a developer at a terminal (a script, CI, the MCP tooling), or someone reports the trace as a bug
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0010 — Headless server prints a stack trace when the port is taken
@@ -30,4 +30,9 @@ bug.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.1. `Cannot listen on port N: Address already in use`, exit 1.
+The trace was worse than the debt said: CIO reports a taken port as a cancellation
+caused by the `BindException`, the process did not exit at all, and CIO hands the
+same exception to the default uncaught handler. `AppMonitorServer.start` now
+unwraps it, and the headless `main` keeps it off that handler. Run by hand: two
+`make server` on one port.

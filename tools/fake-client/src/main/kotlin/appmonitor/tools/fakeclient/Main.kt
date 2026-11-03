@@ -6,10 +6,12 @@ import java.io.PrintStream
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.system.exitProcess
 
-private const val USAGE = """Usage: fake-client [--host HOST] [--port PORT] [--name SERVICE] [--timeout MS]
+private const val USAGE = """Usage: fake-client [--host HOST] [--port PORT] [--name SERVICE] [--timeout MS] [--handshake-timeout MS]
 
 Replays protocol/fixtures to a desktop. Without --host, discovers it over mDNS
-(${Protocol.MDNS_SERVICE_TYPE}), optionally only the service named SERVICE."""
+(${Protocol.MDNS_SERVICE_TYPE}), optionally only the service named SERVICE. --timeout bounds
+discovery; --handshake-timeout bounds the wait for HelloAck, a device approval included
+($HANDSHAKE_TIMEOUT_MS by default)."""
 
 fun main(args: Array<String>) {
     exitProcess(runBlocking { run(args, System.out, System.err) })
@@ -34,10 +36,10 @@ internal suspend fun run(
             return err.fail("mDNS discovery failed: ${e.oneLine()}", 1)
         }
     val url = "ws://${target.host}:${target.port}${target.path}"
-    out.println("Connecting to $url")
+    out.println("Connecting to $url; a new device waits for its approval on the desktop, up to ${options.handshakeTimeoutMs} ms")
     val ack =
         try {
-            replay(target)
+            replay(target, handshakeTimeoutMs = options.handshakeTimeoutMs)
         } catch (e: HandshakeException) {
             return err.fail(e.message.orEmpty(), 1)
         } catch (e: SessionClosedException) {
@@ -56,6 +58,7 @@ private class Options(
     val port: Int?,
     val serviceName: String?,
     val timeoutMs: Long,
+    val handshakeTimeoutMs: Long = HANDSHAKE_TIMEOUT_MS,
     val help: Boolean = false,
 )
 
@@ -65,7 +68,7 @@ private fun parse(args: Array<String>): Options? {
     while (i < args.size) {
         val key = args[i]
         if (key == "--help") return Options(null, null, null, 0, help = true)
-        if (key !in setOf("--host", "--port", "--name", "--timeout") || i + 1 >= args.size) return null
+        if (key !in setOf("--host", "--port", "--name", "--timeout", "--handshake-timeout") || i + 1 >= args.size) return null
         values[key] = args[i + 1]
         i += 2
     }
@@ -74,6 +77,8 @@ private fun parse(args: Array<String>): Options? {
         port = values["--port"]?.let { it.toIntOrNull()?.takeIf { p -> p in 1..65_535 } ?: return null },
         serviceName = values["--name"],
         timeoutMs = values["--timeout"]?.let { it.toLongOrNull()?.takeIf { ms -> ms > 0 } ?: return null } ?: 10_000L,
+        handshakeTimeoutMs =
+            values["--handshake-timeout"]?.let { it.toLongOrNull()?.takeIf { ms -> ms > 0 } ?: return null } ?: HANDSHAKE_TIMEOUT_MS,
     )
 }
 

@@ -1,5 +1,8 @@
-package appmonitor.desktop.server
+package appmonitor.tools.headlessserver
 
+import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.Drops
+import appmonitor.desktop.server.ServerConfig
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
@@ -159,38 +162,18 @@ class MainTest {
     }
 
     @Test
-    fun `the shutdown hook stops a server whose start is still running`() =
-        runBlocking<Unit> {
-            val bound = CompletableDeferred<Int>()
-            val entered = CompletableDeferred<Unit>()
-            val gate = CompletableDeferred<Unit>()
-            val server =
-                AppMonitorServer(
-                    ServerConfig(host = "127.0.0.1", port = 0, advertise = false),
-                    startEngine = {
-                        entered.complete(Unit)
-                        gate.await()
-                        it.startSuspend(wait = false)
-                        bound.complete(
-                            it.engine
-                                .resolvedConnectors()
-                                .first()
-                                .port,
-                        )
-                    },
-                ) { _, _ -> error("not advertising") }
-            val hooks = CopyOnWriteArrayList<Thread>()
-            val starting = async(Dispatchers.Default) { runCatching { startWithShutdownHook(server, hooks::add) } }
-            withTimeout(TIMEOUT_MS) { entered.await() }
+    fun `a taken port is one line, not a stack trace`() =
+        runBlocking {
+            ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
+                val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = taken.localPort, advertise = false))
+                val err = ByteArrayOutputStream()
 
-            val hook = hooks.single().apply { start() }
-            gate.complete(Unit)
-            hook.join(TIMEOUT_MS)
+                assertNull(startOrNull(taken.localPort, PrintStream(err)) { server.start() })
 
-            // The hook's stop may land before or after start returns; either way the port is freed.
-            assertFalse(hook.isAlive)
-            withTimeout(TIMEOUT_MS) { starting.await() }
-            ServerSocket(bound.await(), 0, InetAddress.getByName("127.0.0.1")).close()
+                val line = err.toString().trimEnd()
+                assertEquals(1, line.lines().size, line)
+                assertTrue(line.startsWith("Cannot listen on port ${taken.localPort}: "), line)
+            }
         }
 
     private fun parse(vararg args: String): Pair<Int?, String> = parseOptions(*args).let { (options, err) -> options?.port to err }

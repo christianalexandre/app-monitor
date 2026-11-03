@@ -147,7 +147,8 @@ internal fun String.truncateUtf8(maxBytes: Int): String {
     return substring(0, end)
 }
 
-private const val HANDSHAKE_TIMEOUT_MS = 10_000L
+// Against the desktop app a new device waits for the Approve click (ADR-0018), no signal until then.
+internal const val HANDSHAKE_TIMEOUT_MS = 120_000L
 private const val CLOSE_TIMEOUT_MS = 10_000L
 
 // RFC 6455 caps the close frame payload at 125 bytes, 2 of them for the code; the rest is UTF-8.
