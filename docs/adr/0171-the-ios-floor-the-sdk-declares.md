@@ -1,7 +1,7 @@
 ---
 id: ADR-0171
 title: The iOS floor the SDK declares, against the runtimes it can be tested on
-status: Accepted
+status: Proposed
 date: 2026-10-31
 superseded_by:
 ---
@@ -53,10 +53,7 @@ download.
 
 ## Decision
 
-Option 1, decided by the owner on 2026-11-03, who installed the iOS 15
-runtime on the loop's Mac. The floor stays iOS 15: the owner's own app
-(the H4 field test's) targets iOS 15.0, and a floor of 16 would stop it
-adding the SDK.
+Empty while `Proposed`.
 
 ## Consequences
 
