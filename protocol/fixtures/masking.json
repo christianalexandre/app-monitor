@@ -128,6 +128,28 @@
       "maskedResponseHeaders": [["Location", "//██:██@h:p/x?code=██"]]
     },
     {
+      "name": "location no url parser accepts with an at sign in the path",
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://h:p/x@y"]],
+      "maskedResponseHeaders": [["Location", "http://h:p/x@y"]]
+    },
+    {
+      "name": "location no url parser accepts with no path",
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "http://user:p@ss@h:p"]],
+      "maskedResponseHeaders": [["Location", "http://██:██@h:p"]]
+    },
+    {
+      "name": "location with every character a scheme may hold",
+      "maskedQueryParameters": ["code"],
+      "url": "https://auth.example.com/authorize",
+      "maskedUrl": "https://auth.example.com/authorize",
+      "responseHeaders": [["Location", "com.ex-am+ple1://user:pw@oauth/cb?code=1"]],
+      "maskedResponseHeaders": [["Location", "com.ex-am+ple1://██:██@oauth/cb?code=██"]]
+    },
+    {
       "name": "masking off",
       "masking": false,
       "maskedHeaders": ["x-api-key"],

@@ -36,7 +36,11 @@ boot_simulator() {
   local pick
   pick="$(xcrun simctl list devices booted | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
   if [[ -z "$pick" ]]; then
-    pick="$(xcrun simctl list devices available | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
+    if [[ -n "${SIM_DEVICE:-}" ]]; then
+      pick="$(xcrun simctl list devices available | scripts/sim_list.sh | awk -v d="$SIM_DEVICE" 'substr($0, 38) == d' | head -1)"
+    else
+      pick="$(xcrun simctl list devices available | scripts/sim_runtime.sh | scripts/sim_list.sh | head -1)"
+    fi
     [[ -n "$pick" ]] || fail "no iPhone simulator${SIM_DEVICE:+ named $SIM_DEVICE} (Xcode > Settings > Components)"
     xcrun simctl boot "${pick%% *}"
   fi

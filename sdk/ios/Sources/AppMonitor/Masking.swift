@@ -23,7 +23,8 @@ struct Masking: Sendable {
     }
 
     /// With `base`, a `urlResponseHeaders` value is resolved against it and masked by `url(_:)`, or by
-    /// `uri(_:)` when it is not an `http` URL or Foundation does not parse it (ADR-0044).
+    /// `uri(_:)` when it is not an `http` URL or Foundation does not parse it (ADR-0044). Below iOS 17 `URL`
+    /// takes what `URLComponents` rejects, so both must parse it (ADR-0170).
     func headers(_ headers: [(name: String, value: String)], base: URL? = nil) -> [Appmonitor_V1_Header] {
         headers.map { name, value in
             var header = Appmonitor_V1_Header()
@@ -34,7 +35,8 @@ struct Masking: Sendable {
                 header.value = mask
             } else if let base, urlHeaderNames.contains(name.lowercased()) {
                 if let resolved = URL(string: value, relativeTo: base)?.absoluteURL,
-                    ["http", "https"].contains(resolved.scheme?.lowercased())
+                    ["http", "https"].contains(resolved.scheme?.lowercased()),
+                    URLComponents(string: resolved.absoluteString) != nil
                 {
                     header.value = url(resolved.absoluteString)
                 } else {
@@ -48,7 +50,8 @@ struct Masking: Sendable {
     /// The URL as the app wrote it, with a non-empty user name and password, each `maskedQueryParameters`
     /// value in the query and each `name=value` field of the fragment named there replaced by `mask`.
     func url(_ string: String) -> String {
-        guard enabled, let components = URLComponents(string: string) else { return string }
+        guard enabled else { return string }
+        guard let components = URLComponents(string: string) else { return uri(string) }
         var replacements: [(Range<String.Index>, String)] = []
         if let range = components.rangeOfUser, !range.isEmpty { replacements.append((range, mask)) }
         if let range = components.rangeOfPassword, !range.isEmpty { replacements.append((range, mask)) }
@@ -102,7 +105,8 @@ struct Masking: Sendable {
     /// `&`-separated fields whose form-decoded name is masked become `name=██`; a query field without `=`
     /// is masked too (`maskBare`), as OkHttp's rebuilt query does; other fields stay as written.
     private func fields(_ encoded: String, maskBare: Bool) -> String {
-        encoded.split(separator: "&", omittingEmptySubsequences: false).map { field in
+        guard !queryNames.isEmpty else { return encoded }
+        return encoded.split(separator: "&", omittingEmptySubsequences: false).map { field in
             let parts = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             let name = String(parts[0])
             guard parts.count == 2 || maskBare else { return String(field) }

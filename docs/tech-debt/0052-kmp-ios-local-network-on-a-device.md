@@ -1,10 +1,10 @@
 ---
 id: DEBT-0052
 title: The KMP SDK's BSD socket connection is unproven under local network privacy on a physical iPhone
-status: Open # Open | Paid | Dropped
+status: Dropped # Open | Paid | Dropped
 date: 2026-10-24
 trigger: A physical iPhone is connected to the Mac that runs the loop, or a developer reports the KMP SDK cannot reach the desktop from an iPhone
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0052 — The KMP SDK's BSD socket connection is unproven under local network privacy on a physical iPhone
@@ -31,4 +31,10 @@ developer reports the KMP SDK cannot reach the desktop from an iPhone.
 
 ## How it was paid
 
-> Filled when closing.
+Dropped by PLAN-0015 H5.6. Since ADR-0158 a KMP app on iOS is captured by
+the Swift SDK alone, so the setup the README gives never opens `sdk/core`'s
+BSD socket; the H4 field test ran that setup on an iPhone 8, a KMP app on
+the Swift SDK's connection, with Local Network access on.
+
+Left: `AppMonitor.start` of `sdk/core` can still be called from `iosMain`.
+On a device that path stays unobserved, which SDD 04 states in its limits.

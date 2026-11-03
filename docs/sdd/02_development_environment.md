@@ -21,7 +21,8 @@ No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
 (ADR-0076): docs, lint, script tests, `./gradlew build` without the sample
 apps, and the host Swift gates (`make swift`) only on macOS with `swift` on
 the `PATH`; elsewhere it prints `swift: SKIPPED` (ADR-0037). The slow
-suites are separate targets: `make swift-sim` (simulator tests) and
+suites are separate targets: `make swift-sim` (simulator tests: the
+package's suite, then the hosted ones, on the iOS `SIM_OS` picks, ADR-0170) and
 `make samples` (`android-samples`, `ios-sample`, `kmp-sample`);
 `make check-full` runs `make check` plus both. The simulator targets need
 XcodeGen and an iPhone simulator; without them they print

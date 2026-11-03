@@ -1,10 +1,10 @@
 ---
 id: DEBT-0041
 title: The iOS end to end has run on the simulator only, never on a physical iPhone
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: A physical iPhone is connected to the Mac that runs the loop, or M10's first tagged release, whichever comes first
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0041 — The iOS end to end has run on the simulator only, never on a physical iPhone
@@ -39,4 +39,12 @@ iPhone either (ADR-0052). M10's tag is the first release an app installs.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by the H4 field test (2026-10-30, PLAN-0014's *Outcome*), PLAN-0015
+H5.6. Mibo `Dev` on an iPhone 8, iOS 16.7.16, on Wi-Fi: signed for the
+device, it found the desktop by mDNS from another host once Local Network
+was on, and 25 calls were captured, each answered. That is the path this
+debt named. It found two bugs the simulator hid (#319, #321).
+
+Left: it was the owner's app by hand, not `samples/ios`, so there is no
+screenshot in `docs/screenshots/`, and nothing repeats it. The owner chose
+not to run an end to end on a physical iPhone (2026-10-30).

@@ -184,7 +184,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   fails the debug build (DEBT-0099). The SDK compiles to Kotlin 2.3: an
   app on Kotlin 2.2.0 compiles against it, in `make publish-dry-run`
   (DEBT-0108, ADR-0169); the iOS klib floor is DEBT-0117.
-- [ ] **H5.6 The iOS SDK on the iOS it declares.** The SDK's tests, mocks
+- [x] **H5.6 The iOS SDK on the iOS it declares.** (`test/ios-sdk-on-its-lowest-ios`, DEBT-0111) The SDK's tests, mocks
   and breakpoints included, run on the lowest iOS `Package.swift` declares,
   or that floor is raised to what runs (DEBT-0111). No end to end on a
   physical iPhone (owner, 2026-10-30: the focus is the SDK and the
@@ -192,6 +192,14 @@ This plan becomes `Active` once PLAN-0014 closes.
   DEBT-0041 and DEBT-0052 are paid by it or dropped, with that reason.
   Accept: `swift test` or `make swift-sim` on that iOS's simulator, its
   version in the PR; a mocked and a held call answered there.
+  Done, below the floor: macOS 26 refuses the iOS 15.0 runtime, so the
+  floor stays iOS 15 untested and the README states the lowest iOS tested
+  (ADR-0171, the owner's decision, 2026-11-03; DEBT-0111 stays open). The
+  package's suite runs on the simulator (ADR-0170), green on iOS 26.5 and
+  16.0, mocks and breakpoints included. iOS 16.0 found a `Location` sent
+  unmasked, fixed. DEBT-0041 paid by the field test, DEBT-0052 dropped
+  (ADR-0158); no gate runs iOS 16, DEBT-0118. DEBT-0043 and DEBT-0044 fired
+  and were paid here, DEBT-0055 re-triggered, DEBT-0119 one test failure.
 
 ## Outcome
 

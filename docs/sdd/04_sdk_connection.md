@@ -299,4 +299,5 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
   Android; host tests use fake browsers (ADR-0024). The iOS
   `BonjourBrowser` runs for real on the simulator.
 - On iOS, local network privacy with CIO's BSD sockets is unproven on a
-  physical iPhone; the simulator has no prompt (DEBT-0052).
+  physical iPhone; the simulator has no prompt. The README's setup does not
+  reach this path: a KMP app on iOS starts the Swift SDK alone (ADR-0158).

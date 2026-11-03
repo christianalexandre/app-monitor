@@ -30,7 +30,12 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   resolved against the request URL and get the same URL rule; a value with
   another scheme (`com.example.app:/oauth?code=…`) gets it by RFC 3986
   generic syntax, only the masked spans changed (ADR-0044), and so is a
-  value `HttpUrl` does not resolve, with or without a scheme. Names compare
+  value `HttpUrl` does not resolve, with or without a scheme. That syntax,
+  the same in every SDK and pinned by `protocol/fixtures/masking.json`: an
+  optional scheme, a letter then letters, digits, `+`, `.` or `-` up to the
+  first `:`; a query after the first `?`, a fragment after the first `#`;
+  an authority only after `//`, up to the next `/`, its user info up to the
+  last `@` there, the user name and password split at the first `:`. Names compare
   case-insensitively, as in OkHttp's `HttpLoggingInterceptor`. Bodies are
   never masked (DEBT-0019).
   `masking = false` skips every rule above and sends each value as OkHttp

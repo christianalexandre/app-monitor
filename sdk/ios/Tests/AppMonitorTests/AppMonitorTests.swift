@@ -76,6 +76,8 @@ struct AppMonitorOptionsTests {
         #expect(options.maskedHeaders.isEmpty && options.maskedQueryParameters.isEmpty)
     }
 
+    // Swift Testing has no exit tests on iOS: these run on the macOS host only.
+    #if os(macOS)
     @Test func anOutOfRangePortStopsTheApp() async {
         await #expect(processExitsWith: .failure) { _ = AppMonitorOptions(port: 0) }
     }
@@ -91,6 +93,7 @@ struct AppMonitorOptionsTests {
             AppMonitor.start(options)
         }
     }
+    #endif
 }
 
 @Suite(.serialized)
