@@ -278,8 +278,8 @@ two that normal use hits:
     is the next PR on `debt_check.sh`).
   - DEBT-0098 found its cause and is fixed (#344): curl 8.23 refuses the leaf after
     its handshake. It stays open until the release gate's Windows job runs the
-    test. DEBT-0122: `:desktop:proxy:test` was `FROM-CACHE`, so a runner's new curl
-    went unseen.
+    test. DEBT-0122: `:desktop:proxy:test` was `FROM-CACHE`, so the runner's curl
+    failing it went unseen.
   - No correctness finding that normal use hits is left open.
 - **Deviations**:
   - H5.2 split into H5.2a to H5.2g and H5.3 into H5.3a to H5.3c, one cause or

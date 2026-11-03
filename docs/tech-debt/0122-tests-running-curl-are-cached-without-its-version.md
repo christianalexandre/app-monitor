@@ -13,9 +13,9 @@ paid_date:
 
 `:desktop:proxy:test` runs the machine's `curl`, whose version is not one of the
 task's inputs. On CI the task came `FROM-CACHE` in all of the last 40 runs but
-the two that failed (2026-11-03): a runner image with a newer curl broke the test
-and no one saw it until a PR changed what the task's classpath holds, one with
-no proxy code. `ToCurlTest` in `desktop/mcp` runs `curl` the same way.
+the two that failed (2026-11-03): the runner's curl failed the test, for how long
+is not known, and no one saw it until a PR changed what the task's classpath
+holds, one with no proxy code. `ToCurlTest` in `desktop/mcp` runs `curl` the same way.
 
 ## Why it was accepted
 
