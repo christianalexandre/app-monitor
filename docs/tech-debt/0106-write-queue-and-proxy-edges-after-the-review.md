@@ -3,7 +3,7 @@ id: DEBT-0106
 title: Four edges left in the write queue and the proxy after #313
 status: Open
 date: 2026-10-30
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt` pays the items in that file; or `Storage.health` shows an `Error` (not an exception) as `lastError`"
+trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt` pays the items in that file"
 paid_date:
 ---
 
@@ -41,11 +41,14 @@ held back.
 ## Trigger
 
 The next PR that touches
-`desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`,
 `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt` or
 `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`
-pays the items in that file. So does `Storage.health` showing an `Error`
-(not an exception) as `lastError`, which pays both `WriteQueue` items.
+pays the items in that file.
+
+Both `WriteQueue.kt` items are paid by PLAN-0016 H6.2a
+(`anEnqueueRacingADeadWriterDoesNotWaitForGood`,
+`itemsLeftByADeadWriterAreCounted`, each failing on the old code). The other
+two are placed in PLAN-0016's H6.2.
 
 ## How it was paid
 

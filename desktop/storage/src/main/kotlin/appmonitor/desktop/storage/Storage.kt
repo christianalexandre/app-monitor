@@ -144,6 +144,9 @@ class Storage private constructor(
         }
     }
 
+    // Writer thread. Set by each prune, cleared by a pass that ends: a superseded pass leaves its cleanup to the next one.
+    private var cleanupDue = true
+
     // ADR-0082 D.1: at open, then every interval; close cancels it.
     private val retentionJob: Job? =
         retentionInterval?.let { interval ->
@@ -411,7 +414,7 @@ class Storage private constructor(
                     settings.maxAgeDays?.let { days ->
                         val before = now - days.days.inWholeMilliseconds
                         while (true) {
-                            val sessions = database.sessionQueries.prunable(before, AGE_CHUNK).executeAsList()
+                            val sessions = database.sessionQueries.prunable(before, PRUNE_CHUNK).executeAsList()
                             if (sessions.isEmpty()) break
                             database.transaction { sessions.forEach(::prune) }
                             deleted += sessions.count { !it.kept }
@@ -424,19 +427,21 @@ class Storage private constructor(
                     if (liveBytes() > settings.maxBytes) {
                         val target = settings.maxBytes / 10 * 9
                         while (liveBytes() > target) {
-                            val session = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
-                            database.transaction { prune(session) }
-                            if (!session.kept) deleted++
+                            val pruned = pruneDownTo(target)
+                            if (pruned.isEmpty()) break
+                            deleted += pruned.count { !it.kept }
                             afterRetentionChunk()
                             yield()
                             if (superseded()) return@whileOpen mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(Long.MAX_VALUE)
                     }
-                    // Also after nothing deleted: a superseded pass leaves its cleanup to the next one.
-                    database.transaction {
-                        database.deviceQueries.deleteUnused()
-                        database.appQueries.deleteUnused()
+                    if (cleanupDue) {
+                        database.transaction {
+                            database.deviceQueries.deleteUnused()
+                            database.appQueries.deleteUnused()
+                        }
+                        cleanupDue = false
                     }
                     releaseFreePages()
                     RetentionStatus(fileBytes(), liveBytes() > settings.maxBytes, now, deleted)
@@ -450,7 +455,20 @@ class Storage private constructor(
             status
         } ?: mutableRetentionStatus.value
 
+    // Measured per session, inside the transaction: a chunk must not delete past the target.
+    private fun pruneDownTo(target: Long): List<Prunable> =
+        database.transactionWithResult {
+            buildList {
+                while (size < PRUNE_CHUNK && liveBytes() > target) {
+                    val session = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
+                    prune(session)
+                    add(session)
+                }
+            }
+        }
+
     private fun prune(session: Prunable) {
+        cleanupDue = true
         if (session.kept) {
             database.exchangeQueries.deleteUnlinkedOfSession(session.id)
             database.rawEnvelopeQueries.deleteOfSession(session.id)
@@ -499,8 +517,8 @@ class Storage private constructor(
     private fun fileBytes(): Long = (pragma("page_count") ?: 0) * (pragma("page_size") ?: 0)
 
     /**
-     * Ends the run, writes what is queued for up to [timeout] and returns how many items were lost (SDD 09); a batch
-     * still being written keeps the file open until it ends.
+     * Ends the run, writes what is queued for up to [timeout] and returns how many items were lost, disconnects still
+     * waiting for a retry included; a batch still being written keeps the file open until it ends.
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
@@ -509,7 +527,7 @@ class Storage private constructor(
         retentionJob?.cancel()
         withTimeoutOrNull(timeout) { retentionJob?.join() }
         withTimeoutOrNull(timeout - start.elapsedNow()) { queue.enqueue(StorageItem.EndRun(clock())) }
-        val lost = queue.close(timeout - start.elapsedNow())
+        val lost = queue.close(timeout - start.elapsedNow()) + ingest.lostDisconnectCount
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
         if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
         // On the writer thread, behind what is queued there: no call runs on a closed driver.
@@ -535,6 +553,7 @@ class Storage private constructor(
             withContext(writerDispatcher) { if (closing.value) null else block() }
         } catch (e: CancellationException) {
             currentCoroutineContext().ensureActive()
+            if (!closing.value) throw e
             null
         }
 
@@ -808,7 +827,7 @@ class Storage private constructor(
         internal const val MAX_BATCH = 500
         internal const val WRITER_THREAD = "appmonitor-storage"
         val RETENTION_INTERVAL = 10.minutes
-        internal const val AGE_CHUNK = 50L
+        internal const val PRUNE_CHUNK = 50L
         private const val VACUUM_CHUNK = 1_000L
 
         /**
@@ -853,7 +872,7 @@ class Storage private constructor(
                         database.runQueries.closeOpen()
                         if (startRun) {
                             database.runQueries.insert(clock())
-                            database.runQueries.lastId().executeAsOne()
+                            database.insertedQueries.lastId().executeAsOne()
                         } else {
                             LiveTraffic.NO_RUN
                         }

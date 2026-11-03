@@ -25,9 +25,6 @@ insert:
 INSERT INTO sessions(run_id, device_ref, app_ref, server_session_id, hello, app_version, sdk_name, peer_address, connected_at_ms)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
-lastId:
-SELECT last_insert_rowid();
-
 touch:
 UPDATE sessions SET last_envelope_at_ms = :atMs WHERE id = :id;
 

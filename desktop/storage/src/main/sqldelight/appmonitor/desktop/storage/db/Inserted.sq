@@ -1,0 +1,3 @@
+-- The row id of this connection's last insert, whatever the table.
+lastId:
+SELECT last_insert_rowid();

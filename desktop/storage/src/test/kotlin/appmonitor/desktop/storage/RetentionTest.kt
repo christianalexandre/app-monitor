@@ -1,6 +1,7 @@
 package appmonitor.desktop.storage
 
 import appmonitor.v1.ResponseReceived
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -14,6 +15,7 @@ import kotlin.io.path.listDirectoryEntries
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -162,7 +164,7 @@ class RetentionTest {
                     raise = null
                 }) {}
             runBlocking {
-                repeat(Storage.AGE_CHUNK.toInt()) { session(storage, "old$it", "d1") }
+                repeat(Storage.PRUNE_CHUNK.toInt()) { session(storage, "old$it", "d1") }
                 now = 20 * day
                 session(storage, "month", "d2")
                 now = 40 * day
@@ -194,7 +196,7 @@ class RetentionTest {
                     clear = null
                 }) {}
             runBlocking {
-                repeat(Storage.AGE_CHUNK.toInt() + 1) { session(storage, "old$it", "d1") }
+                repeat(Storage.PRUNE_CHUNK.toInt() + 1) { session(storage, "old$it", "d1") }
                 storage.flush()
                 now = 8 * day
                 clear = {
@@ -211,6 +213,49 @@ class RetentionTest {
                 val error = storage.retentionStatus.value.lastError
                 assertTrue(error?.contains("SQLITE_BUSY") == true, "clearAll's error kept, was $error")
                 assertEquals(1, serverSessions(storage).size, "the pass stopped after its first chunk")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aPassWithNothingPrunedLeavesTheCleanupAlone() =
+        withDataDir { dir ->
+            var now = 0L
+            val storage = Storage.open(dir, { now }, Storage.MAX_QUEUE_BYTES, retentionInterval = null) {}
+            runBlocking {
+                storage.applyRetention()
+                session(storage, "old", "d1")
+                storage.flush()
+                DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
+                    connection.createStatement().use {
+                        it.execute("INSERT INTO devices(device_id, platform, name, os_version) VALUES ('unused', 1, 'n', 'v')")
+                    }
+                }
+
+                storage.applyRetention()
+                assertEquals(listOf("d1", "unused"), dir.queryStrings("SELECT device_id FROM devices ORDER BY device_id"))
+
+                now = 8 * day
+                assertEquals(1, storage.applyRetention().deletedSessions)
+                assertEquals(emptyList(), dir.queryStrings("SELECT device_id FROM devices"), "a pass that prunes cleans up")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aCancellationInsideAPassIsNotReadAsClosing() =
+        withDataDir { dir ->
+            var now = 0L
+            val storage =
+                Storage.open(dir, { now }, Storage.MAX_QUEUE_BYTES, retentionInterval = null, afterRetentionChunk = {
+                    throw CancellationException("not the store's")
+                }) {}
+            runBlocking {
+                session(storage, "old", "d1")
+                storage.flush()
+                now = 8 * day
+
+                assertFailsWith<CancellationException> { storage.applyRetention() }
                 storage.close(5.seconds)
             }
         }

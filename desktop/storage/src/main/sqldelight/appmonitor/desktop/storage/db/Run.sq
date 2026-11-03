@@ -12,9 +12,6 @@ CREATE INDEX runs_started_at_ms ON runs(started_at_ms);
 insert:
 INSERT INTO runs(started_at_ms) VALUES (?);
 
-lastId:
-SELECT last_insert_rowid();
-
 insertSaved:
 INSERT INTO runs(name, started_at_ms, ended_at_ms, saved) VALUES ('Saved', :atMs, :atMs, 1);
 

@@ -20,9 +20,6 @@ insert:
 INSERT INTO mock_rules(app_id, position, name, enabled, pending, source, rule, created_at_ms, updated_at_ms)
 VALUES (:appId, (SELECT coalesce(max(position), -1) + 1 FROM mock_rules WHERE app_id = :appId), :name, 1, :pending, :source, :rule, :atMs, :atMs);
 
-lastId:
-SELECT last_insert_rowid();
-
 exists:
 SELECT count(*) FROM mock_rules WHERE id = ?;
 
