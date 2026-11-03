@@ -1,7 +1,7 @@
 package appmonitor.desktop.proxy
 
 import appmonitor.v1.CaptureLayer
-import org.junit.jupiter.api.Assumptions.assumeFalse
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import java.net.BindException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -13,6 +13,8 @@ import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.Duration
 import java.time.Instant
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -85,7 +87,6 @@ class ProxyServerTest {
 
     @Test
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
-        assumeFalse(System.getProperty("os.name").startsWith("Windows"), "DEBT-0098")
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 // A CA that is not the proxy's: curl reaches the handshake and refuses the leaf, with or without a system bundle.
@@ -99,7 +100,32 @@ class ProxyServerTest {
                     }.getOrElse { fail("no CONNECT ended; stored: ${stored()}; curl: ${result.output}", it) }.single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)
-                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+                // curl 8.23 checks the leaf after its handshake, older ones during it.
+                assertTrue(exchange.error!!.contains("TLS handshake"), exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `a client closing its tunnel after the TLS handshake, before any request, is a failed exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                    val context =
+                        SSLContext
+                            .getInstance(
+                                "TLS",
+                            ).apply { init(null, InsecureTrustManagerFactory.INSTANCE.trustManagers, null) }
+                    context.socketFactory.createSocket(socket, "127.0.0.1", origin.port, true).use { (it as SSLSocket).startHandshake() }
+                }
+
+                val exchange = ended(1).single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("The client closed the tunnel after the TLS handshake"), exchange.error)
             }
         }
     }

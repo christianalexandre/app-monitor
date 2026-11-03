@@ -62,7 +62,10 @@ Castle, ADR-0105); the switch, status and commands in
    handshake (the client refused the leaf: pinning, or the CA not
    trusted) is stored as a failed `CONNECT https://host:port` exchange,
    error `TLS handshake with the client failed: …`, and the connection
-   closes (ADR-0101 E.1).
+   closes (ADR-0101 E.1). A client that checks the leaf after its handshake
+   (curl 8.23 with OpenSSL) succeeds in it and closes: a tunnel closed
+   before its first request is stored the same way, error `The client closed
+   the tunnel after the TLS handshake, before any request: …`.
 2. **A request** inside a tunnel goes to the tunnel's host; outside one
    it needs an absolute `http://` or `https://` URL, else `400` and
    nothing is stored. The URI becomes origin-form, `Proxy-Connection`

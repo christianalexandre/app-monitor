@@ -107,6 +107,7 @@ internal class ClientHandler(
     }
 
     private fun request(msg: HttpRequest) {
+        connectCapture = null
         if (msg.decoderResult().isFailure) {
             ReferenceCountUtil.release(msg)
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: unreadable request", close = true)
@@ -182,12 +183,11 @@ internal class ClientHandler(
         evt: Any,
     ) {
         if (evt is SslHandshakeCompletionEvent) {
-            val capture = connectCapture
-            connectCapture = null
             if (evt.isSuccess) {
                 tunnel = tunnel?.copy(tls = true)
             } else {
-                capture?.failed("TLS handshake with the client failed: ${evt.cause().message ?: evt.cause()}")
+                connectCapture?.failed("TLS handshake with the client failed: ${evt.cause().message ?: evt.cause()}")
+                connectCapture = null
                 ctx.close()
             }
         }
@@ -304,8 +304,14 @@ internal class ClientHandler(
     }
 
     override fun channelInactive(ctx: ChannelHandlerContext) {
-        // A client leaving a tunnel before its handshake ends sends no TLS byte, so no handshake event ends the CONNECT.
-        connectCapture?.failed("TLS handshake with the client failed: the client closed the connection")
+        // A client leaving before any TLS byte fires no handshake event; one checking the leaf after its handshake sees success.
+        connectCapture?.failed(
+            if (tunnel?.tls == true) {
+                "The client closed the tunnel after the TLS handshake, before any request: it may have refused the certificate"
+            } else {
+                "TLS handshake with the client failed: the client closed the connection"
+            },
+        )
         connectCapture = null
         exchange?.capture?.failed("The client closed the connection")
         exchange = null
