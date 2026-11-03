@@ -13,6 +13,41 @@ struct RecentRequestsTests {
         #expect(kept.replay("c") == nil)
     }
 
+    @Test func bodiesPastTheByteBoundLetTheOldestGo() {
+        let kept = RecentRequests(maxBytes: 10)
+        kept.keep("a", bodyBytes: 6) { nil }
+        kept.keep("b", bodyBytes: 4) { nil }
+        kept.keep("a", bodyBytes: 1) { nil }
+        kept.keep("c", bodyBytes: 5) { nil }
+        #expect(kept.replay("b") == nil)
+
+        kept.keep("d", bodyBytes: 1) { nil }
+
+        #expect(kept.replay("b") == RecentRequests.notKept)
+        #expect(kept.replay("a") == nil)
+        #expect(kept.replay("c") == nil)
+        #expect(kept.replay("d") == nil)
+    }
+
+    @Test func theNewestStaysHoweverLargeItsBody() {
+        let kept = RecentRequests(maxBytes: 10)
+        kept.keep("a", bodyBytes: 1) { nil }
+
+        kept.keep("large", bodyBytes: 100) { nil }
+
+        #expect(kept.replay("a") == RecentRequests.notKept)
+        #expect(kept.replay("large") == nil)
+    }
+
+    @Test func onlyABodyInMemoryCounts() {
+        let request = URLRequest(url: URL(string: "http://h/")!)
+        var withBody = request
+        withBody.httpBody = Data(count: 3)
+        #expect(Replay.bodyBytes(request: withBody, upload: nil) == 3)
+        #expect(Replay.bodyBytes(request: request, upload: .data(Data(count: 5))) == 5)
+        #expect(Replay.bodyBytes(request: request, upload: .file(URL(fileURLWithPath: "/tmp/x"))) == 0)
+    }
+
     @Test func aClearedSetKeepsNothing() {
         let kept = RecentRequests()
         kept.keep("a") { nil }
@@ -126,6 +161,24 @@ extension ProcessWideHooks.URLSessionCaptureTests {
 
         #expect(sink.replays.replay(original.requestID) == "The app's session was invalidated")
         #expect(server.received.count == 1)
+    }
+
+    // ADR-0186: a raise past the catch ends the test process.
+    @Test func aReplayRacingTheAppInvalidatingItsSessionEndsTheAppNever() async throws {
+        capture()
+        for _ in 0..<100 {
+            let session = URLSession(configuration: .ephemeral)
+            let task = session.dataTask(with: server.url("/ok"))
+            let replay = Replay.replayer(of: task, id: "a", request: task.originalRequest, upload: nil)
+            DispatchQueue.concurrentPerform(iterations: 2) { side in
+                if side == 0 {
+                    session.invalidateAndCancel()
+                } else {
+                    let refusal = replay()
+                    #expect(refusal == nil || refusal == "The app's session was invalidated")
+                }
+            }
+        }
     }
 
     @Test func aStreamedUploadIsRefused() async throws {

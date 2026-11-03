@@ -16,11 +16,15 @@ func deviceID(file: URL) -> String {
     if let stored = storedDeviceID(file: file) { return stored }
     let id = UUID().uuidString.lowercased()
     publish(id, to: file)
+    excludeFromBackup(file)
+    return storedDeviceID(file: file) ?? id
+}
+
+private func excludeFromBackup(_ file: URL) {
     var values = URLResourceValues()
     values.isExcludedFromBackup = true
     var excluded = file
     try? excluded.setResourceValues(values)
-    return storedDeviceID(file: file) ?? id
 }
 
 /// The desktop a device trusts once one approved it (ADR-0168); `pinned()` nil until then.
@@ -30,7 +34,8 @@ protocol DesktopPin: Sendable {
     func pin(_ desktopID: String) -> String
 }
 
-/// `DesktopPin` kept in `file`, beside the device id and shared with `sdk/core` on iOS.
+/// `DesktopPin` kept in `file`, beside the device id and shared with `sdk/core` on iOS, out of backups with
+/// it: a restore would pin a new phone's id to the old desktop.
 struct FileDesktopPin: DesktopPin {
     let file: URL
 
@@ -39,6 +44,7 @@ struct FileDesktopPin: DesktopPin {
     func pin(_ desktopID: String) -> String {
         if let stored = storedDeviceID(file: file) { return stored }
         publish(desktopID, to: file)
+        excludeFromBackup(file)
         return storedDeviceID(file: file) ?? desktopID
     }
 }

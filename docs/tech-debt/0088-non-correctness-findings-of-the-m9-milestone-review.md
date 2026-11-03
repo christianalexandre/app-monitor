@@ -1,10 +1,10 @@
 ---
 id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Replays.swift`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0088 — Non-correctness findings of the M9 milestone review
@@ -93,4 +93,6 @@ which feeds the live list from it: its comment is one line.
 
 ## How it was paid
 
-> Filled when closing.
+The last item, `Replays.swift`'s bodies, by PLAN-0016 H6.4a: `RecentRequests` keeps its last 200
+within 32 MiB of bodies held in memory, as `sdk/core` does (`bodiesPastTheByteBoundLetTheOldestGo`).
+The others are recorded above. Nothing is left of it.

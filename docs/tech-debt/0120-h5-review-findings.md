@@ -3,7 +3,7 @@ id: DEBT-0120
 title: Findings of the H5 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-03
-trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Device.swift`, `sdk/ios/Sources/AppMonitor/MonitorClient.swift`, `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
+trigger: "The next PR that touches `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
 paid_date:
 ---
 
@@ -55,6 +55,10 @@ Fired in H6.2d, on `Main.kt` and `Storage.kt`. Item 1 was paid there, and with i
 Fired in H6.3d, on `DeviceId.kt` and `MonitorClient.kt`. Items 2 and 4 were paid there
 for `sdk/core`, so both files leave the trigger and `MonitorClient.swift` joins it; the
 Swift side is H6.4's.
+
+Fired in H6.4a, on `Device.swift` and `MonitorClient.swift`. Items 2 and 4 were paid there for the
+Swift SDK (`aPinnedDesktopIsExcludedFromBackup`, `anIdleSessionReportsAnOversizedEnvelopeAtOnce`), and
+both files leave the trigger.
 
 ## How it was paid
 

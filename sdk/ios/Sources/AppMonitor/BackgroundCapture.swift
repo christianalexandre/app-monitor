@@ -114,7 +114,7 @@ enum BackgroundHooks {
             request.value(forHTTPHeaderField: ProtocolConstants.captureHeader) == nil
         else { return false }
         let start = Int64(metrics.taskInterval.start.timeIntervalSince1970 * 1000)
-        capture.sink.keepForReplay(capture.id) { "A background session's task is not sent again" }
+        capture.sink.keepForReplay(capture.id, bodyBytes: 0) { "A background session's task is not sent again" }
         let unread = request.httpBody == nil && !["GET", "HEAD"].contains(request.httpMethod ?? "GET")
         emit(capture.sink, "RequestStarted", at: start) {
             try requestStarted(

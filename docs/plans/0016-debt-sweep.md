@@ -123,17 +123,18 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   `tools/headless-server` since H6.1.
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :tools:headless-server:test :desktop:app:test`; `make swift`.
+- [x] **H6.4a The Swift SDK's small findings.** (`fix/swift-sdk-replay-pin-reports`) A replay
+  racing the app invalidating its session refused, not a crash (DEBT-0084, ADR-0186); replay bodies
+  within a byte bound in `Replays.swift`, as in `sdk/core` (DEBT-0088, paid whole); the pin out of
+  backups and an oversized drop reported by an idle session (DEBT-0120, items 2 and 4); nested
+  messages without their copies (DEBT-0109, item 7). Dropped with their reasons in the DEBTs:
+  DEBT-0090, and DEBT-0109's item 5, which a probe found false. DEBT-0043 was already paid, by
+  PLAN-0015. Split from H6.4.
+  Accept: `make swift`, `make swift-sim`, `make e2e-ios` and `make e2e-kmp-ios`.
 - [ ] **H6.4 iOS SDK.** One generic method hook instead of one per arity
   (DEBT-0103); headers CFNetwork adds at send time (DEBT-0037) and every
-  end of a WebSocket (DEBT-0038) captured; a replay safe against a
-  session being invalidated (DEBT-0084); breakpoints and the Bonjour
-  a breakpoint runs on the simulator (DEBT-0086); a desktop socket
-  opened before discovery not reported (DEBT-0090); the M2 review
-  findings in `Masking.swift` (DEBT-0043) and the H4 ones in
-  `Breakpoints.swift` and `ProtoWire.swift` (DEBT-0109, items 5 and 7), and
-  the H5 ones in `Device.swift` and `MonitorClient.swift` (DEBT-0120, items 2
-  and 4); replay bodies within a byte bound in `Replays.swift`, as in `sdk/core`
-  (DEBT-0088).
+  end of a WebSocket (DEBT-0038) captured; breakpoints run on the simulator,
+  a held call resumed in the end to end (DEBT-0086).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`, a held call resumed in the end to end.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames

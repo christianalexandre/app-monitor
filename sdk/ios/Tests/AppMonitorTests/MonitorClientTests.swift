@@ -191,6 +191,24 @@ struct MonitorClientTests {
         await client.join()
     }
 
+    // ADR-0166: no frame enters the buffer to wake the writer.
+    @Test func anIdleSessionReportsAnOversizedEnvelopeAtOnce() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        let client = Self.client(manualDiscovery(desktop.endpoint))
+        client.start()
+        #expect(await eventually { !desktop.reports.isEmpty })
+        var big = Self.event(9)
+        big.payload = Data(count: ProtocolConstants.maxFrameBytes)
+
+        client.send(big)
+
+        #expect(await eventually { desktop.reports.contains { $0.oversized == 1 } })
+        client.stop()
+        await client.join()
+    }
+
     // ADR-0166: the next session names the last one and the frames written on it, its report included.
     @Test func aReconnectReportsWhatThePreviousSessionWrote() async throws {
         let first = TestDesktop()

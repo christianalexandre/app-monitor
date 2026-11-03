@@ -12,8 +12,9 @@ protocol CaptureSink: AnyObject, Sendable {
     /// The desktop's first rule for this call, nil outside a session (ADR-0110).
     func mock(method: String, url: String) -> Appmonitor_V1_MockRule?
 
-    /// Keeps what sends `requestID`'s task again for a `ReplayRequest`; dropped outside a session (ADR-0122 A.1).
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?)
+    /// Keeps what sends `requestID`'s task again, holding `bodyBytes` of body, for a `ReplayRequest`; dropped
+    /// outside a session (ADR-0122 A.1).
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?)
 
     /// The desktop's first breakpoint holding this call at `stage`, nil outside a session (ADR-0118).
     func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
@@ -32,8 +33,8 @@ extension MonitorHolder: CaptureSink {
         client?.mocks.match(method: method, url: url)
     }
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
-        client?.replays.keep(requestID, replay)
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
+        client?.replays.keep(requestID, bodyBytes: bodyBytes, replay)
     }
 
     func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
@@ -421,7 +422,8 @@ enum Hooks {
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         BackgroundHooks.started(task, capture)
         sink.keepForReplay(
-            capture.id, Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
+            capture.id, bodyBytes: Replay.bodyBytes(request: task.originalRequest, upload: upload?.body),
+            Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
         if requestHold != nil { return }  // HoldProtocol sends it once the hold ends (ADR-0123 C.1)
         emit(sink, "RequestStarted") {
             try requestStarted(

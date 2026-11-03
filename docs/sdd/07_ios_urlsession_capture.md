@@ -94,7 +94,8 @@ through the app's own session (ADR-0111 D.1, ADR-0124):
 
 - **Kept at the first resume**, by the hook that sends `RequestStarted`:
   a sender per HTTP task, by request id, in the session's
-  `MonitorClient` (`RecentRequests`, the last 200; emptied when the
+  `MonitorClient` (`RecentRequests`, the last 200 within 32 MiB of bodies
+  in memory, the newest staying whatever its size; emptied when the
   session ends). It holds the task's `originalRequest` and upload body,
   and its session weakly.
 - **Sent** as a new task on that session with a completion handler that
@@ -104,10 +105,11 @@ through the app's own session (ADR-0111 D.1, ADR-0124):
   matches, with `RequestStarted.replay_of` the original's request id.
 - **Refused** with `ReplayRefused` and a reason: a request not kept (an
   older one, a past session's, a WebSocket), a background session's task,
-  a streamed body, a session the app released, or one it invalidated,
-  read from `NSURLSession`'s `_invalid_ivar` before the task is made: a
-  task made on an invalidated session raises an exception that ends the
-  app (DEBT-0084 for the race).
+  a streamed body, a session the app released, or one it invalidated:
+  `NSURLSession`'s `_invalid_ivar` is read first, and the task is made
+  inside `appmonitor_replay_task`'s `@try`, since a task made on an
+  invalidated session can raise an exception that would end the app
+  (ADR-0186).
 
 ### One held task
 
@@ -256,7 +258,8 @@ One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
 Every IPv4 and IPv6 stream socket the app's own code connects, a
 third-party SDK's included, is one exchange with `capture_layer =
 CONNECTION` and no content (ADR-0100, ADR-0103). C in
-`sdk/ios/Sources/AppMonitorConnections/` (fishhook vendored at
+`sdk/ios/Sources/AppMonitorConnections/`, beside the replay's one Objective-C
+file (fishhook vendored at
 `aadc161`, BSD-3-Clause, its two functions renamed so an app's own copy
 links), reporting in `AppMonitor/ConnectionCapture.swift`; nothing installs the
 hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
@@ -285,7 +288,7 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
   every mDNS answer and the manual host, by address or the name it was
   resolved from and its port, where another SDK of the app, `sdk/core`
   in a KMP app, connects too (ADR-0100 C.1); one opened before that
-  answer is reported (DEBT-0090); sockets numbered 4096 and up;
+  answer is reported; sockets numbered 4096 and up;
   Network.framework's `nw_connection_*` (DEBT-0076).
 - **Errors** read `NSPOSIXErrorDomain <errno>: <strerror>`, e.g.
   `NSPOSIXErrorDomain 61: Connection refused`.

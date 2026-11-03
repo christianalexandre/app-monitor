@@ -106,9 +106,12 @@ struct ProtoWriter {
     }
 
     mutating func message(_ number: Int, _ value: some ProtoMessage) {
-        var nested = ProtoWriter()
-        value.encode(to: &nested)
-        delimited(number, nested.bytes)
+        tag(number, 2)
+        let start = bytes.count
+        value.encode(to: &self)
+        var length = ProtoWriter()
+        length.varint(UInt64(bytes.count - start))
+        bytes.insert(contentsOf: length.bytes, at: start)
     }
 
     mutating func unknown(_ fields: ProtoUnknownFields) {
@@ -118,18 +121,26 @@ struct ProtoWriter {
 
 struct ProtoReader {
     private let buffer: [UInt8]
-    private var position = 0
+    private let end: Int
+    private var position: Int
     private var fieldStart = 0
     private(set) var fieldNumber = 0
     private var wireType = 0
 
     init(bytes: [UInt8]) {
-        self.buffer = bytes
+        self.init(bytes, bytes.startIndex..<bytes.endIndex)
+    }
+
+    /// Reads `range` of `buffer`, which a nested message shares with its parent.
+    private init(_ buffer: [UInt8], _ range: Range<Int>) {
+        self.buffer = buffer
+        self.position = range.lowerBound
+        self.end = range.upperBound
     }
 
     /// Reads the next tag; false at the end of the bytes.
     mutating func nextField() throws -> Bool {
-        guard position < buffer.count else { return false }
+        guard position < end else { return false }
         fieldStart = position
         let key = try rawVarint()
         guard (1...maxFieldNumber).contains(key >> 3) else { throw ProtoDecodingError.invalidFieldNumber }
@@ -142,7 +153,7 @@ struct ProtoReader {
         var value: UInt64 = 0
         var shift: UInt64 = 0
         while true {
-            guard position < buffer.count else { throw ProtoDecodingError.truncated }
+            guard position < end else { throw ProtoDecodingError.truncated }
             let byte = buffer[position]
             position += 1
             // The tenth byte holds bit 63 only.
@@ -160,7 +171,7 @@ struct ProtoReader {
     private mutating func delimited() throws -> ArraySlice<UInt8> {
         try expect(2)
         let length = try rawVarint()
-        guard length <= UInt64(buffer.count - position) else { throw ProtoDecodingError.truncated }
+        guard length <= UInt64(end - position) else { throw ProtoDecodingError.truncated }
         defer { position += Int(length) }
         return buffer[position..<position + Int(length)]
     }
@@ -188,7 +199,7 @@ struct ProtoReader {
 
     /// A message field read again merges into its value so far, as protobuf's parsers do.
     mutating func message<Message: ProtoMessage>(merging current: Message) throws -> Message {
-        var nested = ProtoReader(bytes: Array(try delimited()))
+        var nested = ProtoReader(buffer, try delimited().indices)
         var message = current
         try message.decode(from: &nested)
         return message
@@ -207,7 +218,7 @@ struct ProtoReader {
     }
 
     private mutating func advance(_ count: Int) throws {
-        guard buffer.count - position >= count else { throw ProtoDecodingError.truncated }
+        guard end - position >= count else { throw ProtoDecodingError.truncated }
         position += count
     }
 }
