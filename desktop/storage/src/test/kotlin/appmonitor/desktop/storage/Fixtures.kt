@@ -70,6 +70,14 @@ internal inline fun withDataDir(block: (Path) -> Unit) {
     }
 }
 
+/** Puts back the indexes of a version 9 file, as each older version's migration test needs. */
+internal fun java.sql.Statement.undoVersionNine() {
+    execute("DROP INDEX exchanges_session_ref_id_url")
+    execute("DROP INDEX exchanges_id_url")
+    execute("DROP INDEX exchanges_failed")
+    execute("CREATE INDEX exchanges_session_ref_id ON exchanges(session_ref, id)")
+}
+
 /** Reads one long through a plain connection, outside the store. */
 internal fun Path.queryLong(sql: String): Long =
     DriverManager.getConnection("jdbc:sqlite:${resolve(Storage.FILE_NAME)}").use { connection ->

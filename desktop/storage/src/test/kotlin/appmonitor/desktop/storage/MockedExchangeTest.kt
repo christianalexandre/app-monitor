@@ -80,6 +80,7 @@ class MockedExchangeTest {
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 4")
                 }
             }
@@ -91,7 +92,7 @@ class MockedExchangeTest {
                 assertEquals(7L, storage.searchExchanges(ExchangeFilter()).single().mockRuleId)
                 storage.close(5.seconds)
             }
-            assertEquals(9, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

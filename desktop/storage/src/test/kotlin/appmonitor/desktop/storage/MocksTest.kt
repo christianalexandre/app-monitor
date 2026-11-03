@@ -86,6 +86,7 @@ class MocksTest {
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 3")
                 }
             }
@@ -95,7 +96,7 @@ class MocksTest {
                 assertEquals(1, storage.observeActiveMocks(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(9, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

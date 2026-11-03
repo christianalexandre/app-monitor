@@ -70,6 +70,29 @@ class SaveTest {
         }
 
     @Test
+    fun savedAgainAfterItsResponseTheExchangeGetsIt() =
+        withDataDir { dir ->
+            val live = LiveTraffic()
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                live.connected("s1", hello(), null)
+                live.received("s1", envelope(started("ws"), atMs = 1_000))
+                live.received("s1", envelope(WebSocketFrame(request_id = "ws", payload = "hi".encodeUtf8(), payload_size = 2)))
+                val ids = live.searchExchanges(ExchangeFilter()).map { it.id }
+                val first = storage.save(live.copies(ids))
+
+                live.received("s1", envelope(ResponseReceived(request_id = "ws", status_code = 101), atMs = 1_200))
+                assertEquals(first, storage.save(live.copies(ids)))
+
+                val stored = storage.exchangesOfRun(storage.runs().single().id).single()
+                assertEquals(101, stored.statusCode)
+                assertEquals(1_200, stored.endedAtMs)
+                assertEquals(1, stored.frameCount, "the frame saved first is not stored twice")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun anExchangeGoneFromTheListIsNotSaved() =
         withDataDir { dir ->
             val live = LiveTraffic(maxExchanges = 1)
@@ -119,6 +142,7 @@ class SaveTest {
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 7")
                 }
             }
@@ -128,6 +152,6 @@ class SaveTest {
                 assertEquals(listOf(false), storage.runs().map { it.saved })
                 storage.close(5.seconds)
             }
-            assertEquals(9, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 }

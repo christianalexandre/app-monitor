@@ -46,27 +46,30 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   Accept: `./gradlew :desktop:server:test :desktop:storage:test
   :tools:fake-client:test`; a second `make desktop` on the same
   `APPMONITOR_DATA_DIR` shows the refusal.
-- [x] **H6.2a The store's write path.** (`fix/store-write-path-debts`) The
+- [x] **H6.2a The store's write path.** (#347) The
   write queue's edges (DEBT-0106's two `WriteQueue.kt` items, DEBT-0109 item 1)
   and the review findings on `Ingest`, `WriteQueue` and `Storage` (DEBT-0064,
   DEBT-0067, DEBT-0068). Split from H6.2: the size pass measured 4.4 times
   faster, and each debt's dropped items say why in the DEBT.
   Accept: `./gradlew :desktop:storage:test`.
-- [ ] **H6.2 Desktop store, proxy and controllers.** Text search and
-  "failed only" on an index (DEBT-0063); the title bar follows a theme at
+- [x] **H6.2b Search and the live list.** (`refactor/search-live-one-decoding`)
+  Text search and "failed only" on an index (DEBT-0063, ADR-0177: compact
+  indexes, not FTS5; no match over 100 000 exchanges with real headers, 48 ms
+  at most for text); the live list and the store share one decoding and one
+  filter table (DEBT-0104); DEBT-0093's items in `Ingest.kt` and `LiveTraffic.kt`.
+  Split from H6.2.
+  Accept: `./gradlew :desktop:storage:test :desktop:storage:verifySqlDelightMigration`.
+- [ ] **H6.2 Desktop store, proxy and controllers.** The title bar follows a theme at
   once (DEBT-0095); one switch and lifecycle for the MCP and proxy
   controllers (DEBT-0102); DEBT-0106's two proxy items; the MCP tools' closing
   check in one place and the packaged server's version (DEBT-0071, DEBT-0072,
-  DEBT-0073, DEBT-0074); the live list and the store share one decoding and one
-  filter match (DEBT-0104), and the H2 and H3 review findings (DEBT-0092,
-  DEBT-0093), and the H4 ones in `ProxyController.kt`, `ProxyCa.kt` and
-  `ExportHar.kt` (DEBT-0109, items 3, 4 and 6); a mock rule moves in its app's
-  order (DEBT-0082); "Clear
-  all data" keeps the desktop id in one step (DEBT-0120, item 1).
+  DEBT-0073, DEBT-0074); the H2 and H3 review findings (DEBT-0092,
+  DEBT-0093's `Recorder.kt` and `DeviceApproval.kt` items), and the H4 ones in
+  `ProxyController.kt`, `ProxyCa.kt` and `ExportHar.kt` (DEBT-0109, items 3, 4
+  and 6); a mock rule moves in its app's order (DEBT-0082); "Clear all data" keeps the desktop id in one step (DEBT-0120, item 1).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
-  :desktop:data:test :desktop:app:test`; `SearchTest`'s no-match search
-  over 100 000 exchanges under 100 ms, its time in the PR; a theme picked
-  in Settings repaints the title bar (screenshot).
+  :desktop:data:test :desktop:app:test`; a theme picked in Settings repaints
+  the title bar (screenshot).
 - [ ] **H6.3 Kotlin SDKs.** One capture flow for `sdk/android-okhttp` and
   `sdk/ktor` (sink, mocks, breakpoints, replay) and one masking
   (DEBT-0101, DEBT-0055, DEBT-0044); Ktor's internal API kept behind one

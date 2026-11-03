@@ -4,15 +4,9 @@ import appmonitor.desktop.storage.db.AppMonitorDatabase
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
-import appmonitor.v1.RequestFailed
-import appmonitor.v1.RequestStarted
-import appmonitor.v1.ResponseReceived
-import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.CompletableDeferred
 import okio.ByteString
 import java.io.IOException
-import java.net.URI
-import java.net.URISyntaxException
 
 /** What the store is asked to write, in the order a session produced it. */
 internal sealed interface StorageItem {
@@ -379,7 +373,7 @@ internal class Ingest(
         }
     }
 
-    // One saved session per live one, kept across saves; an exchange saved before is not written again.
+    // One saved session per live one, kept across saves.
     private fun save(item: StorageItem.Save): Map<Long, Long> {
         val run =
             database.runQueries.savedId().executeAsOneOrNull() ?: run {
@@ -394,12 +388,10 @@ internal class Ingest(
                         database.sessionQueries.disconnect(live.disconnectedAtMs ?: item.atMs, it)
                         live.drops?.let { drops -> dropped(it, drops) }
                     }
-            val stored =
-                database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull() ?: run {
-                    copy.envelopes.forEach { network(session, it) }
-                    exchange(session, copy.requestId)
-                }
-            copy.id to stored
+            // Saved before: its request and outcome may have moved on; frames would be stored twice.
+            val savedBefore = database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull() != null
+            copy.envelopes.filter { !savedBefore || it.type != FRAME_TYPE }.forEach { network(session, it) }
+            copy.id to exchange(session, copy.requestId)
         }
     }
 
@@ -571,15 +563,15 @@ internal class Ingest(
     ): Boolean {
         val at = envelope.timestamp_ms
         val queries = database.exchangeQueries
-        when (envelope.type) {
-            "RequestStarted" -> {
-                val event = RequestStarted.ADAPTER.decode(envelope.payload)
+        when (val decoded = envelope.networkEvent() ?: return false) {
+            is NetworkEvent.Started -> {
+                val event = decoded.event
                 val id = exchange(session, event.request_id)
                 val meta = event.copy(body = ByteString.EMPTY).encode()
                 queries.started(
                     event.method,
                     event.url,
-                    hostOf(event.url),
+                    decoded.host,
                     at,
                     event.capture_layer.value.toLong(),
                     meta,
@@ -590,22 +582,21 @@ internal class Ingest(
                 putBody(id, PART_REQUEST, event.body)
             }
 
-            "ResponseReceived" -> {
-                val event = ResponseReceived.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Responded -> {
+                val event = decoded.event
                 val id = exchange(session, event.request_id)
                 val meta = event.copy(body = ByteString.EMPTY).encode()
-                // ADR-0104: status 0 is no status, as a closed `CONNECTION` sends.
-                queries.responded(event.status_code.takeIf { it != 0 }?.toLong(), grpcStatusOf(event), at, meta, id)
+                queries.responded(decoded.statusCode?.toLong(), decoded.grpcStatus, at, meta, id)
                 putBody(id, PART_RESPONSE, event.body)
             }
 
-            "RequestFailed" -> {
-                val event = RequestFailed.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Failed -> {
+                val event = decoded.event
                 queries.failed(event.error, at, exchange(session, event.request_id))
             }
 
-            "WebSocketFrame" -> {
-                val event = WebSocketFrame.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Frame -> {
+                val event = decoded.event
                 val id = exchange(session, event.request_id)
                 database.frameQueries.insert(
                     exchange_ref = id,
@@ -622,10 +613,6 @@ internal class Ingest(
                     database.frameQueries.putPayload(frame, encoded.codec, encoded.data)
                 }
                 queries.frameAdded(id)
-            }
-
-            else -> {
-                return false
             }
         }
         return true
@@ -656,21 +643,6 @@ internal class Ingest(
     companion object {
         const val PART_REQUEST = 0L
         const val PART_RESPONSE = 1L
+        private const val FRAME_TYPE = "WebSocketFrame"
     }
 }
-
-/** The URL's host, null when it does not parse. */
-internal fun hostOf(url: String): String? =
-    try {
-        URI(url).host
-    } catch (_: URISyntaxException) {
-        null
-    }
-
-// ADR-0107: the last one, as trailers come after the headers (ADR-0102, ADR-0106).
-internal fun grpcStatusOf(event: ResponseReceived): Long? =
-    event.headers
-        .lastOrNull { it.name.equals("grpc-status", ignoreCase = true) }
-        ?.value_
-        ?.trim()
-        ?.toLongOrNull()

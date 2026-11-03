@@ -4,7 +4,7 @@
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
 files, connection settings), ADR-0086 (opening, booleans, lost writes),
-ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
+ADR-0087 and ADR-0177 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
 (issues), ADR-0096 (issue rows, their writers, retention of their exchanges),
 ADR-0140 (live traffic in memory, only recordings stored), ADR-0141 (the live
 list's types, ids and bound), ADR-0142 (recording through `Recorder`),
@@ -56,7 +56,7 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
 | `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms`, `drops_evicted`, `drops_oversized`, `drops_lost` (the latest `DeliveryReport`'s, null before one; `drops_lost` also null when the server could not count it, ADR-0166) | `run_id`; `last_envelope_at_ms` |
-| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id`, `replay_of` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
+| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id`, `replay_of` | unique (`session_ref`, `request_id`); (`session_ref`, `id`, `url`); (`id`, `url`); (`id`, `session_ref`) where `failed = 1`; `host`; `status_code`; `method` |
 | `bodies` | `exchange_ref`, `part` (request or response), `codec`, `data`, `size` | primary key (`exchange_ref`, `part`) |
 | `frames` | `exchange_ref`, `at_ms`, `direction`, `opcode`, `payload_truncated`, `payload_size`, `stored_size` | (`exchange_ref`, `id`) |
 | `frame_payloads` | `frame_ref`, `codec`, `data` | primary key `frame_ref` |
@@ -185,7 +185,8 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `saved = 1`, which the first save opens, named "Saved" and ended at
   once. Each live session gets one session row there, found again by
   `server_session_id`; each exchange is written by `Ingest`'s own event
-  code. One already saved is not written again. Returns each live id's
+  code. One already saved takes its request and outcome again, not its
+  frames, so a request saved before its response gets it. Returns each live id's
   stored id once written, nothing when lost or closed.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
@@ -357,8 +358,9 @@ through the routed repositories below.
 - **Reads** mirror the store's: `searchExchanges`, `searchExchangeSizes`,
   `observeExchanges` and `observeSessions` (again after each change, on
   `Dispatchers.Default`), `exchange(id)` with `replayOfId`, `frames`,
-  `session`, `replayOriginals`, `groupByEndpoint`. The filter match
-  follows `SearchQuery`'s; a filter with a run matches nothing. The mock
+  `session`, `replayOriginals`, `groupByEndpoint`. `network` envelopes
+  decode through `networkEvent()`, as in `Ingest`; the filter match is
+  `liveMatcher()`, beside `SearchQuery` in `Search.kt`; a filter with a run matches nothing. The mock
   rule's name is left null: `desktop/data` reads it from `mock_rules`.
 - **Which one a read means** (`desktop/data`'s `Storage.trafficRepository(live)`,
   `trafficQueryRepository(live)`, `benchmarkRepository(live)`): a filter
@@ -422,9 +424,11 @@ goes to `LiveTraffic` first; then:
   session; unset or empty fields match all, set ones combine with AND.
   `SearchQuery` writes only the clauses of the fields set, so SQLite plans
   each combination with its index: `exchanges_method`,
-  `exchanges_status_code`, `exchanges_host`, and `exchanges_session_ref_id` under a subquery
-  on `sessions` for session, run, device and app. Text and failed only walk
-  the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
+  `exchanges_status_code`, `exchanges_host`, and `exchanges_session_ref_id_url` under a subquery
+  on `sessions` for session, run, device and app. Text and failed only name
+  their index with `INDEXED BY` (ADR-0177): `exchanges_failed` holds failed
+  rows only; `url` is in `exchanges_id_url` and `exchanges_session_ref_id_url`,
+  so a `LIKE` reads a row only when it matches. The query
   listens to `exchanges`, and to `sessions` when a filter joins it, so the
   window follows commits as with the generated ones.
 - `observeIssues(filter)` follows the issues an `IssueFilter` (status, tag;
@@ -515,7 +519,10 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Breakpoints per app in order, enabled only, kept across a restart and retention, gone with "Clear all data", ids not reused, bad ones refused, a version-5 file migrates | `BreakpointsTest` |
 | A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
-| Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
+| Text and failed only over 100 000 exchanges with real headers, no match, bounded time | `SearchTest.textAndFailedOverManyExchangesInBoundedTime` (ADR-0177), prints the time |
+| A version 9 file migrated, its rows found through the new indexes | `SearchTest.aVersionNineFileIsMigratedWithItsRowsIndexed` (ADR-0177) |
+| One table of filters and one set of odd events on the store and the live list | `FilterMatchTest` (DEBT-0104) |
+| A request saved before its response gets it on the next Save, its frames not doubled | `SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt` |
 | The filter sheet narrows the list by status class, host and method, and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
 | The hosts of a run, a session or every stored exchange | `SearchTest.hostsOfARunASessionOrEveryExchange` (H3.6c) |
 | The sheet offers the shown hosts, a host filter keeps only that host's rows | `TrafficViewModelTest` in `desktop/feature/traffic` (H3.6c) |
