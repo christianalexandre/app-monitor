@@ -1,7 +1,7 @@
 ---
 id: ADR-0171
 title: The iOS floor the SDK declares, against the runtimes it can be tested on
-status: Proposed
+status: Accepted
 date: 2026-10-31
 superseded_by:
 ---
@@ -53,7 +53,17 @@ download.
 
 ## Decision
 
-Empty while `Proposed`.
+Option 3, decided by the owner on 2026-11-03. Option 1 was tried: the
+owner installed the iOS 15.0 runtime, and `simctl` lists it as
+unavailable, "not supported on hosts after macOS 14.99.0", on this macOS
+26.4. The floor stays iOS 15: the owner's own app (the H4 field test's)
+targets iOS 15.0, and a floor of 16 would stop it adding the SDK.
+
+- The README states the lowest iOS tested: 16.7 on a device (the H4
+  field test), and 16.x on the simulator if `SIM_OS=16.x make swift-sim`
+  can be run, else the lowest runtime that ran.
+- DEBT-0111 stays open, its trigger a Mac on macOS 14 or earlier, or an
+  iOS 15 device, running the suite.
 
 ## Consequences
 
