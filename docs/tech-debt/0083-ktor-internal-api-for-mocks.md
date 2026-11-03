@@ -1,10 +1,10 @@
 ---
 id: DEBT-0083
 title: Ktor mocks build their call with Ktor's internal API
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The first PR that changes `ktor` in `gradle/libs.versions.toml`
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0083 — Ktor mocks build their call with Ktor's internal API
@@ -38,4 +38,8 @@ or pay it with a public API if one exists.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0016 H6.3c (`fix/ktor-wrapped-engine-one-seam`). Replacing it is not possible: Ktor 3.6.0 still has no public
+way to make a call from request and response data (ADR-0110 D.1), and `readRawBytes()` copies a saved body whole
+twice. So every use now sits in `sdk/ktor`'s `KtorInternals.kt`, the only file opting in to `InternalAPI`:
+`builtCall` and `rawBody`. What is left: a Ktor upgrade can still break them, in that one file, and `MockAnswerTest`,
+`BreakpointTest` and `SavedBodyCaptureTest` show it in the upgrade's own PR.

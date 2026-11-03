@@ -8,5 +8,5 @@ import io.ktor.client.engine.HttpClientEngine
  */
 internal expect val MARKS_CAPTURED_REQUESTS: Boolean
 
-/** Whether [engine] hands the request to that capture: on the JVM and Android only Ktor's OkHttp engine does. */
+/** Whether [engine] hands the request to that capture: on the JVM and Android only Ktor's OkHttp engine does, wrapped or not. */
 internal expect fun passesAnotherCapture(engine: HttpClientEngine): Boolean

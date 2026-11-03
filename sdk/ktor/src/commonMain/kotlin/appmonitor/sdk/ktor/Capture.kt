@@ -15,7 +15,6 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentLength
 import io.ktor.util.StringValues
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.InternalAPI
 import io.ktor.utils.io.discard
 import io.ktor.utils.io.readBuffer
 import io.ktor.websocket.Frame
@@ -37,12 +36,11 @@ internal fun OutgoingContent.capture(limit: Int): CapturedBody =
     }
 
 /** The body Ktor saved for the app, cut at [limit]; a streamed response is not read (ADR-0069). */
-@OptIn(InternalAPI::class) // DEBT-0083
 internal suspend fun HttpResponse.capture(limit: Int): CapturedBody =
     when {
         status == HttpStatusCode.SwitchingProtocols -> CapturedBody.NONE
         !isSaved -> unread()
-        else -> rawContent.captured(limit)
+        else -> rawBody.captured(limit)
     }
 
 /** At most [limit] bytes of [this], the rest counted and not kept; throws the channel's close cause. */

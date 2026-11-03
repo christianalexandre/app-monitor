@@ -19,7 +19,6 @@ import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.takeFrom
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.InternalAPI
 import io.ktor.utils.io.cancel
 import kotlinx.coroutines.cancel
 import kotlinx.io.IOException
@@ -86,7 +85,6 @@ private fun edit(
 }
 
 /** The call the app reads once its breakpoint lets the response go, with its captured body; [body] is what was captured of [call]'s. */
-@OptIn(InternalAPI::class) // DEBT-0083
 internal suspend fun CallCapture.holdResponse(
     client: HttpClient,
     request: HttpRequestBuilder,
@@ -112,7 +110,7 @@ internal suspend fun CallCapture.holdResponse(
         when {
             replaced != null -> {
                 // The original's engine connection goes back to its pool; the edited call shares its context, so only the channel.
-                if (!response.isSaved) response.rawContent.cancel()
+                if (!response.isSaved) response.rawBody.cancel()
                 ByteReadChannel(replaced.toByteArray())
             }
 
@@ -121,7 +119,7 @@ internal suspend fun CallCapture.holdResponse(
             }
 
             else -> {
-                response.rawContent
+                response.rawBody
             }
         }
     val headers =

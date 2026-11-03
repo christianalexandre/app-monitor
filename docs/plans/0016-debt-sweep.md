@@ -100,13 +100,17 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
   `make e2e-kmp`.
-- [ ] **H6.3 Kotlin SDKs.** Ktor's internal API kept behind one
-  seam, or replaced (DEBT-0083); a Ktor engine that wraps OkHttp's is
-  captured once (DEBT-0100); a cancelled iOS connect closes its socket
+- [x] **H6.3c One seam and a wrapped engine.** (`fix/ktor-wrapped-engine-one-seam`) Ktor's internal
+  API in one file (DEBT-0083); a Ktor engine that wraps OkHttp's captured once, known by its
+  config (DEBT-0100, ADR-0183). DEBT-0058 dropped, its reason in the DEBT: the desktop reads
+  Ktor's `ws`. Split from H6.3.
+  Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
+  :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
+  `make e2e-kmp`.
+- [ ] **H6.3 Kotlin SDKs.** A cancelled iOS connect closes its socket
   (DEBT-0053); path operations safe on Apple (DEBT-0059); the M4 and M9
-  review findings in `sdk/core` and `sdk/ktor` (DEBT-0058, DEBT-0061,
-  DEBT-0088); the H5 ones in `DeviceId.kt` and `MonitorClient.kt` (DEBT-0120,
-  items 2 and 4).
+  review findings in `sdk/core` and `sdk/ktor` (DEBT-0061, DEBT-0088); the H5
+  ones in `DeviceId.kt` and `MonitorClient.kt` (DEBT-0120, items 2 and 4).
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android`
   and `make e2e-kmp`.

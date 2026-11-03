@@ -42,7 +42,7 @@ kotlin {
             implementation(project(":protocol"))
             implementation(libs.kotlinx.atomicfu)
         }
-        // Only to know the engine by class; the app brings it, or the check is false.
+        // Only to know the engine's config by class; the app brings it, or the check is false.
         androidMain.dependencies { compileOnly(libs.ktor.client.okhttp) }
         jvmMain.dependencies { compileOnly(libs.ktor.client.okhttp) }
         commonTest {

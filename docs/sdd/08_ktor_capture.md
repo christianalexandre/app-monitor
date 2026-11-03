@@ -30,14 +30,15 @@ app ── HttpClient { install(AppMonitorKtor) }
   carrying it, so a Darwin call is captured once (SDD 07, ADR-0064,
   ADR-0071). A hop not captured has it removed. On the JVM and Android it is
   set only when `appmonitor-okhttp` is on the classpath and the client runs
-  on Ktor's OkHttp engine (`passesAnotherCapture`): `AppMonitorInterceptor`
+  on Ktor's OkHttp engine, or a wrapper answering with its config
+  (`passesAnotherCapture`, ADR-0183): `AppMonitorInterceptor`
   sends a marked request on without the header and captures nothing of it,
   so the call is captured once and the server never sees the mark. Another
   engine never reaches the interceptor, so it sends nothing marked
-  (ADR-0129, ADR-0157). The engine is known by class (`is OkHttpEngine`,
+  (ADR-0129, ADR-0157). The engine is known by class (`config is OkHttpConfig`,
   `ktor-client-okhttp` compile-only), so R8 renaming it in a minified debug
   build changes nothing; `consumer-rules.pro` lets R8 shrink an app without
-  that engine. An app engine that wraps it is captured twice (DEBT-0100).
+  that engine. A wrapper with a config of its own is captured twice.
 - **Masking** is the rule of SDD 05, the same `sdk/core` class (ADR-0181), pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a
@@ -52,7 +53,7 @@ app ── HttpClient { install(AppMonitorKtor) }
 | Event | Sent when | Body |
 | --- | --- | --- |
 | `RequestStarted` | Before the engine, once the headers are final and a request breakpoint let it go | `setBody` of a string, bytes or a serialized object (`ByteArrayContent`), cut at `maxBodyBytes`. A stream (`ChannelWriterContent`, `ReadChannelContent`, multipart, upload progress): not read, empty with `body_truncated` and its length when known. No body: empty, no size. The content's `Content-Type` is added to the headers when absent. |
-| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, its first `maxBodyBytes` read from `rawContent` (DEBT-0083) and the rest counted, not kept (`SavedBodyCaptureTest` on the JVM counts the bytes allocated). A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
+| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, its first `maxBodyBytes` read from `rawContent` and the rest counted, not kept (`SavedBodyCaptureTest` on the JVM counts the bytes allocated). A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
 | `RequestFailed` | The engine or the receive pipeline throws, or the saved body's read is cancelled | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
 
 ### A mocked call
@@ -63,7 +64,7 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 - `RequestStarted` as above, cookies and the capture header included,
   with `mock_rule_id`.
 - After `delay_ms`, a rule's response becomes an `HttpClientCall` built
-  as the engine builds one (DEBT-0083), its context the engine's
+  as the engine builds one, its context the engine's
   dispatcher and a new `Job`; it is set as the pipeline's subject and
   `finish()` skips `Engine` and `Receive`. `ResponseReceived` is sent
   with the whole body. A failure throws a `kotlinx.io.IOException` with
@@ -87,7 +88,7 @@ ADR-0123), the `Monitoring` interceptor suspends in
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
 | Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back (`Content-Type`, and the headers the content itself carries, to a wrapper over the body, so a stream's edit goes out too), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
-| Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`, DEBT-0083) set as the pipeline's subject: the replacement body, the original's channel then cancelled if it was streamed, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
+| Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`) set as the pipeline's subject: the replacement body, the original's channel then cancelled if it was streamed, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
 
 - An abort, or an edit Ktor refuses ("Breakpoint edit refused: …": a
   URL that is not absolute, a method that does not parse), sends
