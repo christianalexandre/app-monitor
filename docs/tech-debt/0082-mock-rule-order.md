@@ -1,10 +1,10 @@
 ---
 id: DEBT-0082
 title: A mock rule cannot be moved in its app's match order
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The first PR that adds a query on `Mock.sq`'s `position`, or a rule a developer needs ahead of an earlier one
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0082 — A mock rule cannot be moved in its app's match order
@@ -37,4 +37,7 @@ trigger.
 
 ## How it was paid
 
-> Filled when closing.
+H6.2 (ADR-0180). "Up" and "Down" in the Mocks and the Breakpoints panels swap a rule
+with its neighbour in its app's order, on the write queue: `MocksTest.aRuleMovesInItsAppsOrderOnly`,
+`BreakpointsTest.aBreakpointMovesInItsAppsOrderOnly`, `MocksUiTest`, `BreakpointsUiTest`, and
+`MockPushTest` for the new order reaching a stand-in device.

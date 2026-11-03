@@ -81,8 +81,9 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   `ExportHar.kt` (DEBT-0109, item 6). Split from H6.2.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`.
-- [ ] **H6.2 Mock rule order.** A mock rule, and a breakpoint with it, moves in its app's
-  order (DEBT-0082).
+- [x] **H6.2 Mock rule order.** (`feat/move-mock-rules`) "Up" and "Down" move a mock rule,
+  and a breakpoint with it, in its app's order, and a device gets the new order
+  (DEBT-0082, ADR-0180).
   Accept: `./gradlew :desktop:storage:test :desktop:data:test :desktop:app:test`.
 - [ ] **H6.3 Kotlin SDKs.** One capture flow for `sdk/android-okhttp` and
   `sdk/ktor` (sink, mocks, breakpoints, replay) and one masking

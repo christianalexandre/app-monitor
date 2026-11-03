@@ -4,6 +4,12 @@ import appmonitor.desktop.storage.db.Mock_rules
 import appmonitor.protocol.Protocol
 import appmonitor.v1.MockRule
 
+/** Which way a rule or a breakpoint moves in its app's match order (ADR-0180). */
+enum class RuleMove {
+    UP,
+    DOWN,
+}
+
 /** Who created a mock rule: one from MCP stays pending until the window confirms it (ADR-0110 F.1, ADR-0005). */
 enum class MockSource(
     internal val stored: String,

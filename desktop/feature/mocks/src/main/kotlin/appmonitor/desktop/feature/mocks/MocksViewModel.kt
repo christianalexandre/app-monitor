@@ -7,6 +7,7 @@ import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.domain.fittingRules
 import appmonitor.v1.MockRule
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,6 +41,13 @@ class MocksViewModel(
 
     fun toggle(mock: Mock) {
         viewModelScope.launch { mocks.update(mock.id, MockChange(enabled = !mock.enabled)) }
+    }
+
+    fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        viewModelScope.launch { mocks.move(id, move) }
     }
 
     fun delete(id: Long) {

@@ -18,6 +18,7 @@ import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.domain.StatusClass
 import appmonitor.desktop.storage.MAX_BREAKPOINT_TIMEOUT_MS
 import appmonitor.desktop.storage.Storage
@@ -285,6 +286,26 @@ class StoredRepositoriesTest {
             mocks.delete(id)
             storage.flush()
             assertEquals(emptyList(), mocks.observeMocks().first())
+        }
+
+    @Test
+    fun `a rule and a breakpoint move through their repositories`() =
+        withStorage { storage ->
+            val mocks = storage.mockRepository()
+            val rule = MockRule(host = "api.test", path = "/users", response = MockResponse(status_code = 503))
+            mocks.create("app", "first", rule, MockSource.WINDOW)
+            val second = (mocks.create("app", "second", rule, MockSource.WINDOW) as MockWrite.Saved).id
+            mocks.move(second, RuleMove.UP)
+            storage.flush()
+            assertEquals(listOf("second", "first"), mocks.mocks().map { it.name })
+
+            val breakpoints = storage.breakpointRepository()
+            val held = BreakpointRule(host = "api.test", path = "/login", request = true, timeout_ms = 30_000)
+            val top = (breakpoints.create("app", "top", held) as BreakpointWrite.Saved).id
+            breakpoints.create("app", "bottom", held)
+            breakpoints.move(top, RuleMove.DOWN)
+            storage.flush()
+            assertEquals(listOf("bottom", "top"), breakpoints.observeBreakpoints().first().map { it.name })
         }
 
     @Test

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +40,7 @@ import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.Breakpoint
 import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.ui.METHODS
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.headersOf
@@ -77,12 +78,12 @@ fun BreakpointList(
         }
         Text("Breakpoints", role = TextRole.Title)
         Text(
-            "The first breakpoint on that matches a call holds it on the device until you resume it, or its timeout passes.",
+            "The first breakpoint on that matches a call holds it on the device until you resume it, or its timeout passes. Up and Down move one in its app's order.",
             role = TextRole.Caption,
         )
         if (breakpoints.isEmpty()) Placeholder("No breakpoints yet: \"New breakpoint\"")
         LazyColumn(Modifier.heightIn(max = 420.dp)) {
-            items(breakpoints, key = { it.id }) { breakpoint ->
+            itemsIndexed(breakpoints, key = { _, breakpoint -> breakpoint.id }) { index, breakpoint ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).selectableItem(false) { editing = breakpoint.id }.padding(vertical = Spacing.sm)) {
                         Text(breakpoint.name, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -97,6 +98,18 @@ fun BreakpointList(
                         if (breakpoint.enabled) "Turn off" else "Turn on",
                         onClick = { viewModel.toggle(breakpoint) },
                         Modifier.testTag(TOGGLE_BREAKPOINT + breakpoint.id),
+                    )
+                    TextButton(
+                        "Up",
+                        onClick = { viewModel.move(breakpoint.id, RuleMove.UP) },
+                        Modifier.testTag(MOVE_BREAKPOINT_UP + breakpoint.id),
+                        enabled = breakpoints.getOrNull(index - 1)?.appId == breakpoint.appId,
+                    )
+                    TextButton(
+                        "Down",
+                        onClick = { viewModel.move(breakpoint.id, RuleMove.DOWN) },
+                        Modifier.testTag(MOVE_BREAKPOINT_DOWN + breakpoint.id),
+                        enabled = breakpoints.getOrNull(index + 1)?.appId == breakpoint.appId,
                     )
                 }
             }

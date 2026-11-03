@@ -48,6 +48,50 @@ class MocksTest {
         }
 
     @Test
+    fun aRuleMovesInItsAppsOrderOnly() =
+        withDataDir { dir ->
+            var storage = Storage.open(dir)
+            runBlocking {
+                val first = saved(storage.createMock(APP, "first", unavailable, MockSource.WINDOW))
+                val elsewhere = saved(storage.createMock("other.app", "elsewhere", unavailable, MockSource.WINDOW))
+                val second = saved(storage.createMock(APP, "second", reset, MockSource.WINDOW))
+                val third = saved(storage.createMock(APP, "third", reset, MockSource.WINDOW))
+                storage.deleteMock(second)
+                val fourth = saved(storage.createMock(APP, "fourth", unavailable, MockSource.WINDOW))
+
+                suspend fun order() = storage.observeActiveMocks(APP).first().map { it.id }
+
+                storage.moveMock(fourth, RuleMove.UP)
+                storage.flush()
+                assertEquals(listOf(first, fourth, third), order(), "over a gap a delete left")
+                storage.moveMock(first, RuleMove.DOWN)
+                storage.flush()
+                assertEquals(listOf(fourth, first, third), order())
+
+                storage.moveMock(fourth, RuleMove.UP)
+                storage.moveMock(third, RuleMove.DOWN)
+                storage.moveMock(elsewhere, RuleMove.UP)
+                storage.moveMock(elsewhere + 100, RuleMove.UP)
+                storage.flush()
+                assertEquals(listOf(fourth, first, third), order(), "nothing past either end, nor for an unknown rule")
+                assertEquals(listOf(elsewhere), storage.observeActiveMocks("other.app").first().map { it.id })
+
+                val pending = saved(storage.createMock(APP, "agent", reset, MockSource.MCP))
+                storage.moveMock(pending, RuleMove.UP)
+                storage.flush()
+                assertEquals(listOf(fourth, first, third), order(), "a pending rule moves unseen by a device")
+                assertTrue(storage.mocks().single { it.id == pending }.pending)
+                saved(storage.confirmMock(pending))
+                assertEquals(listOf(fourth, first, pending, third), order())
+
+                storage.close(5.seconds)
+                storage = Storage.open(dir)
+                assertEquals(listOf(fourth, first, pending, third), order(), "kept across a reopen")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun theActiveRulesAreObservedAgainOnlyWhenTheyChange() =
         withDataDir { dir ->
             val storage = Storage.open(dir)

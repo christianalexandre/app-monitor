@@ -346,6 +346,14 @@ class Storage private constructor(
         queue.enqueue(StorageItem.DeleteMock(id))
     }
 
+    /** Queues swapping rule [id] with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun moveMock(
+        id: Long,
+        move: RuleMove,
+    ) {
+        queue.enqueue(StorageItem.MoveMock(id, move, clock()))
+    }
+
     /** Queues a breakpoint for [appId], last in its match order and on (ADR-0118). */
     suspend fun createBreakpoint(
         appId: String,
@@ -370,6 +378,14 @@ class Storage private constructor(
     private suspend fun saveBreakpoint(item: StorageItem.SaveBreakpoint): BreakpointWrite {
         if (!queue.enqueue(item)) return BreakpointWrite.NotSaved
         return item.done.await()
+    }
+
+    /** Queues swapping breakpoint [id] with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun moveBreakpoint(
+        id: Long,
+        move: RuleMove,
+    ) {
+        queue.enqueue(StorageItem.MoveBreakpoint(id, move, clock()))
     }
 
     /** Queues deleting breakpoint [id]. */
