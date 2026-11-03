@@ -19,9 +19,8 @@ import kotlinx.serialization.json.long
 import okio.ByteString.Companion.encodeUtf8
 
 /**
- * The `--mocks` file: `{"rules": [...]}`, each rule `id`, `host`, `path`, optional `method` and `delay_ms`, and either
- * `response` (`status_code`, optional `headers` of `name` and `value`, optional UTF-8 `body`) or `failure`
- * (`message`), as `interaction.proto` names them. Throws [IllegalArgumentException] on anything else.
+ * The `--mocks` file, `{"rules": [...]}`, its fields as `interaction.proto` names them and a `response`'s `body` in
+ * UTF-8. Throws [IllegalArgumentException] on anything else.
  */
 internal fun readMockRules(text: String): MockRules {
     val rules =

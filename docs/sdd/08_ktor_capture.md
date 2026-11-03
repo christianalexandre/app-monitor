@@ -87,7 +87,7 @@ ADR-0123), the `Monitoring` interceptor suspends in
 
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
-| Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back (`Content-Type`, and the headers the content itself carries, to a wrapper over the body, so a stream's edit goes out too), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
+| Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back, a `██` left in an edited URL or header group going out as the device's own (ADR-0185) (`Content-Type`, and the headers the content itself carries, to a wrapper over the body, so a stream's edit goes out too), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
 | Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`) set as the pipeline's subject: the replacement body, the original's channel then cancelled if it was streamed, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
 
 - An abort, or an edit Ktor refuses ("Breakpoint edit refused: …": a

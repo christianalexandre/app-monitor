@@ -19,13 +19,16 @@ public sealed class BreakpointOutcome {
     public class Resume(
         public val changes: BreakpointResume?,
     ) : BreakpointOutcome() {
-        /** [headers] with the resume's `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1). */
-        public fun headers(headers: List<Pair<String, String>>): List<Pair<String, String>> {
+        /** [headers] with the resume's `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1, ADR-0185). */
+        public fun headers(
+            headers: List<Pair<String, String>>,
+            masking: Masking,
+        ): List<Pair<String, String>> {
             val resume = changes ?: return headers
             val set = resume.set_headers.mapTo(HashSet()) { it.name.lowercase() }
             val removed = resume.removed_headers.mapTo(HashSet()) { it.lowercase() }
             val kept = headers.filter { (name, _) -> name.lowercase().let { it !in set && it !in removed } }
-            return kept + resume.set_headers.map { it.name to it.value_ }
+            return kept + masking.restoredHeaders(resume.set_headers, headers)
         }
 
         /** True when [headers] would change. */

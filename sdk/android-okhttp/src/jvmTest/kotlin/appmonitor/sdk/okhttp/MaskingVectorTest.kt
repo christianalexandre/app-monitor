@@ -18,13 +18,9 @@ import kotlin.test.assertTrue
 
 // The same file is read by sdk/ios MaskingTests (ADR-0036 A).
 class MaskingVectorTest {
-    private val cases: List<JsonObject> =
-        Json
-            .parseToJsonElement(File(System.getProperty("appmonitor.maskingVector")).readText())
-            .jsonObject
-            .getValue("cases")
-            .jsonArray
-            .map { it.jsonObject }
+    private val vector = Json.parseToJsonElement(File(System.getProperty("appmonitor.maskingVector")).readText()).jsonObject
+    private val cases: List<JsonObject> = vector.getValue("cases").jsonArray.map { it.jsonObject }
+    private val restores: List<JsonObject> = vector.getValue("restores").jsonArray.map { it.jsonObject }
 
     @Test
     fun everyCaseMasksAsTheVectorSays() {
@@ -46,6 +42,28 @@ class MaskingVectorTest {
             assertEquals(
                 case.headers("maskedResponseHeaders"),
                 masking.headers(headersOf(*case.pairs("responseHeaders")).toList(), base = url),
+                name,
+            )
+        }
+    }
+
+    @Test
+    fun everyRestoreGoesBackAsTheVectorSays() {
+        assertTrue(restores.isNotEmpty())
+        for (case in restores) {
+            val name = case.string("name")
+            val masking =
+                okHttpMasking(
+                    AppMonitorOptions(
+                        maskedHeaders = case.strings("maskedHeaders"),
+                        maskedQueryParameters = case.strings("maskedQueryParameters"),
+                        masking = case["masking"]?.jsonPrimitive?.boolean ?: true,
+                    ),
+                )
+            assertEquals(case.string("restoredUrl"), masking.restoredUrl(case.string("editedUrl"), case.string("url")), name)
+            assertEquals(
+                case.headers("restoredHeaders").map { it.name to it.value_ },
+                masking.restoredHeaders(case.headers("editedHeaders"), case.headers("headers").map { it.name to it.value_ }),
                 name,
             )
         }

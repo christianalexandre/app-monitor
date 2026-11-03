@@ -124,7 +124,7 @@ does is `sdk/core`'s `CallCapture`, the same as Ktor's (ADR-0182):
 
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
-| Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value. `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
+| Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value, and one left in an edited URL or header group too (ADR-0185). `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
 | Response | After `chain.proceed` or a mock's answer, before the app reads the body (not for `101`) | The request as sent and the response, its body peeked up to `maxBodyBytes` (`BufferedSource.peek`, not consumed) | The resume's status and headers applied; a replaced body is the app's whole body and `ResponseReceived` is sent at once with it; otherwise the body is captured as the app reads it |
 
 - An abort, a cancel or an interrupt during the wait, or an edit OkHttp

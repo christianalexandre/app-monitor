@@ -267,13 +267,28 @@ struct MaskingTests {
             let maskedResponseHeaders: [[String]]?
         }
 
+        struct Restore: Decodable {
+            let name: String
+            let maskedHeaders: Set<String>?
+            let maskedQueryParameters: Set<String>?
+            let masking: Bool?
+            let url: String
+            let editedUrl: String
+            let restoredUrl: String
+            let headers: [[String]]?
+            let editedHeaders: [[String]]?
+            let restoredHeaders: [[String]]?
+        }
+
         let cases: [Case]
+        let restores: [Restore]
     }
 
-    static let cases: [Vector.Case] = {
+    static let vector: Vector = {
         let data = try! FixtureTests.fixture("masking.json")
-        return try! JSONDecoder().decode(Vector.self, from: data).cases
+        return try! JSONDecoder().decode(Vector.self, from: data)
     }()
+    static let cases = vector.cases
 
     // The same file is read by the OkHttp MaskingVectorTest (ADR-0036 A).
     @Test(arguments: cases.map(\.name))
@@ -292,6 +307,22 @@ struct MaskingTests {
         #expect(flat(masking.headers(pairs(vector.requestHeaders))) == vector.maskedRequestHeaders ?? [])
         let base = URL(string: vector.url)
         #expect(flat(masking.headers(pairs(vector.responseHeaders), base: base)) == vector.maskedResponseHeaders ?? [])
+    }
+
+    @Test(arguments: vector.restores.map(\.name))
+    func restoreGoesBackAsTheVectorSays(name: String) throws {
+        let vector = try #require(Self.vector.restores.first { $0.name == name })
+        let masking = Masking(
+            AppMonitorOptions(
+                maskedHeaders: vector.maskedHeaders ?? [],
+                maskedQueryParameters: vector.maskedQueryParameters ?? [],
+                masking: vector.masking ?? true
+            )
+        )
+        #expect(masking.restoredURL(vector.editedUrl, own: vector.url) == vector.restoredUrl)
+        let edited = (vector.editedHeaders ?? []).map { header($0[0], $0[1]) }
+        let own = (vector.headers ?? []).map { (name: $0[0], value: $0[1]) }
+        #expect(masking.restoredHeaders(edited, own: own).map { [$0.name, $0.value] } == vector.restoredHeaders ?? [])
     }
 
     // Below iOS 17 such a request URL exists: `URL` takes it, `URLComponents` does not (ADR-0170).

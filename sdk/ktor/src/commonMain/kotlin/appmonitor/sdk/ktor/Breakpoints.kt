@@ -15,6 +15,8 @@ import io.ktor.http.HeadersBuilder
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLParserException
+import io.ktor.http.Url
 import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.takeFrom
@@ -36,7 +38,7 @@ internal suspend fun CallCapture.holdRequest(
 ): OutgoingContent {
     val rule = requestBreakpoint(request.method.value, request.url.buildString()) ?: return content
     val started = requestStarted(id, request, content, masking, content.capture(limit), replayOf = replayOf)
-    return holdRequest(rule, started, { sink.hold(it) }) { edit(request, content, it) }
+    return holdRequest(rule, started, { sink.hold(it) }) { edit(request, content, it, masking) }
 }
 
 /** [content] with [type] and [headers] in place of its own, its bytes and how they are sent left as they are. */
@@ -53,18 +55,28 @@ private fun edit(
     request: HttpRequestBuilder,
     content: OutgoingContent,
     outcome: BreakpointOutcome.Resume,
+    masking: Masking,
 ): OutgoingContent {
     val changes = outcome.changes ?: return content
     changes.method?.let { request.method = HttpMethod.parse(it) }
     changes.url?.let {
-        if (!ABSOLUTE.containsMatchIn(it)) throw IOException("${CallCapture.EDIT_REFUSED}not a URL: $it")
-        request.url.takeFrom(it)
+        // The reason reaches the desktop: the URL as it came, never the restored one (ADR-0185).
+        val refused = IOException("${CallCapture.EDIT_REFUSED}not a URL: $it")
+        if (!ABSOLUTE.containsMatchIn(it)) throw refused
+        val url =
+            try {
+                Url(masking.restoredUrl(it, request.url.buildString()))
+            } catch (_: URLParserException) {
+                throw refused
+            }
+        // takeFrom(String) would add its query to the builder's, and keep a fragment or user info the edit dropped.
+        request.url.takeFrom(url)
     }
     var type = content.contentType
     var own = content.headers
     if (outcome.changesHeaders) {
         val carried = content.headers.names().mapTo(HashSet()) { it.lowercase() }
-        val edited = outcome.headers(capturedHeaders(request, content))
+        val edited = outcome.headers(capturedHeaders(request, content), masking)
         type = edited.firstOrNull { it.first.equals(HttpHeaders.ContentType, ignoreCase = true) }?.let { ContentType.parse(it.second) }
         val kept = HeadersBuilder()
         request.headers.clear()
@@ -124,7 +136,7 @@ internal suspend fun CallCapture.holdResponse(
         }
     val headers =
         Headers.build {
-            for ((name, value) in resume.headers(response.headers.pairs())) append(name, value)
+            for ((name, value) in resume.headers(response.headers.pairs(), masking)) append(name, value)
         }
     val edited =
         builtCall(

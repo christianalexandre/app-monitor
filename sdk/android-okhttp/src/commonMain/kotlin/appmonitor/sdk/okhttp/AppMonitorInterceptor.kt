@@ -123,7 +123,7 @@ public class AppMonitorInterceptor : Interceptor {
         val body = request.body.capture(limit)
         val started = requestStarted(capture.id, request, masking, body, replayOf = replayOf)
         return capture.holdRequest(rule, started, { hold(call, it) }) { resume ->
-            if (resume.changesRequest) edited(request, resume, network) to null else request to body
+            if (resume.changesRequest) edited(request, resume, masking, network) to null else request to body
         }
     }
 
@@ -131,11 +131,17 @@ public class AppMonitorInterceptor : Interceptor {
     private fun edited(
         request: Request,
         outcome: BreakpointOutcome.Resume,
+        masking: Masking,
         network: Boolean,
     ): Request {
         val changes = checkNotNull(outcome.changes)
-        val headers = headersOf(outcome.headers(request.headers.toList()))
-        val url = changes.url?.let { it.toHttpUrlOrNull() ?: throw IOException("${CallCapture.EDIT_REFUSED}not a URL: $it") } ?: request.url
+        val headers = headersOf(outcome.headers(request.headers.toList(), masking))
+        // The reason reaches the desktop: the URL as it came, never the restored one (ADR-0185).
+        val url =
+            changes.url?.let {
+                masking.restoredUrl(it, request.url.toString()).toHttpUrlOrNull()
+                    ?: throw IOException("${CallCapture.EDIT_REFUSED}not a URL: $it")
+            } ?: request.url
         if (network && (url.host != request.url.host || url.port != request.url.port)) {
             throw IOException("${CallCapture.EDIT_REFUSED}a network interceptor keeps the host and port")
         }
@@ -181,7 +187,7 @@ public class AppMonitorInterceptor : Interceptor {
                 { response.close() },
             ) ?: return response to body
         val changes = checkNotNull(resume.changes)
-        val headers = headersOf(resume.headers(response.headers.toList()))
+        val headers = headersOf(resume.headers(response.headers.toList(), masking))
         val edited = response.newBuilder().code(changes.status_code ?: response.code).headers(headers)
         val replaced = changes.body ?: return edited.build() to body
         response.close()

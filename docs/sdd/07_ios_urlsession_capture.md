@@ -124,7 +124,8 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
   getter. A request rule: the hook sends no `RequestStarted`; the protocol
   sends `BreakpointHit` with the request (masked, no mock id) and waits on
   the loading thread's run loop. A resume applies only its fields (method,
-  URL, `set_headers` and `removed_headers` by name, body); the mock is
+  URL, `set_headers` and `removed_headers` by name, body), a `██` left in
+  an edited URL or header going out as the device's own (ADR-0185); the mock is
   matched on the request as resumed; then one `RequestStarted` with what
   goes out. An abort sends the held `RequestStarted` and fails the task
   as a mock failure; a URL that is not `http` or `https` with a host, or

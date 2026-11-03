@@ -26,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -122,6 +123,65 @@ class BreakpointTest {
                 .request!!
                 .request_id,
         )
+    }
+
+    @Test
+    fun whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() {
+        val sink =
+            RecordingSink(
+                options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                breakpoints = listOf(rule("/items", request = true)),
+            ) { hit ->
+                val edited = hit.request!!.url.replace("id=1", "id=2")
+                BreakpointOutcome.Resume(
+                    BreakpointResume(
+                        request_id = hit.request!!.request_id,
+                        stage = request,
+                        url = edited,
+                        set_headers = listOf(Header("Cookie", MASK), Header("Cookie", "new")),
+                    ),
+                )
+            }
+        server.enqueue(reply("ok"))
+        val call =
+            Request
+                .Builder()
+                .url(server.url("/items?token=real&id=1"))
+                .addHeader("Cookie", "a=1")
+                .addHeader("Cookie", "b=2")
+                .build()
+
+        client(sink).newCall(call).execute().use { assertEquals("ok", it.body.string()) }
+
+        val hit = sink.hits.poll(5, TimeUnit.SECONDS)!!
+        assertTrue(hit.request!!.url.endsWith("?token=$MASK&id=1"))
+        val sent = server.takeRequest()
+        assertEquals("token=real&id=2", sent.url.encodedQuery)
+        assertEquals(listOf("a=1", "new"), sent.headers.values("Cookie"))
+        assertTrue(sink.started().url.endsWith("?token=$MASK&id=2"))
+    }
+
+    @Test
+    fun aRefusedEditDoesNotTellTheDesktopWhatItRestored() {
+        val sink =
+            RecordingSink(
+                options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                breakpoints = listOf(rule("/items", request = true)),
+            ) {
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = it.request!!.request_id, stage = request, url = "not a url?token=$MASK"),
+                )
+            }
+
+        val error =
+            assertFailsWith<IOException> {
+                client(sink).newCall(Request.Builder().url(server.url("/items?token=real")).build()).execute()
+            }
+
+        assertContains(error.message!!, "not a URL")
+        assertFalse("real" in error.message!!)
+        sink.started()
+        assertFalse("real" in sink.failed().error)
     }
 
     @Test
