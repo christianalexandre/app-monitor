@@ -328,7 +328,8 @@ options turns that off ([SDD 07](docs/sdd/07_ios_urlsession_capture.md)). A work
 **Nothing in the desktop?** The SDK says why once, in Xcode's console
 (subsystem `AppMonitor`): on a device, the Run Script's keys missing from
 `Info.plist`, or local network access denied in *Settings → Privacy &
-Security → Local Network*; anywhere, a desktop it cannot reach.
+Security → Local Network*; anywhere, a desktop it cannot reach or one it is
+not paired with. Console shows the same lines without Xcode.
 `AppMonitorOptions(host: "192.168.1.20")` skips discovery.
 
 ```swift

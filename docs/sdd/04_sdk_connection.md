@@ -119,7 +119,10 @@ Every client reads mDNS answers through `protocol` `DesktopSelector`
   for a later one of the same name, then uses `/v1/ws`.
 - With a pinned desktop, only an answer whose TXT key `id` is that id is
   kept: other ids, a TXT without `id`, and answers before their TXT are
-  skipped, so the round ends at the fallback host or the 5 s bound.
+  skipped, so the round ends at the fallback host or the 5 s bound. The
+  first answer whose TXT shows another desktop logs one line per client
+  (`DesktopSelector.refuses`), since on a device nothing else says why;
+  with the pinned desktop on the same LAN that line is all it costs.
 - Resolves never block the browser's listener: JmDNS resolves run on their
   own coroutine; `NsdManager` uses `registerServiceInfoCallback` from API
   34 and one `resolveService` at a time below it.
@@ -228,7 +231,7 @@ throw. Only these differ from the JVM:
 | mDNS | `NsdManager` | `nw_browser` with TXT records for names and `path`; each new name resolved by `DNSServiceResolve` then `DNSServiceGetAddrInfo` (IPv4), no probe connection (ADR-0068). A browser that fails, or waits on `PolicyDenied`, logs once per client and finds nothing |
 | Timestamps | `kotlin.time.Clock.System` | Same |
 | Socket errors | `kotlinx.io.IOException` | Same |
-| `platformLog` | `Log.w` / stderr | `NSLog` |
+| `platformLog` | `Log.w` / stderr | `NSLog`, the message as its escaped format: a vararg call ends the process (ADR-0173) |
 | Connect failure hint | `ACCESS_LOCAL_NETWORK` (Android) | `NSLocalNetworkUsageDescription` and `NSBonjourServices` (ADR-0063 B.1) |
 | `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; cancelling a connect may leak its socket (DEBT-0053) |
 | Threads | `Dispatchers.Default` | `Dispatchers.Default`, the native worker pool; nothing runs on the main thread, so `start()` from the app's main thread does no I/O |

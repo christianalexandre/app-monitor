@@ -18,7 +18,8 @@ import platform.posix.link
 import platform.posix.open
 
 internal actual fun platformLog(message: String) {
-    NSLog("AppMonitor: %@", message)
+    // ADR-0173: a vararg here ends the process.
+    NSLog("AppMonitor: ${message.replace("%", "%%")}")
 }
 
 // ADR-0063 B.1

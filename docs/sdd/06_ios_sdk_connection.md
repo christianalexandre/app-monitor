@@ -42,7 +42,8 @@ Answers go through the same selection rule as `DesktopSelector` (ADR-0024):
 first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
 `/v1/ws`; with a pinned desktop only an answer whose TXT `id` is that id
-(SDD 04, *Pinned desktop*, ADR-0168). The pin is `FileDesktopPin` in
+(SDD 04, *Pinned desktop*, ADR-0168), the first other one logged once per
+client. The pin is `FileDesktopPin` in
 `Device.swift`, the same file as `sdk/core`'s; `handleAck` checks it as
 `sdk/core` does, a manual `host` excepted. A browser in `.waiting` or `.failed` with
 `kDNSServiceErr_PolicyDenied` logs one line per client pointing at
@@ -50,8 +51,8 @@ compared case-insensitively, TXT `path` waited for up to 500 ms, then
 later versions wait on it); one failed otherwise logs one naming
 `NSLocalNetworkUsageDescription` and `NSBonjourServices`. Either counts as
 found nothing. These lines and the connect failure's are `Logger` errors
-(subsystem `AppMonitor`), so Console and the device's syslog show them
-without Xcode. On a device without
+(subsystem `AppMonitor`, `sdkLog`), `.public` so Console and the device's
+syslog show them without Xcode (ADR-0173). On a device without
 `host`, the client also reads `Bundle.main.infoDictionary` when it starts
 and logs once the keys of [Info.plist keys](#infoplist-keys) it lacks
 (ADR-0162).

@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Streams the app's traffic to the desktop; call `start(_:)` in `App.init` or
 /// `application(_:didFinishLaunchingWithOptions:)` (ADR-0035), under `#if DEBUG`: release builds exclude the SDK (ADR-0155).
@@ -12,7 +11,7 @@ public enum AppMonitor {
             if options.captureConnections { _ = ConnectionCapture.install() }
         }
         monitor.start(options) { options in
-            let log: @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") }
+            let log: @Sendable (String) -> Void = sdkLog
             let pin = FileDesktopPin(file: defaultDesktopPinFile())
             return MonitorClient(
                 hello: { appleHello(appName: options.appName) },

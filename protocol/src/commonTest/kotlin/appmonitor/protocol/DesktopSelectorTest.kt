@@ -74,6 +74,17 @@ class DesktopSelectorTest {
     }
 
     @Test
+    fun onlyAnAnswerWhoseTxtShowsAnotherDesktopIsRefused() {
+        val selector = DesktopSelector(pinnedId = "pinned")
+
+        assertTrue(selector.refuses(answer("Colleague", path = "/v1/ws", id = "other")))
+        assertTrue(selector.refuses(answer("Old", path = "/v1/ws")))
+        assertFalse(selector.refuses(answer("Unknown yet", path = null)))
+        assertFalse(selector.refuses(answer("Mine", path = "/v1/ws", id = "pinned")))
+        assertFalse(DesktopSelector().refuses(answer("Any", path = "/v1/ws", id = "other")))
+    }
+
+    @Test
     fun aPinnedDesktopKeepsItsIdOnALaterAnswerWithoutTxt() {
         val selector = DesktopSelector(pinnedId = "pinned")
 

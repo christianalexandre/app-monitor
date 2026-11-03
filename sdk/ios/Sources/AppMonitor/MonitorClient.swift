@@ -2,6 +2,11 @@ import Foundation
 import Network
 import os
 
+/// The SDK's line for Console and the device's syslog; private, it reads `<private>` there (ADR-0173).
+@Sendable func sdkLog(_ line: String) {
+    Logger(subsystem: "AppMonitor", category: "sdk").error("\(line, privacy: .public)")
+}
+
 /// Where a desktop listens; `checksPin` false for a manual host, which neither checks nor pins (ADR-0168).
 struct Endpoint: Equatable, Sendable {
     var host: String
@@ -92,7 +97,7 @@ final class MonitorClient: @unchecked Sendable {
         hello: @escaping @Sendable () -> Appmonitor_V1_Hello,
         discover: @escaping Discover,
         config: ClientConfig = ClientConfig(),
-        log: @escaping @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").error("\($0)") },
+        log: @escaping @Sendable (String) -> Void = sdkLog,
         random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) },
         pin: DesktopPin? = nil
     ) {

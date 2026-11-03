@@ -208,7 +208,7 @@ This plan becomes `Active` once PLAN-0014 closes.
   sockets open, failing when a pending count never settles.
   Done: `LostLedger` keeps the count pending until the previous session closes
   (ADR-0172); `TrafficStore` stores it with the app idle.
-- [ ] **H5.R2 A refused desktop is said so.** On a physical device, mDNS answers
+- [x] **H5.R2 A refused desktop is said so.** (`fix/refused-desktop-logged`) On a physical device, mDNS answers
   from a desktop other than the pinned one are dropped with no log, so the
   discovery times out and backs off for good: a device moved to another desktop
   (ADR-0168, consequence A) shows nothing, and the refusal line is only reached
@@ -218,6 +218,12 @@ This plan becomes `Active` once PLAN-0014 closes.
   Accept: `./gradlew :protocol:allTests :sdk:core:allTests`, `make swift`, a test
   in each SDK of an answer refused and logged once; `log show` with the message
   readable on a build not attached to a debugger.
+  Done: both SDKs log the first answer whose TXT shows another desktop, once
+  per client; the sample without a debugger reads it in `log show`. The
+  simulator redacts nothing, so `.public` was proved on macOS, old form
+  `<private>` (ADR-0173); no physical iPhone was run. Added: the first line to
+  reach `sdk/core`'s iOS `platformLog` in its tests segfaulted, its `NSLog`
+  vararg; fixed here.
 
 ## Outcome
 
