@@ -59,14 +59,19 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   filter table (DEBT-0104); DEBT-0093's items in `Ingest.kt` and `LiveTraffic.kt`.
   Split from H6.2.
   Accept: `./gradlew :desktop:storage:test :desktop:storage:verifySqlDelightMigration`.
-- [ ] **H6.2 Desktop store, proxy and controllers.** The title bar follows a theme at
-  once (DEBT-0095); one switch and lifecycle for the MCP and proxy
-  controllers (DEBT-0102); DEBT-0106's two proxy items; the MCP tools' closing
-  check in one place and the packaged server's version (DEBT-0071, DEBT-0072,
-  DEBT-0073, DEBT-0074); the H2 and H3 review findings (DEBT-0092,
-  DEBT-0093's `Recorder.kt` and `DeviceApproval.kt` items), and the H4 ones in
-  `ProxyController.kt`, `ProxyCa.kt` and `ExportHar.kt` (DEBT-0109, items 3, 4
-  and 6); a mock rule moves in its app's order (DEBT-0082); "Clear all data" keeps the desktop id in one step (DEBT-0120, item 1).
+- [x] **H6.2c One switch for the MCP server and the proxy.** (`refactor/service-switch`)
+  `ServiceSwitch` holds what `McpController` and `ProxyController` repeated
+  (DEBT-0102), writing the switch under its lock (DEBT-0106, DEBT-0109 item 3), and
+  its tests hold each step on a gate, so `readSwitch` and the 2,000-round races go
+  (DEBT-0072, DEBT-0073). An expired CA keeps one leaf per host (DEBT-0106,
+  DEBT-0109 item 4). The packaged server says its version (DEBT-0071). Split from H6.2.
+  Accept: `./gradlew :desktop:app:test :desktop:proxy:test`.
+- [ ] **H6.2 Desktop store and windows.** The title bar follows a theme at
+  once (DEBT-0095); the MCP tools' closing check in one place (DEBT-0074); the H2
+  and H3 review findings (DEBT-0092, DEBT-0093's `Recorder.kt` and
+  `DeviceApproval.kt` items), and the H4 one in `ExportHar.kt` (DEBT-0109, item 6);
+  a mock rule moves in its app's order (DEBT-0082); "Clear all data" keeps the
+  desktop id in one step (DEBT-0120, item 1).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`; a theme picked in Settings repaints
   the title bar (screenshot).

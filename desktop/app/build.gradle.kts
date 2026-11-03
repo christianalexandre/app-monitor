@@ -24,6 +24,7 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(project(":tools:fake-client"))
     testImplementation(libs.ktor.client.cio)
     testImplementation(testFixtures(project(":desktop:mcp")))
@@ -32,6 +33,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
+        jvmArgs += "-Dappmonitor.version=${providers.gradleProperty("VERSION_NAME").get()}"
 
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {

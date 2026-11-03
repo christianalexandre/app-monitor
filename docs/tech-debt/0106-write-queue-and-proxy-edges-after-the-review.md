@@ -1,10 +1,10 @@
 ---
 id: DEBT-0106
 title: Four edges left in the write queue and the proxy after #313
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyCa.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt` pays the items in that file"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0106 — Four edges left in the write queue and the proxy after #313
@@ -52,4 +52,13 @@ two are placed in PLAN-0016's H6.2.
 
 ## How it was paid
 
-> Filled when closing.
+The two items left are paid by PLAN-0016 H6.2c (`refactor/service-switch`); H6.2a paid the `WriteQueue.kt` ones.
+
+- **The stored switch.** `ServiceSwitch.set` writes under the lock, the value as it
+  is then, so the last call to take it stores what it applies
+  (`ServiceSwitchTest`'s "two switches at once", which fails with the write outside).
+- **The expired CA.** Past the CA's end a host keeps its one leaf
+  (`ProxyServerTest`'s "past the ca's end", which fails without the check). The client
+  still refuses it, as any client would refuse this CA. Replacing the CA while running
+  would not help: the new one has to be trusted again by hand. The switch off and on,
+  or "Reset CA", makes a new one, as a relaunch does.

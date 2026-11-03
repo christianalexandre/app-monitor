@@ -8,8 +8,6 @@ import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -18,8 +16,6 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Files
-import java.util.concurrent.CountDownLatch
-import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -31,8 +27,6 @@ import kotlin.test.assertTrue
 private const val INITIALIZE =
     """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},""" +
         """"clientInfo":{"name":"raw","version":"1"}}}"""
-
-private const val RACE_ROUNDS = 2_000
 
 class McpWiringTest {
     private val loopback = InetAddress.getByName("127.0.0.1")
@@ -120,54 +114,6 @@ class McpWiringTest {
         }
 
     @Test
-    fun switchTurnedOffDuringStartsReadStaysOff() =
-        withStorage { storage ->
-            val reading = CompletableDeferred<Unit>()
-            val stored = CompletableDeferred<String?>()
-            val mcp =
-                McpController(storage, LiveTraffic(), runBlocking { McpAccess.open(storage.settingRepository()) }, 0) {
-                    reading.complete(Unit)
-                    stored.await()
-                }
-
-            runBlocking {
-                val start = launch { mcp.start() }
-                reading.await()
-                mcp.setEnabled(false)
-                stored.complete(null)
-                start.join()
-                storage.flush()
-            }
-
-            assertEquals(false, mcp.enabled.value)
-            assertEquals(ServiceStatus.Off, mcp.status.value)
-            assertEquals("false", runBlocking { storage.setting(McpController.KEY_ENABLED) })
-            runBlocking { mcp.close() }
-        }
-
-    @Test
-    fun switchTurnedOffAsStartWritesItEndsOff() =
-        withStorage { storage ->
-            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
-            repeat(RACE_ROUNDS) { round ->
-                val read = CountDownLatch(1)
-                val mcp =
-                    McpController(storage, LiveTraffic(), access, 0) {
-                        read.countDown()
-                        null
-                    }
-                val off = thread { read.await().also { runBlocking { mcp.setEnabled(false) } } }
-
-                runBlocking { mcp.start() }
-                off.join()
-
-                assertEquals(false, mcp.enabled.value, "round $round")
-                assertEquals(ServiceStatus.Off, mcp.status.value, "round $round")
-                runBlocking { mcp.close() }
-            }
-        }
-
-    @Test
     fun clearAllRegeneratesTheTokenAndKeepsTheSwitch() =
         withStorage { storage ->
             val access = runBlocking { McpAccess.open(storage.settingRepository()) }
@@ -203,6 +149,18 @@ class McpWiringTest {
         }
 
     @Test
+    fun theServerSaysTheVersionItWasGiven() =
+        withStorage { storage ->
+            val access = runBlocking { McpAccess.open(storage.settingRepository()) }
+            val mcp = McpController(storage, LiveTraffic(), access, 0, version = "9.8.7")
+            runBlocking { mcp.start() }
+            val port = assertIs<ServiceStatus.Running>(mcp.status.value).port
+
+            assertTrue(""""version":"9.8.7"""" in post(port, access.token.value).body())
+            runBlocking { mcp.close() }
+        }
+
+    @Test
     fun theCommandCarriesTheAddressAndToken() {
         val command = claudeMcpAdd(47475, McpServer.PATH, "abc")
 
@@ -216,7 +174,12 @@ class McpWiringTest {
     private fun initialize(
         port: Int,
         token: String,
-    ): Int {
+    ): Int = post(port, token).statusCode()
+
+    private fun post(
+        port: Int,
+        token: String,
+    ): HttpResponse<String> {
         val request =
             HttpRequest
                 .newBuilder(URI("http://127.0.0.1:$port${McpServer.PATH}"))
@@ -225,6 +188,6 @@ class McpWiringTest {
                 .header("Accept", "application/json, text/event-stream")
                 .POST(HttpRequest.BodyPublishers.ofString(INITIALIZE))
                 .build()
-        return HttpClient.newHttpClient().use { it.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() }
+        return HttpClient.newHttpClient().use { it.send(request, HttpResponse.BodyHandlers.ofString()) }
     }
 }
