@@ -1,6 +1,7 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.CaptureSink
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.MockResponse
 import appmonitor.v1.MockRule

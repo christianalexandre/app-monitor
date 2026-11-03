@@ -1,6 +1,8 @@
 package appmonitor.sdk.okhttp
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.MASK
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import mockwebserver3.MockResponse

@@ -32,19 +32,20 @@ class MaskingVectorTest {
         for (case in cases) {
             val name = case.string("name")
             val masking =
-                Masking(
+                okHttpMasking(
                     AppMonitorOptions(
                         maskedHeaders = case.strings("maskedHeaders"),
                         maskedQueryParameters = case.strings("maskedQueryParameters"),
                         masking = case["masking"]?.jsonPrimitive?.boolean ?: true,
                     ),
                 )
-            val url = case.string("url").toHttpUrl()
+            // What the interceptor reads: the request's HttpUrl, as a string.
+            val url = case.string("url").toHttpUrl().toString()
             assertEquals(case.string("maskedUrl"), masking.url(url), name)
-            assertEquals(case.headers("maskedRequestHeaders"), masking.headers(headersOf(*case.pairs("requestHeaders"))), name)
+            assertEquals(case.headers("maskedRequestHeaders"), masking.headers(headersOf(*case.pairs("requestHeaders")).toList()), name)
             assertEquals(
                 case.headers("maskedResponseHeaders"),
-                masking.headers(headersOf(*case.pairs("responseHeaders")), base = url),
+                masking.headers(headersOf(*case.pairs("responseHeaders")).toList(), base = url),
                 name,
             )
         }
@@ -52,11 +53,20 @@ class MaskingVectorTest {
 
     @Test
     fun aValueWithNeitherSchemeNorAuthorityIsResolved() {
-        val masking = Masking(AppMonitorOptions(maskedQueryParameters = setOf("code")))
-        val base = "https://auth.example.com/authorize".toHttpUrl()
+        val masking = okHttpMasking(AppMonitorOptions(maskedQueryParameters = setOf("code")))
+        val base = "https://auth.example.com/authorize"
         assertEquals(
             listOf(Header("Location", "https://auth.example.com/not%20a%20url?code=██")),
-            masking.headers(headersOf("Location", "not a url?code=1"), base = base),
+            masking.headers(listOf("Location" to "not a url?code=1"), base = base),
+        )
+    }
+
+    @Test
+    fun aLocationResolvesAsOkHttpFollowsIt() {
+        val masking = okHttpMasking(AppMonitorOptions(maskedQueryParameters = setOf("code")))
+        assertEquals(
+            listOf(Header("Location", "https://██:██@h.example/x?code=██")),
+            masking.headers(listOf("Location" to "https:\\\\user:pw@h.example\\x?code=1"), base = "https://a.example/"),
         )
     }
 

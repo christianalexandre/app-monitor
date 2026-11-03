@@ -1,6 +1,8 @@
 package appmonitor.sdk.okhttp
 
 import appmonitor.protocol.Protocol.CAPTURE_HEADER
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.MonitorSink
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket

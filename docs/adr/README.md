@@ -198,3 +198,4 @@ Rules:
 | [0178](0178-the-macos-title-bar-follows-a-picked-theme-through-jna.md) | The macOS title bar follows a picked theme through JNA | Accepted |
 | [0179](0179-a-write-committed-as-the-store-closes-is-answered-saved.md) | A write committed as the store closes is answered saved | Accepted |
 | [0180](0180-up-and-down-move-a-rule-in-its-apps-order.md) | "Up" and "Down" move a rule in its app's order | Accepted |
+| [0181](0181-one-kotlin-masking-in-sdk-core.md) | One Kotlin masking in sdk/core, each library resolving its own Location | Accepted |

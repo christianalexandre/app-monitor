@@ -1,6 +1,13 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.protocol.Protocol
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.CapturedBody
+import appmonitor.sdk.core.Masking
+import appmonitor.sdk.core.MonitorSink
+import appmonitor.sdk.core.emit
+import appmonitor.sdk.core.newRequestId
+import appmonitor.sdk.core.requestFailed
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.plugins.api.ClientPlugin
 import io.ktor.client.plugins.api.createClientPlugin

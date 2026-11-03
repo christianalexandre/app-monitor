@@ -1,5 +1,12 @@
 package appmonitor.sdk.okhttp
 
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.CapturedBody
+import appmonitor.sdk.core.Masking
+import appmonitor.sdk.core.MonitorSink
+import appmonitor.sdk.core.emit
+import appmonitor.sdk.core.newRequestId
+import appmonitor.sdk.core.requestFailed
 import appmonitor.v1.WebSocketFrame
 import appmonitor.v1.WebSocketFrame.Direction
 import appmonitor.v1.WebSocketFrame.Opcode
@@ -27,7 +34,7 @@ public class AppMonitorWebSocketFactory internal constructor(
         listener: WebSocketListener,
     ): WebSocket {
         val options = sink.options ?: return delegate.newWebSocket(request, listener)
-        val capture = WebSocketCapture(newRequestId(), sink, Masking(options), options.maxBodyBytes)
+        val capture = WebSocketCapture(newRequestId(), sink, okHttpMasking(options), options.maxBodyBytes)
         sink.emit("RequestStarted") { requestStarted(capture.id, request, capture.masking, CapturedBody.NONE) }
         val socket = CapturingWebSocket(capture)
         val tagged = request.newBuilder().tag(WebSocketCapture::class.java, capture).build()

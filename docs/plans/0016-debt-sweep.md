@@ -85,9 +85,15 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   and a breakpoint with it, in its app's order, and a device gets the new order
   (DEBT-0082, ADR-0180).
   Accept: `./gradlew :desktop:storage:test :desktop:data:test :desktop:app:test`.
+- [x] **H6.3a One masking and one sink.** (`refactor/one-kotlin-masking`) `Masking`,
+  `CaptureSink` and the event wrapping in `sdk/core`, each library resolving its own
+  `Location` (DEBT-0055, ADR-0181, half of DEBT-0101). DEBT-0044 was already paid, by
+  PLAN-0015. Split from H6.3.
+  Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
+  :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
+  `make e2e-kmp-android`.
 - [ ] **H6.3 Kotlin SDKs.** One capture flow for `sdk/android-okhttp` and
-  `sdk/ktor` (sink, mocks, breakpoints, replay) and one masking
-  (DEBT-0101, DEBT-0055, DEBT-0044); Ktor's internal API kept behind one
+  `sdk/ktor` (mocks, breakpoints, replay; DEBT-0101); Ktor's internal API kept behind one
   seam, or replaced (DEBT-0083); a Ktor engine that wraps OkHttp's is
   captured once (DEBT-0100); a cancelled iOS connect closes its socket
   (DEBT-0053); path operations safe on Apple (DEBT-0059); the M4 and M9

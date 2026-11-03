@@ -11,10 +11,9 @@ paid_date:
 
 ## What is missing
 
-`sdk/android-okhttp` and `sdk/ktor` each define their own `CaptureSink`
-and `MonitorSink` (`Capture.kt` in both), their own masking
-(DEBT-0055), and their own mock, breakpoint and replay flow around the
-same `MonitorBridge` calls: when to look a mock up, when to hold the
+`sdk/android-okhttp` and `sdk/ktor` share `CaptureSink`, `MonitorSink` and
+`Masking` in `sdk/core` since PLAN-0016 H6.3a (ADR-0181), but each still has
+its own mock, breakpoint and replay flow around the same `CaptureSink` calls: when to look a mock up, when to hold the
 request and the response, what an edit may change, what goes in each
 `BreakpointHit`. A rule written for one is copied by hand into the
 other. Symptom: the two SDKs act differently on the same call. An

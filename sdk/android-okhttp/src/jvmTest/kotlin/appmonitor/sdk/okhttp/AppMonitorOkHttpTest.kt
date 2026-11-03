@@ -80,7 +80,8 @@ class AppMonitorOkHttpWebSocketTest {
 
     @Test
     fun `lets OkHttp open the factory's own socket`() {
-        val tagged = request { tag(WebSocketCapture::class.java, WebSocketCapture("id", RecordingSink(), Masking(AppMonitorOptions()), 0)) }
+        val tagged =
+            request { tag(WebSocketCapture::class.java, WebSocketCapture("id", RecordingSink(), okHttpMasking(AppMonitorOptions()), 0)) }
 
         assertNull(AppMonitorOkHttp.newWebSocket(OkHttpClient(), tagged, listener, RecordingSink()))
     }

@@ -38,7 +38,7 @@ app ── HttpClient { install(AppMonitorKtor) }
   `ktor-client-okhttp` compile-only), so R8 renaming it in a minified debug
   build changes nothing; `consumer-rules.pro` lets R8 shrink an app without
   that engine. An app engine that wraps it is captured twice (DEBT-0100).
-- **Masking** is the rule of SDD 05, member for member, pinned by
+- **Masking** is the rule of SDD 05, the same `sdk/core` class (ADR-0181), pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a
   `name=value&…` fragment, URL user info, `Location` and
@@ -164,4 +164,3 @@ event never throws into the app's call: a failure drops that event.
 - On Darwin, Ktor may end a session by cancellation before the peer's close
   reaches it; the app's `incoming` then fails and no received close is
   recorded, plugin installed or not (ADR-0070).
-- Two Kotlin implementations of the masking rule exist (DEBT-0055).

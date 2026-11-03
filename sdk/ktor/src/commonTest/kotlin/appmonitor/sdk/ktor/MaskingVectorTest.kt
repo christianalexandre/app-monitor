@@ -1,6 +1,7 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.Masking
 import appmonitor.v1.Header
 import io.ktor.http.URLBuilder
 import kotlinx.serialization.json.Json
@@ -12,7 +13,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 // The same vector is read by sdk/ios MaskingTests and sdk/android-okhttp (ADR-0036 A).
@@ -44,32 +44,6 @@ class MaskingVectorTest {
             assertEquals(case.headers("maskedRequestHeaders"), masking.headers(case.pairs("requestHeaders")), name)
             assertEquals(case.headers("maskedResponseHeaders"), masking.headers(case.pairs("responseHeaders"), base = url), name)
         }
-    }
-
-    @Test
-    fun relativeReferencesResolveByRfc3986() {
-        val base = "https://a.example/b/c/d;p?q"
-        // RFC 3986 5.4.1 and 5.4.2.
-        for ((reference, resolved) in listOf(
-            "g" to "https://a.example/b/c/g",
-            "./g" to "https://a.example/b/c/g",
-            "g/" to "https://a.example/b/c/g/",
-            "/g" to "https://a.example/g",
-            "//g" to "https://g",
-            "?y" to "https://a.example/b/c/d;p?y",
-            "g?y" to "https://a.example/b/c/g?y",
-            "#s" to "https://a.example/b/c/d;p?q#s",
-            "" to "https://a.example/b/c/d;p?q",
-            ".." to "https://a.example/b/",
-            "../../../g" to "https://a.example/g",
-            "/./g" to "https://a.example/g",
-            "g/../h" to "https://a.example/b/c/h",
-        )) {
-            assertEquals(resolved, resolve(base, reference), reference)
-        }
-        assertNull(resolve(base, "http://h/x"))
-        assertNull(resolve(base, "//user:pw@h:p/x"))
-        assertNull(resolve(base, "//h:70000/x"))
     }
 
     private fun JsonObject.string(key: String) = getValue(key).jsonPrimitive.content
