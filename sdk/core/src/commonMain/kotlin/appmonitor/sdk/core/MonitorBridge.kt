@@ -41,12 +41,14 @@ public object MonitorBridge {
 
     /**
      * Keeps [replay] to send [requestId]'s call again when the desktop asks (ADR-0111 D.1); it returns null once
-     * the call is on its way, else the reason the desktop shows. Nothing is kept when no monitor runs.
+     * the call is on its way, else the reason the desktop shows; [bodyBytes] is the body it holds, negative when unknown.
+     * Nothing is kept when no monitor runs.
      */
     public fun keepForReplay(
         requestId: String,
+        bodyBytes: Long,
         replay: () -> String?,
     ) {
-        monitor.client?.replays?.keep(requestId, replay)
+        monitor.client?.replays?.keep(requestId, bodyBytes, replay)
     }
 }

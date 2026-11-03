@@ -6,7 +6,7 @@ import java.io.RandomAccessFile
 
 private val fileLockHolder = Any()
 
-// A JVM holds one FileLock per file: a second thread's lock() throws instead of waiting.
+// ADR-0080: without the monitor, a second thread's lock() throws instead of waiting.
 internal actual fun <T> withFileLock(
     lock: Path,
     block: () -> T,

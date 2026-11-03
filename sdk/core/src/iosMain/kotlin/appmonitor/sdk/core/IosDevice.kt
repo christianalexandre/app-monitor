@@ -27,8 +27,14 @@ internal expect val isSimulator: Boolean
 /** The Swift SDK's device id file, so both SDKs in one app send one id (ADR-0064 B.1). */
 internal fun deviceIdFile(): Path = Path(supportDirectory(), DEVICE_ID_FILE_NAME)
 
-/** Beside [deviceIdFile] (ADR-0168). */
-internal fun desktopPinFile(): Path = Path(supportDirectory(), DESKTOP_PIN_FILE_NAME)
+/** Beside [deviceIdFile] (ADR-0168), and out of backups with it: a restore would pin a new phone's id to the old desktop. */
+internal fun iosDesktopPin(file: Path = Path(supportDirectory(), DESKTOP_PIN_FILE_NAME)): DesktopPin =
+    FileDesktopPin(file, ::excludeFromBackup)
+
+@OptIn(ExperimentalForeignApi::class)
+private fun excludeFromBackup(file: Path) {
+    NSURL.fileURLWithPath(file.toString()).setResourceValue(true, NSURLIsExcludedFromBackupKey, null)
+}
 
 private fun supportDirectory(): String {
     val support = NSFileManager.defaultManager.URLsForDirectory(NSApplicationSupportDirectory, NSUserDomainMask).firstOrNull() as NSURL?
@@ -56,7 +62,7 @@ internal fun iosHello(
     appName: String? = null,
 ): Hello {
     val id = deviceId(file)
-    NSURL.fileURLWithPath(file.toString()).setResourceValue(true, NSURLIsExcludedFromBackupKey, null)
+    excludeFromBackup(file)
     val os =
         NSProcessInfo.processInfo.operatingSystemVersion.useContents {
             "iOS $majorVersion.$minorVersion" + if (patchVersion != 0L) ".$patchVersion" else ""

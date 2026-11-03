@@ -59,7 +59,7 @@ internal fun appMonitorKtor(
                 requestStarted(capture.id, request, content, masking, content.capture(options.maxBodyBytes), mock?.id, replayOf)
             }
             val app = request.attributes.getOrNull(APP_REQUEST)
-            sink.keepForReplay(capture.id) { replay(httpClient, app, content, capture.id) }
+            sink.keepForReplay(capture.id, content.contentLength ?: -1) { replay(httpClient, app, content, capture.id) }
             if (mock != null) {
                 // ADR-0115: the engine and the receive pipeline are skipped; the Send hooks still see the call.
                 val answered = answer(httpClient, capture, request, content, mock)

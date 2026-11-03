@@ -1,11 +1,14 @@
 package appmonitor.sdk.core
 
 import appmonitor.v1.Platform
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
 import kotlinx.io.writeString
+import platform.Foundation.NSURL
+import platform.Foundation.NSURLIsExcludedFromBackupKey
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,6 +58,17 @@ class IosDeviceTest {
     @Test
     fun helloCarriesTheAppNameOfTheOptions() {
         assertEquals("Sample", iosHello(Path(dir, DEVICE_ID_FILE_NAME), appName = "Sample").app_name)
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    @Test
+    fun aPinnedDesktopIsLeftOutOfBackups() {
+        val file = Path(dir, DESKTOP_PIN_FILE_NAME)
+
+        iosDesktopPin(file).pin(Uuid.random().toString())
+
+        val values = NSURL.fileURLWithPath(file.toString()).resourceValuesForKeys(listOf(NSURLIsExcludedFromBackupKey), null)
+        assertEquals(true, values?.get(NSURLIsExcludedFromBackupKey))
     }
 
     @Test

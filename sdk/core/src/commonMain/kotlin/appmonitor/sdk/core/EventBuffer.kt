@@ -47,12 +47,16 @@ internal class EventBuffer(
         available.trySend(Unit)
     }
 
-    /** The oldest frame, removed; suspends while the buffer is empty. */
-    suspend fun take(): BufferedFrame {
-        while (true) {
-            poll()?.let { return it }
-            available.receive()
-        }
+    /** Ends a waiting [take] with null, for a count that grew without a frame (ADR-0166). */
+    fun wake() {
+        available.trySend(Unit)
+    }
+
+    /** The oldest frame, removed; suspends while the buffer is empty, null when woken without one. */
+    suspend fun take(): BufferedFrame? {
+        poll()?.let { return it }
+        available.receive()
+        return poll()
     }
 
     fun clear() {

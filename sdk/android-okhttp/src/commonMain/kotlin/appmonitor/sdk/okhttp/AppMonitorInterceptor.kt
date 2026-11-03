@@ -75,7 +75,9 @@ public class AppMonitorInterceptor : Interceptor {
         val sent = held ?: request.body.capture(options.maxBodyBytes)
         val mock = if (network) null else sink.mockFor(request.method, request.url.toString())
         capture.started { requestStarted(capture.id, request, masking, sent, mock?.id, replayOf) }
-        sink.keepForReplay(capture.id) { replay(call, capture.id) }
+        // contentLength() may throw, and must not fail the app's call.
+        val bodyBytes = runCatching { call.request().body?.contentLength() }.getOrNull() ?: -1
+        sink.keepForReplay(capture.id, bodyBytes) { replay(call, capture.id) }
         if (mock != null) {
             val answered = answer(capture, chain, request, mock)
             val known = CapturedBody.whole(checkNotNull(mock.response).body)

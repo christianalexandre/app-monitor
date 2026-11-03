@@ -6,6 +6,7 @@ import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 
 class EventBufferTest {
     private fun frame(
@@ -18,7 +19,7 @@ class EventBufferTest {
         runTest {
             val buffer = EventBuffer()
             repeat(3) { buffer.offer(frame(it)) }
-            assertEquals(listOf<Byte>(0, 1, 2), List(3) { buffer.take().bytes[0] })
+            assertEquals(listOf<Byte>(0, 1, 2), List(3) { buffer.take()?.bytes?.get(0) })
         }
 
     @Test
@@ -27,7 +28,7 @@ class EventBufferTest {
             val buffer = EventBuffer(maxCount = 2, maxBytes = 1_000)
             repeat(3) { buffer.offer(frame(it)) }
             assertEquals(1, buffer.dropped)
-            assertEquals(listOf<Byte>(1, 2), List(2) { buffer.take().bytes[0] })
+            assertEquals(listOf<Byte>(1, 2), List(2) { buffer.take()?.bytes?.get(0) })
         }
 
     @Test
@@ -39,7 +40,7 @@ class EventBufferTest {
             buffer.offer(frame(2, size = 4))
             assertEquals(1, buffer.dropped)
             assertEquals(2, buffer.size)
-            assertEquals(1, buffer.take().bytes[0])
+            assertEquals(1, buffer.take()?.bytes?.get(0))
         }
 
     @Test
@@ -60,7 +61,17 @@ class EventBufferTest {
             yield()
             assertFalse(taken.isCompleted)
             buffer.offer(frame(7))
-            assertEquals(7, taken.await().bytes[0])
+            assertEquals(7, taken.await()?.bytes?.get(0))
+        }
+
+    @Test
+    fun wakeEndsAWaitingTakeWithoutAFrame() =
+        runTest {
+            val buffer = EventBuffer()
+            val taken = async { buffer.take() }
+            yield()
+            buffer.wake()
+            assertNull(taken.await())
         }
 
     @Test

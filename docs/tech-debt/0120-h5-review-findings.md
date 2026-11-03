@@ -3,7 +3,7 @@ id: DEBT-0120
 title: Findings of the H5 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-03
-trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Device.swift`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/MonitorClient.kt`, `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
+trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Device.swift`, `sdk/ios/Sources/AppMonitor/MonitorClient.swift`, `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
 paid_date:
 ---
 
@@ -17,15 +17,18 @@ None of them is hit in normal use (PLAN-0015, *H5 milestone review*):
 1. Paid in PLAN-0016 H6.2d: `clearAllKeepingDesktopId` (`Main.kt`) deleted
    `desktop.id` and wrote it back in a second step; now `Storage.clearAll`'s
    transaction never deletes it.
-2. `FileDesktopPin` (`Device.swift`) and `DeviceId.kt`: the pin file is not
-   excluded from backup, unlike the device id beside it. A restore onto a new
-   phone brings the old pin back with a new device id.
+2. `FileDesktopPin` (`Device.swift`): the pin file is not excluded from backup,
+   unlike the device id beside it. A restore onto a new phone brings the old pin
+   back with a new device id. Paid in `sdk/core` by PLAN-0016 H6.3d: `iosDesktopPin`
+   excludes it when pinned; a pin written before stays in backups, and no release
+   has shipped one. Android's is in `noBackupFilesDir`.
 3. Paid in PLAN-0016 H6.1: `Storage.close` gave `queue.enqueue(EndRun)` the full
    `timeout` after the retention join may have used it.
-4. `MonitorClient.kt`, and `pump` and `poll` in `MonitorClient.swift`: a
-   report waits for the next envelope, since an oversized drop never enters
-   the buffer to wake the sender. An idle app's last oversized envelope is
-   counted late, or never if the SDK stops first.
+4. `pump` and `poll` in `MonitorClient.swift`: a report waits for the next
+   envelope, since an oversized drop never enters the buffer to wake the sender.
+   An idle app's last oversized envelope is counted late, or never if the SDK
+   stops first. Paid in `MonitorClient.kt` by PLAN-0016 H6.3d: the drop wakes the
+   sender (`anIdleSessionReportsAnOversizedEnvelopeAtOnce`).
 5. `trailer_check.sh`: with `pipefail`, a failing `git log` reads as grep
    finding nothing, so an unknown base passes the check having read no commit.
 6. `LocalNetworkPermission.kt` and `FirstSettledScreen.kt`: a 5-line KDoc block
@@ -48,6 +51,10 @@ H6.2, items 2 and 4 in H6.3 and H6.4, items 5 and 6 in H6.6.
 
 Fired in H6.2d, on `Main.kt` and `Storage.kt`. Item 1 was paid there, and with item
 3 paid too, neither file holds an item left: both leave the trigger.
+
+Fired in H6.3d, on `DeviceId.kt` and `MonitorClient.kt`. Items 2 and 4 were paid there
+for `sdk/core`, so both files leave the trigger and `MonitorClient.swift` joins it; the
+Swift side is H6.4's.
 
 ## How it was paid
 
