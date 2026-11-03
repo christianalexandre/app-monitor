@@ -7,6 +7,7 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage
@@ -39,6 +40,15 @@ class BreakpointsViewModelTest {
 
     @AfterTest
     fun reset() = Dispatchers.resetMain()
+
+    @Test
+    fun `moves a breakpoint through the repository`() =
+        runTest {
+            val viewModel = BreakpointsViewModel(repository, null)
+            viewModel.move(1, RuleMove.UP)
+            viewModel.move(2, RuleMove.DOWN)
+            assertEquals(listOf(1L to RuleMove.UP, 2L to RuleMove.DOWN), repository.moved)
+        }
 
     @Test
     fun `turns a breakpoint off, saves and deletes`() =
@@ -126,6 +136,7 @@ private fun held(requestId: String) =
 
 private class FakeBreakpoints : BreakpointRepository {
     val breakpoints = MutableStateFlow<List<Breakpoint>>(emptyList())
+    val moved = mutableListOf<Pair<Long, RuleMove>>()
 
     override val maxTimeoutMs = 60_000L
 
@@ -158,6 +169,13 @@ private class FakeBreakpoints : BreakpointRepository {
             }
         }
         return BreakpointWrite.Saved(id)
+    }
+
+    override suspend fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        moved += id to move
     }
 
     override suspend fun delete(id: Long) {

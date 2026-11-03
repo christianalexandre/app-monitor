@@ -7,6 +7,7 @@ import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
+import appmonitor.desktop.storage.RuleMove
 import appmonitor.desktop.storage.Storage
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
@@ -62,6 +63,16 @@ class MockPushTest {
                             .decode(nextMockRules().payload)
                             .rules
                             .map { it.id },
+                    )
+
+                    storage.moveMock(agent, RuleMove.UP)
+                    assertEquals(
+                        listOf(agent, window),
+                        MockRules.ADAPTER
+                            .decode(nextMockRules().payload)
+                            .rules
+                            .map { it.id },
+                        "a moved rule reaches the device in its new order",
                     )
                 }
             }

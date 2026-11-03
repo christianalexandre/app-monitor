@@ -40,6 +40,36 @@ class BreakpointsTest {
         }
 
     @Test
+    fun aBreakpointMovesInItsAppsOrderOnly() =
+        withDataDir { dir ->
+            var storage = Storage.open(dir)
+            runBlocking {
+                val first = saved(storage.createBreakpoint(APP, "first", items))
+                val elsewhere = saved(storage.createBreakpoint("other.app", "elsewhere", items))
+                val second = saved(storage.createBreakpoint(APP, "second", orders))
+
+                suspend fun order() = storage.observeActiveBreakpoints(APP).first().map { it.id }
+
+                storage.moveBreakpoint(second, RuleMove.UP)
+                storage.flush()
+                assertEquals(listOf(second, first), order())
+                storage.moveBreakpoint(second, RuleMove.DOWN)
+                storage.moveBreakpoint(second, RuleMove.DOWN)
+                storage.moveBreakpoint(elsewhere, RuleMove.DOWN)
+                storage.moveBreakpoint(elsewhere + 100, RuleMove.DOWN)
+                storage.flush()
+                assertEquals(listOf(first, second), order(), "nothing past either end, nor for an unknown breakpoint")
+                storage.moveBreakpoint(second, RuleMove.UP)
+                storage.flush()
+
+                storage.close(5.seconds)
+                storage = Storage.open(dir)
+                assertEquals(listOf(second, first), order(), "kept across a reopen")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun theEnabledBreakpointsAreObservedAgainOnlyWhenTheyChange() =
         withDataDir { dir ->
             val storage = Storage.open(dir)

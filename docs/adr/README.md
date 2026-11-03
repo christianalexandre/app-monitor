@@ -197,3 +197,4 @@ Rules:
 | [0177](0177-text-search-and-failed-only-read-compact-indexes.md) | Text search and "failed only" read compact indexes | Accepted |
 | [0178](0178-the-macos-title-bar-follows-a-picked-theme-through-jna.md) | The macOS title bar follows a picked theme through JNA | Accepted |
 | [0179](0179-a-write-committed-as-the-store-closes-is-answered-saved.md) | A write committed as the store closes is answered saved | Accepted |
+| [0180](0180-up-and-down-move-a-rule-in-its-apps-order.md) | "Up" and "Down" move a rule in its app's order | Accepted |

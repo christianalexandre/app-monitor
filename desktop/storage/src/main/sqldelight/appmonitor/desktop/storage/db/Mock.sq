@@ -34,6 +34,26 @@ WHERE id = :id;
 confirm:
 UPDATE mock_rules SET pending = 0, updated_at_ms = :atMs WHERE id = :id;
 
+-- The next rule before :id in its app's match order; never another app's (ADR-0180).
+before:
+SELECT id, position FROM mock_rules
+WHERE app_id = (SELECT app_id FROM mock_rules WHERE id = :id)
+  AND position < (SELECT position FROM mock_rules WHERE id = :id)
+ORDER BY position DESC LIMIT 1;
+
+-- The next rule after :id in its app's match order; never another app's (ADR-0180).
+after:
+SELECT id, position FROM mock_rules
+WHERE app_id = (SELECT app_id FROM mock_rules WHERE id = :id)
+  AND position > (SELECT position FROM mock_rules WHERE id = :id)
+ORDER BY position ASC LIMIT 1;
+
+positionOf:
+SELECT position FROM mock_rules WHERE id = ?;
+
+setPosition:
+UPDATE mock_rules SET position = :position, updated_at_ms = :atMs WHERE id = :id;
+
 all:
 SELECT * FROM mock_rules ORDER BY app_id, position, id;
 

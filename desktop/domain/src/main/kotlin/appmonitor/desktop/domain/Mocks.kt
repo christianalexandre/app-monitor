@@ -5,6 +5,12 @@ import appmonitor.v1.MockRule
 import com.squareup.wire.ProtoAdapter
 import kotlinx.coroutines.flow.Flow
 
+/** Which way a rule or a breakpoint moves in its app's match order (ADR-0180). */
+enum class RuleMove {
+    UP,
+    DOWN,
+}
+
 /** Who created a mock rule: one from MCP stays pending until the window confirms it (ADR-0110 F.1, ADR-0005). */
 enum class MockSource {
     WINDOW,
@@ -71,6 +77,12 @@ interface MockRepository {
 
     /** The owner's confirmation of a pending rule (ADR-0005); a rule not pending stays as it is. */
     suspend fun confirm(id: Long): MockWrite
+
+    /** Swaps a rule with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun move(
+        id: Long,
+        move: RuleMove,
+    )
 
     suspend fun delete(id: Long)
 }

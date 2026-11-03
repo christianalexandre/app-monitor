@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -37,6 +37,7 @@ import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Mock
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.ui.METHODS
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.headersOf
@@ -146,12 +147,12 @@ fun MockList(
         }
         Text("Mocks", role = TextRole.Title)
         Text(
-            "The first active rule that matches a call answers it on the device, without the network.",
+            "The first active rule that matches a call answers it on the device, without the network. Up and Down move a rule in its app's order.",
             role = TextRole.Caption,
         )
         if (mocks.isEmpty()) Placeholder("No rules yet: \"New rule\", or \"Mock this\" on a request")
         LazyColumn(Modifier.heightIn(max = 420.dp)) {
-            items(mocks, key = { it.id }) { mock ->
+            itemsIndexed(mocks, key = { _, mock -> mock.id }) { index, mock ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).selectableItem(false) { editing = Editing.Stored(mock.id) }.padding(vertical = Spacing.sm)) {
                         Text(mock.name, role = TextRole.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -172,6 +173,18 @@ fun MockList(
                         )
                     }
                     TextButton(if (mock.enabled) "Turn off" else "Turn on", onClick = { viewModel.toggle(mock) })
+                    TextButton(
+                        "Up",
+                        onClick = { viewModel.move(mock.id, RuleMove.UP) },
+                        Modifier.testTag(MOVE_MOCK_UP + mock.id),
+                        enabled = mocks.getOrNull(index - 1)?.appId == mock.appId,
+                    )
+                    TextButton(
+                        "Down",
+                        onClick = { viewModel.move(mock.id, RuleMove.DOWN) },
+                        Modifier.testTag(MOVE_MOCK_DOWN + mock.id),
+                        enabled = mocks.getOrNull(index + 1)?.appId == mock.appId,
+                    )
                 }
             }
         }

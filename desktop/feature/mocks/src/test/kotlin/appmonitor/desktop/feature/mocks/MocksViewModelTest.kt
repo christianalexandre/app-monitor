@@ -5,6 +5,7 @@ import appmonitor.desktop.domain.MockChange
 import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.protocol.Protocol
 import appmonitor.v1.MockResponse
 import appmonitor.v1.MockRule
@@ -42,6 +43,15 @@ class MocksViewModelTest {
             assertEquals(1, viewModel.state.value.pending)
             viewModel.confirm(1)
             assertEquals(0, viewModel.state.value.pending)
+        }
+
+    @Test
+    fun `moves a rule through the repository`() =
+        runTest {
+            val viewModel = MocksViewModel(repository)
+            viewModel.move(1, RuleMove.UP)
+            viewModel.move(2, RuleMove.DOWN)
+            assertEquals(listOf(1L to RuleMove.UP, 2L to RuleMove.DOWN), repository.moved)
         }
 
     @Test
@@ -107,6 +117,7 @@ private fun mock(
 
 private class FakeMocks : MockRepository {
     val mocks = MutableStateFlow<List<Mock>>(emptyList())
+    val moved = mutableListOf<Pair<Long, RuleMove>>()
 
     override fun observeMocks(): Flow<List<Mock>> = mocks
 
@@ -145,6 +156,13 @@ private class FakeMocks : MockRepository {
     override suspend fun confirm(id: Long): MockWrite {
         mocks.update { list -> list.map { if (it.id == id) it.copy(pending = false) else it } }
         return MockWrite.Saved(id)
+    }
+
+    override suspend fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        moved += id to move
     }
 
     override suspend fun delete(id: Long) {

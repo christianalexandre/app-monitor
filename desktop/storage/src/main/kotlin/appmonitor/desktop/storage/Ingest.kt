@@ -127,6 +127,15 @@ internal sealed interface StorageItem {
         override val sessionId: String? get() = null
     }
 
+    /** Swaps rule [id] with its neighbour in its app's match order, none past either end (ADR-0180). */
+    data class MoveMock(
+        val id: Long,
+        val move: RuleMove,
+        val atMs: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
     /** Creates a breakpoint for [appId] when [id] is null, else changes it; [done] gets [outcome], or not saved. */
     class SaveBreakpoint(
         val id: Long?,
@@ -143,6 +152,15 @@ internal sealed interface StorageItem {
 
     data class DeleteBreakpoint(
         val id: Long,
+    ) : StorageItem {
+        override val sessionId: String? get() = null
+    }
+
+    /** Swaps breakpoint [id] with its neighbour in its app's match order, none past either end (ADR-0180). */
+    data class MoveBreakpoint(
+        val id: Long,
+        val move: RuleMove,
+        val atMs: Long,
     ) : StorageItem {
         override val sessionId: String? get() = null
     }
@@ -355,12 +373,20 @@ internal class Ingest(
                 database.mockQueries.delete(item.id)
             }
 
+            is StorageItem.MoveMock -> {
+                moveMock(item)
+            }
+
             is StorageItem.SaveBreakpoint -> {
                 item.outcome = saveBreakpoint(item)
             }
 
             is StorageItem.DeleteBreakpoint -> {
                 database.breakpointQueries.delete(item.id)
+            }
+
+            is StorageItem.MoveBreakpoint -> {
+                moveBreakpoint(item)
             }
 
             is StorageItem.Save -> {
@@ -448,6 +474,30 @@ internal class Ingest(
         queries.update(change.name, change.enabled?.let { if (it) 1L else 0L }, change.rule?.stored(), item.atMs, item.id)
         if (item.confirm) queries.confirm(item.atMs, item.id)
         return MockWrite.Saved(item.id)
+    }
+
+    private fun moveMock(item: StorageItem.MoveMock) {
+        val queries = database.mockQueries
+        val position = queries.positionOf(item.id).executeAsOneOrNull() ?: return
+        val neighbour =
+            when (item.move) {
+                RuleMove.UP -> queries.before(item.id, ::RulePlace)
+                RuleMove.DOWN -> queries.after(item.id, ::RulePlace)
+            }.executeAsOneOrNull() ?: return
+        queries.setPosition(neighbour.position, item.atMs, item.id)
+        queries.setPosition(position, item.atMs, neighbour.id)
+    }
+
+    private fun moveBreakpoint(item: StorageItem.MoveBreakpoint) {
+        val queries = database.breakpointQueries
+        val position = queries.positionOf(item.id).executeAsOneOrNull() ?: return
+        val neighbour =
+            when (item.move) {
+                RuleMove.UP -> queries.before(item.id, ::RulePlace)
+                RuleMove.DOWN -> queries.after(item.id, ::RulePlace)
+            }.executeAsOneOrNull() ?: return
+        queries.setPosition(neighbour.position, item.atMs, item.id)
+        queries.setPosition(position, item.atMs, neighbour.id)
     }
 
     private fun saveBreakpoint(item: StorageItem.SaveBreakpoint): BreakpointWrite {
@@ -649,3 +699,8 @@ internal class Ingest(
         private const val FRAME_TYPE = "WebSocketFrame"
     }
 }
+
+private data class RulePlace(
+    val id: Long,
+    val position: Long,
+)

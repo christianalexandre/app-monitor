@@ -31,6 +31,7 @@ import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunDevice
 import appmonitor.desktop.domain.RunSummary
@@ -69,6 +70,7 @@ import appmonitor.desktop.storage.IssueWrite as StoredIssueWrite
 import appmonitor.desktop.storage.MockChange as StoredMockChange
 import appmonitor.desktop.storage.MockSource as StoredMockSource
 import appmonitor.desktop.storage.MockWrite as StoredMockWrite
+import appmonitor.desktop.storage.RuleMove as StoredRuleMove
 import appmonitor.desktop.storage.RunSummary as StoredRunSummary
 import appmonitor.desktop.storage.SessionSummary as StoredSessionSummary
 import appmonitor.desktop.storage.StatusClass as StoredStatusClass
@@ -190,6 +192,8 @@ internal fun StoredMock.toDomain(): Mock =
 internal fun StoredMockSource.toDomain(): MockSource = MockSource.valueOf(name)
 
 internal fun MockSource.toStored(): StoredMockSource = StoredMockSource.valueOf(name)
+
+internal fun RuleMove.toStored(): StoredRuleMove = StoredRuleMove.valueOf(name)
 
 internal fun MockChange.toStored(): StoredMockChange = StoredMockChange(name, enabled, rule)
 

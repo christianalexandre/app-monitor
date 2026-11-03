@@ -29,6 +29,7 @@ import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.RunSummary
@@ -155,6 +156,11 @@ internal class StoredMockRepository(
 
     override suspend fun confirm(id: Long): MockWrite = storage.confirmMock(id).toDomain()
 
+    override suspend fun move(
+        id: Long,
+        move: RuleMove,
+    ) = storage.moveMock(id, move.toStored())
+
     override suspend fun delete(id: Long) = storage.deleteMock(id)
 }
 
@@ -176,6 +182,11 @@ internal class StoredBreakpointRepository(
         id: Long,
         change: BreakpointChange,
     ): BreakpointWrite = storage.updateBreakpoint(id, change.toStored()).toDomain()
+
+    override suspend fun move(
+        id: Long,
+        move: RuleMove,
+    ) = storage.moveBreakpoint(id, move.toStored())
 
     override suspend fun delete(id: Long) = storage.deleteBreakpoint(id)
 }

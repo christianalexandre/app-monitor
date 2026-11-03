@@ -12,6 +12,10 @@ const val SAVE_BREAKPOINT = "save-breakpoint"
 
 const val TOGGLE_BREAKPOINT = "toggle-breakpoint-"
 
+const val MOVE_BREAKPOINT_UP = "move-breakpoint-up-"
+
+const val MOVE_BREAKPOINT_DOWN = "move-breakpoint-down-"
+
 const val HELD_URL = "held-url"
 
 const val HELD_STATUS = "held-status"

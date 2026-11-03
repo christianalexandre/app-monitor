@@ -18,4 +18,8 @@ const val SAVE_MOCK = "save-mock"
 
 const val CONFIRM_MOCK = "confirm-mock-"
 
+const val MOVE_MOCK_UP = "move-mock-up-"
+
+const val MOVE_MOCK_DOWN = "move-mock-down-"
+
 const val CONFIRM_DELETE_MOCK = "confirm-delete-mock"

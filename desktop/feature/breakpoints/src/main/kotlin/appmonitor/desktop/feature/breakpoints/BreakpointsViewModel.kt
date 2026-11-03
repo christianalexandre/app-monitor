@@ -9,6 +9,7 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.v1.BreakpointRule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +44,13 @@ class BreakpointsViewModel(
 
     fun toggle(breakpoint: Breakpoint) {
         viewModelScope.launch { breakpoints.update(breakpoint.id, BreakpointChange(enabled = !breakpoint.enabled)) }
+    }
+
+    fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        viewModelScope.launch { breakpoints.move(id, move) }
     }
 
     fun delete(id: Long) {

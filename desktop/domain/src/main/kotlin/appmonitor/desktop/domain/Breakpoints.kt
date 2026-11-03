@@ -61,6 +61,12 @@ interface BreakpointRepository {
         change: BreakpointChange,
     ): BreakpointWrite
 
+    /** Swaps a breakpoint with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun move(
+        id: Long,
+        move: RuleMove,
+    )
+
     suspend fun delete(id: Long)
 }
 

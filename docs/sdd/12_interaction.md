@@ -76,7 +76,8 @@ C.1). The fixtures are `protocol/fixtures/breakpoint_rules.bin`,
 - `Storage.createMock(appId, name, rule, source)`, `updateMock(id,
   change)` (name, enabled, rule), `confirmMock(id)`, `deleteMock(id)`,
   `mocks()` and `observeMocks()`; writes go through the queue and return
-  a `MockWrite`.
+  a `MockWrite`. `moveMock(id, move)` queues a swap and returns nothing,
+  as `deleteMock` does (ADR-0180).
 - A rule from `MockSource.MCP` starts pending; one from the window does
   not. A rule is **active** when enabled and not pending, and only active
   rules are sent (ADR-0005, ADR-0110 F.1).
@@ -93,7 +94,8 @@ C.1). The fixtures are `protocol/fixtures/breakpoint_rules.bin`,
   one last and on, ids never reused. No pending state: breakpoints are
   made in the window only (ADR-0111 E.1).
 - `Storage.createBreakpoint(appId, name, rule)`, `updateBreakpoint(id,
-  change)` (name, enabled, rule), `deleteBreakpoint(id)`, `breakpoints()`,
+  change)` (name, enabled, rule), `moveBreakpoint(id, move)`,
+  `deleteBreakpoint(id)`, `breakpoints()`,
   `observeBreakpoints()` and `observeActiveBreakpoints(appId)`, which
   emits the enabled list again only when it changes; writes return a
   `BreakpointWrite`.
@@ -120,9 +122,9 @@ replaces the older one. The envelope is still stored raw (SDD 09).
 
 | Writer | Writes | How |
 | --- | --- | --- |
-| Window, Mocks panel ("New rule", a rule opened, "Turn on" / "Turn off", "Confirm", "Delete") | create, edit, confirm, delete | `createMock(…, WINDOW)`, `updateMock`, `confirmMock`, `deleteMock` |
+| Window, Mocks panel ("New rule", a rule opened, "Turn on" / "Turn off", "Confirm", "Up" / "Down", "Delete") | create, edit, confirm, move, delete | `createMock(…, WINDOW)`, `updateMock`, `confirmMock`, `moveMock`, `deleteMock` |
 | Window, "Mock this" on a request | create, after the editor's "Save" | `createMock(…, WINDOW)` |
-| Window, Breakpoints panel ("New breakpoint", one opened, "Turn on" / "Turn off", "Delete") | breakpoints: create, edit, delete | `createBreakpoint`, `updateBreakpoint`, `deleteBreakpoint` |
+| Window, Breakpoints panel ("New breakpoint", one opened, "Turn on" / "Turn off", "Up" / "Down", "Delete") | breakpoints: create, edit, move, delete | `createBreakpoint`, `updateBreakpoint`, `moveBreakpoint`, `deleteBreakpoint` |
 | MCP `create_mock` (SDD 10) | create, pending | `createMock(…, MCP)` |
 | "Clear all data" | deletes every rule | SDD 09 |
 
@@ -138,7 +140,10 @@ does. The editor sends the name and the whole rule; "Turn on" and
   <host><path> → <status, or fails: message>[ · delay]`, then its state:
   "From MCP: not sent until you confirm it" with "Confirm", "Off", or
   "Not sent: past one frame, with the rules before it" for an active
-  rule `fittingRules` (the push's own cut) leaves out.
+  rule `fittingRules` (the push's own cut) leaves out. "Up" and "Down"
+  swap a rule with its neighbour in its app's order, off and pending
+  ones included, each disabled at its app's end; a device gets the new
+  list when the active order changed (ADR-0180).
 - "New rule" opens an empty form for the first known app (any session,
   any run); a rule's app is fixed once made.
 - "Mock this", in a request's detail (not for a WebSocket or a
@@ -161,7 +166,8 @@ does. The editor sends the name and the whole rule; "Turn on" and
   while N calls are held. The panel lists every app's breakpoints in
   match order, each as `<app> · <method or Any> <host><path> · holds the
   <request, response, or request and response> · <timeout>`, "Off" under
-  a disabled one, with "Turn on" / "Turn off". A breakpoint opened, or
+  a disabled one, with "Turn on" / "Turn off", and "Up" and "Down" as
+  the mocks have them (ADR-0180). A breakpoint opened, or
   "New breakpoint" (for the first known app), shows the form: name, app
   (fixed once made), method, host, path, "Hold the request", "Hold the
   response", and a timeout in whole seconds, 1 to 600, 60 by default. It
@@ -268,6 +274,7 @@ logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt
 | A real OkHttp call on an emulator answered by a rule the server sent | `make e2e-android` |
 | The breakpoint messages round-trip, fixture bytes match on Kotlin and Swift; an absent resume field kept apart from an empty one | `RoundTripTest.breakpointMessages`, `RoundTripTest.aResumeKeepsAnUnchangedFieldApartFromAnEmptyOne`, `FixtureTest`, Swift `FixtureTests` |
 | Breakpoints per app in order, enabled only, a new list only on a change, kept, cleared, refused | `BreakpointsTest` in `desktop/storage` |
+| A rule or a breakpoint moved in its app's order only, nothing past either end or for an unknown id, kept across a reopen; a device sent the new order; the window's buttons, disabled at each end | `MocksTest.aRuleMovesInItsAppsOrderOnly`, `BreakpointsTest.aBreakpointMovesInItsAppsOrderOnly` in `desktop/storage`; `MockPushTest`, `MocksUiTest`, `BreakpointsUiTest` in `desktop/app` |
 | A stand-in device gets its breakpoints after `HelloAck` and on a change; its hit held, resumed with only the changed fields (the masked header not sent back), aborted, let go at its timeout and when its session ends; a malformed hit not held | `HeldCallsTest` in `desktop/app`, against a real server |
 | A response resume's headers set and removed by name; a truncated body left alone not sent | `HeldCallsTest` |
 | The replay messages round-trip, fixture bytes match on Kotlin and Swift | `RoundTripTest.replayMessages`, `FixtureTest`, Swift `FixtureTests` |
@@ -290,8 +297,6 @@ logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt
 
 ## Limits
 
-- A rule or a breakpoint cannot be moved in its app's match order
-  (DEBT-0082).
 - No MCP tool lists, edits, confirms or deletes a rule (ADR-0114 C.1).
 - The headless server sends its file's rules once per session; it does not
   reread the file.
