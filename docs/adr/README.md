@@ -195,3 +195,4 @@ Rules:
 | [0175](0175-a-lock-file-holds-the-data-directory.md) | A lock file holds the data directory | Accepted |
 | [0176](0176-the-headless-server-is-a-tool-module.md) | The headless server is a tool module | Accepted |
 | [0177](0177-text-search-and-failed-only-read-compact-indexes.md) | Text search and "failed only" read compact indexes | Accepted |
+| [0178](0178-the-macos-title-bar-follows-a-picked-theme-through-jna.md) | The macOS title bar follows a picked theme through JNA | Accepted |

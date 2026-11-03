@@ -10,5 +10,5 @@ put:
 INSERT INTO settings(key, value) VALUES (:key, :value)
 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
-deleteAll:
-DELETE FROM settings;
+deleteAllBut:
+DELETE FROM settings WHERE key NOT IN :kept;

@@ -21,7 +21,7 @@ class DesktopIdTest {
             assertEquals(first, UUID.fromString(first).toString())
             assertEquals(first, second)
 
-            openServices(dir) {}.also { runBlocking { clearAllKeepingDesktopId(it.storage, it.desktopId) } }.storage.let {
+            openServices(dir) {}.also { runBlocking { clearAllKeepingDesktopId(it.storage) } }.storage.let {
                 runBlocking { it.close(STOP_TIMEOUT) }
             }
             assertEquals(first, openServices(dir) {}.also { runBlocking { it.storage.close(STOP_TIMEOUT) } }.desktopId)

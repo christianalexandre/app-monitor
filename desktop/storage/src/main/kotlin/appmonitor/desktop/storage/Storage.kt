@@ -478,16 +478,16 @@ class Storage private constructor(
     }
 
     /**
-     * Deletes everything, issues and settings included, rewrites the file, opens a new run when [open] did and ends the recording
-     * (ADR-0088). Connected sessions are forgotten: close them first. Failures go to [retentionStatus]; none once closing.
+     * Deletes everything, issues and settings but [keepSettings] included, rewrites the file, opens a new run when [open] did and
+     * ends the recording (ADR-0088). Connected sessions are forgotten: close them first. Failures go to [retentionStatus].
      */
-    suspend fun clearAll() {
+    suspend fun clearAll(keepSettings: Set<String> = emptySet()) {
         flush()
         whileOpen {
             clears++
             val error =
                 try {
-                    ingest.clear(clock())
+                    ingest.clear(clock(), keepSettings)
                     driver.execute(null, "VACUUM", 0)
                     null
                 } catch (e: Exception) {

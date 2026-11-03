@@ -3,7 +3,7 @@ id: DEBT-0120
 title: Findings of the H5 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-03
-trigger: "The next PR that touches `desktop/app/src/main/kotlin/appmonitor/desktop/app/Main.kt`, `sdk/ios/Sources/AppMonitor/Device.swift`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/MonitorClient.kt`, `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
+trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Device.swift`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/MonitorClient.kt`, `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
 paid_date:
 ---
 
@@ -14,9 +14,9 @@ paid_date:
 `code-review` at `medium` of PLAN-0015 (`e47d580..30dda93`) found these.
 None of them is hit in normal use (PLAN-0015, *H5 milestone review*):
 
-1. `clearAllKeepingDesktopId` (`Main.kt`): "Clear all data" deletes
-   `desktop.id` and writes it back in a second step. A crash between the two
-   gives the next launch a new id, and paired physical devices refuse it.
+1. Paid in PLAN-0016 H6.2d: `clearAllKeepingDesktopId` (`Main.kt`) deleted
+   `desktop.id` and wrote it back in a second step; now `Storage.clearAll`'s
+   transaction never deletes it.
 2. `FileDesktopPin` (`Device.swift`) and `DeviceId.kt`: the pin file is not
    excluded from backup, unlike the device id beside it. A restore onto a new
    phone brings the old pin back with a new device id.
@@ -45,6 +45,9 @@ The next PR that touches one of the files above; PLAN-0016's sweep otherwise.
 Fired in H6.1, on `Main.kt` and `Storage.kt`. Item 3 was paid there; the rest is
 placed in PLAN-0016's tasks, each the PR that works in those files: item 1 in
 H6.2, items 2 and 4 in H6.3 and H6.4, items 5 and 6 in H6.6.
+
+Fired in H6.2d, on `Main.kt` and `Storage.kt`. Item 1 was paid there, and with item
+3 paid too, neither file holds an item left: both leave the trigger.
 
 ## How it was paid
 

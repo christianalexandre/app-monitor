@@ -21,7 +21,6 @@ import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
-import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.settings.DataDirectoryInUse
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
@@ -115,6 +114,7 @@ fun main() {
                         ) {
                             // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
                             LaunchedEffect(window) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
+                            LaunchedEffect(appearance) { withContext(Dispatchers.IO) { appearance.theme.collect(::applyMacAppearance) } }
                             val scope = rememberCoroutineScope()
                             AppMonitorApp(
                                 storage,
@@ -125,7 +125,7 @@ fun main() {
                                 onClearAll = {
                                     scope.launch {
                                         approvals.forgetAll()
-                                        clearAllKeepingDesktopId(storage, desktopId)
+                                        clearAllKeepingDesktopId(storage)
                                         appearance.setTheme(appearance.theme.value)
                                         panes.setLayout(panes.layout.value)
                                         recorder.forget()
@@ -154,16 +154,6 @@ fun main() {
     }
 }
 
-internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
-
-/** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
-internal fun macAppearanceOf(theme: ThemeMode): String =
-    when (theme) {
-        ThemeMode.System -> "system"
-        ThemeMode.Light -> "NSAppearanceNameAqua"
-        ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
-    }
-
 // The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
 private const val MIN_WIDTH = 1000
 private const val MIN_HEIGHT = 600
@@ -180,14 +170,8 @@ internal data class Services(
 
 internal const val DESKTOP_ID_KEY = "desktop.id"
 
-/** "Clear all data" empties `settings` too; the id devices pinned is written back, or every one would refuse this desktop (ADR-0168). */
-internal suspend fun clearAllKeepingDesktopId(
-    storage: Storage,
-    desktopId: String,
-) {
-    storage.clearAll()
-    storage.settingRepository().setSetting(DESKTOP_ID_KEY, desktopId)
-}
+/** "Clear all data" empties `settings` too; the id devices pinned stays, or every one would refuse this desktop (ADR-0168). */
+internal suspend fun clearAllKeepingDesktopId(storage: Storage) = storage.clearAll(keepSettings = setOf(DESKTOP_ID_KEY))
 
 /** Opens the store, its device answers, the MCP token, the theme, the panes' layout and the desktop id; on a failure the store is closed again and no server starts. */
 internal fun openServices(
