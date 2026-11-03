@@ -66,15 +66,20 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   (DEBT-0072, DEBT-0073). An expired CA keeps one leaf per host (DEBT-0106,
   DEBT-0109 item 4). The packaged server says its version (DEBT-0071). Split from H6.2.
   Accept: `./gradlew :desktop:app:test :desktop:proxy:test`.
-- [ ] **H6.2 Desktop store and windows.** The title bar follows a theme at
-  once (DEBT-0095); the MCP tools' closing check in one place (DEBT-0074); the H2
-  and H3 review findings (DEBT-0092, DEBT-0093's `Recorder.kt` and
-  `DeviceApproval.kt` items), and the H4 one in `ExportHar.kt` (DEBT-0109, item 6);
-  a mock rule moves in its app's order (DEBT-0082); "Clear all data" keeps the
-  desktop id in one step (DEBT-0120, item 1).
+- [x] **H6.2d The title bar and "Clear all data".** (`fix/title-bar-follows-theme`)
+  The title bar follows a picked theme at once, through JNA (DEBT-0095, ADR-0178);
+  "Clear all data" keeps the desktop id in its transaction (DEBT-0120, item 1).
+  The screenshot asked was not possible, the session has no Screen Recording: a real
+  window's `effectiveAppearance` was checked instead, the sight of it is DEBT-0124.
+  Split from H6.2.
+  Accept: `./gradlew :desktop:storage:test :desktop:app:test
+  :desktop:app:titleBarScreenshots`.
+- [ ] **H6.2 Desktop store and windows.** The MCP tools' closing check in one place
+  (DEBT-0074); the H2 and H3 review findings (DEBT-0092, DEBT-0093's `Recorder.kt`
+  and `DeviceApproval.kt` items), and the H4 one in `ExportHar.kt` (DEBT-0109, item
+  6); a mock rule moves in its app's order (DEBT-0082).
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
-  :desktop:data:test :desktop:app:test`; a theme picked in Settings repaints
-  the title bar (screenshot).
+  :desktop:data:test :desktop:app:test`.
 - [ ] **H6.3 Kotlin SDKs.** One capture flow for `sdk/android-okhttp` and
   `sdk/ktor` (sink, mocks, breakpoints, replay) and one masking
   (DEBT-0101, DEBT-0055, DEBT-0044); Ktor's internal API kept behind one

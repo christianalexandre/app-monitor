@@ -471,7 +471,10 @@ internal class Ingest(
      * Deletes every row, issues, mock and breakpoint rules, approvals and settings included, and opens a new run (ADR-0082 D.1). Sessions still
      * connected are forgotten: what they send next is dropped.
      */
-    fun clear(atMs: Long) {
+    fun clear(
+        atMs: Long,
+        keepSettings: Set<String>,
+    ) {
         val run =
             database.transactionWithResult {
                 database.issueQueries.deleteAll()
@@ -483,7 +486,7 @@ internal class Ingest(
                 database.deviceQueries.deleteUnused()
                 database.appQueries.deleteUnused()
                 database.approvalQueries.forgetAll()
-                database.settingQueries.deleteAll()
+                database.settingQueries.deleteAllBut(keepSettings)
                 if (startsRuns) {
                     database.runQueries.insert(atMs)
                     database.insertedQueries.lastId().executeAsOne()
