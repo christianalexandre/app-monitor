@@ -22,9 +22,8 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * One device's WebSocket over a raw Ktor session (ADR-0167). Control frames are answered as they are read; data
- * frames reach [incoming] whole and in order, and the device's close only after them, so a rejection of one of
- * them is the close the device gets.
+ * One device's WebSocket over a raw Ktor session (ADR-0167): [incoming] holds its data frames whole and in order,
+ * and the device's close only after them, so a rejection of one of them is the close the device gets.
  */
 internal class DeviceConnection(
     private val raw: WebSocketSession,

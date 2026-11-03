@@ -17,10 +17,12 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.ByteString.Companion.toByteString
@@ -164,7 +166,8 @@ class AppMonitorServerTest {
     fun `advertised service resolves over mdns`() =
         runBlocking {
             val port = start(ServerConfig(host = "0.0.0.0", port = 0, serviceName = SERVICE_NAME, desktopId = DESKTOP_ID))
-            val address = server!!.advertisedAddresses.firstOrNull()
+            // A link-local interface (a phone on USB) can come first, and JmDNS resolves nothing on it.
+            val address = server!!.advertisedAddresses.let { all -> all.firstOrNull { !it.isLinkLocalAddress } ?: all.firstOrNull() }
             assertNotNull(address, "No multicast-capable LAN address to advertise on")
 
             // A distinct host name: sharing the advertiser's makes the two JmDNS instances conflict.
@@ -214,6 +217,48 @@ class AppMonitorServerTest {
                 assertNull(session(port, requestStarted("req-3")).drops.value)
             }
         }
+
+    // ADR-0172: a device back within seconds finds its old socket still open here.
+    @Test
+    fun `a reconnect's lost count settles when its previous session closes`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+            withTimeout(TIMEOUT_MS) {
+                val leave = CompletableDeferred<Unit>()
+                val first = openSession(port, leave, report(), requestStarted("req-1"))
+                first.first.drops.first { it != null }
+                first.first.envelopes
+                    .take(2)
+                    .toList()
+
+                val second =
+                    openSession(port, CompletableDeferred(), report(evicted = 4, oversized = 1, previous = first.first.id, written = 5))
+                assertEquals(Drops(4, 1, null), second.first.drops.first { it != null })
+
+                leave.complete(Unit)
+                assertEquals(Drops(4, 1, 3), second.first.drops.first { it?.lost != null })
+                second.second.cancel()
+            }
+        }
+
+    // A session left open until [leave]: the desktop has it once this returns, and the job holds its socket.
+    private suspend fun CoroutineScope.openSession(
+        port: Int,
+        leave: CompletableDeferred<Unit>,
+        vararg frames: Envelope,
+    ): Pair<DeviceSession, Job> {
+        val published = async { server!!.sessions.first() }
+        val socket =
+            launch {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    receiveEnvelope()
+                    frames.forEach { send(Frame.Binary(true, it.encode())) }
+                    leave.await()
+                }
+            }
+        return published.await() to socket
+    }
 
     // One whole session: Hello, then [frames] read by the desktop, then a normal close; returns once the desktop ended it.
     private suspend fun CoroutineScope.session(
