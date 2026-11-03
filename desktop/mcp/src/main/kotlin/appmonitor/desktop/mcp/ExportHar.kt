@@ -89,11 +89,12 @@ internal object ExportHar {
         version: String,
         maxText: Long = MAX_TEXT,
         maxScanned: Long = MAX_SCANNED,
+        tooLargeHint: String = "narrow the filter or use bodies: none",
     ): HarLog {
         val (http, connections, cut) = httpRows(queries, filter, maxEntries, maxScanned)
         var text = 0L
         val entries = mutableListOf<JsonObject>()
-        val tooLarge = { ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: narrow the filter or use bodies: none") }
+        val tooLarge = { ToolError("the HAR is past ${maxText / 1024 / 1024} MiB: $tooLargeHint") }
         for (row in http.take(maxEntries.toInt())) {
             val detail = queries.detail(row.id) ?: continue
             val messages = webSocketMessages(queries, row.id, row.frameCount, cap) { if (text + it > maxText) throw tooLarge() }
@@ -162,8 +163,8 @@ internal object ExportHar {
         return Rows(http, if (http.size > exported) inSpan else connections, cut = false)
     }
 
-    /** The frames as `_webSocketMessages`, a page at a time; [check] gets their size so far after each page. */
-    private suspend fun webSocketMessages(
+    /** The frames as `_webSocketMessages`, a page at a time; [check] gets their size so far after each frame. */
+    internal suspend fun webSocketMessages(
         queries: TrafficQueryRepository,
         exchangeId: Long,
         count: Long,
@@ -178,8 +179,8 @@ internal object ExportHar {
             val page = queries.frames(exchangeId, afterId, PAGE_SIZE)
             for (frame in page) {
                 messages += message(frame, cap).also { size += it.toString().encodeToByteArray().size }
+                check(size)
             }
-            check(size)
             if (page.size < PAGE_SIZE) return messages
             afterId = page.last().id
         }

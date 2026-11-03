@@ -1,10 +1,10 @@
 ---
 id: DEBT-0092
 title: Findings of the H2 milestone review that normal use does not hit
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The next PR that touches `desktop/feature/insights/src/main/kotlin/appmonitor/desktop/feature/insights/IssuesViewModel.kt` or `desktop/feature/breakpoints/src/main/kotlin/appmonitor/desktop/feature/breakpoints/BreakpointsViewModel.kt`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0092 — Findings of the H2 milestone review that normal use does not hit
@@ -87,4 +87,12 @@ three imports are gone (`make lint`, `./gradlew :desktop:feature:traffic:test`).
 
 ## How it was paid
 
-> Filled when closing.
+The last two items paid by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`):
+
+- `IssuesViewModel`'s filter is reset when the list leaves the window, as the old dialog did
+  (`IssuesUiTest`, "the list opens unfiltered after being closed under a filter", which timed out
+  with the reset taken out).
+- Held calls no longer wait on the breakpoints query (`BreakpointsViewModelTest`, "a held call shows
+  before the breakpoints query answers", which failed before).
+
+`Insights.kt`'s copy stays, as said above: it is how ADR-0135 keeps two modules independent, not a debt.

@@ -165,6 +165,11 @@ class IssuesTest {
 
                 storage.deleteIssue(id)
                 assertEquals(IssueWrite.UnknownIssue, storage.updateIssue(id, IssueChange(title = "B")), "deleted meanwhile")
+                assertEquals(
+                    IssueWrite.UnknownIssue,
+                    storage.updateIssue(id, IssueChange(exchangeIds = listOf(r1 + 1))),
+                    "the issue is what is gone, whatever else the edit names",
+                )
                 assertEquals(0, dir.queryLong("SELECT count(*) FROM issue_exchanges"))
                 storage.close(5.seconds)
             }

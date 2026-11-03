@@ -1,10 +1,10 @@
 ---
 id: DEBT-0093
 title: Findings of the H3 milestone review that normal use does not hit
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0093 — Findings of the H3 milestone review that normal use does not hit
@@ -105,4 +105,13 @@ still show, and keeping it needs an open-socket state for that case alone.
 
 ## How it was paid
 
-> Filled when closing.
+Closed by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`). `DeviceApprovals`' KDoc is three lines.
+
+**Dropped, `Recorder`'s request map.** Its entries go with the session. No event says an
+exchange ended across the capture layers: a WebSocket has frames after its `ResponseReceived`
+(`AppMonitorWebSocketFactory.kt`, `WebSocketCapture.swift`), so forgetting an id would need a
+rule on the status (101, frames follow) that no test pins across the four layers, and a wrong
+one drops what follows from the recording: wrong data, to save an estimated 150 bytes a request
+(an entry, a 36-character id, a `Long`; estimated, not measured), 15 MB per 100 000 requests in
+one session, freed when it ends. The id reused after
+Stop does not happen: `network.proto` has `request_id` unique per device.

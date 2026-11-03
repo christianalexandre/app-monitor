@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,8 +30,14 @@ class BreakpointsViewModel(
     private val heldCalls: HeldCallRepository?,
 ) : ViewModel() {
     val state: StateFlow<BreakpointsState> =
-        combine(breakpoints.observeBreakpoints(), heldCalls?.held ?: MutableStateFlow(emptyList()), ::BreakpointsState)
-            .stateIn(viewModelScope, SharingStarted.Eagerly, BreakpointsState(held = heldCalls?.held?.value.orEmpty()))
+        // A held call waits on the device: it shows before the first query answers.
+        combine(
+            breakpoints.observeBreakpoints().onStart {
+                emit(emptyList())
+            },
+            heldCalls?.held ?: MutableStateFlow(emptyList()),
+            ::BreakpointsState,
+        ).stateIn(viewModelScope, SharingStarted.Eagerly, BreakpointsState(held = heldCalls?.held?.value.orEmpty()))
 
     val maxTimeoutMs: Long get() = breakpoints.maxTimeoutMs
 

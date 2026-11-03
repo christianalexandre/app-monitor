@@ -74,12 +74,16 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   Split from H6.2.
   Accept: `./gradlew :desktop:storage:test :desktop:app:test
   :desktop:app:titleBarScreenshots`.
-- [ ] **H6.2 Desktop store and windows.** The MCP tools' closing check in one place
-  (DEBT-0074); the H2 and H3 review findings (DEBT-0092, DEBT-0093's `Recorder.kt`
-  and `DeviceApproval.kt` items), and the H4 one in `ExportHar.kt` (DEBT-0109, item
-  6); a mock rule moves in its app's order (DEBT-0082).
+- [x] **H6.2e The closing check and the review findings.** (`fix/closing-checks-review-findings`)
+  The MCP tools' and the window's exports' closing check in one place, a committed write
+  answered saved (DEBT-0074, ADR-0179); the H2 and H3 review findings (DEBT-0092,
+  DEBT-0093: `Recorder`'s map dropped, the reason in the DEBT), and the H4 one in
+  `ExportHar.kt` (DEBT-0109, item 6). Split from H6.2.
   Accept: `./gradlew :desktop:storage:test :desktop:mcp:test
   :desktop:data:test :desktop:app:test`.
+- [ ] **H6.2 Mock rule order.** A mock rule, and a breakpoint with it, moves in its app's
+  order (DEBT-0082).
+  Accept: `./gradlew :desktop:storage:test :desktop:data:test :desktop:app:test`.
 - [ ] **H6.3 Kotlin SDKs.** One capture flow for `sdk/android-okhttp` and
   `sdk/ktor` (sink, mocks, breakpoints, replay) and one masking
   (DEBT-0101, DEBT-0055, DEBT-0044); Ktor's internal API kept behind one

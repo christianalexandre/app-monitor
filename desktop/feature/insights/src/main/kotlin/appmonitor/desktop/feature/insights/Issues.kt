@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -90,6 +91,8 @@ fun IssueList(
     viewModel: IssuesViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    // A kept filter would hide the issue "Save as issue" reopens this list on.
+    DisposableEffect(viewModel) { onDispose { viewModel.setFilter(IssueFilter()) } }
     val filter = state.filter
     val issues = state.issues
     var open by remember { mutableStateOf<Long?>(null) }
