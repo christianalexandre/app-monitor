@@ -3,7 +3,7 @@ id: DEBT-0081
 title: Non-correctness findings of the M8 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt` or `sdk/ios/Sources/AppMonitorConnections/connections.c`"
+trigger: "PLAN-0016 task H6.5 starts, or a developer hits one of these findings"
 paid_date:
 ---
 
@@ -59,41 +59,7 @@ normal debug session, and the plan closes without a seventh task.
 
 ## Trigger
 
-The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`,
-`desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`,
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`,
-`sdk/ios/Sources/AppMonitorConnections/connections.c`,
-`sdk/ios/Sources/AppMonitor/ConnectionCapture.swift` or
-`scripts/e2e_ios.sh`: that PR pays the item of the file it touches.
-
-## How it was paid
-
-> Filled when closing.
-
-`scripts/e2e_ios.sh` paid in `feat/ios-sdk-mocks`: the gRPC and proxy ports
-are read by `logged`, which waits up to 10 s for their line as `listen` does
-for `Listening on port`. The other items are open.
-
-`ConnectionCapture.swift` paid in `fix/ios-skip-kmp-desktop-socket`: a
-closed connection's `ResponseReceived` no longer sets `body_truncated`,
-as `protocol/fixtures/connection_closed.bin` already showed.
-
-`ProxyController.kt` paid in `refactor/desktop-settings-feature`
-(PLAN-0012 H2.4c): the recording is built closed and opened once the
-server listens, so a taken port leaves no session
-(`ProxyWiringTest`'s `a taken port is a status`). The other items are open.
-
-`ExportHar.kt` paid in `refactor/mcp-read-tools-through-domain`
-(PLAN-0012 H2.5a): `max_entries` counts HTTP entries only, the rows read
-a page at a time past the connections, which `log.comment` still counts
-(`ConnectionToolsTest.aConnectionDoesNotCountAgainstMaxEntries`, which
-fails on the earlier code). The other items are open.
-
-`ClientHandler.kt` fired by `fix/windows-proxy-curl` (#295), which changes
-only its `channelInactive`: a client leaving a tunnel before any TLS byte
-now ends the CONNECT exchange (`ProxyServerTest`, "a client closing its
-tunnel before any TLS byte…", which timed out before the fix, as the
-Windows gate did). Its two items here, the early answer and the relay's
-backpressure, change how requests and responses flow and are not mixed
-into a release gate fix: for `ClientHandler.kt` the trigger becomes the
-next PR that changes `responseEnded`, `content` or `forward`.
+PLAN-0016 task H6.5 starts, or a developer hits one of these findings.
+Re-triggered on 2026-11-03: the PR that fixed a refusal after the handshake
+touched `ClientHandler.kt` to unblock CI, none of these findings; H6.5 names
+this DEBT and is the next plan's.
