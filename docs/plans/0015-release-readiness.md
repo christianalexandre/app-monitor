@@ -1,10 +1,10 @@
 ---
 id: PLAN-0015
 title: Release readiness — what publishing makes expensive
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H5
 started: 2026-10-30
-finished:
+finished: 2026-11-03
 ---
 
 # PLAN-0015 — Release readiness (H5)
@@ -245,10 +245,55 @@ two that normal use hits:
 | 9 | `trailer_check.sh` passes a range `git log` cannot read. | No: CI fetches the base | DEBT-0120 |
 | 10 | Three 5-line KDoc blocks. | No: no behavior; `DeviceConnection.kt` fixed in H5.R1 | DEBT-0120 |
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**:
+  - H5.1: gRPC-Core in a release gate job of its own, the rulesets' checks
+    compared with the jobs' names (#323, closed by #326 after three green runs).
+  - H5.2: tests that failed once on CI, each at its cause (#327 to #334):
+    the close before a hang up, taken ports, a stalled writer, Spotless, one
+    LAN filter, `Storage.close`'s bound.
+  - H5.3: what M10 freezes on the wire: the app name (#335), drop counts
+    (#336) and their place in the window (#337), and the server owning the
+    WebSocket close (#338).
+  - H5.4: a device pins the first desktop that approved it (#339).
+  - H5.5: the no-op check reads constructors, the plugin refuses another SDK
+    version, an app on Kotlin 2.2.0 compiles against the SDK (#340).
+  - H5.6: the iOS SDK's suite on the simulator, green on iOS 26.5 and 16.0,
+    which found a `Location` sent unmasked (#341).
+  - H5.R1: a reconnect's lost count settled (#342). H5.R2: a refused desktop
+    logged, in lines readable outside a debugger (#343).
+  - Outside the tasks: a held iOS task's start sent before its end (#324, #325).
+- **Decisions**: ADR-0163 to ADR-0173. ADR-0168 and ADR-0171 are the owner's
+  (2026-10-31 and 2026-11-03).
+- **Debt**:
+  - Paid: DEBT-0005, 0014, 0017, 0020, 0022, 0023, 0024, 0026, 0032, 0041, 0043,
+    0044, 0048, 0056, 0066, 0080, 0091, 0094, 0099, 0108, 0110, 0112.
+  - Dropped: DEBT-0052 (ADR-0158), DEBT-0065 (did not reproduce).
+  - Created and open: DEBT-0113 to DEBT-0121, this review's findings 4 to 7, 9
+    and 10 in DEBT-0120.
+  - Still open, against the Goal: DEBT-0036 (needs `make check` with a VPN up;
+    the loop's Mac has none), DEBT-0111 (macOS 26 refuses the iOS 15.0 runtime,
+    ADR-0171), DEBT-0055 (re-triggered), DEBT-0050 (touched by #323, its trigger
+    is the next PR on `debt_check.sh`).
+  - DEBT-0098 widened: its failure, until now Windows only, hit `ubuntu-latest`
+    once on #343's CI, unrelated to that PR; cause not found. H6.5 pays it.
+  - No correctness finding that normal use hits is left open.
+- **Deviations**:
+  - H5.2 split into H5.2a to H5.2g and H5.3 into H5.3a to H5.3c, one cause or
+    one wire change per PR; the plan ran to 18 tasks, past the four to six
+    the rules ask for.
+  - H5.6 closed below its Accept: the floor stays iOS 15 untested, the owner's
+    decision (ADR-0171). No gate runs iOS 16 (DEBT-0118).
+  - H5.R2's Accept ran on the simulator and on macOS: no physical iPhone was
+    available (DEBT-0121).
+  - DEBT-0022 did not happen on Ktor 3.6.0: a test pins it, its memory cost is
+    DEBT-0113.
+  - H5.R2's PR also carries this close and DEBT-0098's new evidence, added when
+    its `check` went red.
+- **Lessons**:
+  - A once-on-CI failure can be reproduced with load, a held port or a Linux
+    container: most of H5.2 was. A test report's timing and stderr come first;
+    the artifact is kept for each run.
+  - The iOS 16 simulator found a bug the runs on iOS 26 did not. A platform
+    floor is worth a run before it is declared.
+  - A code path no test reached can crash on first use: `sdk/core`'s iOS
+    `platformLog` had never run under its tests.
