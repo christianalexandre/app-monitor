@@ -77,11 +77,7 @@ class AppMonitorServer internal constructor(
     // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
     private val connections = ConcurrentHashMap<DeviceConnection, Hello>()
 
-    // ADR-0166: frames read and lost so far, per closed session, for the next session's DeliveryReport.
-    private val closedSessions =
-        object : LinkedHashMap<String, Received>() {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Received>) = size > CLOSED_SESSIONS_KEPT
-        }
+    private val lostLedger = LostLedger()
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -267,6 +263,7 @@ class AppMonitorServer internal constructor(
         }
         var writer: Job? = null
         var received = 0L
+        lostLedger.opened(session.id) { lost -> session.drops.value?.let { session.report(it.copy(lost = lost)) } }
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
             writer = launch { for (envelope in session.outgoing) send(Frame.Binary(true, envelope.encode())) }
@@ -282,40 +279,18 @@ class AppMonitorServer internal constructor(
                     closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
                     break
                 }
-                envelope.toDeliveryReport()?.let { session.report(drops(it, session.drops.value)) }
+                envelope.toDeliveryReport()?.let { report ->
+                    lostLedger.reported(session.id, report.previous_session_id, report.previous_session_written) { lost ->
+                        session.report(Drops(report.evicted, report.oversized, lost))
+                    }
+                }
                 session.deliver(envelope)
             }
         } finally {
-            synchronized(closedSessions) {
-                closedSessions[session.id] = Received(received, session.drops.value?.lost)
-            }
+            lostLedger.closed(session.id, received)
             session.close()
             writer?.cancel()
         }
-    }
-
-    // The lost count is the previous session's plus the frames it wrote that were never read; set once per session.
-    private fun drops(
-        report: DeliveryReport,
-        current: Drops?,
-    ): Drops {
-        val lost =
-            when {
-                current != null -> {
-                    current.lost
-                }
-
-                report.previous_session_id.isEmpty() -> {
-                    0L
-                }
-
-                else -> {
-                    synchronized(closedSessions) { closedSessions[report.previous_session_id] }?.let { previous ->
-                        previous.lost?.plus((report.previous_session_written - previous.frames).coerceAtLeast(0))
-                    }
-                }
-            }
-        return Drops(report.evicted, report.oversized, lost)
     }
 
     // Closing TCP with the device's frames unread resets it, and the device may lose this close.
@@ -332,7 +307,7 @@ class AppMonitorServer internal constructor(
                 decision.onAwait { it }
                 incoming.onReceiveCatching { frame ->
                     decision.cancel()
-                    if (frame.isSuccess) close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Envelope before HelloAck"))
+                    if (frame.isSuccess) closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Envelope before HelloAck"))
                     null
                 }
             }
@@ -348,15 +323,9 @@ class AppMonitorServer internal constructor(
 
     private enum class Publication { PUBLISHED, FORGOTTEN, STOPPED }
 
-    private class Received(
-        val frames: Long,
-        val lost: Long?,
-    )
-
     private companion object {
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
         val CLOSE_GRACE = 1.seconds
-        const val CLOSED_SESSIONS_KEPT = 1024
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }

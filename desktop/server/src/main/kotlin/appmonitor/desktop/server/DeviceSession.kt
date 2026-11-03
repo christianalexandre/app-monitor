@@ -56,7 +56,7 @@ class DeviceSession internal constructor(
 
 /**
  * Envelopes a device's SDK dropped since it started: full buffer, too large, or written and never read here,
- * null when a previous session of that start is not known here (ADR-0166).
+ * [lost] null while a previous session is open here, or when one is not known here (ADR-0166, ADR-0172).
  */
 data class Drops(
     val evicted: Long,

@@ -54,9 +54,16 @@ fun main(args: Array<String>) {
                     println("[${session.id}] sent ${mocks.rules.size} mock rules")
                 }
                 var replayAsked = false
+                var printedDrops: Drops? = null
+                val printDrops = {
+                    session.drops.value?.takeIf { it != printedDrops }?.let {
+                        printedDrops = it
+                        println("[${session.id}] ${describe(it)}")
+                    }
+                }
                 session.envelopes.collect { envelope ->
                     println("[${session.id}] ${describe(envelope)}")
-                    if (envelope.type == "DeliveryReport") session.drops.value?.let { println("[${session.id}] ${describe(it)}") }
+                    printDrops()
                     val asked = if (replayAsked) null else options.replayPath?.let { replayTarget(envelope, it) }
                     if (asked != null) {
                         replayAsked = true
@@ -65,6 +72,7 @@ fun main(args: Array<String>) {
                         }
                     }
                 }
+                printDrops()
                 println("[${session.id}] disconnected")
             }
         }
@@ -125,7 +133,7 @@ private const val USAGE =
 
 private const val MAX_PORT = 65_535
 
-/** ADR-0166: `drops: evicted N, oversized N, lost N`, `lost unknown` when a previous session is not known here. */
+/** ADR-0166: `drops: evicted N, oversized N, lost N`, `lost unknown` while a previous session is open or not known here. */
 internal fun describe(drops: Drops): String =
     "drops: evicted ${drops.evicted}, oversized ${drops.oversized}, lost ${drops.lost ?: "unknown"}"
 

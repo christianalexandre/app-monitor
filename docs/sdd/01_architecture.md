@@ -89,12 +89,14 @@ device                         AppMonitorServer
 - `DeviceSession.drops: StateFlow<Drops?>`: what the device's SDK dropped
   since it started, from its latest `DeliveryReport`: `evicted` and
   `oversized` as the device counted them, `lost` the frames it wrote on its
-  earlier sessions that this server never read (frames read per closed
-  session kept for the 1024 latest). Null before a report (an older SDK);
-  `lost` null when a previous session is not among them (ADR-0166). The
-  headless server logs it as `drops: evicted N, oversized N, lost N`.
-  `TrafficStore` reads it with each envelope, so a new value reaches the
-  sink (`TrafficSink.dropped`, SDD 09) in order with the report; the
+  earlier sessions that this server never read (`LostLedger`: every open
+  session and the 1024 latest closed ones). Null before a report (an older
+  SDK); `lost` null when a previous session is not among them (ADR-0166), and
+  while one is still open, until a ping ends it after a fast reconnect
+  (ADR-0172). The headless server logs it as `drops: evicted N, oversized N,
+  lost N`. `TrafficStore` reads it with each envelope, so a new value reaches
+  the sink (`TrafficSink.dropped`, SDD 09) in order with the report, and once
+  when a lost count settles, with no envelope to carry it; the
   devices pane names a session's counts once one is above zero, in the
   error color ("Dropped: 12 buffer full, 1 too large, lost unknown").
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an

@@ -201,7 +201,43 @@ This plan becomes `Active` once PLAN-0014 closes.
   (ADR-0158); no gate runs iOS 16, DEBT-0118. DEBT-0043 and DEBT-0044 fired
   and were paid here, DEBT-0055 re-triggered, DEBT-0119 one test failure.
 
+- [x] **H5.R1 A reconnect's lost count.** (`fix/lost-count-after-fast-reconnect`) A device back within seconds
+  finds its old socket still open on the desktop: `lost` stayed null for the
+  rest of the SDK's start, so what the blip lost was never shown (ADR-0166).
+  Accept: `./gradlew :desktop:server:test :desktop:app:test`; a test with both
+  sockets open, failing when a pending count never settles.
+  Done: `LostLedger` keeps the count pending until the previous session closes
+  (ADR-0172); `TrafficStore` stores it with the app idle.
+- [ ] **H5.R2 A refused desktop is said so.** On a physical device, mDNS answers
+  from a desktop other than the pinned one are dropped with no log, so the
+  discovery times out and backs off for good: a device moved to another desktop
+  (ADR-0168, consequence A) shows nothing, and the refusal line is only reached
+  through a simulator's or emulator's fallback host. `sdk/core` and the Swift SDK
+  log it once per start, and the Swift SDK's `Logger` lines are `.public`, as
+  outside a debugger they read `<private>`.
+  Accept: `./gradlew :protocol:allTests :sdk:core:allTests`, `make swift`, a test
+  in each SDK of an answer refused and logged once; `log show` with the message
+  readable on a build not attached to a debugger.
+
 ## Outcome
+
+### H5 milestone review
+
+`code-review` at `medium` of `e47d580..30dda93` (#317 to #341). Ten findings,
+two that normal use hits:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | A fast reconnect leaves `lost` null for the rest of the SDK's start. | Yes: wrong data, on any Wi-Fi blip | H5.R1 |
+| 2 | A refused desktop is dropped with no log on a physical device. | Yes: no connection and no reason, after a device moves desktop | H5.R2 |
+| 3 | The SDK's `Logger` lines are redacted outside a debugger. | Yes: makes finding 2's line unreadable from the home screen | H5.R2 |
+| 4 | "Clear all data" drops `desktop.id` before writing it back. | No: needs a crash between the two | DEBT-0120 |
+| 5 | The pin file is not excluded from backup. | No: needs a phone restored with a debug build | DEBT-0120 |
+| 6 | `Storage.close` can wait about twice its bound. | No: needs a stalled writer at shutdown | DEBT-0120 |
+| 7 | An oversized drop's report waits for the next envelope. | No: needs an idle app whose last envelope is too large | DEBT-0120 |
+| 8 | "Envelope before HelloAck" closes without draining. | No: no SDK sends before `HelloAck`; fixed in H5.R1, the file being touched | H5.R1 |
+| 9 | `trailer_check.sh` passes a range `git log` cannot read. | No: CI fetches the base | DEBT-0120 |
+| 10 | Three 5-line KDoc blocks. | No: no behavior; `DeviceConnection.kt` fixed in H5.R1 | DEBT-0120 |
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
 >

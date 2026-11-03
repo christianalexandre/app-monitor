@@ -11,8 +11,11 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -38,13 +41,34 @@ internal class TrafficStore(
                     val timeouts = Job(coroutineContext.job)
                     replays.opened(session)
                     var reported: StoredDrops? = null
+                    val dropsLock = Mutex()
+                    val storeDrops =
+                        suspend {
+                            dropsLock.withLock {
+                                session.drops.value
+                                    ?.let {
+                                        StoredDrops(
+                                            it.evicted,
+                                            it.oversized,
+                                            it.lost,
+                                        )
+                                    }?.takeIf { it != reported }
+                                    ?.let {
+                                        reported = it
+                                        sink.dropped(session.id, it)
+                                    }
+                            }
+                        }
+                    // A lost count settles when the previous session closes, with no envelope to carry it (ADR-0172).
+                    val settledLost =
+                        launch {
+                            session.drops.first { it?.lost != null }
+                            storeDrops()
+                        }
                     try {
                         session.envelopes.collect { envelope ->
                             // The server sets drops before it delivers their report: read here, they stay in order (ADR-0166).
-                            session.drops.value?.let { StoredDrops(it.evicted, it.oversized, it.lost) }?.takeIf { it != reported }?.let {
-                                reported = it
-                                sink.dropped(session.id, it)
-                            }
+                            storeDrops()
                             heldCalls.hold(session, envelope)?.let { call ->
                                 launch(timeouts) {
                                     delay(call.hit.timeout_ms)
@@ -55,6 +79,7 @@ internal class TrafficStore(
                             sink.received(session.id, envelope)
                         }
                     } finally {
+                        settledLost.cancel()
                         pushes.forEach { it.cancel() }
                         timeouts.cancel()
                         heldCalls.ended(session.id)
