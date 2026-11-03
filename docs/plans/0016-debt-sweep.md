@@ -117,11 +117,12 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
   `make e2e-kmp`.
-- [ ] **H6.3 Kotlin SDKs.** A masked value left in an edited URL or header group goes out
-  as the device's own, in OkHttp, Ktor and iOS (DEBT-0088, `HeldCalls.kt`), and
-  `readMockRules`' comment in `MockFile.kt` (DEBT-0088).
+- [x] **H6.3 Kotlin SDKs.** (`fix/masked-values-left-in-an-edit`) A masked value left in an edited URL or header group goes out
+  as the device's own, in OkHttp, Ktor and iOS, no change in `HeldCalls.kt` (DEBT-0088,
+  ADR-0185), and `readMockRules`' comment in `MockFile.kt` (DEBT-0088), in
+  `tools/headless-server` since H6.1.
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
-  :sdk:android-okhttp:allTests :desktop:server:test :desktop:app:test`; `make swift`.
+  :sdk:android-okhttp:allTests :tools:headless-server:test :desktop:app:test`; `make swift`.
 - [ ] **H6.4 iOS SDK.** One generic method hook instead of one per arity
   (DEBT-0103); headers CFNetwork adds at send time (DEBT-0037) and every
   end of a WebSocket (DEBT-0038) captured; a replay safe against a

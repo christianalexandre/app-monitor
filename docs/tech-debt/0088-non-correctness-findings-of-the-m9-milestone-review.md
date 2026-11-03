@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Replays.swift`"
 paid_date:
 ---
 
@@ -17,13 +17,12 @@ not hit (ADR-0094):
 - **Recent requests keep their bodies.** The Swift SDK's `RecentRequests`
   (`Replays.swift`) keeps 200 closures, each holding its task's request and
   upload data, with no byte bound. Paid in `sdk/core` by PLAN-0016 H6.3d below.
-- **A masked query value goes back as `██`.** In `HeldCalls.kt`,
-  `resumeOf` sends the whole URL once any part of it is edited. A masked
-  query parameter then goes out as the placeholder. The same happens to
-  the masked values of a header group when one value of the group is
-  edited.
-- **Comment blocks longer than four lines** (guidelines 02):
-  `readMockRules` in `MockFile.kt`.
+
+Paid in PLAN-0016 H6.3's PR (`fix/masked-values-left-in-an-edit`): a masked value left in
+an edited URL or header group goes out as the device's own, in OkHttp, Ktor and iOS, by a
+change in each SDK and none in `resumeOf` (ADR-0185, the `restores` of
+`protocol/fixtures/masking.json`); `readMockRules`' comment is three lines. `HeldCalls.kt`
+and `MockFile.kt`, now in `tools/headless-server`, leave the trigger.
 
 Paid in PLAN-0012 H2.2b's PR (`refactor/desktop-traffic-feature`):
 "Show original" read only loaded rows, so an original older than the
@@ -69,12 +68,7 @@ findings that normal use does hit.
 
 ## Trigger
 
-The next PR that touches one of the files named above. That PR pays the
-items in its file:
-
-- `sdk/ios/Sources/AppMonitor/Replays.swift`
-- `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
-- `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`
+The next PR that touches `sdk/ios/Sources/AppMonitor/Replays.swift`, which pays the item in it.
 
 `App.kt` fired by PLAN-0012 H2.1 (`refactor/desktop-design-system`),
 which swaps its Material calls for the design system's and changes

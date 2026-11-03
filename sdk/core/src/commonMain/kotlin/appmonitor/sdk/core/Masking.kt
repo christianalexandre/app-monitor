@@ -53,24 +53,102 @@ public class Masking(
 
     public fun url(url: String): String = if (enabled) uri(url) else url
 
+    /** ADR-0185: [edited] with a user name, password or field left as [MASK] back to [own]'s; a name's nth to its nth. */
+    public fun restoredUrl(
+        edited: String,
+        own: String,
+    ): String {
+        if (!enabled || MASK !in edited) return edited
+        val (hierarchy, query, fragment) = uriParts(edited)
+        val (ownHierarchy, ownQuery, ownFragment) = uriParts(own)
+        return restoredUserInfo(hierarchy, ownHierarchy) +
+            query?.let { "?" + restoredFields(it, ownQuery) }.orEmpty() +
+            fragment?.let { "#" + restoredFields(it, ownFragment) }.orEmpty()
+    }
+
+    /** ADR-0185: [edited] with a masked header left as [MASK], or a URL one's masked parts, back to [own]'s nth of its name. */
+    public fun restoredHeaders(
+        edited: List<Header>,
+        own: List<Pair<String, String>>,
+    ): List<Pair<String, String>> {
+        val ownValues = own.groupBy({ it.first.lowercase() }, { it.second })
+        val seen = HashMap<String, Int>()
+        return edited.map { header ->
+            val name = header.name.lowercase()
+            val at = seen[name] ?: 0
+            seen[name] = at + 1
+            val value = ownValues[name]?.getOrNull(at)
+            header.name to
+                when {
+                    !enabled || value == null -> header.value_
+                    name in headerNames -> if (header.value_ == MASK) value else header.value_
+                    name in urlHeaderNames -> restoredUrl(header.value_, value)
+                    else -> header.value_
+                }
+        }
+    }
+
     /** ADR-0044: user info, query and fragment of [value] masked as written; everything else unchanged. */
     private fun uri(value: String): String {
+        val (hierarchy, query, fragment) = uriParts(value)
+        return userInfo(hierarchy) +
+            query?.let { "?" + fields(it, maskBare = true) }.orEmpty() +
+            fragment?.let { "#" + fields(it, maskBare = false) }.orEmpty()
+    }
+
+    /** What precedes the query, the query and the fragment of [value]; null for a part it does not have. */
+    private fun uriParts(value: String): Triple<String, String?, String?> {
         val fragmentAt = value.indexOf('#').takeIf { it >= 0 } ?: value.length
         val queryAt = value.indexOf('?').takeIf { it in 0 until fragmentAt } ?: fragmentAt
-        val query = if (queryAt < fragmentAt) "?" + fields(value.substring(queryAt + 1, fragmentAt), maskBare = true) else ""
-        val fragment = if (fragmentAt < value.length) "#" + fields(value.substring(fragmentAt + 1), maskBare = false) else ""
-        return userInfo(value.substring(0, queryAt)) + query + fragment
+        return Triple(
+            value.substring(0, queryAt),
+            if (queryAt < fragmentAt) value.substring(queryAt + 1, fragmentAt) else null,
+            if (fragmentAt < value.length) value.substring(fragmentAt + 1) else null,
+        )
     }
 
     /** `scheme://user:password@…` or `//user:password@…` with a non-empty user name and password replaced by [MASK]. */
     private fun userInfo(hierarchy: String): String {
+        val range = userInfoRange(hierarchy) ?: return hierarchy
+        val masked = hierarchy.substring(range).split(':', limit = 2).joinToString(":") { if (it.isEmpty()) it else MASK }
+        return hierarchy.replaceRange(range, masked)
+    }
+
+    /** Where [hierarchy]'s `user:password` is, or null when it has none. */
+    private fun userInfoRange(hierarchy: String): IntRange? {
         val start = SCHEME.find(hierarchy)?.value?.length ?: 0
-        if (!hierarchy.startsWith("//", start)) return hierarchy
+        if (!hierarchy.startsWith("//", start)) return null
         val end = hierarchy.indexOf('/', start + 2).takeIf { it >= 0 } ?: hierarchy.length
-        val at = hierarchy.lastIndexOf('@', end - 1).takeIf { it >= start + 2 } ?: return hierarchy
-        val masked =
-            hierarchy.substring(start + 2, at).split(':', limit = 2).joinToString(":") { if (it.isEmpty()) it else MASK }
-        return hierarchy.substring(0, start + 2) + masked + hierarchy.substring(at)
+        val at = hierarchy.lastIndexOf('@', end - 1).takeIf { it >= start + 2 } ?: return null
+        return start + 2 until at
+    }
+
+    private fun restoredUserInfo(
+        edited: String,
+        own: String,
+    ): String {
+        val range = userInfoRange(edited) ?: return edited
+        val ownParts = userInfoRange(own)?.let { own.substring(it).split(':', limit = 2) }.orEmpty()
+        val parts = edited.substring(range).split(':', limit = 2)
+        return edited.replaceRange(
+            range,
+            parts.mapIndexed { i, part -> if (part == MASK) ownParts.getOrNull(i) ?: part else part }.joinToString(":"),
+        )
+    }
+
+    private fun restoredFields(
+        edited: String,
+        own: String?,
+    ): String {
+        val ownFields = own?.split('&').orEmpty().groupBy { it.substringBefore('=') }
+        val seen = HashMap<String, Int>()
+        return edited.split('&').joinToString("&") { field ->
+            val name = field.substringBefore('=')
+            val at = seen[name] ?: 0
+            seen[name] = at + 1
+            val left = field == "$name=$MASK" && formDecoded(name).lowercase() in queryNames
+            if (left) ownFields[name]?.getOrNull(at) ?: field else field
+        }
     }
 
     /**

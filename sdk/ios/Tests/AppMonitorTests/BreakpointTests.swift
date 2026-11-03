@@ -153,7 +153,8 @@ struct BreakpointsTests {
         changes.setHeaders = [header("x-one", "new")]
         changes.removedHeaders = ["X-TWO"]
 
-        let headers = changes.applied(to: [("X-One", "old"), ("x-two", "gone"), ("Accept", "*/*")])
+        let headers = changes.applied(
+            to: [("X-One", "old"), ("x-two", "gone"), ("Accept", "*/*")], masking: Masking(AppMonitorOptions()))
 
         #expect(headers.map(\.name) == ["Accept", "x-one"])
         #expect(headers.map(\.value) == ["*/*", "new"])
@@ -278,6 +279,44 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(started.body == Data("edited".utf8))
         #expect(try received(end).body == Data("edited".utf8))
         #expect(try sink.all.filter { $0.type == "RequestStarted" }.count == 1)
+    }
+
+    @Test func whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() async throws {
+        holding(breakpointRule(3, path: "/ok", request: true))
+        sink.options = AppMonitorOptions(maskedQueryParameters: ["token"])
+        var request = URLRequest(url: server.url("/ok?token=real&id=1"))
+        request.setValue("a=1", forHTTPHeaderField: "Cookie")
+
+        let answer = Task { try await URLSession.shared.data(for: request) }
+        let hit = try await sink.hit(.request)
+        #expect(hit.request.url.hasSuffix("?token=██&id=1"))
+        var changes = resume(hit.request.requestID, .request)
+        changes.url = hit.request.url.replacingOccurrences(of: "id=1", with: "id=2")
+        changes.setHeaders = [header("Cookie", "██")]
+        sink.breakpoints.resume(changes)
+
+        _ = try await answer.value
+        let sent = try #require(server.received.first)
+        #expect(sent.path == "/ok?token=real&id=2")
+        #expect(sent.headers["cookie"] == "a=1")
+        let (started, _) = try await sink.exchange(server.url("/ok").absoluteString + "?token=██&id=2")
+        #expect(started.requestID == hit.request.requestID)
+    }
+
+    @Test func aRefusedEditDoesNotTellTheDesktopWhatItRestored() async throws {
+        holding(breakpointRule(3, path: "/ok", request: true))
+        sink.options = AppMonitorOptions(maskedQueryParameters: ["token"])
+        let url = server.url("/ok?token=real")
+
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.request)
+        var changes = resume(hit.request.requestID, .request)
+        changes.url = "ftp://h.example/?token=██"
+        sink.breakpoints.resume(changes)
+
+        let error = await #expect(throws: URLError.self) { try await answer.value }
+        #expect(error?.localizedDescription.contains("real") == false)
+        #expect(server.received.isEmpty)
     }
 
     @Test func aHeldResponseReachesTheAppEditedAndIsCapturedAsRead() async throws {

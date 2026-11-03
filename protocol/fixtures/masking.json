@@ -1,5 +1,5 @@
 {
-  "comment": "ADR-0036 A: the masking rule every SDK applies, read by the iOS and OkHttp tests. Response headers resolve against url.",
+  "comment": "ADR-0036 A: the masking rule every SDK applies, read by the iOS, OkHttp and Ktor tests. Response headers resolve against url. restores: ADR-0185, what a breakpoint edit left masked goes out as the device's own.",
   "cases": [
     {
       "name": "default headers",
@@ -160,6 +160,51 @@
       "maskedRequestHeaders": [["Authorization", "Bearer t0k"], ["X-Api-Key", "k3y"]],
       "responseHeaders": [["Set-Cookie", "s=2"], ["Location", "/next?token=abc"]],
       "maskedResponseHeaders": [["Set-Cookie", "s=2"], ["Location", "/next?token=abc"]]
+    }
+  ],
+  "restores": [
+    {
+      "name": "a URL edited elsewhere, its user info and fields left masked",
+      "maskedQueryParameters": ["token"],
+      "url": "https://user:s3cret@api.example.com/v1?token=abc&id=1&token=def#token=ghi&s=1",
+      "editedUrl": "https://██:██@staging.example.com/v2?token=██&id=2&token=new#token=██&s=1",
+      "restoredUrl": "https://user:s3cret@staging.example.com/v2?token=abc&id=2&token=new#token=ghi&s=1"
+    },
+    {
+      "name": "a query field without a value goes back as written",
+      "maskedQueryParameters": ["token"],
+      "url": "https://h.example/?TOKEN&a=1",
+      "editedUrl": "https://h.example/?TOKEN=██&a=2",
+      "restoredUrl": "https://h.example/?TOKEN&a=2"
+    },
+    {
+      "name": "a mask the device has no value for, or that was typed, stays",
+      "maskedQueryParameters": ["token"],
+      "url": "https://h.example/?a=1&token=abc",
+      "editedUrl": "https://u:██@h.example/?a=██&token=██&token=██",
+      "restoredUrl": "https://u:██@h.example/?a=██&token=abc&token=██"
+    },
+    {
+      "name": "a header group edited, each value by its place",
+      "maskedHeaders": ["x-api-key"],
+      "maskedQueryParameters": ["code"],
+      "url": "https://h.example/",
+      "editedUrl": "https://h.example/",
+      "restoredUrl": "https://h.example/",
+      "headers": [["Cookie", "a=1"], ["Cookie", "b=2"], ["X-API-Key", "k3y"], ["Location", "/next?code=abc&s=1"], ["X-Trace", "1"]],
+      "editedHeaders": [["cookie", "██"], ["Cookie", "new"], ["Cookie", "██"], ["x-api-key", "██"], ["Location", "https://h.example/other?code=██&s=2"], ["X-Trace", "██"], ["Authorization", "██"]],
+      "restoredHeaders": [["cookie", "a=1"], ["Cookie", "new"], ["Cookie", "██"], ["x-api-key", "k3y"], ["Location", "https://h.example/other?code=abc&s=2"], ["X-Trace", "██"], ["Authorization", "██"]]
+    },
+    {
+      "name": "masking off leaves what was typed",
+      "masking": false,
+      "maskedQueryParameters": ["token"],
+      "url": "https://u:p@h.example/?token=abc",
+      "editedUrl": "https://██:p@h.example/?token=██",
+      "restoredUrl": "https://██:p@h.example/?token=██",
+      "headers": [["Authorization", "Bearer t0k"]],
+      "editedHeaders": [["Authorization", "██"]],
+      "restoredHeaders": [["Authorization", "██"]]
     }
   ]
 }

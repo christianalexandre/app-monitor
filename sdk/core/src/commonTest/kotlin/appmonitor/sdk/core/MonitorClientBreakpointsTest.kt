@@ -171,11 +171,12 @@ class MonitorClientBreakpointsTest {
                 ),
             )
 
-        val headers = resumed.headers(listOf("Accept" to "*/*", "Authorization" to "real", "X-Old" to "a", "Accept" to "b"))
+        val masking = Masking(AppMonitorOptions())
+        val headers = resumed.headers(listOf("Accept" to "*/*", "Authorization" to "real", "X-Old" to "a", "Accept" to "b"), masking)
 
         assertEquals(listOf("Authorization" to "real", "accept" to "text/plain", "Accept" to "text/html", "X-New" to "1"), headers)
         assertTrue(resumed.changesHeaders)
-        assertEquals(listOf("A" to "1"), BreakpointOutcome.Resume(null).headers(listOf("A" to "1")))
+        assertEquals(listOf("A" to "1"), BreakpointOutcome.Resume(null).headers(listOf("A" to "1"), masking))
     }
 
     private suspend fun MonitorClient.awaitBreakpoint(

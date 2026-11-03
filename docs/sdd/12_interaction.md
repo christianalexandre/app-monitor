@@ -66,7 +66,9 @@ once, not at its timeout. In a resume, every header of a name in `set_headers` i
 that list's headers of the name, and every header named in
 `removed_headers` (ignoring case) goes; a header left alone, a masked
 `██` one included, is in neither and keeps the device's value (ADR-0111
-C.1). The fixtures are `protocol/fixtures/breakpoint_rules.bin`,
+C.1). A `██` left in an edited URL or in an edited group of a masked header goes out as the
+device's own too, a name's nth value for its nth; the SDK puts it back, in `Masking`, so the
+desktop never holds it (ADR-0185). The fixtures are `protocol/fixtures/breakpoint_rules.bin`,
 `breakpoint_hit.bin`, `breakpoint_resume.bin` and `breakpoint_abort.bin`.
 
 ### Rules on the desktop
@@ -276,6 +278,8 @@ logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt
 | Breakpoints per app in order, enabled only, a new list only on a change, kept, cleared, refused | `BreakpointsTest` in `desktop/storage` |
 | A rule or a breakpoint moved in its app's order only, nothing past either end or for an unknown id, kept across a reopen; a device sent the new order; the window's buttons, disabled at each end | `MocksTest.aRuleMovesInItsAppsOrderOnly`, `BreakpointsTest.aBreakpointMovesInItsAppsOrderOnly` in `desktop/storage`; `MockPushTest`, `MocksUiTest`, `BreakpointsUiTest` in `desktop/app` |
 | A stand-in device gets its breakpoints after `HelloAck` and on a change; its hit held, resumed with only the changed fields (the masked header not sent back), aborted, let go at its timeout and when its session ends; a malformed hit not held | `HeldCallsTest` in `desktop/app`, against a real server |
+| A `██` left in an edited URL or header group goes back by place; one with no value there, a typed one, or masking off stays; a refused edit's reason quotes the URL as it came | `restores` of `protocol/fixtures/masking.json` in `MaskingVectorTest` (`sdk/android-okhttp`, `sdk/ktor`) and `MaskingTests`; `whatAnEditLeftMaskedGoesOutAsTheDevicesOwn` and `aRefusedEditDoesNotTellTheDesktopWhatItRestored` in `BreakpointTest` and `BreakpointTests` (ADR-0185) |
+| A Ktor request's edited URL replaces its query, fragment and user info | `anEditedUrlReplacesTheQueryFragmentAndUserInfo` in `sdk/ktor` |
 | A response resume's headers set and removed by name; a truncated body left alone not sent | `HeldCallsTest` |
 | The replay messages round-trip, fixture bytes match on Kotlin and Swift | `RoundTripTest.replayMessages`, `FixtureTest`, Swift `FixtureTests` |
 | `replay_of` kept in every list reader, linked only within its session; a version-6 file migrates | `ReplayedExchangeTest` in `desktop/storage` |

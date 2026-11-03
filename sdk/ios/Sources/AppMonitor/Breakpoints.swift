@@ -105,10 +105,11 @@ final class Breakpoints: @unchecked Sendable {
 }
 
 extension Appmonitor_V1_BreakpointResume {
-    /// `headers` with `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1).
-    func applied(to headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
+    /// `headers` with `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1, ADR-0185).
+    func applied(to headers: [(name: String, value: String)], masking: Masking) -> [(name: String, value: String)] {
         let replaced = Set(setHeaders.map { $0.name.lowercased() } + removedHeaders.map { $0.lowercased() })
-        return headers.filter { !replaced.contains($0.name.lowercased()) } + setHeaders.map { ($0.name, $0.value) }
+        return headers.filter { !replaced.contains($0.name.lowercased()) }
+            + masking.restoredHeaders(setHeaders, own: headers)
     }
 
     var changesHeaders: Bool { !setHeaders.isEmpty || !removedHeaders.isEmpty }
@@ -228,10 +229,12 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private func edit(_ request: URLRequest, _ upload: UploadBody?, _ changes: Appmonitor_V1_BreakpointResume?)
         throws -> (URLRequest, UploadBody?)
     {
-        guard let changes else { return (request, upload) }
+        guard let changes, let masking = capture?.masking else { return (request, upload) }
         var edited = request
         if changes.hasURL {
-            guard let url = URL(string: changes.url), let scheme = url.scheme?.lowercased(),
+            // The reason reaches the desktop: the URL as it came, never the restored one (ADR-0185).
+            let restored = masking.restoredURL(changes.url, own: request.url?.absoluteString ?? "")
+            guard let url = URL(string: restored), let scheme = url.scheme?.lowercased(),
                 scheme == "http" || scheme == "https", url.host != nil
             else { throw refused("not an http or https URL: \(changes.url)") }
             edited.url = url
@@ -242,7 +245,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         }
         if changes.changesHeaders {
             edited.allHTTPHeaderFields = headerFields(
-                changes.applied(to: sortedHeaders(request.allHTTPHeaderFields ?? [:])))
+                changes.applied(to: sortedHeaders(request.allHTTPHeaderFields ?? [:]), masking: masking))
         }
         guard changes.hasBody else { return (edited, upload) }
         edited.httpBodyStream = nil
@@ -446,7 +449,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
             case .resume(nil): deliver(response, whole ? data : body, whole: whole)
             case .resume(let changes?):
                 let status = changes.hasStatusCode ? Int(changes.statusCode) : http.statusCode
-                let fields = changes.applied(to: sortedHeaders(http.allHeaderFields))
+                let fields = changes.applied(to: sortedHeaders(http.allHeaderFields), masking: capture.masking)
                 let edited = HTTPURLResponse(
                     url: http.url ?? sent.url!, statusCode: status, httpVersion: "HTTP/1.1",
                     headerFields: headerFields(fields))!

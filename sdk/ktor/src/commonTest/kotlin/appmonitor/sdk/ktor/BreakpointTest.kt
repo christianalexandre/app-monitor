@@ -42,6 +42,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -123,6 +124,83 @@ class BreakpointTest {
             assertTrue(sent.isEmpty())
             sink.started()
             assertContains(sink.failed().error, "stopped here")
+        }
+
+    @Test
+    fun whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() =
+        runTest {
+            val sink =
+                RecordingSink(
+                    options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                    breakpoints = listOf(rule("/items", request = true)),
+                ) { hit ->
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = hit.request!!.request_id,
+                            stage = request,
+                            url = hit.request!!.url.replace("id=1", "id=2"),
+                            set_headers = listOf(Header("Cookie", MASK), Header("Cookie", "new")),
+                        ),
+                    )
+                }
+
+            client(sink)
+                .get("https://api.example.com/items?token=real&id=1") {
+                    header("Cookie", "a=1")
+                    header("Cookie", "b=2")
+                }.bodyAsText()
+
+            assertEquals(
+                "https://api.example.com/items?token=$MASK&id=1",
+                sink.hits
+                    .single()
+                    .request!!
+                    .url,
+            )
+            val out = sent.single()
+            assertEquals("https://api.example.com/items?token=real&id=2", out.url.toString())
+            assertEquals(listOf("a=1", "new"), out.headers.getAll("Cookie"))
+            assertEquals("https://api.example.com/items?token=$MASK&id=2", sink.started().url)
+        }
+
+    @Test
+    fun anEditedUrlReplacesTheQueryFragmentAndUserInfo() =
+        runTest {
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = request,
+                            url = "https://api.example.com/items?b=2",
+                        ),
+                    )
+                }
+
+            client(sink).get("https://user@api.example.com/items?a=1#top").bodyAsText()
+
+            assertEquals("https://api.example.com/items?b=2", sent.single().url.toString())
+        }
+
+    @Test
+    fun aRefusedEditDoesNotTellTheDesktopWhatItRestored() =
+        runTest {
+            val sink =
+                RecordingSink(
+                    options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                    breakpoints = listOf(rule("/items", request = true)),
+                ) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(request_id = it.request!!.request_id, stage = request, url = "https://h:port/?token=$MASK"),
+                    )
+                }
+
+            val error = assertFailsWith<IOException> { client(sink).get("https://api.example.com/items?token=real") }
+
+            assertContains(error.message!!, "not a URL")
+            assertFalse("real" in error.message!!)
+            sink.started()
+            assertFalse("real" in sink.failed().error)
         }
 
     @Test
