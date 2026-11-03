@@ -26,9 +26,14 @@ struct DesktopSelector {
     /// True once a desktop is kept: the caller then waits at most the TXT grace for its TXT record.
     var hasCandidate: Bool { kept != nil }
 
+    /// True when `answer`'s TXT record shows a desktop other than the pinned one (ADR-0168).
+    func refuses(_ answer: DesktopAnswer) -> Bool {
+        pinnedID != nil && answer.path != nil && answer.id != pinnedID
+    }
+
     /// Takes `answer`; returns the kept desktop once its path is known.
     mutating func offer(_ answer: DesktopAnswer) -> DesktopAnswer? {
-        if let pinnedID, answer.path == nil ? kept == nil : answer.id != pinnedID { return nil }
+        if refuses(answer) || (pinnedID != nil && answer.path == nil && kept == nil) { return nil }
         if let kept, kept.name.caseInsensitiveCompare(answer.name) != .orderedSame { return nil }
         var merged = answer
         merged.path = answer.path ?? kept?.path
@@ -79,8 +84,8 @@ func missingLocalNetworkKeys(_ info: [String: Any]?) -> [String] {
 
 /// The `Discover` of `MonitorClient` for `options` (SDD 06): a manual host is the only source, its pin
 /// unchecked; else `mdns`, skipping desktops other than `pinned`'s (ADR-0168), then `simulatorHost` when
-/// `onSimulator`. Missing `infoPlist` keys on a device, and a failing browser, are each logged once; the
-/// failing browser finds nothing.
+/// `onSimulator`. Missing `infoPlist` keys on a device, a failing browser and a refused desktop are each
+/// logged once; the failing browser finds nothing.
 func discovery(
     _ options: AppMonitorOptions,
     mdns: MdnsBrowser,
@@ -102,9 +107,19 @@ func discovery(
         )
     }
     let failureLogged = QueueFlag()
+    let refusalLogged = QueueFlag()
     return { queue, found in
         let round = MdnsRound(
-            queue: queue, onSimulator: onSimulator, config: config, pinnedID: pinned(), found: found)
+            queue: queue, onSimulator: onSimulator, config: config, pinnedID: pinned(),
+            logRefused: { refused in
+                guard !refusalLogged.value else { return }
+                refusalLogged.value = true
+                log(
+                    "skipping the desktop at \(refused.host):\(refused.port), this install is paired with another "
+                        + "one; to move to it, clear the app's data, reinstall, or set AppMonitorOptions.host"
+                )
+            },
+            found: found)
         round.start(mdns) { reason in
             guard !failureLogged.value else { return }
             failureLogged.value = true
@@ -125,18 +140,21 @@ private final class MdnsRound: @unchecked Sendable {
     private let queue: DispatchQueue
     private let onSimulator: Bool
     private let config: DiscoveryConfig
+    private let logRefused: @Sendable (DesktopAnswer) -> Void
     private var found: (@Sendable (Endpoint?) -> Void)?
     private var selector = DesktopSelector()
     private var stopBrowsing: (@Sendable () -> Void)?
     private var timers: [DispatchSourceTimer] = []
 
     init(
-        queue: DispatchQueue, onSimulator: Bool, config: DiscoveryConfig, pinnedID: String? = nil,
+        queue: DispatchQueue, onSimulator: Bool, config: DiscoveryConfig, pinnedID: String?,
+        logRefused: @escaping @Sendable (DesktopAnswer) -> Void,
         found: @escaping @Sendable (Endpoint?) -> Void
     ) {
         self.queue = queue
         self.onSimulator = onSimulator
         self.config = config
+        self.logRefused = logRefused
         self.selector = DesktopSelector(pinnedID: pinnedID)
         self.found = found
     }
@@ -172,6 +190,7 @@ private final class MdnsRound: @unchecked Sendable {
     private func offer(_ answer: DesktopAnswer) {
         guard found != nil else { return }
         ConnectionCapture.desktopFound(host: answer.host, port: answer.port)
+        if selector.refuses(answer) { logRefused(answer) }
         let hadCandidate = selector.hasCandidate
         if let chosen = selector.offer(answer) {
             finish(chosen)

@@ -46,6 +46,58 @@ struct DiscoveryTests {
         #expect(browser.browses == 0)
     }
 
+    @Test func aRefusedDesktopIsLoggedOncePerClientAcrossRounds() async {
+        let logs = Logs()
+        let browser = FakeBrowser { send in
+            send(DesktopAnswer(name: "Colleague", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+            send(DesktopAnswer(name: "Old", host: "192.168.1.40", path: "/v1/ws"))
+        }
+        let discover = discovery(
+            AppMonitorOptions(), mdns: browser, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append, pinned: { "mine" })
+        let first = await Self.run(discover, for: 0.1)
+        let second = await Self.run(discover, for: 0.1)
+        #expect(first.reports.isEmpty)
+        #expect(second.reports.isEmpty)
+        #expect(browser.browses == 2)
+        #expect(logs.lines.count == 1)
+        #expect(logs.lines.first?.contains("192.168.1.30:\(ProtocolConstants.defaultPort)") == true)
+        #expect(logs.lines.first?.contains("AppMonitorOptions.host") == true)
+    }
+
+    @Test func thePinnedDesktopIsFoundAfterARefusedOne() async {
+        let logs = Logs()
+        let browser = FakeBrowser { send in
+            send(DesktopAnswer(name: "Colleague", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+            send(DesktopAnswer(name: "Mine", host: "192.168.1.20", path: "/v1/ws", id: "mine"))
+        }
+        let discover = discovery(
+            AppMonitorOptions(), mdns: browser, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append, pinned: { "mine" })
+        let round = await Self.run(discover, for: 0.1)
+        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20")])
+        #expect(logs.lines.count == 1)
+    }
+
+    @Test func nothingIsRefusedWithoutAPinOrBeforeATxtRecord() async {
+        let logs = Logs()
+        let unpinned = FakeBrowser { send in
+            send(DesktopAnswer(name: "Any", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+        }
+        _ = await Self.run(
+            discovery(
+                AppMonitorOptions(), mdns: unpinned, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+                log: logs.append),
+            for: 0.05)
+        let noTxt = FakeBrowser { $0(Self.answer("Any", "192.168.1.30", path: nil)) }
+        _ = await Self.run(
+            discovery(
+                AppMonitorOptions(), mdns: noTxt, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+                log: logs.append, pinned: { "mine" }),
+            for: 0.05)
+        #expect(logs.lines.isEmpty)
+    }
+
     @Test func mdnsComesBeforeTheSimulatorHost() async {
         let browser = FakeBrowser { $0(Self.answer("AppMonitor", "192.168.1.20", path: "/v1/ws")) }
         let discover = discovery(
@@ -259,6 +311,15 @@ struct DesktopSelectorTests {
         #expect(!selector.hasCandidate)
         #expect(selector.settle() == nil)
         #expect(selector.offer(Self.answer("Mine", host: "10.0.0.1", path: "/v1/ws", id: "pinned"))?.host == "10.0.0.1")
+    }
+
+    @Test func onlyAnAnswerWhoseTxtShowsAnotherDesktopIsRefused() {
+        let selector = DesktopSelector(pinnedID: "pinned")
+        #expect(selector.refuses(Self.answer("Colleague", path: "/v1/ws", id: "other")))
+        #expect(selector.refuses(Self.answer("Old", path: "/v1/ws")))
+        #expect(!selector.refuses(Self.answer("Unknown yet", path: nil)))
+        #expect(!selector.refuses(Self.answer("Mine", path: "/v1/ws", id: "pinned")))
+        #expect(!DesktopSelector().refuses(Self.answer("Any", path: "/v1/ws", id: "other")))
     }
 
     @Test func aPinnedDesktopKeepsItsIdOnALaterAnswerWithoutTxt() {

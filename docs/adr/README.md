@@ -190,3 +190,4 @@ Rules:
 | [0170](0170-the-ios-sdk-suite-runs-on-the-simulator.md) | The iOS SDK's package suite runs on the simulator too, on the iOS SIM_OS picks | Accepted |
 | [0171](0171-the-ios-floor-the-sdk-declares.md) | The iOS floor the SDK declares, against the runtimes it can be tested on | Accepted |
 | [0172](0172-a-lost-count-waits-for-the-previous-session-to-close.md) | A session's lost count waits for its previous session to close | Accepted |
+| [0173](0173-the-sdks-log-lines-are-public.md) | The SDKs' log lines are readable outside a debugger | Accepted |
