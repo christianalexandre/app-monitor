@@ -1,10 +1,10 @@
 ---
 id: DEBT-0102
 title: The MCP and proxy controllers repeat one switch and lifecycle
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "A third switchable desktop service, or the next fix to the switch, lock or status of `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/McpController.kt` or `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0102 — The MCP and proxy controllers repeat one switch and lifecycle
@@ -41,4 +41,6 @@ gives its own start and stop.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2c (`refactor/service-switch`). `ServiceSwitch` holds the stored switch, the
+lock and the status; `McpController` and `ProxyController` give it their own start
+and stop. `ServiceSwitchTest` runs each sequence once, with no real server.

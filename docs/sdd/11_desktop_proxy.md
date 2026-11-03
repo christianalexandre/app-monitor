@@ -42,7 +42,9 @@ Castle, ADR-0105); the switch, status and commands in
   365 days, subject `App Monitor proxy CA <date>`.
 - A leaf per host, made on first use and kept in memory until a day
   before it expires, then made again; one the CA's last day caps is kept
-  to its end, since a new one would end no later (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
+  to its end, since a new one would end no later, and past the CA's end a
+  host keeps the leaf it has, which clients refuse until the switch off and on
+  or "Reset CA" makes a new CA (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
   and never past the CA. Its TLS context offers ALPN `h2`, then
   `http/1.1`.
 - "Reset proxy CA" and "Clear all data" delete both files; a running
@@ -147,14 +149,14 @@ its full-queue waits (`ProxyRecordingTest`). Stopping the proxy writes what is l
 | `stop()` | nothing (`ProxyLifecycleTest`: stop before start) | closes the listener, then every client and upstream connection, waits up to 2 s for the event loops; the port is free after (`ProxyLifecycleTest`: open connections, frees the port) | nothing (`ProxyLifecycleTest`: stop twice) |
 | a client connects | refused | served (`ProxyServerTest`) | refused |
 
-`ProxyController`, the settings' switch:
+`ProxyController`, the settings' switch, over `ServiceSwitch` (`desktop/app`, `store/ServiceSwitch.kt`, shared with the MCP server, SDD 10):
 
 | Call | Off | Running | Port taken / failed | Closed |
 | --- | --- | --- | --- | --- |
 | `start()` (launch) | reads `proxy.enabled` (missing = off) and starts when on | nothing | nothing | nothing |
 | `setEnabled(true)` | stores it, loads or makes the CA, starts; `PortTaken` or `Failed` as a status (`ProxyWiringTest`) | nothing | tries again | stays off (`ProxyWiringTest`) |
 | `setEnabled(false)` | stores it | stops, ends the session (`ProxyWiringTest`) | `Off` | stays off |
-| two `setEnabled` at once | the last switch wins: each call takes the lock with the switch as it is then, not its own argument (DEBT-0073, as `McpController`; `ProxyWiringTest` races them 2 000 rounds) | same | same | same |
+| two `setEnabled` at once | the last switch wins: each call stores and applies, under the lock, the switch as it is then, not its own argument (`ServiceSwitchTest`) | same | same | same |
 | `resetCa()` | deletes the CA | stops, deletes, starts with a new CA and session (`ProxyWiringTest`) | deletes | deletes |
 | `afterClearAll()` | as `resetCa()`, the switch written back when on (`ProxyWiringTest`) | same | same | same |
 | `close()` | `Closed` | stops, then `Closed` | `Closed` | nothing |

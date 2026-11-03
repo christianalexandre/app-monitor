@@ -1,10 +1,10 @@
 ---
 id: DEBT-0073
 title: Non-correctness findings of the third M6 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The first PR that changes `McpWiringTest`'s `switchTurnedOffAsStartWritesItEndsOff` or `McpController`'s locking, or a CI failure of that test"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0073 — Non-correctness findings of the third M6 milestone review
@@ -68,4 +68,8 @@ them, so a rename does not fire it.
 
 ## How it was paid
 
-> Filled when closing.
+The last item, the race test's odds, is paid by PLAN-0016 H6.2c (`refactor/service-switch`).
+`ServiceSwitchTest` holds each step on a gate instead of racing threads, so the
+order it tests happens on every run, and the 2,000-round races in `McpWiringTest`
+and `ProxyWiringTest` are gone. Those rounds caught the old bug in 2 runs of 6: a
+race repeated is still a race.

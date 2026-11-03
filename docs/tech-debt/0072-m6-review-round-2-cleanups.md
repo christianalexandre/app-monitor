@@ -1,10 +1,10 @@
 ---
 id: DEBT-0072
 title: Non-correctness findings of the second M6 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The first PR that changes `McpController`'s `readSwitch` parameter or the race tests of `McpWiringTest` that set it"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0072 — Non-correctness findings of the second M6 milestone review
@@ -73,4 +73,6 @@ those tests, so a rename does not fire it.
 
 ## How it was paid
 
-> Filled when closing.
+The last item, `McpController`'s `readSwitch` seam, is paid by PLAN-0016 H6.2c
+(`refactor/service-switch`): the sequences it existed for run against `ServiceSwitch`, which
+takes the read as a normal argument, and the parameter is gone.

@@ -63,7 +63,9 @@ class ProxyCa private constructor(
     ): SslContext =
         leaves
             .compute("$alpn ${host.lowercase()}") { _, kept ->
-                kept?.takeIf { clock() < it.renewAt } ?: mint(host.lowercase(), alpn)
+                // Past the CA's end a new leaf would be expired too: keep the one there is. Off and on makes a new CA.
+                kept?.takeIf { clock() < it.renewAt || clock() >= certificate.notAfter.toInstant() }
+                    ?: mint(host.lowercase(), alpn)
             }!!
             .context
 
