@@ -194,3 +194,4 @@ Rules:
 | [0174](0174-mdns-failure-does-not-stop-the-server.md) | An mDNS failure does not stop the server | Accepted |
 | [0175](0175-a-lock-file-holds-the-data-directory.md) | A lock file holds the data directory | Accepted |
 | [0176](0176-the-headless-server-is-a-tool-module.md) | The headless server is a tool module | Accepted |
+| [0177](0177-text-search-and-failed-only-read-compact-indexes.md) | Text search and "failed only" read compact indexes | Accepted |

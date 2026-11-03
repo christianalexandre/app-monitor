@@ -1,10 +1,10 @@
 ---
 id: DEBT-0104
 title: The live list repeats the store's decoding and filter match
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "A new `network` event type, a new `ExchangeFilter` field, or a change to how `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt` decodes an event or `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Search.kt` matches a filter"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0104 — The live list repeats the store's decoding and filter match
@@ -39,4 +39,8 @@ the filter cases become one table run against both.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2b (`refactor/search-live-one-decoding`). `Envelope.networkEvent()`
+is the one decoding both call. The match stays two (SQL and Kotlin, as ADR-0141
+says), side by side in `Search.kt`, and `FilterMatchTest` runs one table of
+filters and one set of odd events (status 0, two `grpc-status`, a bad URL, an
+event for an unknown request, an unknown type, a bad payload) on both.

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0063
 title: Text search and "failed only" walk the exchanges instead of an index
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: SearchTest's no-match text search over 100 000 exchanges passes 100 ms, or ADR-0082's size bound is raised past 1 GiB
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0063 — Text search and "failed only" walk the exchanges instead of an index
@@ -41,4 +41,11 @@ triggers stay.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2b (`refactor/search-live-one-decoding`), by ADR-0177:
+`url` in compact indexes and a partial index on `failed`, not FTS5. Over 100 000
+exchanges with 30 headers each way, no match, through the store: text 1.57 s to
+48 ms at most, failed only 1.52 s to under 1 ms.
+
+The 6 ms this item accepted was measured on rows with one header: the trigger's
+number never fired because the test's rows were too small. A timing test says
+nothing unless its rows look like the real ones.

@@ -242,23 +242,12 @@ class LiveTraffic(
         map: (LiveExchange) -> T,
     ): List<T> {
         if (filter.runId != null) return emptyList()
-        val text = filter.text?.takeIf { it.isNotEmpty() }?.asciiLowercase()
+        val matches = filter.liveMatcher()
         return synchronized(lock) {
             exchanges.values
                 .asSequence()
-                .filter { exchange ->
-                    val row = exchange.row
-                    val hello = sessions[row.sessionId]?.row?.hello
-                    row.id > afterId &&
-                        (filter.sessionId == null || row.sessionId == filter.sessionId) &&
-                        (filter.deviceId == null || hello?.device_id == filter.deviceId) &&
-                        (filter.appId == null || hello?.app_id == filter.appId) &&
-                        (filter.method == null || row.method == filter.method) &&
-                        (filter.statusClasses.isEmpty() || filter.statusClasses.any { row.statusCode?.minus(it.from) in 0..99 }) &&
-                        (filter.hosts.isEmpty() || row.host in filter.hosts) &&
-                        (!filter.failedOnly || row.failed) &&
-                        (text == null || row.url?.asciiLowercase()?.contains(text) == true)
-                }.take(limit.toInt())
+                .filter { it.row.id > afterId && matches(it.row, sessions[it.row.sessionId]?.row?.hello) }
+                .take(limit.toInt())
                 .map(map)
                 .toList()
         }
@@ -283,15 +272,15 @@ class LiveTraffic(
         envelope: Envelope,
     ) {
         val at = envelope.timestamp_ms
-        when (envelope.type) {
-            "RequestStarted" -> {
-                val event = RequestStarted.ADAPTER.decode(envelope.payload)
+        when (val decoded = envelope.networkEvent() ?: return) {
+            is NetworkEvent.Started -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.row =
                     exchange.row.copy(
                         method = event.method,
                         url = event.url,
-                        host = hostOf(event.url),
+                        host = decoded.host,
                         startedAtMs = at,
                         captureLayer = event.capture_layer,
                         mockRuleId = event.mock_rule_id,
@@ -301,28 +290,27 @@ class LiveTraffic(
                 exchange.resize(event.body, exchange.response?.body)
             }
 
-            "ResponseReceived" -> {
-                val event = ResponseReceived.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Responded -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
-                // ADR-0104: status 0 is no status, as a closed `CONNECTION` sends.
                 exchange.row =
                     exchange.row.copy(
-                        statusCode = event.status_code.takeIf { it != 0 },
-                        grpcStatus = grpcStatusOf(event)?.toInt(),
+                        statusCode = decoded.statusCode,
+                        grpcStatus = decoded.grpcStatus?.toInt(),
                         endedAtMs = at,
                     )
                 exchange.response = event
                 exchange.resize(exchange.request?.body, event.body)
             }
 
-            "RequestFailed" -> {
-                val event = RequestFailed.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Failed -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.row = exchange.row.copy(failed = true, error = event.error, endedAtMs = at)
             }
 
-            "WebSocketFrame" -> {
-                val event = WebSocketFrame.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Frame -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.frames +=
                     StoredFrame(
@@ -460,5 +448,3 @@ class LiveCopy(
     val session: StoredSession,
     val envelopes: List<Envelope>,
 )
-
-private fun String.asciiLowercase(): String = String(CharArray(length) { this[it].let { c -> if (c in 'A'..'Z') c + 32 else c } })

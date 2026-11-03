@@ -75,6 +75,7 @@ class ReplayedExchangeTest {
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 6")
                 }
             }
@@ -86,6 +87,6 @@ class ReplayedExchangeTest {
                 assertEquals("first", storage.searchExchanges(ExchangeFilter()).single().replayOf)
                 storage.close(5.seconds)
             }
-            assertEquals(9, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 }

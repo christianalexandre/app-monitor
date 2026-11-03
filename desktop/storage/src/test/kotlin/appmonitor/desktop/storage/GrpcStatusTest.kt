@@ -112,6 +112,7 @@ class GrpcStatusTest {
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
                     it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 2")
                 }
             }
@@ -124,7 +125,7 @@ class GrpcStatusTest {
                 assertEquals(13, storage.searchExchanges(ExchangeFilter()).single().grpcStatus)
                 storage.close(5.seconds)
             }
-            assertEquals(9, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

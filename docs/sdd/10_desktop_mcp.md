@@ -348,5 +348,3 @@ writes) and a hook run before each tool (a call held in flight).
 - `replay_request` does not tell the agent that the developer refused the
   replay or that the device sent `ReplayRefused`: no replay row shows up
   (ADR-0121). A waiting replay is lost at quit and when its session ends.
-- Text search and "failed only" walk the exchanges (DEBT-0063,
-  re-triggered at M6.4).

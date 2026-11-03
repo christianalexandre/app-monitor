@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
+import appmonitor.v1.Hello
 import appmonitor.v1.ResponseReceived
 
 /**
@@ -37,7 +38,7 @@ enum class StatusClass(
 
 /**
  * One `WHERE` per filter set, built from the fields that are set only, so SQLite picks the index of each one
- * (ADR-0087). Listens to the tables it reads, `sessions` only when a filter joins it, like SQLDelight's generated queries.
+ * (ADR-0087, ADR-0177). Listens to the tables it reads, `sessions` only when a filter joins it, like SQLDelight's generated queries.
  */
 internal class SearchQuery<T : Any>(
     private val driver: SqlDriver,
@@ -98,7 +99,15 @@ internal class SearchQuery<T : Any>(
         }
         binds += { bindLong(it, limit) }
         tables = if (sessionWhere.isEmpty()) arrayOf("exchanges") else arrayOf("exchanges", "sessions")
-        sql = "SELECT $columns FROM exchanges WHERE ${where.joinToString(" AND ")} ORDER BY exchanges.id LIMIT ?"
+        // ADR-0177: the planner, without statistics, would read each row of a session or a method to test its URL.
+        val index =
+            when {
+                filter.failedOnly -> " INDEXED BY exchanges_failed"
+                filter.text.isNullOrEmpty() -> ""
+                filter.sessionId != null || sessionWhere.isNotEmpty() -> " INDEXED BY exchanges_session_ref_id_url"
+                else -> " INDEXED BY exchanges_id_url"
+            }
+        sql = "SELECT $columns FROM exchanges$index WHERE ${where.joinToString(" AND ")} ORDER BY exchanges.id LIMIT ?"
         binders = binds
     }
 
@@ -119,6 +128,23 @@ internal class SearchQuery<T : Any>(
 
     override fun toString(): String = "Search:$sql"
 }
+
+/** [SearchQuery]'s clauses for a row in memory, its session's [Hello] beside it; `FilterMatchTest` runs one table on both. */
+internal fun ExchangeFilter.liveMatcher(): (StoredExchange, Hello?) -> Boolean {
+    val lowered = text?.takeIf { it.isNotEmpty() }?.asciiLowercase()
+    return { row, hello ->
+        (sessionId == null || row.sessionId == sessionId) &&
+            (deviceId == null || hello?.device_id == deviceId) &&
+            (appId == null || hello?.app_id == appId) &&
+            (method == null || row.method == method) &&
+            (statusClasses.isEmpty() || statusClasses.any { row.statusCode?.minus(it.from) in 0..99 }) &&
+            (hosts.isEmpty() || row.host in hosts) &&
+            (!failedOnly || row.failed) &&
+            (lowered == null || row.url?.asciiLowercase()?.contains(lowered) == true)
+    }
+}
+
+private fun String.asciiLowercase(): String = String(CharArray(length) { this[it].let { c -> if (c in 'A'..'Z') c + 32 else c } })
 
 /** The exchanges [filter] matches, as lists read them. */
 internal fun exchangeSearch(

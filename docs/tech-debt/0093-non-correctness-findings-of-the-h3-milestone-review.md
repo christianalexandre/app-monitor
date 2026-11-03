@@ -3,7 +3,7 @@ id: DEBT-0093
 title: Findings of the H3 milestone review that normal use does not hit
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
+trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
 paid_date:
 ---
 
@@ -92,6 +92,16 @@ PR adds a column to `Ingest`'s `Save` of a new session, not its skip of
 an exchange saved before, which needs to know what of a copy changed
 since; it adds `dropped` beside `Recorder`'s request map, which needs the
 exchange's end to forget it; the trimmed WebSocket stays as #312 left it.
+
+Fired by PLAN-0016 H6.2b (`refactor/search-live-one-decoding`), on `Ingest.kt`
+and `LiveTraffic.kt`, which both leave the trigger. "Saved while pending" is
+paid: Save applies a saved exchange's request and outcome again, not its frames
+(`SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt`). Frames that arrive
+after the first Save stay out of Saved: telling them from the first ones needs
+ids the copy does not carry. "In-flight exchange trimmed" is dropped: it needs
+10 000 other exchanges during one socket, leaves a row without a URL whose frames
+still show, and keeping it needs an open-socket state for that case alone.
+`Recorder.kt` and `DeviceApproval.kt` wait for H6.2's next slice.
 
 ## How it was paid
 
