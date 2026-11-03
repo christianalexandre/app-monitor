@@ -53,17 +53,12 @@ record of how the milestone was actually built once it is done.
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
 | [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
-| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Draft |
+| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### H6 — Debt sweep before distribution
-
-Written as [PLAN-0016](0016-debt-sweep.md) (`Draft`): every open DEBT
-paid or dropped, except those waiting outside the repository.
 
 ### Hold — the owner's go before M10
 

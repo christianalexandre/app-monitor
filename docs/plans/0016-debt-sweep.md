@@ -1,9 +1,9 @@
 ---
 id: PLAN-0016
 title: Debt sweep before distribution
-status: Draft # Draft | Active | Done | Abandoned
+status: Active # Draft | Active | Done | Abandoned
 milestone: H6
-started:
+started: 2026-11-03
 finished:
 ---
 
