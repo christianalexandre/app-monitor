@@ -3,7 +3,7 @@ id: DEBT-0055
 title: Two Kotlin implementations of the masking rule
 status: Open
 date: 2026-10-24
-trigger: The next change to `protocol/fixtures/masking.json`, or a vector case that passes in one of `sdk/android-okhttp` and `sdk/ktor` and fails in the other
+trigger: A new masking rule, or a vector case that passes in one of `sdk/android-okhttp` and `sdk/ktor` and fails in the other
 paid_date:
 ---
 
@@ -25,9 +25,12 @@ case it lists.
 
 ## Trigger
 
-The next change to `protocol/fixtures/masking.json`, or a vector case that
-passes in one of `sdk/android-okhttp` and `sdk/ktor` and fails in the
-other.
+A new masking rule, or a vector case that passes in one of
+`sdk/android-okhttp` and `sdk/ktor` and fails in the other.
+
+Re-triggered on 2026-11-03 by PLAN-0015 H5.6: its three new cases pinned
+existing behaviour and passed in both unchanged, so nothing was written
+twice. A change to the file alone is no cost; a rule written twice is.
 
 ## How it was paid
 

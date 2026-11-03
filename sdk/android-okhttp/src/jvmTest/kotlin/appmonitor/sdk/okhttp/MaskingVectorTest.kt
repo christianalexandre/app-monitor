@@ -50,6 +50,16 @@ class MaskingVectorTest {
         }
     }
 
+    @Test
+    fun aValueWithNeitherSchemeNorAuthorityIsResolved() {
+        val masking = Masking(AppMonitorOptions(maskedQueryParameters = setOf("code")))
+        val base = "https://auth.example.com/authorize".toHttpUrl()
+        assertEquals(
+            listOf(Header("Location", "https://auth.example.com/not%20a%20url?code=██")),
+            masking.headers(headersOf("Location", "not a url?code=1"), base = base),
+        )
+    }
+
     private fun JsonObject.string(key: String) = getValue(key).jsonPrimitive.content
 
     private fun JsonObject.strings(key: String) = (this[key] as JsonArray?).orEmpty().map { it.jsonPrimitive.content }.toSet()

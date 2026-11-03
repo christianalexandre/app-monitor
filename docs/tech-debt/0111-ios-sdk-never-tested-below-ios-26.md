@@ -1,40 +1,36 @@
 ---
 id: DEBT-0111
-title: The iOS SDK is tested on iOS 26 and macOS only, never on the iOS 15 it supports
+title: The iOS SDK is tested from iOS 16 up, never on the iOS 15 it declares
 status: Open
 date: 2026-10-30
-trigger: PLAN-0015 H5.6 starts, or the next PR that changes `sdk/ios/Sources/AppMonitor/Mocks.swift`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift` or the platforms of `Package.swift`
+trigger: A Mac on macOS 14 or earlier, or an iOS 15 device, can run the suite, or the platforms of `Package.swift` change
 paid_date:
 ---
 
-# DEBT-0111 — The iOS SDK is tested on iOS 26 and macOS only, never on the iOS 15 it supports
+# DEBT-0111 — The iOS SDK is tested from iOS 16 up, never on the iOS 15 it declares
 
 ## What is missing
 
-`Package.swift` declares `.iOS(.v15)`. `swift test` runs on the macOS host, and `make swift-sim`
-and the end to ends on the one installed simulator runtime, iOS 26.5. Nothing runs the SDK on
-iOS 15 to 18. The H4 field test found what that hides: on an iPhone 8 with iOS 16.7.16, every
-mocked call ended the app with `-[AppMonitor.MockProtocol task]: unrecognized selector`, which
-`URLProtocol.task` raised. `HoldProtocol` read it the same way. Both now keep the task given to
-`init(task:cachedResponse:client:)`, and the fix was proven on that iPhone only, by hand.
+`Package.swift` declares `.iOS(.v15)`, and nothing has run the SDK on iOS 15. The lowest iOS it
+ran on is 16.0 on the simulator (`SIM_OS=16.0 make swift-sim`) and 16.7.16 on an iPhone 8, by hand.
+
+Each step down found a bug: the iPhone 8 found every mocked call ending the app on
+`URLProtocol.task` (#321), and the iOS 16.0 simulator found a `Location` that `URLComponents`
+rejects sent unmasked (ADR-0170). iOS 15 may hide more.
 
 ## Why it was accepted
 
-No iOS 16 simulator runtime is installed, and whether Xcode 26 runs one is not checked. The
-iPhone 8 proves the fix, but it is attached by the owner, not by the loop or CI.
+ADR-0171, the owner's decision. macOS 26 refuses the iOS 15.0 runtime ("not supported on hosts
+after macOS 14.99.0"), and no iOS 15 device is at hand. The floor stays because the owner's own
+app targets iOS 15.0.
 
 ## Trigger
 
-PLAN-0015 H5.6 starts, or the next PR that changes `Mocks.swift`, `Breakpoints.swift` or the
-platforms of `Package.swift`. Then the SDK's tests, mocks and breakpoints included, run on the
-lowest iOS it declares, or that floor is raised to what is tested.
+A Mac on macOS 14 or earlier, or an iOS 15 device, can run the suite: run it there, then close
+this. Or the platforms of `Package.swift` change.
 
-Progress on 2026-10-31 (PLAN-0015 H5.6): the package's suite, mocks and breakpoints included,
-now builds for the iOS floor and runs on the simulator in `make swift-sim`, and `SIM_OS` picks the
-runtime (ADR-0170). Still open: `xcodebuild -downloadPlatform` serves no iOS 15 runtime, the image
-needs an Apple ID, and the iOS 16.0 download failed four times on the loop's network. ADR-0171
-(`Proposed`) asks the owner to install a runtime, then `SIM_OS=<version> make swift-sim`, or to
-raise the floor.
+Re-triggered on 2026-11-03 by PLAN-0015 H5.6, which fired the first trigger and could not pay it.
+Changes to `Mocks.swift` and `Breakpoints.swift` left this trigger: DEBT-0118 covers them.
 
 ## How it was paid
 

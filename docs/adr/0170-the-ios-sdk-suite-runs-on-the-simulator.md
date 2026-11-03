@@ -26,9 +26,18 @@ Evidence, 2026-10-31, Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5:
   `#if os(macOS)`, it builds and 157 tests in 23 suites pass on the
   simulator, mocks and breakpoints included; the background session tests
   are not in this suite, they stay in the test host.
+- Evidence, 2026-11-03, the same Xcode, iPhone 14 Pro simulator, iOS 16.0:
+  the suite first crashed before any test (SIGSEGV in `objc_copyClassList`,
+  metadata of `InProcessTransport.Client`'s `Mutex`, which exists from
+  iOS 18 on; the bundle links grpc-swift). With the gRPC test dependencies
+  on macOS only, three masking vector cases failed: below iOS 17 `URL`
+  takes `http://user:pw@h:p/x`, `URLComponents` does not, and `url(_:)`
+  returned that value unmasked. Fixed in `Masking`, the package's suite and
+  the 41 hosted tests pass there.
 - Xcode 26 runs simulator runtimes from iOS 15 on (Apple's Xcode support
   table, developer.apple.com/support/xcode; DTS answer in
-  developer.apple.com/forums/thread/814284). `xcodebuild -downloadPlatform
+  developer.apple.com/forums/thread/814284), though macOS 26 refuses the
+  iOS 15.0 one (ADR-0171). `xcodebuild -downloadPlatform
   iOS -buildVersion` serves 16.0 (build 20A360, 6.28 GB) and answers "not
   available for download" for 15.0, 15.2, 15.4, 15.5, 15.6 and builds
   19A339 and 19F70; an iOS 15 runtime image is behind an Apple ID on
@@ -53,13 +62,17 @@ Evidence, 2026-10-31, Xcode 26.6, iPhone 17 Pro simulator, iOS 26.5:
 Option 3. `scripts/swift_sim_check.sh` runs the package's
 `AppMonitor-Package` scheme, then the test host, on the same destination;
 `SIM_OS` (e.g. `16.0`) adds `OS=` to it, and the default device is the
-first iPhone on that runtime (`ios_lib.sh`). ADR-0047's hosted tests are
-unchanged.
+first iPhone on that runtime, else on the newest (`sim_runtime.sh`), as
+xcodebuild's `name=` alone means the newest. ADR-0047's hosted tests are
+unchanged. `AppMonitorTests` depends on `AppMonitorGRPC` and
+`GRPCInProcessTransport` on macOS only, and `GRPCCaptureTests` is under
+`#if os(macOS)`: a bundle linking them cannot start below iOS 18.
 
 ## Consequences
 
 - Test code under `sdk/ios/Tests` must build for the package's iOS floor:
   an API above it fails `make swift-sim`, not `make swift`.
+- The gRPC adapter's tests run on the macOS host only, as before this ADR.
 - `make swift-sim` is slower, by the package build for the simulator
   (cold, about 15 min); `make check` and CI are unchanged.
 - Which iOS floor the SDK declares, given the runtimes the loop can

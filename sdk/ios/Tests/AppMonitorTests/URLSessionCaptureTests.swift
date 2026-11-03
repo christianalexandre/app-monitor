@@ -293,4 +293,21 @@ struct MaskingTests {
         let base = URL(string: vector.url)
         #expect(flat(masking.headers(pairs(vector.responseHeaders), base: base)) == vector.maskedResponseHeaders ?? [])
     }
+
+    // Below iOS 17 such a request URL exists: `URL` takes it, `URLComponents` does not (ADR-0170).
+    @Test func aURLComponentsRejectsIsMaskedByTheGenericSyntax() {
+        let options = AppMonitorOptions(maskedQueryParameters: ["code"])
+        let value = "http://user:s3cret@h:p/x?code=1#code=2"
+        #expect(Masking(options).url(value) == "http://██:██@h:p/x?code=██#code=██")
+        let off = AppMonitorOptions(maskedQueryParameters: ["code"], masking: false)
+        #expect(Masking(off).url(value) == value)
+    }
+
+    // Parsers differ on this one, so it is not in the vector: resolved or as written, `code` is masked.
+    @Test func aValueWithNeitherSchemeNorAuthorityIsMasked() throws {
+        let masking = Masking(AppMonitorOptions(maskedQueryParameters: ["code"]))
+        let base = URL(string: "https://auth.example.com/authorize")
+        let header = try #require(masking.headers([(name: "Location", value: "not a url?code=1")], base: base).first)
+        #expect(header.value.hasSuffix("?code=██"))
+    }
 }

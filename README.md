@@ -13,8 +13,8 @@ checkout fail in the last run?"* straight from the captured traffic.
 > [!NOTE]
 > **Status: pre-alpha.** Code lands milestone by milestone. Android apps
 > using OkHttp show their traffic in the desktop, on the emulator and on a
-> device; iOS apps show all their `URLSession` traffic, proven on the
-> simulator so far (DEBT-0041); Kotlin Multiplatform apps show their Ktor
+> device; iOS apps show all their `URLSession` traffic, on the simulator and
+> on an iPhone; Kotlin Multiplatform apps show their Ktor
 > traffic from Android and iOS, and an iOS app running both SDKs shows each
 > exchange once. Every PR to `main` passes a release gate: desktop tests on
 > three OSes, the Kotlin ↔ Swift contract, every sample app, the Android, iOS
@@ -82,7 +82,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | Platform | SDK | Captures | Status |
 | --- | --- | --- | --- |
 | Android | `sdk/android-okhttp` + `sdk/core` | OkHttp calls and WebSockets (Retrofit, Apollo, …) | works, unpublished — M1 |
-| iOS | `sdk/ios` (Swift Package, iOS 15) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator, unpublished — M2 |
+| iOS | `sdk/ios` (Swift Package, iOS 15; lowest iOS tested: 16.0 on the simulator, 16.7 on a device, ADR-0171) | All `URLSession` traffic and WebSocket tasks, incl. background sessions | works on the simulator and a device, unpublished — M2 |
 | iOS | `sdk/ios` product `AppMonitorGRPC` (iOS 18) | gRPC Swift 2 calls in full, one interceptor | works in host tests, unpublished — M8 |
 | iOS | `sdk/ios` | Third-party sockets (metadata in-app, full content via desktop proxy) | planned — M8 |
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |

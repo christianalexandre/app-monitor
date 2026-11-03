@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppMonitorGRPC
 import Foundation
 import GRPCCore
@@ -214,3 +216,5 @@ extension ProcessWideHooks {
         }
     }
 }
+
+#endif

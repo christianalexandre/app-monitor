@@ -33,8 +33,12 @@ let package = Package(
             name: "AppMonitorTests",
             dependencies: [
                 "AppMonitor",
-                "AppMonitorGRPC",
-                .product(name: "GRPCInProcessTransport", package: "grpc-swift-2"),
+                .target(name: "AppMonitorGRPC", condition: .when(platforms: [.macOS])),
+                .product(
+                    name: "GRPCInProcessTransport",
+                    package: "grpc-swift-2",
+                    condition: .when(platforms: [.macOS])
+                ),
             ]
         ),
     ]

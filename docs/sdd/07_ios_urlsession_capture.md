@@ -40,7 +40,8 @@ app ── any URLSession ── task.resume() ──────────►
   user name and password → `██`; `Location` and `Content-Location` resolved
   against the response URL and masked as URLs; a value with another scheme
   is masked as written by RFC 3986 generic syntax (ADR-0044), and so is a
-  value Foundation's `URL` does not parse, relative ones included. Unlike OkHttp, the fields that are not
+  value `URL` or `URLComponents` does not parse, relative ones included
+  (below iOS 17 `URL` takes what `URLComponents` rejects). Unlike OkHttp, the fields that are not
   masked keep the app's encoding. `masking = false` turns every rule off.
   `protocol/fixtures/masking.json` is read by both SDKs' tests.
 - **Headers**: Foundation keeps them in dictionaries; they are sent sorted
@@ -313,7 +314,8 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 - `MockProtocol` and `HoldProtocol` read the task they were made for from
   their own property, set in `init(task:cachedResponse:client:)`, never
   `URLProtocol.task`: on iOS 16 that getter raises "unrecognized
-  selector" and ends the app. Nothing below iOS 26 is tested (DEBT-0111).
+  selector" and ends the app. The suite runs on iOS 16.0 by hand, nothing on
+  iOS 15 (DEBT-0111, DEBT-0118).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
   among them, are not captured (DEBT-0037).
