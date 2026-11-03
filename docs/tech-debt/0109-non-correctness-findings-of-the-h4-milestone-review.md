@@ -3,7 +3,7 @@ id: DEBT-0109
 title: Findings of the H4 milestone review that normal use does not hit
 status: Open
 date: 2026-10-30
-trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`, `sdk/ios/Sources/AppMonitor/Breakpoints.swift` or `sdk/ios/Sources/AppMonitor/ProtoWire.swift`"
+trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`"
 paid_date:
 ---
 
@@ -61,6 +61,13 @@ two files, which leave the trigger.
 
 Item 6 is paid by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`): the size is checked after every frame
 (`ExportHarTest.theSizeIsCheckedAfterEveryFrame`). `ExportHar.kt` leaves the trigger.
+
+Item 7 is paid by PLAN-0016 H6.4a: a nested message is read from its parent's buffer and written
+into it, with no copy of its own but the shift for its length. Item 5 is dropped there:
+`expectedContentLength` is -1 for a `Content-Encoding: gzip` response, whose `Content-Length` is
+200075 (a probe on the macOS 26.4 host; `aCompressedResponseHeldAtTheLimitHasNoSize` on the host
+and the simulators), so a compressed body held early reports no size. `Breakpoints.swift` and
+`ProtoWire.swift` leave the trigger.
 
 ## How it was paid
 

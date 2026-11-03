@@ -31,6 +31,22 @@ struct ProtoWireTests {
         #expect(try failed.serializedBytes() as [UInt8] == bytes)
     }
 
+    @Test func aNestedMessageEndsAtItsOwnLength() throws {
+        // Field 3, a message of 2 bytes: tag and length of a string that runs past them, into the parent.
+        let bytes: [UInt8] = [0x1A, 0x02, 0x0A, 0x03, 0x61, 0x62, 0x63]
+        #expect(throws: ProtoDecodingError.truncated) {
+            try Appmonitor_V1_BreakpointHit(serializedBytes: bytes)
+        }
+    }
+
+    @Test func aNestedMessagePastOneLengthByteRoundTrips() throws {
+        var hit = Appmonitor_V1_BreakpointHit()
+        hit.request.requestID = String(repeating: "a", count: 300)
+        hit.ruleID = 7
+        let bytes: [UInt8] = try hit.serializedBytes()
+        #expect(try Appmonitor_V1_BreakpointHit(serializedBytes: bytes) == hit)
+    }
+
     @Test func anEnumValueThisSchemaLacksIsKept() throws {
         let frame = try Appmonitor_V1_WebSocketFrame(serializedBytes: [0x10, 0x09])
         #expect(frame.direction == .UNRECOGNIZED(9))

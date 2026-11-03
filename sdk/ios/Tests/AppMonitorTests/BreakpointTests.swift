@@ -359,6 +359,20 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(hit.response.bodySize == 400_000)
     }
 
+    @Test func aCompressedResponseHeldAtTheLimitHasNoSize() async throws {
+        holding(breakpointRule(15, path: "/gzip-partial", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let task = URLSession.shared.dataTask(with: server.url("/gzip-partial"))
+        task.resume()
+        defer { task.cancel() }
+        let hit = try await sink.hit(.response)
+
+        #expect(hit.response.body.count == 1000)
+        #expect(hit.response.bodyTruncated)
+        #expect(!hit.response.hasBodySize)
+    }
+
     @Test func aResponseHeldAtTheLimitReachesTheAppWhole() async throws {
         holding(breakpointRule(16, path: "/big/*", response: true))
         sink.options = AppMonitorOptions(maxBodyBytes: 1000)

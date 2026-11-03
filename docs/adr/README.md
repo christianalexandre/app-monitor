@@ -203,3 +203,4 @@ Rules:
 | [0183](0183-a-ktor-engine-known-by-its-config.md) | A Ktor engine is known by its config, so a wrapper of OkHttp's is marked too | Accepted |
 | [0184](0184-the-monitors-connect-has-one-timeout-its-own.md) | The monitor's connect has one timeout, its own, not CIO's | Accepted |
 | [0185](0185-what-an-edit-left-masked-goes-out-as-the-devices-own.md) | What an edit left masked goes out as the device's own | Accepted |
+| [0186](0186-an-ios-replay-catches-the-sessions-raise.md) | An iOS replay catches the session's raise in Objective-C | Accepted |

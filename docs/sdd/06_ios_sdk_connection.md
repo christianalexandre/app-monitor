@@ -45,7 +45,8 @@ compared case-insensitively, TXT `path` waited for up to 500 ms, then
 (SDD 04, *Pinned desktop*, ADR-0168), the first other one logged once per
 client. The pin is `FileDesktopPin` in
 `Device.swift`, the same file as `sdk/core`'s; `handleAck` checks it as
-`sdk/core` does, a manual `host` excepted. A browser in `.waiting` or `.failed` with
+`sdk/core` does, a manual `host` excepted; pinning excludes it from backup, as
+the device id. A browser in `.waiting` or `.failed` with
 `kDNSServiceErr_PolicyDenied` logs one line per client pointing at
 *Settings, Privacy & Security, Local Network* (iOS 16 fails a denied browse,
 later versions wait on it); one failed otherwise logs one naming
@@ -141,7 +142,8 @@ SDD 04's, unchanged: any thread, never blocks beyond the lock, 4096
 envelopes and 8 MiB, oldest dropped, envelopes over
 `Protocol.MAX_FRAME_BYTES` dropped before entering, at most once, memory
 only. The same `DeliveryReport` (ADR-0166), written by `pump()` ahead of
-the next frame; a frame counts as written once handed to
+the next frame, and at once for an oversized drop on an idle session, which
+wakes it; a frame counts as written once handed to
 `NWConnection.send`.
 
 ## Limits

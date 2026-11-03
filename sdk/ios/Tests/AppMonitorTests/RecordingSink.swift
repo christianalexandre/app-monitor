@@ -35,8 +35,8 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
     /// The requests `keepForReplay` got, as a session's `MonitorClient` keeps them.
     let replays = RecentRequests()
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
-        replays.keep(requestID, replay)
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
+        replays.keep(requestID, bodyBytes: bodyBytes, replay)
     }
 
     /// The breakpoints `breakpoint` and `hold` answer from, as a session's `MonitorClient` keeps them.

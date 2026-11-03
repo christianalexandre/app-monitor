@@ -162,6 +162,7 @@ final class MonitorClient: @unchecked Sendable {
         }
         guard bytes.count <= ProtocolConstants.maxFrameBytes else {
             oversized.increment()
+            buffer.wake()
             onDropped?()
             return
         }

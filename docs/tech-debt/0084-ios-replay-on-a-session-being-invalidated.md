@@ -1,10 +1,10 @@
 ---
 id: DEBT-0084
 title: An iOS replay can race the app invalidating its session
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The next PR that changes `sdk/ios/Sources/AppMonitor/Replays.swift`, or the first crash "Task created in a session that has been invalidated" with `Replay` in its stack
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0084 — An iOS replay can race the app invalidating its session
@@ -33,4 +33,7 @@ with `Replay` in its stack.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.4a (ADR-0186): the task is made inside an Objective-C `@try`, and a
+raise is refused as an invalidated session. `_invalid_ivar` stays read first: a session that
+has run a task raises nothing right after the app's call, so the catch alone would not refuse
+it. Nothing is left of it.

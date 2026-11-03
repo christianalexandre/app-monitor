@@ -72,6 +72,15 @@ final class EventBuffer: @unchecked Sendable {
         }
     }
 
+    /// Runs a waiting `onAvailable` without a frame, for a count that grew outside the buffer (ADR-0166).
+    func wake() {
+        let wake: (@Sendable () -> Void)? = lock.withLock {
+            defer { onAvailable = nil }
+            return onAvailable
+        }
+        wake?()
+    }
+
     /// Discards every frame; later offers are dropped.
     func close() {
         let discarded = lock.withLock {

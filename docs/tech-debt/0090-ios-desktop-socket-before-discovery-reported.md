@@ -1,10 +1,10 @@
 ---
 id: DEBT-0090
 title: A desktop socket opened before the iOS SDK finds that desktop is reported
-status: Open # Open | Paid | Dropped
+status: Dropped # Open | Paid | Dropped
 date: 2026-10-25
 trigger: The first field-test session that shows a `CONNECTION` row to the desktop's own address and port, or the next PR that changes `ConnectionCapture` in `sdk/ios/Sources/AppMonitor/ConnectionCapture.swift`
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0090 — A desktop socket opened before the iOS SDK finds that desktop is reported
@@ -33,4 +33,8 @@ desktop's own address and port, or the next PR that changes
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Dropped by PLAN-0016 H6.4a, without a change. The trigger's row has not shown in any session, and
+it needs an app starting the Swift SDK well after `sdk/core`. Its cost is one extra `CONNECTION`
+row to a desktop. Telling that socket apart needs reading what it writes, which the C wrappers
+do not do, or skipping port 47474 on every address, which would hide an app's own socket there:
+a rule about what is captured, for a row nobody has seen.

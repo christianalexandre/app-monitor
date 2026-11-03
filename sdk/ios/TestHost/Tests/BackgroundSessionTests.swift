@@ -27,7 +27,7 @@ final class Sink: CaptureSink, @unchecked Sendable {
     /// What `keepForReplay` got; a background task is never sent again (ADR-0124 C.1).
     let replays = RecentRequests()
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
         replays.keep(requestID, replay)
     }
 

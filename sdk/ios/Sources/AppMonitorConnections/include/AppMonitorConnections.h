@@ -22,4 +22,18 @@ typedef void (*appmonitor_resolved_fn)(const char *node, const struct addrinfo *
 bool appmonitor_connections_install(
     appmonitor_connected_fn connected, appmonitor_closing_fn closing, appmonitor_resolved_fn resolved);
 
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+typedef void (^appmonitor_task_done)(NSData *_Nullable, NSURLResponse *_Nullable, NSError *_Nullable);
+
+// A new task on `session`, an upload of `data` or `file` when given; nil when `session` raises instead,
+// as an invalidated one does (ADR-0186).
+NSURLSessionTask *_Nullable appmonitor_replay_task(
+    NSURLSession *session, NSURLRequest *request, NSData *_Nullable data, NSURL *_Nullable file,
+    appmonitor_task_done done);
+NS_ASSUME_NONNULL_END
+#endif
+
 #endif

@@ -20,6 +20,14 @@ struct DeviceTests {
         #expect(deviceID(file: file) == id)
     }
 
+    @Test func aPinnedDesktopIsExcludedFromBackup() throws {
+        let file = Self.tempFile()
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let id = UUID().uuidString.lowercased()
+        #expect(FileDesktopPin(file: file).pin(id) == id)
+        #expect(try file.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+    }
+
     @Test func anUnreadableDeviceIDIsReplaced() throws {
         let file = Self.tempFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }

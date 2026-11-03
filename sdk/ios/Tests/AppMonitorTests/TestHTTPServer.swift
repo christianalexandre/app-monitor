@@ -103,12 +103,25 @@ final class TestHTTPServer: @unchecked Sendable {
             let count = Int(path.dropFirst(9))!
             return Data("HTTP/1.1 200 OK\r\nContent-Length: \(count * 2)\r\n\r\n".utf8)
                 + Data(repeating: UInt8(ascii: "a"), count: count)
+        case "/gzip-partial":
+            // Half of a gzip stream's bytes: decoded as they come, the rest never sent.
+            let stream = gzipStream(of: 200_000)
+            return Data("HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: \(stream.count)\r\n\r\n".utf8)
+                + stream.prefix(stream.count / 2)
         case _ where path.hasPrefix("/big/"):
             (status, headers, body) = ("200 OK", [], Data(repeating: UInt8(ascii: "a"), count: Int(path.dropFirst(5))!))
         default: (status, headers, body) = ("404 Not Found", [], Data())
         }
         let head = (["HTTP/1.1 \(status)", "Content-Length: \(body.count)"] + headers).joined(separator: "\r\n")
         return Data((head + "\r\n\r\n").utf8) + body
+    }
+
+    /// A gzip header and `count` bytes that barely compress, deflated; no trailer, it is never read to its end.
+    private static func gzipStream(of count: Int) -> Data {
+        var generator = SystemRandomNumberGenerator()
+        let plain = Data((0..<count).map { _ in UInt8.random(in: 0...255, using: &generator) })
+        let deflated = (try? (plain as NSData).compressed(using: .zlib) as Data) ?? Data()
+        return Data([0x1F, 0x8B, 8, 0, 0, 0, 0, 0, 0, 0xFF]) + deflated
     }
 
     /// One complete request off the front of `data`, with `Content-Length` or chunked body; nil until whole.
