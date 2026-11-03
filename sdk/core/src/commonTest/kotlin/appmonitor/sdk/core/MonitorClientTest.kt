@@ -10,6 +10,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.network.sockets.InetSocketAddress
+import io.ktor.network.sockets.Socket
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.utils.io.readAvailable
 import io.ktor.websocket.CloseReason
@@ -19,7 +20,9 @@ import io.ktor.websocket.close
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -140,6 +143,20 @@ class MonitorClientTest {
                 DeliveryReport(previous_session_id = "stand-in", previous_session_written = 3),
                 withTimeout(5.seconds) { second.reports.receive() },
             )
+        }
+
+    // DEBT-0120: nothing else wakes an idle writer.
+    @Test
+    fun anIdleSessionReportsAnOversizedEnvelopeAtOnce() =
+        runBlocking {
+            val desktop = desktop()
+            val client = client(desktop.port)
+            assertEquals(DeliveryReport(), withTimeout(5.seconds) { desktop.reports.receive() })
+            val body = ByteArray(Protocol.MAX_FRAME_BYTES.toInt()).toByteString()
+
+            client.send(Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = body))
+
+            assertEquals(DeliveryReport(oversized = 1), withTimeout(5.seconds) { desktop.reports.receive() })
         }
 
     @Test
@@ -271,6 +288,44 @@ class MonitorClientTest {
             assertTrue(ended != null, "the client left the socket open")
         }
 
+    // ADR-0184: a cancellation landing as the TCP connect returns must not lose the socket.
+    @Test
+    fun aConnectCancelledAtAnyMomentClosesItsSocket() =
+        runBlocking {
+            val (selector, listener) = rawListener()
+            cleanup += {
+                listener.close()
+                selector.close()
+            }
+            val port = (listener.localAddress as InetSocketAddress).port
+            val accepted = Counter()
+            val ended = Counter()
+            val acceptor =
+                launch(Dispatchers.Default) {
+                    while (true) {
+                        val socket = listener.accept()
+                        accepted.increment()
+                        launch {
+                            val input = socket.openReadChannel()
+                            val buffer = ByteArray(1024)
+                            runCatching { while (input.readAvailable(buffer) != -1) Unit }
+                            socket.close()
+                            ended.increment()
+                        }
+                    }
+                }
+            var spin = 0
+            repeat(CANCEL_ROUNDS) { round ->
+                val client = client(port, config.copy(closeTimeout = 0.milliseconds))
+                while (client.state.value != ClientState.Connecting) Unit
+                repeat((round % 100) * 4000) { spin++ }
+                client.stopAndJoin()
+            }
+            withTimeoutOrNull(5.seconds) { while (ended.value != accepted.value) delay(50.milliseconds) }
+            assertEquals(accepted.value, ended.value, "sockets left open")
+            acceptor.cancelAndJoin()
+        }
+
     @Test
     fun stopWhileHandshakingClosesTheSessionNormally() =
         runBlocking {
@@ -353,6 +408,8 @@ class MonitorClientTest {
             List(count) { RequestStarted.ADAPTER.decode(envelopes.receive().payload).request_id }
         }
 }
+
+private const val CANCEL_ROUNDS = 2000
 
 private class MemoryPin : DesktopPin {
     private var id: String? = null

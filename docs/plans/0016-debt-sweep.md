@@ -24,8 +24,8 @@ module or per DEBT, while the plan is `Active`.
 Left open, each waiting on an event outside the repository or on the
 owner: DEBT-0001 (a JmDNS release), DEBT-0019 (a concrete case for body
 masking), DEBT-0029 (OkHttp exposing pings), DEBT-0046 (the hosted
-runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
-(the owner's Instruments finding).
+runner's local network), DEBT-0059 (a kotlinx-io release), DEBT-0069 (the
+owner's MCP client), DEBT-0076 (the owner's Instruments finding).
 
 ## Tasks
 
@@ -107,13 +107,21 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
   :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
   `make e2e-kmp`.
-- [ ] **H6.3 Kotlin SDKs.** A cancelled iOS connect closes its socket
-  (DEBT-0053); path operations safe on Apple (DEBT-0059); the M4 and M9
-  review findings in `sdk/core` and `sdk/ktor` (DEBT-0061, DEBT-0088); the H5
-  ones in `DeviceId.kt` and `MonitorClient.kt` (DEBT-0120, items 2 and 4).
+- [x] **H6.3d A cancelled connect, the pin and an idle report.** (`fix/kotlin-sdk-connect-pin-reports`)
+  A cancelled connect closes its socket on iOS, CIO's own connect timeout off (DEBT-0053,
+  ADR-0184); `sdk/core`'s pin left out of iOS backups and an oversized drop reported by an
+  idle session (DEBT-0120, items 2 and 4); replay bodies within a byte bound in
+  `RecentRequests.kt` (DEBT-0088); the device id's comments and paths under test (DEBT-0061).
+  DEBT-0059 moved to *Left open*: kotlinx-io 0.9.2 still calls `dirname`, and `sdk/core`
+  calls no such path operation on iOS. Split from H6.3.
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
-  :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android`
-  and `make e2e-kmp`.
+  :sdk:android-okhttp:allTests :sdk:no-op:check`; `make e2e-android` and
+  `make e2e-kmp`.
+- [ ] **H6.3 Kotlin SDKs.** A masked value left in an edited URL or header group goes out
+  as the device's own, in OkHttp, Ktor and iOS (DEBT-0088, `HeldCalls.kt`), and
+  `readMockRules`' comment in `MockFile.kt` (DEBT-0088).
+  Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests
+  :sdk:android-okhttp:allTests :desktop:server:test :desktop:app:test`; `make swift`.
 - [ ] **H6.4 iOS SDK.** One generic method hook instead of one per arity
   (DEBT-0103); headers CFNetwork adds at send time (DEBT-0037) and every
   end of a WebSocket (DEBT-0038) captured; a replay safe against a
@@ -123,7 +131,8 @@ runner's local network), DEBT-0069 (the owner's MCP client), DEBT-0076
   findings in `Masking.swift` (DEBT-0043) and the H4 ones in
   `Breakpoints.swift` and `ProtoWire.swift` (DEBT-0109, items 5 and 7), and
   the H5 ones in `Device.swift` and `MonitorClient.swift` (DEBT-0120, items 2
-  and 4).
+  and 4); replay bodies within a byte bound in `Replays.swift`, as in `sdk/core`
+  (DEBT-0088).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`, a held call resumed in the end to end.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames

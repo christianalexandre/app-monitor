@@ -32,6 +32,11 @@ The `kotlinx-io` version in `libs.versions.toml` changes (check whether
 `createParentDirectories` if so), or a PR adds `Path.parent`, `Path.name` or
 `createDirectories` to `sdk/core/src/commonMain` or `sdk/core/src/iosMain`.
 
+Checked for PLAN-0016 H6.3d (2026-11-03): kotlinx-io 0.9.2, the latest release, still
+calls `dirname` and `basename` (`FileSystemApple.kt`), and `sdk/core`'s `commonMain` and
+`iosMain` call none of the three. Nothing to pay here until a release fixes it, so the plan
+leaves it open.
+
 ## How it was paid
 
 > Filled when closing.

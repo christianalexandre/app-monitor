@@ -35,10 +35,11 @@ internal interface DesktopPin {
 /** [DesktopPin] kept in [file], beside the device id and shared with the Swift SDK on iOS. */
 internal class FileDesktopPin(
     private val file: Path,
+    private val onPinned: (Path) -> Unit = {},
 ) : DesktopPin {
     override fun pinned(): String? = storedDeviceId(file)
 
-    override fun pin(desktopId: String): String = firstWritten(file, desktopId)
+    override fun pin(desktopId: String): String = firstWritten(file, desktopId).also { onPinned(file) }
 }
 
 /** The pin file's name, beside the device id's in both SDKs (ADR-0168). */

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0053
 title: A connect cancelled in its TCP phase may leak its socket on iOS
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-24
 trigger: The `ktor` version in `libs.versions.toml` changes, or a KMP iOS app reports file descriptors or sockets growing across `AppMonitor.stop()` and `start()`
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0053 — A connect cancelled in its TCP phase may leak its socket on iOS
@@ -35,4 +35,9 @@ reports file descriptors or sockets growing across `AppMonitor.stop()` and
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid in PLAN-0016 H6.3d (`fix/kotlin-sdk-connect-pin-reports`, ADR-0184): CIO's
+own connect timeout is what lost the socket, so the client runs without it, the
+10 s watchdog being the bound. `aConnectCancelledAtAnyMomentClosesItsSocket`
+left 15 of 1,762 and 11 of 1,780 sockets open before, none in five runs after.
+The fix needed no Ktor change: reading `Endpoint.kt` for the trigger's check
+showed the path around it.

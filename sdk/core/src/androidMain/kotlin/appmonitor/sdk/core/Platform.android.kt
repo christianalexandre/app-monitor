@@ -9,7 +9,7 @@ internal actual fun platformLog(message: String) {
 
 internal actual val CONNECT_FAILURE_HINT: String = "On Android 17+ check ACCESS_LOCAL_NETWORK"
 
-/** SELinux denies `link` to apps (ADR-0080). */
+// ADR-0080
 internal actual fun linkExclusive(
     existing: Path,
     target: Path,

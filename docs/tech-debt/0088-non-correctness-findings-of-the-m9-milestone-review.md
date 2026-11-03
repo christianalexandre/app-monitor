@@ -3,7 +3,7 @@ id: DEBT-0088
 title: Non-correctness findings of the M9 milestone review
 status: Open
 date: 2026-10-25
-trigger: "The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`, `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
+trigger: "The next PR that touches `sdk/ios/Sources/AppMonitor/Replays.swift`, `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`, or `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`"
 paid_date:
 ---
 
@@ -14,11 +14,9 @@ paid_date:
 Findings of the `code-review` of `ee3b172..c93a2fc` that normal use does
 not hit (ADR-0094):
 
-- **Recent requests keep their bodies.** `RecentRequests.kt` keeps up to
-  200 replay closures. Each one holds its OkHttp `Call` or Ktor request,
-  with its body, until the session ends. The Swift SDK's
-  `RecentRequests` (`Replays.swift`) does the same: 200 closures, each
-  holding its task's request and upload data. No byte bound on either.
+- **Recent requests keep their bodies.** The Swift SDK's `RecentRequests`
+  (`Replays.swift`) keeps 200 closures, each holding its task's request and
+  upload data, with no byte bound. Paid in `sdk/core` by PLAN-0016 H6.3d below.
 - **A masked query value goes back as `██`.** In `HeldCalls.kt`,
   `resumeOf` sends the whole URL once any part of it is edited. A masked
   query parameter then goes out as the placeholder. The same happens to
@@ -56,6 +54,11 @@ replaced at a breakpoint cancels the original's channel when it was streamed
 (`aStreamedBodyTakesTheEditOfItsOwnHeadersAndType`, and `EditedContentEnginesTest` on CIO and
 OkHttp's wire).
 
+Paid in PLAN-0016 H6.3d's PR (`fix/kotlin-sdk-connect-pin-reports`): `RecentRequests.kt`
+keeps its last 200 within 32 MiB of bodies, as each capture module tells it, the newest
+staying whatever its size (`bodiesPastTheByteBoundLetTheOldestGo`). It leaves the trigger;
+PLAN-0016 H6.4 does the same in `Replays.swift`.
+
 ## Why it was accepted
 
 Each one needs a session of hundreds of large uploads, an edited URL that
@@ -69,7 +72,6 @@ findings that normal use does hit.
 The next PR that touches one of the files named above. That PR pays the
 items in its file:
 
-- `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/RecentRequests.kt`
 - `sdk/ios/Sources/AppMonitor/Replays.swift`
 - `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/HeldCalls.kt`
 - `desktop/server/src/main/kotlin/appmonitor/desktop/server/MockFile.kt`

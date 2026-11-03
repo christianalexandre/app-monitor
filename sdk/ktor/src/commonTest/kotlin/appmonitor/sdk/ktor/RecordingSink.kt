@@ -61,6 +61,7 @@ internal class RecordingSink(
 
     override fun keepForReplay(
         requestId: String,
+        bodyBytes: Long,
         replay: () -> String?,
     ) {
         replays[requestId] = replay

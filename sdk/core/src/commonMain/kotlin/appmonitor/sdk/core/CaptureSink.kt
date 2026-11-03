@@ -26,9 +26,10 @@ public interface CaptureSink {
         url: String,
     ): MockRule? = null
 
-    /** Keeps [replay] for the desktop's `ReplayRequest` of [requestId] (ADR-0111 D.1); null once sent, else why not. */
+    /** Keeps [replay], holding [bodyBytes] of body, for the desktop's `ReplayRequest` of [requestId] (ADR-0111 D.1); null once sent, else why not. */
     public fun keepForReplay(
         requestId: String,
+        bodyBytes: Long,
         replay: () -> String?,
     ): Unit = Unit
 
@@ -56,8 +57,9 @@ public object MonitorSink : CaptureSink {
 
     override fun keepForReplay(
         requestId: String,
+        bodyBytes: Long,
         replay: () -> String?,
-    ): Unit = MonitorBridge.keepForReplay(requestId, replay)
+    ): Unit = MonitorBridge.keepForReplay(requestId, bodyBytes, replay)
 
     override fun breakpointFor(
         method: String,

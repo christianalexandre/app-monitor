@@ -85,13 +85,14 @@ it. The client is a state machine; exactly one state is current.
 ### Replays
 
 - A capture module hands each request it captures to
-  `MonitorBridge.keepForReplay(id, replay)`: a closure that sends the
+  `MonitorBridge.keepForReplay(id, bodyBytes, replay)`: a closure that sends the
   call again, marked `replay_of`, and returns null once it is on its
   way, else the reason (ADR-0122 A.1). Nothing is kept while no monitor
   runs.
 - `MonitorClient.replays` (`RecentRequests`) keeps the last 200 by
-  request id, a kept id moved last, and is emptied when the session ends,
-  as the mock rules are.
+  request id, within 32 MiB of bodies as the capture module reports them
+  (the newest stays whatever its size), a kept id moved last, and is emptied
+  when the session ends, as the mock rules are.
 - A `ReplayRequest` on an accepted `interaction` channel runs the
   request's closure on the receive loop. An id not kept, a closure's
   reason or its exception becomes a `ReplayRefused` on `interaction`
@@ -140,7 +141,9 @@ server sends one only with `--desktop-id UUID`.
 
 - The pin is a file beside the device id, `appmonitor-desktop-id`, written
   as the device id is (first writer wins, ADR-0078); on iOS both SDKs share
-  it. `DesktopPin` in `DeviceId.kt` reads and writes it.
+  it. `DesktopPin` in `DeviceId.kt` reads and writes it. It stays out of
+  backups: `noBackupFilesDir` on Android, excluded when pinned by `sdk/core`
+  on iOS, and not yet by the Swift SDK (DEBT-0120).
 - An endpoint found by discovery (mDNS or the emulator and simulator
   fallback) checks the `HelloAck`: no pin yet and an id in it → pinned; a
   pin and another id, or none → closed 1000 *Paired with another desktop*,
@@ -174,7 +177,7 @@ bounded by 1 s. Tests await it through an internal join.
 | --- | --- |
 | idle, stopped | Nothing. |
 | discovering | Stops mDNS browsing and pending resolves. |
-| connecting | Lets the connect end itself: upgraded → closed 1000 as below; failed → stopped. Still connecting at the 1 s bound → cancelled; the half-open socket is closed (ADR-0067 C, DEBT-0053 on iOS). |
+| connecting | Lets the connect end itself: upgraded → closed 1000 as below; failed → stopped. Still connecting at the 1 s bound → cancelled; the half-open socket is closed (ADR-0067 C, ADR-0184). |
 | handshaking, connected | Sends close 1000 and waits up to 1 s for the desktop's; then cancels the session. Buffered events are not flushed. |
 | backing off | Cancels the timer. |
 
@@ -207,6 +210,8 @@ cancels the scope.
   grew, the client writes a `core` `DeliveryReport` with the envelopes
   evicted and oversized since it started, and its previous session's
   `HelloAck.session_id` with the frames it wrote on it (reports included).
+  An oversized drop wakes `sdk/core`'s idle writer, so its report goes at once;
+  the Swift SDK's waits for the next envelope (DEBT-0120).
   A frame counts once handed to the session's `send`. Not sent when `core`
   is not accepted.
 
@@ -233,7 +238,7 @@ throw. Only these differ from the JVM:
 | Socket errors | `kotlinx.io.IOException` | Same |
 | `platformLog` | `Log.w` / stderr | `NSLog`, the message as its escaped format: a vararg call ends the process (ADR-0173) |
 | Connect failure hint | `ACCESS_LOCAL_NETWORK` (Android) | `NSLocalNetworkUsageDescription` and `NSBonjourServices` (ADR-0063 B.1) |
-| `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; cancelling a connect may leak its socket (DEBT-0053) |
+| `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; a cancelled connect closes its socket, with CIO's own connect timeout off (ADR-0184) |
 | Threads | `Dispatchers.Default` | `Dispatchers.Default`, the native worker pool; nothing runs on the main thread, so `start()` from the app's main thread does no I/O |
 | Emulator / simulator host | `10.0.2.2` when `Build.HARDWARE` says emulator | `127.0.0.1` on `iosSimulatorArm64`, known at compile time (ADR-0002) |
 

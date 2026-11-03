@@ -14,6 +14,7 @@ import appmonitor.v1.ReplayRefused
 import appmonitor.v1.ReplayRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeoutConfig
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
@@ -130,6 +131,8 @@ internal class MonitorClient(
             check(running == null && !stopRequested.isCompleted) { "MonitorClient is single use" }
             client =
                 HttpClient(CIO) {
+                    // ADR-0184: with a timeout here, a cancelled connect can lose its open socket.
+                    engine { endpoint.connectTimeout = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
                     install(WebSockets) {
                         pingIntervalMillis = config.pingInterval.inWholeMilliseconds
                         maxFrameSize = Protocol.MAX_FRAME_BYTES
@@ -146,7 +149,10 @@ internal class MonitorClient(
     ) {
         val bytes = if (stopRequested.isCompleted) null else envelope.encode()
         if (bytes == null || bytes.size > Protocol.MAX_FRAME_BYTES) {
-            if (bytes != null) synchronized(lock) { oversized++ }
+            if (bytes != null) {
+                synchronized(lock) { oversized++ }
+                buffer.wake()
+            }
             onDropped?.invoke()
             return
         }
@@ -323,7 +329,7 @@ internal class MonitorClient(
                                 reported = drops
                                 continue
                             }
-                            val frame = buffer.take()
+                            val frame = buffer.take() ?: continue
                             if (frame.channel in accepted) {
                                 ws.send(Frame.Binary(true, frame.bytes))
                                 synchronized(lock) { written++ }
