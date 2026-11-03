@@ -131,8 +131,11 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   DEBT-0090, and DEBT-0109's item 5, which a probe found false. DEBT-0043 was already paid, by
   PLAN-0015. Split from H6.4.
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and `make e2e-kmp-ios`.
-- [ ] **H6.4 iOS SDK.** One generic method hook instead of one per arity
-  (DEBT-0103); headers CFNetwork adds at send time (DEBT-0037) and every
+- [x] **H6.4b One method hook.** (`refactor/ios-one-method-hook`) `MethodHook` holds what every
+  hook repeated, a wrong argument count logged and not hooked (DEBT-0103, ADR-0187). Split from H6.4.
+  Accept: `swift test --package-path sdk/ios --filter MethodHookTests`, `make swift`, `make swift-sim`,
+  `make e2e-ios` and `make e2e-kmp-ios`.
+- [ ] **H6.4 iOS SDK.** Headers CFNetwork adds at send time (DEBT-0037) and every
   end of a WebSocket (DEBT-0038) captured; breakpoints run on the simulator,
   a held call resumed in the end to end (DEBT-0086).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and

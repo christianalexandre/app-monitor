@@ -126,48 +126,49 @@ enum BackgroundHooks {
     /// The response body of a data or upload task, chunk by chunk.
     private static func hookData(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, UInt, AnyObject?, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?) -> Void = { object, id, data, reply in
-            if let data = data as? NSData { capture(object, id)?.didReceive(data) }
-            original(object, selector, id, data, reply)
+        MethodHook.replace(method, arguments: 3, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?) -> Void = {
+                object, id, data, reply in
+                if let data = data as? NSData { capture(object, id)?.didReceive(data) }
+                original(object, selector, id, data, reply)
+            }
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
     /// The downloaded file, read before the original hands it to the app's delegate, which may move it.
     private static func hookDownload(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, UInt, AnyObject?, AnyObject?, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?, AnyObject?) -> Void = {
-            object, id, file, response, reply in
-            if let capture = capture(object, id) {
-                if let response = response as? URLResponse { capture.didReceive(response) }
-                if let file = file as? URL { capture.didDownload(file) }
+        MethodHook.replace(method, arguments: 4, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?, AnyObject?) -> Void = {
+                object, id, file, response, reply in
+                if let capture = capture(object, id) {
+                    if let response = response as? URLResponse { capture.didReceive(response) }
+                    if let file = file as? URL { capture.didDownload(file) }
+                }
+                original(object, selector, id, file, response, reply)
             }
-            original(object, selector, id, file, response, reply)
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
     private static func hookComplete(_ method: Method) {
         typealias Original =
             @convention(c) (AnyObject, Selector, UInt, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> Void = {
-            object, id, error, metrics, info, reply in
-            _ = capture(object, id)
-            if let (task, capture, adopted) = tasks(of: object).remove(id) {
-                let metrics = publicMetrics(metrics)
-                if let response = task?.response ?? metrics?.transactionMetrics.last?.response {
-                    capture.didReceive(response)
+        MethodHook.replace(method, arguments: 5, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject, UInt, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> Void = {
+                object, id, error, metrics, info, reply in
+                _ = capture(object, id)
+                if let (task, capture, adopted) = tasks(of: object).remove(id) {
+                    let metrics = publicMetrics(metrics)
+                    if let response = task?.response ?? metrics?.transactionMetrics.last?.response {
+                        capture.didReceive(response)
+                    }
+                    if !adopted || adoptedStarted(capture, metrics) { capture.didFinish(error as? NSError) }
                 }
-                if !adopted || adoptedStarted(capture, metrics) { capture.didFinish(error as? NSError) }
+                original(object, selector, id, error, metrics, info, reply)
             }
-            original(object, selector, id, error, metrics, info, reply)
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }

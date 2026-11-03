@@ -3,7 +3,7 @@
 How `sdk/ios` turns every `URLSession` task of the app into `network`
 envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
-`BackgroundCapture.swift`, `Mocks.swift`, `Replays.swift`, `Breakpoints.swift` and `Masking.swift`; the mechanism
+`BackgroundCapture.swift`, `MethodHook.swift`, `Mocks.swift`, `Replays.swift`, `Breakpoints.swift` and `Masking.swift`; the mechanism
 is ADR-0043 (WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117, replay ADR-0124, breakpoints
 ADR-0125), what is masked and
 bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
@@ -28,7 +28,7 @@ app ── any URLSession ── task.resume() ──────────►
   `_didReceiveData:` and `_didFinishWithError:`, which find their task
   through the `_task` ivar; on `NSURLSession`, the six upload constructors
   (data and file, plain, completion handler, `async`). Each records, then
-  calls the original with the same arguments. A missing `resume` or
+  calls the original with the same arguments, through `MethodHook` (ADR-0187). A missing `resume` or
   connection method turns the whole capture off with one log line.
 - **What is captured**: `http` and `https` data, upload, download and
   WebSocket tasks of local sessions, and the tasks of background sessions.

@@ -333,17 +333,24 @@ enum Hooks {
             let data = own(connection, "_didReceiveData:"),
             let finish = own(connection, "_didFinishWithError:")
         else { return false }
-        hookResume(resume)
+        MethodHook.before(resume) { object in
+            if let task = object as? URLSessionTask { started(task) }
+        }
         let task: (AnyObject) -> TaskCapture? = {
             object_getIvar($0, taskIvar).flatMap { capture(of: $0 as AnyObject) }
         }
-        hook(response) { (connection: AnyObject, response: AnyObject?) in
-            if let response = response as? URLResponse { task(connection)?.didReceive(response) }
+        typealias Response = @convention(c) (AnyObject, Selector, AnyObject?, Bool) -> Void
+        MethodHook.replace(response, arguments: 2, Response.self) { original, selector in
+            let block: @convention(block) (AnyObject, AnyObject?, Bool) -> Void = { connection, response, sniff in
+                if let response = response as? URLResponse { task(connection)?.didReceive(response) }
+                original(connection, selector, response, sniff)
+            }
+            return block
         }
-        hookObject(data, reentrant: false) { connection, data in
+        MethodHook.before(data, reentrant: false) { connection, data in
             if let data = data as? NSData { task(connection)?.didReceive(data) }
         }
-        hookObject(finish) { connection, error in
+        MethodHook.before(finish) { connection, error in
             task(connection)?.didFinish(error as? NSError)
         }
         let session: AnyClass? = NSClassFromString("NSURLSession")
@@ -378,17 +385,6 @@ enum Hooks {
         defer { free(methods) }
         let selector = NSSelectorFromString(name)
         return (0..<Int(count)).map { methods[$0] }.first { method_getName($0) == selector }
-    }
-
-    private static func hookResume(_ method: Method) {
-        typealias Original = @convention(c) (AnyObject, Selector) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject) -> Void = { object in
-            if let task = object as? URLSessionTask { started(task) }
-            original(object, selector)
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
     /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks and tasks `sdk/ktor`
@@ -432,86 +428,53 @@ enum Hooks {
         }
     }
 
-    private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {
-        typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, Bool) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, AnyObject?, Bool) -> Void = { object, argument, flag in
-            body(object, argument)
-            original(object, selector, argument, flag)
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
-    }
-
-    /// `reentrant` false: a call the original makes to itself on the same thread is not seen again; CFNetwork
-    /// hands `_didReceiveData:` the same data twice that way.
-    private static func hookObject(
-        _ method: Method,
-        reentrant: Bool = true,
-        _ body: @escaping (AnyObject, AnyObject?) -> Void
-    ) {
-        typealias Original = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let key = "appmonitor.\(NSStringFromSelector(selector))"
-        let block: @convention(block) (AnyObject, AnyObject?) -> Void = { object, argument in
-            let thread = Thread.current.threadDictionary
-            if reentrant || thread[key] == nil { body(object, argument) }
-            if reentrant { return original(object, selector, argument) }
-            let outer = thread[key] == nil
-            if outer { thread[key] = true }
-            original(object, selector, argument)
-            if outer { thread[key] = nil }
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
-    }
-
     /// Upload constructors: the body (second argument) is kept on the returned task for `started`.
     private static func hookUpload(_ method: Method) {
-        let selector = method_getName(method)
-        let implementation = method_getImplementation(method)
         let keep: (AnyObject?, AnyObject?) -> Void = { task, body in
             guard let task else { return }
             let upload: UploadBody? =
                 if let data = body as? Data { .data(data) } else if let file = body as? URL { .file(file) } else { nil }
             if let upload { objc_setAssociatedObject(task, &uploadKey, UploadBox(upload), .OBJC_ASSOCIATION_RETAIN) }
         }
-        let block: Any
-        switch method_getNumberOfArguments(method) {
-        case 4:
+        switch method_getNumberOfArguments(method) - 2 {
+        case 2:
             typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body) in
+            MethodHook.replace(method, arguments: 2, Original.self) { original, selector in
+                let block: @convention(block) (AnyObject, AnyObject?, AnyObject?) -> AnyObject? = {
+                    object, request, body in
                     let task = original(object, selector, request, body)
                     keep(task, body)
                     return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?) -> AnyObject?
-        case 5:
+                }
+                return block
+            }
+        case 3:
             typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body, handler) in
+            MethodHook.replace(method, arguments: 3, Original.self) { original, selector in
+                let block: @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?) -> AnyObject? = {
+                    object, request, body, handler in
                     let task = original(object, selector, request, body, handler)
                     keep(task, body)
                     return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
-        case 6:
+                }
+                return block
+            }
+        case 4:
             typealias Original =
-                @convention(c) (
-                    AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?, AnyObject?
-                ) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body, delegate, handler) in
-                    let task = original(object, selector, request, body, delegate, handler)
-                    keep(task, body)
-                    return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
+                @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
+            MethodHook.replace(method, arguments: 4, Original.self) { original, selector in
+                let block:
+                    @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject? = {
+                        object, request, body, delegate, handler in
+                        let task = original(object, selector, request, body, delegate, handler)
+                        keep(task, body)
+                        return task
+                    }
+                return block
+            }
         default:
             return
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
 

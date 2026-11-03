@@ -1,10 +1,10 @@
 ---
 id: DEBT-0103
 title: The iOS SDK writes each method hook by hand
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "A new Foundation or CFNetwork method hooked in `sdk/ios/Sources/AppMonitor/`, or a hook in `URLSessionCapture.swift`, `WebSocketCapture.swift` or `BackgroundCapture.swift` that breaks on a new iOS version"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0103 — The iOS SDK writes each method hook by hand
@@ -44,4 +44,6 @@ into one file, and every hook uses it.
 
 ## How it was paid
 
-> Filled when closing.
+`MethodHook.swift` holds one generic `replace` and three `before` overloads, and every hook uses them
+(ADR-0187): the reentrancy option sits on the one-argument `before`, and a wrong argument count logs
+and leaves the method alone. A wrong argument type within the right count still crashes.

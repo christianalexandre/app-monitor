@@ -101,13 +101,14 @@ enum WebSocketHooks {
             let finish = Hooks.own(cls, "connection:didFinishLoadingWithError:"),
             let close = Hooks.own(cls, "cancelWithCloseCode:reason:")
         else { return false }
-        hookTwo(send) { task, message, _ in
+        // Each records before the original runs, so a reply is never recorded before the frame it answers.
+        MethodHook.before(send) { task, message, _ in
             if let message = message as? NSObject { capture(of: task)?.message(.sent, message) }
         }
-        hookTwo(response) { task, response, _ in
+        MethodHook.before(response) { task, response, _ in
             if let response = response as? URLResponse { capture(of: task)?.didReceive(response) }
         }
-        hookTwo(finish) { task, _, error in capture(of: task)?.didFinish(error as? NSError) }
+        MethodHook.before(finish) { task, _, error in capture(of: task)?.didFinish(error as? NSError) }
         hookReceive(receive)
         hookClose(close)
         return true
@@ -130,54 +131,42 @@ enum WebSocketHooks {
         }
     }
 
-    /// Records before the original runs, so a reply is never recorded before the frame it answers.
-    private static func hookTwo(_ method: Method, _ body: @escaping (AnyObject, AnyObject?, AnyObject?) -> Void) {
-        typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, AnyObject?, AnyObject?) -> Void = { object, first, second in
-            body(object, first, second)
-            original(object, selector, first, second)
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
-    }
-
     /// Wraps the app's handler: a message is recorded before the app gets it; an error after the peer's
     /// close frame records that frame, read from the task's public `closeCode` and `closeReason`. The capture
     /// is looked up on completion: Ktor's Darwin engine asks before it resumes the task (ADR-0158).
     private static func hookReceive(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
         typealias Handler = @convention(block) (AnyObject?, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, AnyObject?) -> Void = { object, handler in
-            guard let handler, let task = object as? URLSessionWebSocketTask
-            else { return original(object, selector, handler) }
-            let app = unsafeBitCast(handler, to: Handler.self)
-            let wrapped: Handler = { message, error in
-                guard let capture = capture(of: task) else { return app(message, error) }
-                if let message = message as? NSObject {
-                    capture.message(.received, message)
-                } else if error != nil, task.closeCode != .invalid {
-                    capture.close(.received, code: task.closeCode.rawValue, reason: task.closeReason)
+        MethodHook.replace(method, arguments: 1, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject, AnyObject?) -> Void = { object, handler in
+                guard let handler, let task = object as? URLSessionWebSocketTask
+                else { return original(object, selector, handler) }
+                let app = unsafeBitCast(handler, to: Handler.self)
+                let wrapped: Handler = { message, error in
+                    guard let capture = capture(of: task) else { return app(message, error) }
+                    if let message = message as? NSObject {
+                        capture.message(.received, message)
+                    } else if error != nil, task.closeCode != .invalid {
+                        capture.close(.received, code: task.closeCode.rawValue, reason: task.closeReason)
+                    }
+                    app(message, error)
                 }
-                app(message, error)
+                original(object, selector, unsafeBitCast(wrapped, to: AnyObject.self))
             }
-            original(object, selector, unsafeBitCast(wrapped, to: AnyObject.self))
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
     private static func hookClose(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, Int, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, Int, AnyObject?) -> Void = { object, code, reason in
-            if let task = object as? URLSessionTask, task.state == .running {
-                capture(of: object)?.close(.sent, code: code, reason: reason as? Data)
+        MethodHook.replace(method, arguments: 2, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject, Int, AnyObject?) -> Void = { object, code, reason in
+                if let task = object as? URLSessionTask, task.state == .running {
+                    capture(of: object)?.close(.sent, code: code, reason: reason as? Data)
+                }
+                original(object, selector, code, reason)
             }
-            original(object, selector, code, reason)
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
