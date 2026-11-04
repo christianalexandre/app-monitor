@@ -78,7 +78,7 @@ Rules:
 | [0058](0058-sdk-publication-dry-run.md) | SDK publication dry-run with maven-publish, a protocol artifact and a path SwiftPM consumer | Accepted |
 | [0059](0059-no-trailer-check-on-release-prs.md) | The attribution trailer check runs on PRs to dev only | Superseded by [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) |
 | [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) | The attribution trailer check is skipped only on dev → main PRs | Accepted |
-| [0061](0061-debt-check-fails-on-unresolved-base.md) | The DEBT trigger check fails when its base does not resolve | Accepted |
+| [0061](0061-debt-check-fails-on-unresolved-base.md) | The DEBT trigger check fails when its base does not resolve | Superseded by [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) |
 | [0062](0062-kmp-sdk-public-api.md) | KMP SDK public API, artifacts, no-op and iOS targets | Accepted |
 | [0063](0063-ktor-capture-masking-and-ios-keys.md) | What the Ktor plugin captures and masks, and the keys a KMP iOS app needs | Accepted |
 | [0064](0064-ktor-swift-dedupe-by-correlation-header.md) | How the Ktor plugin and the Swift SDK avoid capturing one exchange twice | Accepted |
@@ -215,3 +215,4 @@ Rules:
 | [0195](0195-a-tunnels-leaf-offers-what-its-origin-does.md) | A tunnel's leaf offers what its origin does, asked before the client's handshake | Accepted |
 | [0196](0196-loop-watchdog-ends-the-sessions-whole-tree.md) | The loop's watchdog ends the session's whole process tree, and its kill is the timeout | Accepted |
 | [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |
+| [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) | A DEBT trigger path that exists from the root matches only there | Accepted |

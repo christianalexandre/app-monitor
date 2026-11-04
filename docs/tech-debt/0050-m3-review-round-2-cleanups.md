@@ -1,10 +1,10 @@
 ---
 id: DEBT-0050
 title: Non-correctness findings of the second M3 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: The next PR that touches `debt_check.sh`
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0050 — Non-correctness findings of the second M3 milestone review
@@ -71,3 +71,16 @@ items: the trailer check moved to `scripts/trailer_check.sh`, which matches
 `release/x.y.z` branch cut from `dev` against `main` as M10 will open it.
 `origin/main..origin/dev` carries no trailer (`trailer_check.sh`,
 2026-10-30): #293 put #95 on `main`. The `debt_check.sh` item is left.
+
+PLAN-0017 H7.3 closed what was left, each read on 2026-11-04 at `762654f`.
+
+- The two `pr-conventions.yml` items stay paid. `trailer_check.sh origin/main origin/dev`
+  passes over the release's 77 commits, so the first would not fail the release. A line
+  starting `Generated with protoc` would still fail the second; dropped, as none of `dev`'s
+  370 commit messages has a line matching the check, and it fails closed.
+- Basename item: dropped. The only tracked names without an extension are `LICENSE`,
+  `Makefile` and `gradlew`, and no open trigger names a type by one of them.
+- Short path item: paid (ADR-0198). DEBT-0059's `sdk/core` listed the three files of
+  `sdk/core-no-op` whose package path is `appmonitor/sdk/core`. A path that exists from the
+  root now matches only there. `src/main` still fires on every module, as it is no path from
+  the root; no open trigger names such a path that matches a tracked file.

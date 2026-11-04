@@ -1,9 +1,9 @@
 ---
 id: ADR-0061
 title: The DEBT trigger check fails when its base does not resolve
-status: Accepted
+status: Superseded
 date: 2026-10-24
-superseded_by:
+superseded_by: ADR-0198
 ---
 
 # ADR-0061 — The DEBT trigger check fails when its base does not resolve
