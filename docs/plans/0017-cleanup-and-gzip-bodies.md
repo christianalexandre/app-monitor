@@ -37,12 +37,13 @@ The roadmap's `Hold` stays: M10 is still the owner's go.
   evidence; `scripts/debt_check.sh`'s basename and short path items paid or dropped with a
   case from this repository.
   Accept: `make scripts-test`; `make debt-check`.
-- [ ] **H7.4 Gzip bodies open in the window.** A request or response body whose
+- [x] **H7.4 Gzip bodies open in the window.** (#377) A request or response body whose
   `Content-Encoding` is `gzip` is opened before the detail's Text, JSON and Hex formats, with
   a bound on what it inflates to, and a cut or broken stream shows what could be read and
   says so. Only what the window shows changes: the store, the MCP tools and the HAR export
   keep the bytes as the device sent them (ADR-0081, ADR-0089). Not protobuf: that stays in
   the roadmap.
+  Deviation: Copy gives the opened body too, beside what it shows (ADR-0199 narrows ADR-0147).
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a gzip body, one
   over the bound and one cut; the detail's screenshot read.
 
