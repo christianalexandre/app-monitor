@@ -2,6 +2,7 @@ package appmonitor.desktop.app.store
 
 import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.domain.passThroughHosts
 import appmonitor.desktop.proxy.ProxyCa
 import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.proxy.ProxyServer
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import java.nio.file.Path
@@ -23,7 +25,7 @@ import javax.net.ssl.TrustManagerFactory
  * its own.
  */
 internal class ProxyController(
-    storage: Storage,
+    private val storage: Storage,
     private val sink: TrafficSink,
     private val directory: Path,
     override val port: Int = proxyPort(),
@@ -42,6 +44,9 @@ internal class ProxyController(
             stopService = ::stopProxy,
         )
 
+    private val hosts = MutableStateFlow(emptyList<String>())
+    override val passThrough: StateFlow<List<String>> get() = hosts
+
     override val status: StateFlow<ServiceStatus> get() = switch.status
     override val enabled: StateFlow<Boolean> get() = switch.enabled
     override val host: String get() = ProxyServer.HOST
@@ -50,8 +55,17 @@ internal class ProxyController(
     val caPath: Path get() = directory.resolve(ProxyCa.CERTIFICATE_FILE)
     override val caFile: String get() = caPath.toString()
 
-    /** Reads the switch and starts the proxy when it is on. */
-    suspend fun start() = switch.start()
+    /** Reads the pass-through list and the switch, and starts the proxy when it is on. */
+    suspend fun start() {
+        hosts.value = passThroughHosts(storage.setting(KEY_PASS_THROUGH).orEmpty())
+        switch.start()
+    }
+
+    override suspend fun setPassThrough(hosts: List<String>) {
+        val entries = passThroughHosts(hosts.joinToString("\n"))
+        this.hosts.value = entries
+        storage.setSetting(KEY_PASS_THROUGH, entries.joinToString("\n"))
+    }
 
     /** Persists the switch, then starts or stops the proxy. */
     override suspend fun setEnabled(on: Boolean) = switch.set(on)
@@ -62,9 +76,10 @@ internal class ProxyController(
             withContext(Dispatchers.IO) { ProxyCa.delete(directory) }
         }
 
-    /** After "Clear all data": the CA deleted with it, the switch written back, and a new session when running. */
+    /** After "Clear all data": the CA deleted with it, the switch and the list written back, a new session when running. */
     suspend fun afterClearAll() {
         switch.writeBack()
+        if (hosts.value.isNotEmpty()) storage.setSetting(KEY_PASS_THROUGH, hosts.value.joinToString("\n"))
         resetCa()
     }
 
@@ -77,7 +92,7 @@ internal class ProxyController(
     private suspend fun startProxy(): Int {
         val ca = withContext(Dispatchers.IO) { ProxyCa.loadOrCreate(directory) }
         val nextRecording = ProxyRecording(sink, scope, open = false)
-        val nextServer = ProxyServer(ca, nextRecording::record, port, upstreamTrust)
+        val nextServer = ProxyServer(ca, nextRecording::record, port, upstreamTrust, passThrough = { hosts.value })
         try {
             val bound = withContext(Dispatchers.IO) { nextServer.start() }
             nextRecording.open()
@@ -100,5 +115,6 @@ internal class ProxyController(
 
     companion object {
         const val KEY_ENABLED = "proxy.enabled"
+        const val KEY_PASS_THROUGH = "proxy.passThrough"
     }
 }

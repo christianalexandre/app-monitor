@@ -119,7 +119,21 @@ interface ProxyRepository {
 
     /** Deletes the CA; a running proxy restarts with a new one. */
     suspend fun resetCa()
+
+    /** Hosts tunnelled untouched, nothing stored (ADR-0194): a name, or `*.domain` for the names under it. */
+    val passThrough: StateFlow<List<String>>
+
+    /** Persists [hosts] as [passThroughHosts] reads them; the next `CONNECT` uses them, no restart. */
+    suspend fun setPassThrough(hosts: List<String>)
 }
+
+/** The entries of [text]: split on spaces, commas and new lines, lower case, each once, in order. */
+fun passThroughHosts(text: String): List<String> =
+    text
+        .split(',', ' ', '\t', '\n', '\r')
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+        .distinct()
 
 /** Which theme the window paints; [System] follows the OS. */
 enum class ThemeMode {

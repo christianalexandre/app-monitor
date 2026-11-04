@@ -1,10 +1,10 @@
 ---
 id: DEBT-0078
 title: No pass-through list for hosts the proxy should not intercept
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "A developer's pinned host that keeps failing through the proxy"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0078 — No pass-through list for hosts the proxy should not intercept
@@ -37,4 +37,8 @@ Fired by the PLAN-0009 milestone review. Not paid: no developer has reported a p
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0016 H6.5d, ADR-0194: the settings' proxy section keeps a list of
+hosts (`proxy.passThrough`), an exact name or `*.domain`, read at each
+`CONNECT`; a listed host is relayed as raw bytes and nothing is stored.
+`ProxyPassThroughTest` reaches an origin through the proxy with only the
+origin's own CA trusted, which an intercepted tunnel would fail.

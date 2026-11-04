@@ -55,6 +55,14 @@ Castle, ADR-0105); the switch, status and commands in
 
 `ClientHandler`, one per accepted connection, on Netty's event loop:
 
+0. **`CONNECT` to a pass-through host** (ADR-0194): the list the
+   settings keep under `proxy.passThrough` (`ProxyController`, read at
+   each `CONNECT`, no restart), an entry equal to the host or `*.domain`
+   for the names under `domain` (`passesThrough`). The client is not
+   read while the proxy connects to `host:port`; refused or timed out →
+   `502` with the reason and a closed connection; accepted → `200`, the
+   codec comes off and bytes are relayed as they are, both ways, paced
+   as after a `101`. Nothing is stored (`ProxyPassThroughTest`).
 1. **`CONNECT host:port`** → `200 Connection Established`, the HTTP codec
    comes off, and `OptionalSslHandler` looks at the first bytes: TLS →
    the handshake with the leaf for `host`, plain → HTTP as is. Then
@@ -180,7 +188,7 @@ behind`, and nothing after (`ProxyRecordingTest`). Stopping the proxy writes wha
 | `setEnabled(false)` | stores it | stops, ends the session (`ProxyWiringTest`) | `Off` | stays off |
 | two `setEnabled` at once | the last switch wins: each call stores and applies, under the lock, the switch as it is then, not its own argument (`ServiceSwitchTest`) | same | same | same |
 | `resetCa()` | deletes the CA | stops, deletes, starts with a new CA and session (`ProxyWiringTest`) | deletes | deletes |
-| `afterClearAll()` | as `resetCa()`, the switch written back when on (`ProxyWiringTest`) | same | same | same |
+| `afterClearAll()` | as `resetCa()`, the switch written back when on, the pass-through list when not empty (`ProxyWiringTest`) | same | same | same |
 | `close()` | `Closed` | stops, then `Closed` | `Closed` | nothing |
 
 The app closes the MCP server, then the proxy, then the device server,
@@ -196,7 +204,8 @@ the proxy's 2 s.
   (DEBT-0079).
 - Only a WebSocket is read after a `101`, over HTTP/1.1: other upgrades
   and RFC 8441 WebSockets over HTTP/2 are relayed with no frames
-  (ADR-0193); no pass-through list for pinned hosts (DEBT-0078).
+  (ADR-0193).
+- A pass-through host's traffic is not recorded at all (ADR-0194).
 - One request at a time per HTTP/1.1 client connection; HTTP/2 streams
   run side by side.
 - Bodies are stored as sent: a compressed body keeps its

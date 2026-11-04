@@ -25,7 +25,8 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * The proxy of ADR-0101 on `127.0.0.1` only (A.1): plain HTTP and `CONNECT` with TLS interception, each exchange sent to
- * [record] as `PROXY` events. Single use; lifecycle in SDD 11.
+ * [record] as `PROXY` events, except a `CONNECT` to a host [passThrough] lists, read at each one, which is tunnelled
+ * untouched (ADR-0194). Single use; lifecycle in SDD 11.
  */
 class ProxyServer(
     private val ca: ProxyCa,
@@ -33,6 +34,7 @@ class ProxyServer(
     private val port: Int = DEFAULT_PORT,
     upstreamTrust: TrustManagerFactory? = null,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val passThrough: () -> Collection<String> = { emptyList() },
 ) {
     private val upstreamTls: SslContext = upstreamContext(upstreamTrust, alpn = null)
     private val upstreamHttp2Tls: SslContext = upstreamContext(upstreamTrust, alpn = ApplicationProtocolNames.HTTP_2)
@@ -62,7 +64,7 @@ class ProxyServer(
                                 override fun initChannel(ch: SocketChannel) {
                                     clients.add(ch)
                                     ch.pipeline().addLast(CODEC, HttpServerCodec())
-                                    ch.pipeline().addLast(ClientHandler(ca, upstreamTls, upstreamHttp2Tls, record, clock))
+                                    ch.pipeline().addLast(ClientHandler(ca, upstreamTls, upstreamHttp2Tls, record, clock, passThrough))
                                 }
                             },
                         ).bind(InetSocketAddress(HOST, port))

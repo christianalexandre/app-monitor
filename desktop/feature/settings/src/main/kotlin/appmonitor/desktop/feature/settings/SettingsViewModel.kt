@@ -12,6 +12,7 @@ import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.domain.passThroughHosts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,13 +34,14 @@ data class McpSettings(
     val token: String,
 )
 
-/** What the settings show of the proxy: its [status], the switch, and the CA file the commands name. */
+/** What the settings show of the proxy: its [status], the switch, the CA file the commands name, the hosts it lets through. */
 data class ProxySettings(
     val status: ServiceStatus,
     val enabled: Boolean,
     val host: String,
     val port: Int,
     val caFile: String,
+    val passThrough: List<String> = emptyList(),
 )
 
 /** [retention] null until the store's is read; [mcp], [proxy] and [theme] null when the window has none. */
@@ -79,7 +81,9 @@ class SettingsViewModel(
 
     private val proxySettings: Flow<ProxySettings?> =
         proxy?.let { proxy ->
-            combine(proxy.status, proxy.enabled) { status, enabled -> ProxySettings(status, enabled, proxy.host, proxy.port, proxy.caFile) }
+            combine(proxy.status, proxy.enabled, proxy.passThrough) { status, enabled, passThrough ->
+                ProxySettings(status, enabled, proxy.host, proxy.port, proxy.caFile, passThrough)
+            }
         } ?: flowOf(null)
 
     val state: StateFlow<SettingsState> =
@@ -126,6 +130,12 @@ class SettingsViewModel(
     fun setProxyEnabled(on: Boolean) {
         val proxy = proxy ?: return
         viewModelScope.launch { proxy.setEnabled(on) }
+    }
+
+    /** Stores the hosts [text] lists ([passThroughHosts]) as the proxy's pass-through list (ADR-0194). */
+    fun setPassThrough(text: String) {
+        val proxy = proxy ?: return
+        viewModelScope.launch { proxy.setPassThrough(passThroughHosts(text)) }
     }
 
     fun resetProxyCa() {

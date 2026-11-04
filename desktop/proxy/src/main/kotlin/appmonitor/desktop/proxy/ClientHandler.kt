@@ -56,6 +56,7 @@ internal class ClientHandler(
     private val upstreamHttp2Tls: SslContext,
     private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
+    private val passThrough: () -> Collection<String>,
 ) : ChannelInboundHandlerAdapter() {
     private lateinit var client: ChannelHandlerContext
     private var tunnel: Target? = null
@@ -159,7 +160,7 @@ internal class ClientHandler(
         forward(msg)
     }
 
-    // ADR-0101 E.1: every host is intercepted; a client refusing the leaf is a failed CONNECT exchange.
+    // ADR-0101 E.1: a host not listed (ADR-0194) is intercepted; a client refusing the leaf is a failed CONNECT exchange.
     private fun connect(msg: HttpRequest) {
         val target = connectTarget(msg.uri())
         skipContent = true
@@ -168,8 +169,9 @@ internal class ClientHandler(
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: CONNECT needs host:port", close = true)
         }
         tunnel = target
-        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, headersOf(msg.headers()), record, clock)
         ReferenceCountUtil.release(msg)
+        if (passesThrough(target.host, passThrough())) return passThroughTunnel(target)
+        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, headersOf(msg.headers()), record, clock)
         val established = DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus(200, "Connection Established"))
         client.writeAndFlush(established)
         val pipeline = client.pipeline()
@@ -177,6 +179,46 @@ internal class ClientHandler(
         pipeline.addBefore(client.name(), "tls", OptionalSslHandler(ca.serverContext(target.host)))
         pipeline.addBefore(client.name(), "preface", PrefaceDetector(::http2))
         pipeline.addBefore(client.name(), ProxyServer.CODEC, HttpServerCodec())
+    }
+
+    // ADR-0194: bytes relayed as they are, nothing stored; `200` only once the target accepted the connection.
+    private fun passThroughTunnel(target: Target) {
+        held = true
+        readClient()
+        connecting = true
+        upstreamTarget = target
+        val future =
+            Bootstrap()
+                .group(client.channel().eventLoop())
+                .channel(NioSocketChannel::class.java)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MS)
+                .handler(UpstreamHandler())
+                .connect(target.host, target.port)
+        upstream = future.channel()
+        future.addListener(
+            ChannelFutureListener { done ->
+                connecting = false
+                if (!done.isSuccess) {
+                    upstream = null
+                    val reason = done.cause().message ?: done.cause().toString()
+                    reply(
+                        HttpResponseStatus.BAD_GATEWAY,
+                        "App Monitor proxy: could not connect to ${target.host}:${target.port}: $reason",
+                        true,
+                    )
+                    return@ChannelFutureListener
+                }
+                if (!client.channel().isActive) {
+                    done.channel().close()
+                    return@ChannelFutureListener
+                }
+                client.writeAndFlush(DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus(200, "Connection Established")))
+                raw = true
+                client.pipeline().remove(ProxyServer.CODEC)
+                held = false
+                readClient()
+            },
+        )
     }
 
     // ADR-0106: a tunnel that opens with the HTTP/2 preface is relayed stream by stream from here on.

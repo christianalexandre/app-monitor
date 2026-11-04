@@ -211,3 +211,4 @@ Rules:
 | [0191](0191-the-proxy-relays-at-the-slower-sides-pace.md) | The proxy relays at the slower side's pace and cuts an exchange it dropped an event of | Accepted |
 | [0192](0192-a-reused-socket-number-ends-its-old-connection.md) | A reused socket number ends its old connection at the next connect | Accepted |
 | [0193](0193-the-proxy-reads-a-websockets-frames-as-they-cross.md) | The proxy reads a WebSocket's frames as they cross, inflating permessage-deflate | Accepted |
+| [0194](0194-the-proxys-pass-through-list.md) | The proxy's pass-through list, matched at each CONNECT and relayed as raw bytes | Accepted |
