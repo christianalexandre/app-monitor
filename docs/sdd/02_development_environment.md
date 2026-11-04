@@ -158,10 +158,14 @@ The server gets `--mocks build/e2e-ios/mocks.json`, one rule (id 1) for
 `GET 127.0.0.1/status/418` that answers 200 `mocked`, as on Android; the
 sample's `418, or a mock` button calls that path (ADR-0117). With
 `--replay /json` it asks the device to send the sample's first call again,
-through the app's `URLSession` (ADR-0124).
+through the app's `URLSession` (ADR-0124). With
+`--breakpoints build/e2e-ios/breakpoints.json`, one rule (id 2) holding
+`PUT 127.0.0.1/put` at both stages for 10 minutes, it resumes the
+sample's upload twice, the response with status `299` (ADR-0188).
 It then waits up to `E2E_TIMEOUT` seconds (120) for the eight calls as
 `make e2e-android` does (the upload's `PUT`, the background download and
-the mocked call, asserted `mock 1`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
+the mocked call, asserted `mock 1`, the upload asserted held at both
+stages, resumed, and captured `299`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
 From an empty `build/ios-sample/` it took 28 s on an M-series Mac.
 
 `make e2e-ios-grpc` (`scripts/e2e_ios.sh --grpc`, ADR-0163) does the same

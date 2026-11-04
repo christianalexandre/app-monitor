@@ -135,11 +135,17 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   hook repeated, a wrong argument count logged and not hooked (DEBT-0103, ADR-0187). Split from H6.4.
   Accept: `swift test --package-path sdk/ios --filter MethodHookTests`, `make swift`, `make swift-sim`,
   `make e2e-ios` and `make e2e-kmp-ios`.
+- [x] **H6.4c A held call in the iOS end to end.** (`test/ios-held-call-end-to-end`) The headless
+  server's `--breakpoints FILE` sends breakpoints and resumes each hit; `make e2e-ios` holds the
+  sample's upload at both stages and asserts the resume reached the simulator (DEBT-0086,
+  ADR-0188). Running `make e2e-ios-grpc` found its trust store ignored since H6.1 renamed the
+  server's start script (`SERVER_OPTS`, now `HEADLESS_SERVER_OPTS`): fixed here. Split from H6.4.
+  Accept: `./gradlew :tools:headless-server:test`, `make scripts-test`, `make e2e-ios` and
+  `make e2e-kmp-ios`.
 - [ ] **H6.4 iOS SDK.** Headers CFNetwork adds at send time (DEBT-0037) and every
-  end of a WebSocket (DEBT-0038) captured; breakpoints run on the simulator,
-  a held call resumed in the end to end (DEBT-0086).
+  end of a WebSocket (DEBT-0038) captured.
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
-  `make e2e-kmp-ios`, a held call resumed in the end to end.
+  `make e2e-kmp-ios`.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
   (DEBT-0077); the pass-through list of ADR-0101 E.1 in Settings
   (DEBT-0078); an HTTP/2 client reaches an HTTP/1.1-only origin

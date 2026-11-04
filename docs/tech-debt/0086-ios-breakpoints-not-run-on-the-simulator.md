@@ -1,10 +1,10 @@
 ---
 id: DEBT-0086
 title: iOS breakpoints are proven on the macOS host only
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: The first end to end that asserts a held call (`make server` resuming a `BreakpointHit`), or the next PR that changes `sdk/ios/TestHost/project.yml`
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0086 — iOS breakpoints are proven on the macOS host only
@@ -33,4 +33,9 @@ The first end to end that asserts a held call (`make server` resuming a
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+The headless server's `--breakpoints FILE` resumes each hit, and
+`make e2e-ios` holds the sample's upload at both stages with a 10-minute
+timeout, the response resumed `299`; the run asserts both hits, both
+resumes and the `299` the device captured (ADR-0188). The request id of a
+request-stage hit is the call's own, as on the host. Left host-tested
+only: an abort, edits other than the status, a held task cancelled.

@@ -313,7 +313,8 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 - A mocked `3xx` reaches the app as is; the protocol never redirects.
 - A replay of a redirected task sends its first request again; a
   WebSocket is refused as not kept.
-- The hold is tested on the macOS host only (DEBT-0086), a session-wide
+- The hold's abort, edits and cancel are tested on the macOS host only, `make e2e-ios`
+  holding one call on the simulator (ADR-0188); a session-wide
   challenge to a held task not at all (ADR-0130).
 - `MockProtocol` and `HoldProtocol` read the task they were made for from
   their own property, set in `init(task:cachedResponse:client:)`, never
