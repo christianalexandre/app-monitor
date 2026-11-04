@@ -171,8 +171,11 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   (DEBT-0077, ADR-0193). DEBT-0122 paid on its trigger: the tests' curl version is an input of
   `:desktop:proxy:test` and `:desktop:mcp:test`. Split from H6.5.
   Accept: `./gradlew :desktop:proxy:test`.
-- [ ] **H6.5 Proxy.** The pass-through list of ADR-0101 E.1 in Settings
-  (DEBT-0078); an HTTP/2 client reaches an HTTP/1.1-only origin
+- [x] **H6.5d The pass-through list.** (`feat/proxy-pass-through`) Hosts the settings list,
+  an exact name or `*.domain`, are tunnelled as raw bytes at their next `CONNECT`, nothing stored
+  (DEBT-0078, ADR-0194). Split from H6.5.
+  Accept: `./gradlew :desktop:proxy:test :desktop:feature:settings:test :desktop:app:test`.
+- [ ] **H6.5 Proxy.** An HTTP/2 client reaches an HTTP/1.1-only origin
   (DEBT-0079); a client refusing the
   certificate recorded on Windows (DEBT-0098).
   Accept: `./gradlew :desktop:proxy:test :desktop:app:test`; the release

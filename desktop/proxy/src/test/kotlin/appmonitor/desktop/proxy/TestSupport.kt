@@ -115,6 +115,7 @@ internal fun curl(vararg args: String): Curl {
 @OptIn(ExperimentalPathApi::class)
 internal fun withProxy(
     upstreamTrust: TrustManagerFactory? = null,
+    passThrough: () -> Collection<String> = { emptyList() },
     block: suspend Proxy.() -> Unit,
 ) {
     val dir = createTempDirectory("proxy-test")
@@ -123,7 +124,7 @@ internal fun withProxy(
     try {
         val ca = ProxyCa.loadOrCreate(dir.resolve("data"))
         val recording = ProxyRecording(storage, scope)
-        val server = ProxyServer(ca, recording::record, port = 0, upstreamTrust = upstreamTrust)
+        val server = ProxyServer(ca, recording::record, port = 0, upstreamTrust = upstreamTrust, passThrough = passThrough)
         val port = server.start()
         runBlocking {
             try {

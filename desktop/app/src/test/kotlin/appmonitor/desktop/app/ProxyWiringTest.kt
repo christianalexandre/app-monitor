@@ -1,15 +1,19 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.domain.ServiceStatus
+import appmonitor.desktop.feature.settings.PROXY_PASS_THROUGH
+import appmonitor.desktop.feature.settings.PROXY_PASS_THROUGH_SAVE
 import appmonitor.desktop.feature.settings.PROXY_RESET_CA
 import appmonitor.desktop.feature.settings.PROXY_STATUS
 import appmonitor.desktop.feature.settings.PROXY_SWITCH
@@ -62,9 +66,16 @@ class ProxyWiringTest {
                 assertEquals("http://127.0.0.1:$origin/none", exchange.url)
                 assertTrue(exchange.failed)
 
+                runBlocking {
+                    proxy.setPassThrough(listOf("Pinned.example.com", "*.bank.test", "pinned.example.com"))
+                    storage.flush()
+                }
+                assertEquals(listOf("pinned.example.com", "*.bank.test"), proxy.passThrough.value)
+
                 val relaunched = ProxyController(storage, list, dir, port = 0)
                 runBlocking { relaunched.start() }
                 assertEquals(ServiceStatus.Off, relaunched.status.value, "the switch is kept off")
+                assertEquals(listOf("pinned.example.com", "*.bank.test"), relaunched.passThrough.value, "the list is kept")
                 runBlocking { relaunched.close() }
                 runBlocking { proxy.close() }
             } finally {
@@ -94,6 +105,7 @@ class ProxyWiringTest {
             try {
                 val proxy = ProxyController(storage, list, dir, port = 0)
                 runBlocking { proxy.setEnabled(true) }
+                runBlocking { proxy.setPassThrough(listOf("pinned.example.com")) }
                 val first = Files.readString(proxy.caPath)
 
                 runBlocking { proxy.resetCa() }
@@ -113,6 +125,7 @@ class ProxyWiringTest {
                         storage.setting(ProxyController.KEY_ENABLED)
                     },
                 )
+                assertEquals("pinned.example.com", runBlocking { storage.setting(ProxyController.KEY_PASS_THROUGH) })
                 assertEquals(
                     1,
                     runBlocking { withTimeout(TIMEOUT_MS) { sessionsAfterFlush() } }.size,
@@ -147,14 +160,19 @@ class ProxyWiringTest {
                     "SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:47476 " +
                         "SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=\"/data/proxy-ca.pem\" xcrun simctl launch booted <bundle id>",
                 ).assertExists()
-                onNodeWithTag(PROXY_RESET_CA).performScrollTo()
+                onNodeWithTag(PROXY_PASS_THROUGH).performScrollTo().performTextInput("Pinned.example.com, *.bank.test")
+                onNodeWithTag(PROXY_PASS_THROUGH_SAVE).performScrollTo()
                 screenshot("proxy.png")
-                onNodeWithTag(PROXY_RESET_CA).performClick()
+                onNodeWithTag(PROXY_PASS_THROUGH_SAVE).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { proxy.passThrough.value.isNotEmpty() }
+                onNodeWithTag(PROXY_PASS_THROUGH_SAVE).assertIsNotEnabled()
+                onNodeWithTag(PROXY_RESET_CA).performScrollTo().performClick()
                 onNodeWithTag(PROXY_SWITCH).performClick()
             }
 
             assertEquals(listOf(false), proxy.switched)
             assertEquals(1, proxy.resets)
+            assertEquals(listOf("pinned.example.com", "*.bank.test"), proxy.passThrough.value)
         }
 
     private suspend fun sessionsAfterFlush(): List<*> {
