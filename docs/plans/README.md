@@ -53,7 +53,7 @@ record of how the milestone was actually built once it is done.
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
 | [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
-| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Active |
+| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
 
 ## Roadmap
 

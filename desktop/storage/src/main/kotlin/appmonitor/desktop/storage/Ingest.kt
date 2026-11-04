@@ -198,6 +198,7 @@ private data class State(
     val retention: RetentionSettings,
     val connections: Map<String, Pair<StorageItem.Connected, Long>> = emptyMap(),
     val rows: Map<String, Long> = emptyMap(),
+    val savedFrames: Map<Long, Long> = emptyMap(),
 ) {
     // A lost batch's sessions stay known, in a run that exists: their next event writes them again from the Hello.
     fun afterLost(batch: List<StorageItem>): State =
@@ -415,10 +416,15 @@ internal class Ingest(
                         database.sessionQueries.disconnect(live.disconnectedAtMs ?: item.atMs, it)
                         live.drops?.let { drops -> dropped(it, drops) }
                     }
-            // Saved before: its request and outcome may have moved on; frames would be stored twice.
-            val savedBefore = database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull() != null
-            copy.envelopes.filter { !savedBefore || it.type != FRAME_TYPE }.forEach { network(session, it) }
-            copy.id to exchange(session, copy.requestId)
+            val saved = database.exchangeQueries.idOf(session, copy.requestId).executeAsOneOrNull()
+            val received = copy.framesReceived
+            // ADR-0197. Its request and outcome may have moved on; a frame saved before would be stored twice.
+            val known = if (saved == null) 0 else state.savedFrames[saved] ?: received
+            var alreadySaved = copy.envelopes.count { it.type == FRAME_TYPE } - (received - known)
+            copy.envelopes.filter { it.type != FRAME_TYPE || alreadySaved-- <= 0 }.forEach { network(session, it) }
+            val id = exchange(session, copy.requestId)
+            state = state.copy(savedFrames = state.savedFrames + (id to maxOf(known, received)))
+            copy.id to id
         }
     }
 

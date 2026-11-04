@@ -1,10 +1,10 @@
 ---
 id: PLAN-0016
 title: Debt sweep before distribution
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H6
 started: 2026-11-03
-finished:
+finished: 2026-11-04
 ---
 
 # PLAN-0016 — Debt sweep before distribution (H6)
@@ -209,8 +209,9 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
   Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests :sdk:android-okhttp:allTests
   :sdk:no-op:check`, `aResponseHeader…RefusesFailsTheCallWithItsReason` failing without the fix;
   `make e2e-android` and `make e2e-kmp`.
-- [ ] **H6.R2 Saving again stores the frames that came since.** A WebSocket saved twice holds every
-  frame the second save saw, none twice. Finding 2 of the review below.
+- [x] **H6.R2 Saving again stores the frames that came since.** (`fix/save-again-stores-new-frames`)
+  A WebSocket saved twice holds every frame the second save saw, none twice (ADR-0197). Finding 2 of
+  the review below.
   Accept: `./gradlew :desktop:storage:test`, with a test saving a live WebSocket, adding frames and
   saving again.
 
@@ -235,10 +236,41 @@ in the code here:
 | 9 | 16 KDocs over 4 lines in 13 changed non-SDK files. | No: no behavior, but the rule is broken | DEBT-0126 |
 | 10 | `moveMock` and `moveBreakpoint` are copies. | No: their generated queries share no type, and a helper of three lambdas is no shorter | Rejected |
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**:
+  - H6.1: the desktop server and discovery (#346). H6.2a to H6.2e and H6.2: the store's write path
+    (#347), search on an index and one live decoding (#348), one switch for MCP and the proxy (#349),
+    the title bar and "Clear all data" (#350), the closing check (#351), mock rule order (#352).
+  - H6.3a to H6.3d and H6.3: one masking and capture flow for OkHttp and Ktor (#353, #354), a wrapped
+    engine captured once (#355), a cancelled iOS connect (#356), masked values left in an edit (#357).
+  - H6.4a to H6.4d and H6.4: the Swift SDK's small findings (#358), one method hook (#359), a held call
+    in the iOS end to end (#360), headers sent (#361), every end of a WebSocket (#362).
+  - H6.5a to H6.5d and H6.5: the proxy's flow (#363), a reused socket number and one status (#364), a
+    WebSocket's frames (#365), the pass-through list (#366), HTTP/2 to an HTTP/1.1 origin (#367).
+  - H6.6a and H6.6: the loop's watchdog (#368), the Android sample's recreation (#369).
+  - H6.R1: a refused response edit fails the call (#370). H6.R2: saving again stores the frames since
+    (this PR).
+- **Decisions**: ADR-0174 to ADR-0197.
+- **Debt**:
+  - Paid: DEBT-0007, 0010, 0012, 0013, 0015, 0016, 0028, 0037, 0038, 0051, 0053, 0055, 0061, 0062, 0063,
+    0064, 0067, 0068, 0071, 0072, 0073, 0074, 0077, 0078, 0079, 0081, 0082, 0083, 0084, 0086, 0088, 0092,
+    0093, 0095, 0100, 0101, 0102, 0103, 0104, 0105, 0106, 0107, 0109, 0114, 0120, 0122.
+  - Dropped: DEBT-0002, DEBT-0058, DEBT-0090, each with its reason.
+  - Created and open: DEBT-0123, DEBT-0124, DEBT-0125, DEBT-0126 (this review's findings 3 to 7 and
+    9). Each trigger is an event still to come.
+  - Open from earlier plans, against the Goal: DEBT-0036 (`make check` with a VPN up), DEBT-0050 (the
+    next PR on `debt_check.sh`), DEBT-0111, DEBT-0113, DEBT-0115 to DEBT-0119 and DEBT-0121. None was in
+    this plan's scope; each waits on its own trigger, DEBT-0117 and DEBT-0118 on M10.
+  - DEBT-0126 holds correctness findings normal use does not hit. No correctness finding that normal
+    use hits is left open.
+- **Deviations**:
+  - H6.2 to H6.6 split into 23 tasks, one cause or module per PR; with H6.1 and the review's two the
+    plan ran to 26, past the four to six the rules ask for. The sweep's Goal asked for it.
+  - *Left open* grew: DEBT-0059, DEBT-0098 and DEBT-0049 moved there, each with its reason in its task.
+  - H6.R1 paid DEBT-0114, fired by its own `make check`.
+- **Lessons**:
+  - Reading the code before paying a debt paid off: DEBT-0005, 0043 and 0044 were already paid, and
+    several items were false or no longer worth it, dropped with a probe or a number.
+  - The review's finding 2 was a comment stating the limit as intended ("frames would be stored
+    twice"): a written trade-off still deserves the question of what the user sees.
+  - A milestone's review over 486 files reads only the riskiest diffs. A sweep this wide would get a
+    better review per sub-area, or at each task.

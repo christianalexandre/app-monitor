@@ -215,7 +215,7 @@ class LiveTraffic(
             ids.distinct().sorted().mapNotNull { id ->
                 val exchange = exchanges[id] ?: return@mapNotNull null
                 val session = sessions[exchange.row.sessionId]?.row ?: return@mapNotNull null
-                LiveCopy(id, exchange.row.requestId, session, exchange.envelopes())
+                LiveCopy(id, exchange.row.requestId, session, exchange.envelopes(), exchange.row.frameCount)
             }
         }
 
@@ -444,10 +444,11 @@ class LiveTraffic(
     }
 }
 
-/** One live exchange as [LiveTraffic.copies] gives it: its live [id], its [session] and the events that make it. */
+/** One live exchange as [LiveTraffic.copies] gives it: its live [id], its [session], the events kept, [framesReceived] ever. */
 class LiveCopy(
     val id: Long,
     val requestId: String,
     val session: StoredSession,
     val envelopes: List<Envelope>,
+    val framesReceived: Long,
 )
