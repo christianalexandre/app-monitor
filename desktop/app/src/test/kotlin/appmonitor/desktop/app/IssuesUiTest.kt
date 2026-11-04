@@ -99,8 +99,8 @@ class IssuesUiTest {
                 onNodeWithTag(ISSUE_TAGS).performTextReplacement("checkout, flaky")
                 onNodeWithTag(SAVE_ISSUE).performClick()
 
-                awaitText("Cart fails then succeeds")
-                onNodeWithText("Open · checkout, flaky · 2 requests · in the window", substring = true).assertExists()
+                awaitText("Open · checkout, flaky · 2 requests · in the window", substring = true)
+                onNodeWithText("Cart fails then succeeds").assertExists()
                 onNodeWithText("Open · backend · 1 request · by MCP", substring = true).assertExists()
                 onNodeWithText("Save as issue").assertExists()
                 screenshot("issues.png")
