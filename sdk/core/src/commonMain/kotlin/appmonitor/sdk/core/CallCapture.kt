@@ -94,16 +94,17 @@ public class CallCapture(
     }
 
     /**
-     * ADR-0111 A.1, C.1: the resume when it changes the response, else null; an abort or a failed [hold] [close]s the
-     * response and fails the call.
+     * ADR-0111 A.1, C.1: what [edit] makes of a resume changing the response, else null; an abort, a failed [hold] or an
+     * edit it refuses [close]s the response and fails the call.
      */
-    public inline fun holdResponse(
+    public inline fun <T : Any> holdResponse(
         rule: BreakpointRule,
         request: RequestStarted,
         response: ResponseReceived,
         hold: (BreakpointHit) -> BreakpointOutcome,
         close: () -> Unit,
-    ): BreakpointOutcome.Resume? {
+        edit: (BreakpointOutcome.Resume) -> T,
+    ): T? {
         val hit =
             BreakpointHit(
                 rule_id = rule.id,
@@ -133,7 +134,22 @@ public class CallCapture(
             }
 
             is BreakpointOutcome.Resume -> {
-                return outcome.takeIf { it.changesResponse }
+                if (!outcome.changesResponse) return null
+                val failure =
+                    try {
+                        return edit(outcome)
+                    } catch (e: CancellationException) {
+                        close()
+                        failed(e)
+                        throw e
+                    } catch (e: IOException) {
+                        e
+                    } catch (e: Exception) {
+                        IOException("$EDIT_REFUSED${e.message}", e)
+                    }
+                close()
+                failed(failure)
+                throw failure
             }
         }
     }

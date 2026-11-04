@@ -129,8 +129,8 @@ does is `sdk/core`'s `CallCapture`, the same as Ktor's (ADR-0182):
 
 - An abort, a cancel or an interrupt during the wait, or an edit OkHttp
   refuses ("Breakpoint edit refused: …": a URL that does not parse, a
-  method that refuses the body, another host or port under
-  `addNetworkInterceptor`, ADR-0128) sends `RequestStarted` when not yet
+  method that refuses the body, a header name it rejects at either stage,
+  another host or port under `addNetworkInterceptor`, ADR-0128) sends `RequestStarted` when not yet
   sent, then `RequestFailed`, and throws an `IOException`
   (`InterruptedIOException` for an interrupt).
 - No answer within the hit's timeout, or the session's end: the call

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0114
 title: The iOS MonitorClientTests time out in most local `make swift` runs
-status: Open
+status: Paid
 date: 2026-10-31
 trigger: A `make swift` run fails on an `eventually` in `MonitorClientTests.swift`, or a PR changes `TestDesktop.swift`'s timing
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0114 — The iOS MonitorClientTests time out in most local `make swift` runs
@@ -39,4 +39,17 @@ the commit before #336 and on `origin/dev` to find the cause.
 
 ## How it was paid
 
-> Filled when closing.
+Reproduced by PLAN-0016 H6.R1 with FortiClient `Disconnected`: `swift test` failed 5 of 8
+runs, and `--filter MonitorClientTests` 6 of 6, so neither the VPN session nor the parallel run
+is the cause. Logging each `NWConnection`'s state showed every stalled attempt in
+`waiting(EADDRINUSE)`. `TestDesktop` listened on port 0, in the range clients' source ports come
+from, and the ports here go in sequence: a client on 59909 with its desktop on 59910, then every
+further connect in use. Closing the desktop's side on the peer's end and dropping
+`allowLocalEndpointReuse` both left it failing, 6 of 6 each. With the listener on a random port
+outside that range, `--filter MonitorClientTests` passed 8 of 8 and `swift test` 8 of 8, 5.7 s each.
+
+Left: the source port of a failing attempt was not observed, the mechanism is read from the
+neighbouring ports and the fix's result. FortiClient's network extension stayed active
+(`systemextensionsctl`), so whether it makes the ports sequential is not known. A real desktop on
+47474 is outside that range; a headless server on a free port, as in the end to ends, is not, and
+none has failed this way.

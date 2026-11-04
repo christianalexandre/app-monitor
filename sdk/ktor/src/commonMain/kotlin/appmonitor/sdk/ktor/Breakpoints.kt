@@ -108,14 +108,26 @@ internal suspend fun CallCapture.holdResponse(
 ): Pair<HttpClientCall, CapturedBody> {
     val response = call.response
     val rule = responseBreakpoint(request.method.value, request.url.buildString(), response.status.value) ?: return call to body
-    val resume =
-        holdResponse(
-            rule,
-            requestStarted(id, request, content, masking, content.capture(limit)),
-            responseReceived(id, response, masking, body),
-            { sink.hold(it) },
-            { response.cancel() },
-        ) ?: return call to body
+    return holdResponse(
+        rule,
+        requestStarted(id, request, content, masking, content.capture(limit)),
+        responseReceived(id, response, masking, body),
+        { sink.hold(it) },
+        { response.cancel() },
+    ) { edited(client, request, content, call, body, it, masking) } ?: (call to body)
+}
+
+/** [call] with the resume's fields, and its captured body; throws for an edit Ktor refuses. */
+private suspend fun edited(
+    client: HttpClient,
+    request: HttpRequestBuilder,
+    content: OutgoingContent,
+    call: HttpClientCall,
+    body: CapturedBody,
+    resume: BreakpointOutcome.Resume,
+    masking: Masking,
+): Pair<HttpClientCall, CapturedBody> {
+    val response = call.response
     val changes = checkNotNull(resume.changes)
     val replaced = changes.body
     val channel =

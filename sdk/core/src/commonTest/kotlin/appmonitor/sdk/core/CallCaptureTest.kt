@@ -77,7 +77,7 @@ class CallCaptureTest {
         assertEquals(3L, hit?.rule_id)
         assertEquals(1_000L, hit?.timeout_ms)
 
-        capture.holdResponse(rule, started, received, { h -> BreakpointOutcome.UNCHANGED.also { hit = h } }, { })
+        capture.holdResponse(rule, started, received, { h -> BreakpointOutcome.UNCHANGED.also { hit = h } }, { }) { it }
         assertEquals(BreakpointStage.BREAKPOINT_STAGE_RESPONSE, hit?.stage)
         assertSame(received, hit?.response)
     }
@@ -119,7 +119,9 @@ class CallCaptureTest {
 
     @Test
     fun onlyAResumeChangingTheResponseIsHandedBack() {
-        val hold = { outcome: BreakpointOutcome -> capture.holdResponse(rule, started, received, { outcome }, { error("not closed") }) }
+        val hold = { outcome: BreakpointOutcome ->
+            capture.holdResponse(rule, started, received, { outcome }, { error("not closed") }) { it }
+        }
 
         assertNull(hold(BreakpointOutcome.UNCHANGED))
         assertNull(hold(resume(method = "PUT")), "no response field is set")
@@ -133,20 +135,62 @@ class CallCaptureTest {
     fun anAbortedOrFailedResponseClosesAndFailsWithoutARequestStarted() {
         var closed = 0
 
-        assertFailsWith<IOException> { capture.holdResponse(rule, started, received, { BreakpointOutcome.Abort("no") }, { closed++ }) }
+        assertFailsWith<IOException> {
+            capture.holdResponse(
+                rule,
+                started,
+                received,
+                { BreakpointOutcome.Abort("no") },
+                { closed++ },
+            ) { it }
+        }
         assertEquals(1, closed)
         assertEquals(listOf("RequestFailed"), sent.map { it.type })
         assertContains(failure().error, "no")
 
         sent.clear()
-        assertFailsWith<IOException> { capture.holdResponse(rule, started, received, { throw IOException("Canceled") }, { closed++ }) }
+        assertFailsWith<IOException> {
+            capture.holdResponse(
+                rule,
+                started,
+                received,
+                { throw IOException("Canceled") },
+                { closed++ },
+            ) { it }
+        }
         assertEquals(2, closed)
         assertEquals(listOf("RequestFailed"), sent.map { it.type })
 
         sent.clear()
         assertFailsWith<CancellationException> {
-            capture.holdResponse(rule, started, received, { throw CancellationException("gone") }, { closed++ })
+            capture.holdResponse(rule, started, received, { throw CancellationException("gone") }, { closed++ }) { it }
         }
+        assertEquals(3, closed)
+        assertEquals(listOf("RequestFailed"), sent.map { it.type })
+    }
+
+    @Test
+    fun aResponseEditThrowingIsRefusedClosesAndFails() {
+        var closed = 0
+        val hold = { thrown: Exception ->
+            capture.holdResponse<Unit>(rule, started, received, { resume(status = 500) }, { closed++ }) { throw thrown }
+        }
+
+        val refused = assertFailsWith<IOException> { hold(IllegalArgumentException("bad name")) }
+        assertEquals("Breakpoint edit refused: bad name", refused.message)
+        assertEquals(1, closed)
+        assertEquals(listOf("RequestFailed"), sent.map { it.type })
+        assertContains(failure().error, "Breakpoint edit refused: bad name")
+
+        sent.clear()
+        val io = IOException("read failed")
+        assertSame(io, assertFailsWith<IOException> { hold(io) })
+        assertEquals(2, closed)
+        assertEquals(listOf("RequestFailed"), sent.map { it.type })
+
+        sent.clear()
+        val cancelled = CancellationException("gone")
+        assertSame(cancelled, assertFailsWith<CancellationException> { hold(cancelled) })
         assertEquals(3, closed)
         assertEquals(listOf("RequestFailed"), sent.map { it.type })
     }

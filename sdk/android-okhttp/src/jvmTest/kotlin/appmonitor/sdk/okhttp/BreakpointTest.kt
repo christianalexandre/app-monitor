@@ -299,6 +299,26 @@ class BreakpointTest {
     }
 
     @Test
+    fun aResponseHeaderOkHttpRefusesFailsTheCallWithItsReason() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", response = true))) { hit ->
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = hit.request!!.request_id, stage = response, set_headers = listOf(Header("X Foo", "1"))),
+                )
+            }
+        server.enqueue(reply("original"))
+
+        val error =
+            assertFailsWith<IOException> {
+                client(sink).newCall(Request.Builder().url(server.url("/items")).build()).execute()
+            }
+
+        assertContains(error.message!!, "Breakpoint edit refused: ")
+        sink.started()
+        assertContains(sink.failed().error, "Breakpoint edit refused: ")
+    }
+
+    @Test
     fun aResponseWithOnlyItsStatusChangedKeepsItsBody() {
         val sink =
             RecordingSink(breakpoints = listOf(rule("/items", response = true))) { hit ->
