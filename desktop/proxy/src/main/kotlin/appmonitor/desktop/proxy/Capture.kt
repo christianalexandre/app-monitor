@@ -38,19 +38,21 @@ internal class BodyCapture {
 /**
  * One exchange the proxy relays, written as the events an SDK sends (ADR-0101): [RequestStarted] once the request is
  * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame].
- * Event loop only; each event goes to [record] once.
+ * Event loop only; each event goes to [record] once. One [record] dropped cuts the exchange: nothing more is sent, and
+ * when its [RequestStarted] was kept a [RequestFailed] with [CUT] ends it.
  */
 internal class Capture(
     private val method: String,
     private val url: String,
     private val headers: List<Header>,
-    private val record: (Envelope) -> Unit,
+    private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
 ) {
     private val requestId = UUID.randomUUID().toString()
     private val startedAtMs = clock()
     private val requestBody = BodyCapture()
     private var started = false
+    private var cut = false
     var ended = false
         private set
 
@@ -126,14 +128,30 @@ internal class Capture(
     private fun emit(
         message: Message<*, *>,
         atMs: Long,
-    ) = record(
-        Envelope(
+    ) {
+        if (cut || record(envelope(message, atMs))) return
+        cut = true
+        if (message !is RequestStarted &&
+            message !is RequestFailed
+        ) {
+            record(envelope(RequestFailed(request_id = requestId, error = CUT), clock()))
+        }
+    }
+
+    companion object {
+        /** The error of an exchange [ProxyRecording] dropped an event of. */
+        const val CUT = "The proxy dropped part of this exchange: the store fell behind"
+
+        private fun envelope(
+            message: Message<*, *>,
+            atMs: Long,
+        ) = Envelope(
             channel = Protocol.CHANNEL_NETWORK,
             type = message::class.simpleName!!,
             payload = message.encodeByteString(),
             timestamp_ms = atMs,
-        ),
-    )
+        )
+    }
 }
 
 /** Headers as stored, in order. */

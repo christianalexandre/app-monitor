@@ -208,3 +208,4 @@ Rules:
 | [0188](0188-a-held-call-in-the-ios-end-to-end.md) | A held call in the iOS end to end | Accepted |
 | [0189](0189-ios-headers-sent-read-from-the-transaction-metrics.md) | iOS headers sent are read from the transaction metrics at the response | Accepted |
 | [0190](0190-ios-websocket-ends-read-at-the-tasks-finish.md) | An iOS WebSocket's end is read where the task finishes | Accepted |
+| [0191](0191-the-proxy-relays-at-the-slower-sides-pace.md) | The proxy relays at the slower side's pace and cuts an exchange it dropped an event of | Accepted |

@@ -153,13 +153,18 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   read by the task itself, probed: it is recorded when the app next receives or cancels.
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`.
+- [x] **H6.5a The proxy's flow and its cut exchanges.** (`fix/proxy-flow-and-cut-exchanges`) A
+  response ending before its request drops the rest of the body and the upstream connection, each
+  side read only while the other takes its writes, per stream over HTTP/2 (DEBT-0081's
+  `ClientHandler.kt` and `Http2Relay.kt` items); an exchange the recording dropped an event of is
+  cut whole or ended as failed (DEBT-0107, paid). ADR-0191. Split from H6.5.
+  Accept: `./gradlew :desktop:proxy:test :tools:headless-server:test`.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
   (DEBT-0077); the pass-through list of ADR-0101 E.1 in Settings
   (DEBT-0078); an HTTP/2 client reaches an HTTP/1.1-only origin
-  (DEBT-0079); the M8 review findings in `ClientHandler.kt`,
-  `Http2Relay.kt` and `connections.c` (DEBT-0081); a client refusing the
-  certificate recorded on Windows (DEBT-0098); a dropped proxy event marks
-  its exchange (DEBT-0107).
+  (DEBT-0079); the M8 review findings left in `connections.c` and
+  `App.kt`'s two `statusOf` (DEBT-0081); a client refusing the
+  certificate recorded on Windows (DEBT-0098).
   Accept: `./gradlew :desktop:proxy:test :desktop:app:test`; the release
   gate's Windows job green on `ProxyServerTest`.
 - [ ] **H6.6 Loop, scripts and build.** The loop's watchdog kills the

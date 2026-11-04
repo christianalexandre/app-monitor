@@ -221,7 +221,7 @@ class ProxyServerTest {
     @Test
     fun `a taken port fails start with a bind exception`() {
         ServerSocket(0, 1, InetAddress.getByName(ProxyServer.HOST)).use { taken ->
-            val server = ProxyServer(originCa, {}, port = taken.localPort)
+            val server = ProxyServer(originCa, { true }, port = taken.localPort)
             assertFailsWith<BindException> { server.start() }
             server.stop()
         }
@@ -236,7 +236,7 @@ class ProxyServerTest {
                 .filter { it.isUp && !it.isLoopback }
                 .flatMap { it.inetAddresses().toList() }
                 .firstOrNull { it is Inet4Address }
-        val server = ProxyServer(originCa, {}, port = 0)
+        val server = ProxyServer(originCa, { true }, port = 0)
         val port = server.start()
         try {
             Socket(ProxyServer.HOST, port).close()

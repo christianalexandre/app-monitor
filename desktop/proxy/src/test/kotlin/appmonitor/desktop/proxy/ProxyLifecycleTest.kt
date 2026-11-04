@@ -14,12 +14,12 @@ class ProxyLifecycleTest {
 
     @Test
     fun `stop before start does nothing`() {
-        ProxyServer(ca, {}, port = 0).stop()
+        ProxyServer(ca, { true }, port = 0).stop()
     }
 
     @Test
     fun `start twice throws`() {
-        val server = ProxyServer(ca, {}, port = 0)
+        val server = ProxyServer(ca, { true }, port = 0)
         server.start()
         try {
             assertFailsWith<IllegalStateException> { server.start() }
@@ -30,7 +30,7 @@ class ProxyLifecycleTest {
 
     @Test
     fun `start after stop throws`() {
-        val server = ProxyServer(ca, {}, port = 0)
+        val server = ProxyServer(ca, { true }, port = 0)
         server.start()
         server.stop()
         assertFailsWith<IllegalStateException> { server.start() }
@@ -38,7 +38,7 @@ class ProxyLifecycleTest {
 
     @Test
     fun `stop twice is idempotent`() {
-        val server = ProxyServer(ca, {}, port = 0)
+        val server = ProxyServer(ca, { true }, port = 0)
         server.start()
         server.stop()
         server.stop()
@@ -46,7 +46,7 @@ class ProxyLifecycleTest {
 
     @Test
     fun `stop closes open client connections`() {
-        val server = ProxyServer(ca, {}, port = 0)
+        val server = ProxyServer(ca, { true }, port = 0)
         val port = server.start()
         Socket(ProxyServer.HOST, port).use { client ->
             client.soTimeout = 5_000
@@ -60,10 +60,10 @@ class ProxyLifecycleTest {
 
     @Test
     fun `stop frees the port`() {
-        val server = ProxyServer(ca, {}, port = 0)
+        val server = ProxyServer(ca, { true }, port = 0)
         val port = server.start()
         server.stop()
-        val next = ProxyServer(ca, {}, port = port)
+        val next = ProxyServer(ca, { true }, port = port)
         assertEquals(port, next.start())
         next.stop()
     }

@@ -79,7 +79,13 @@ Castle, ADR-0105); the switch, status and commands in
    not aggregated; each body keeps at most `Protocol.MAX_BODY_BYTES` for
    the store, with its full size. After a request's last part the client
    is not read again until its response ends, so a pipelined request
-   waits in a queue.
+   waits in a queue. A response that ends before its request does (an
+   upload refused at its headers) is stored; the rest of the request's
+   body is read and dropped, and the upstream connection is closed, not
+   reused (`ProxyFlowTest`).
+   **Backpressure** (ADR-0191): a side is not read while the other's write
+   buffer is past its high mark (64 KiB), and is read again when it drains,
+   after a `101` too (`ProxyFlowTest`).
 5. **Failures**: connect refused or timed out (10 s), the origin's TLS
    refused, a write failing, or the origin closing mid-response → the
    exchange is stored failed with the reason; the client gets `502`
@@ -103,7 +109,10 @@ Castle, ADR-0105); the switch, status and commands in
    tunnel had TLS (verified as in HTTP/1.1), prior knowledge when it was
    plain; server push off. Each stream opens a twin on it.
 3. **Relay**: headers, data, trailers and resets cross both ways as they
-   arrive, as new frames; a `1xx` is passed on and not stored.
+   arrive, as new frames; a `1xx` is passed on and not stored. A stream is
+   not read while its twin is not writable, and the other way round, so
+   a slow side's flow control window reaches the other peer, stream by
+   stream (ADR-0191, `ProxyFlowTest`).
 4. **Failures**: the upstream connection refused or timed out, its TLS
    refused, an origin without `h2` (`<host>:<port> does not offer
    HTTP/2`, DEBT-0079) or a stream that cannot open → the exchange is
@@ -137,7 +146,11 @@ event loop and the store's queue, so the relay never blocks on the
 store; past 64 MiB of payloads waiting (`MAX_PENDING_BYTES`, as the
 store's queue) a new event is dropped and counted in `dropped`, and
 stopping the proxy logs the count when it is not zero, as the store logs
-its full-queue waits (`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
+its full-queue waits (`ProxyRecordingTest`). A `RequestFailed` passes the
+bound. An exchange one of whose events was dropped is cut (ADR-0191): a
+dropped `RequestStarted` leaves nothing of it; any later one ends it with
+`RequestFailed` `The proxy dropped part of this exchange: the store fell
+behind`, and nothing after (`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
 
 ### Lifecycle
 
@@ -172,9 +185,6 @@ the proxy's 2 s.
   that reads only the keychain is not served (ADR-0108).
 - An HTTP/2 client reaching an HTTP/1.1-only origin gets `502`
   (DEBT-0079).
-- No backpressure: a stream's frames and an HTTP/1.1 response are
-  relayed as fast as they come, buffered in memory while the other side
-  is slower.
 - Nothing after a `101` is captured (DEBT-0077); no pass-through list for
   pinned hosts (DEBT-0078).
 - One request at a time per HTTP/1.1 client connection; HTTP/2 streams

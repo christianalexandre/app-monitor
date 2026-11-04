@@ -5,6 +5,7 @@ import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
+import appmonitor.v1.RequestFailed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.Channel
@@ -16,7 +17,8 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Writes what one [ProxyServer] relays to [sink] as one session, its device unknown (ADR-0101): [record] never
  * blocks the event loop, the events wait in memory for the sink, up to [maxPendingBytes] of payloads, and past
- * that are dropped. Not [open], it writes nothing until [open].
+ * that are dropped, a `RequestFailed` excepted: it ends its exchange and is small. Not [open], it writes nothing until
+ * [open].
  */
 class ProxyRecording(
     private val sink: TrafficSink,
@@ -42,12 +44,16 @@ class ProxyRecording(
     /** Events [record] dropped because [maxPendingBytes] were already waiting. */
     val dropped: Long get() = droppedCount.get()
 
-    fun record(envelope: Envelope) {
+    /** Keeps [envelope] for the sink and answers true, or drops it and answers false. */
+    fun record(envelope: Envelope): Boolean {
         val size = envelope.payload.size.toLong()
-        if (pending.addAndGet(size) > maxPendingBytes || events.trySend(envelope).isFailure) {
+        val over = pending.addAndGet(size) > maxPendingBytes && envelope.type != ALWAYS_KEPT
+        if (over || events.trySend(envelope).isFailure) {
             pending.addAndGet(-size)
             droppedCount.incrementAndGet()
+            return false
         }
+        return true
     }
 
     /** Writes the session, then what [record] kept so far and everything after. */
@@ -71,6 +77,8 @@ class ProxyRecording(
     companion object {
         /** As the store's write queue: about 50 envelopes of `Protocol.MAX_FRAME_BYTES`. */
         const val MAX_PENDING_BYTES = 64L * 1024 * 1024
+
+        private val ALWAYS_KEPT = RequestFailed::class.simpleName!!
 
         /** What a proxy session shows for its device: none is known (ADR-0101 A.1). */
         val HELLO =
