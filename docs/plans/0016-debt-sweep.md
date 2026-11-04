@@ -200,7 +200,40 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
   DEBT-0118's run on iOS 16 found a test pinning a newer iOS's error code, fixed here.
   Accept: `make check`; `make e2e-android`.
 
+- [x] **H6.R1 A refused response edit fails the call.** (`fix/held-response-edit-refused`) An
+  edit OkHttp or Ktor refuses at a held response is "Breakpoint edit refused: …" and a
+  `RequestFailed`, as at a held request; it reached the app as an unchecked exception, and no
+  `RequestFailed` ended the exchange. Finding 1 of the review below.
+  `make check` failing on `MonitorClientTests` fired DEBT-0114: its cause found and paid here, the
+  test desktop listening in the range clients' source ports come from.
+  Accept: `./gradlew :sdk:core:allTests :sdk:ktor:allTests :sdk:android-okhttp:allTests
+  :sdk:no-op:check`, `aResponseHeader…RefusesFailsTheCallWithItsReason` failing without the fix;
+  `make e2e-android` and `make e2e-kmp`.
+- [ ] **H6.R2 Saving again stores the frames that came since.** A WebSocket saved twice holds every
+  frame the second save saw, none twice. Finding 2 of the review below.
+  Accept: `./gradlew :desktop:storage:test`, with a test saving a live WebSocket, adding frames and
+  saving again.
+
 ## Outcome
+
+### H6 milestone review
+
+`code-review` at `medium` of `e47d580..2b6cb70` (#346 to #369): a static read of the riskiest
+non-test diffs, 486 files in the range. Ten findings, two that normal use hits, each then read
+in the code here:
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | An edit OkHttp or Ktor refuses at a held response throws an unchecked exception into the app; no `RequestFailed`. | Yes: a typo in a header name in "Response held"; on `enqueue` OkHttp rethrows it on its dispatcher thread | H6.R1 |
+| 2 | Saving an exchange again drops every `WebSocketFrame`, so the frames since the first save are never stored. | Yes: wrong data stored, on a second save of a live WebSocket | H6.R2 |
+| 3 | A leaf that cannot be built in `TunnelTls`' asynchronous callback leaves the tunnel hanging. | No: needs minting a certificate to fail | DEBT-0126 |
+| 4 | The proxy's inflater is never reset, so messages after a `BFINAL=1` block are captured empty. | No: needs a peer ending messages with a final block, which RFC 7692 allows and none met so far does; a plain `reset()` also loses the window | DEBT-0126 |
+| 5 | A tunnel closed before its first request is a failed `CONNECT`, a plain one labelled a TLS failure. | The first part, yes, on purpose: SDD 11 stores it, the only trace of a client refusing the leaf after its handshake. The label: no, needs a tunnel closed without a byte | Rejected; label in DEBT-0126 |
+| 6 | A second `Storage.open` in the same JVM closes a channel on the lock file, dropping the first's lock on POSIX. | No: `openServices` is the only caller, once per process | DEBT-0126 |
+| 7 | `e2e_android.sh`: `adb … \| grep -q` under `pipefail`, `accelerometer_rotation` not restored. | No: a test script, not reproduced | DEBT-0126 |
+| 8 | `ruleset_check.sh` reads only a mapping `on:`. | No: every workflow uses one, and another form fails the check loudly | Rejected |
+| 9 | 16 KDocs over 4 lines in 13 changed non-SDK files. | No: no behavior, but the rule is broken | DEBT-0126 |
+| 10 | `moveMock` and `moveBreakpoint` are copies. | No: their generated queries share no type, and a helper of three lambdas is no shorter | Rejected |
 
 > Filled when the plan closes (`status: Done` or `Abandoned`):
 >

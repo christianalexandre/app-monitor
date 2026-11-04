@@ -91,7 +91,8 @@ ADR-0123), the `Monitoring` interceptor suspends in
 | Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`) set as the pipeline's subject: the replacement body, the original's channel then cancelled if it was streamed, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
 
 - An abort, or an edit Ktor refuses ("Breakpoint edit refused: …": a
-  URL that is not absolute, a method that does not parse), sends
+  URL that is not absolute, a method that does not parse, a header it
+  rejects at the response stage), sends
   `RequestStarted` when not yet sent, then `RequestFailed`, and throws a
   `kotlinx.io.IOException`. A cancellation during the wait is captured
   the same way and rethrown, a held response cancelled.

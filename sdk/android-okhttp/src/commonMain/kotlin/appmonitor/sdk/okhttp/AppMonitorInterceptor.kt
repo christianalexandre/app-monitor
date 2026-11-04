@@ -178,16 +178,24 @@ public class AppMonitorInterceptor : Interceptor {
                 capture.failed(e)
                 throw e
             }
-        val resume =
-            capture.holdResponse(
-                rule,
-                requestStarted(capture.id, request, masking, requestBody),
-                responseReceived(capture.id, response, masking, seen),
-                { hold(call, it) },
-                { response.close() },
-            ) ?: return response to body
-        val changes = checkNotNull(resume.changes)
-        val headers = headersOf(resume.headers(response.headers.toList(), masking))
+        return capture.holdResponse(
+            rule,
+            requestStarted(capture.id, request, masking, requestBody),
+            responseReceived(capture.id, response, masking, seen),
+            { hold(call, it) },
+            { response.close() },
+        ) { edited(response, body, it, masking) } ?: (response to body)
+    }
+
+    /** [response] with the resume's fields; throws for an edit OkHttp refuses. */
+    private fun edited(
+        response: Response,
+        body: CapturedBody?,
+        outcome: BreakpointOutcome.Resume,
+        masking: Masking,
+    ): Pair<Response, CapturedBody?> {
+        val changes = checkNotNull(outcome.changes)
+        val headers = headersOf(outcome.headers(response.headers.toList(), masking))
         val edited = response.newBuilder().code(changes.status_code ?: response.code).headers(headers)
         val replaced = changes.body ?: return edited.build() to body
         response.close()

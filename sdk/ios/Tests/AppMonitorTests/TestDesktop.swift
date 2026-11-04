@@ -66,7 +66,9 @@ final class TestDesktop: @unchecked Sendable {
             parameters.defaultProtocolStack.applicationProtocols.insert(webSocket, at: 0)
         }
         parameters.allowLocalEndpointReuse = true
-        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!)
+        // In the ephemeral range a client's source port can land on this one: connect then waits on EADDRINUSE (DEBT-0114).
+        let chosen = port != 0 ? port : UInt16.random(in: 20_000..<40_000)
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: chosen)!)
         let listener = try NWListener(using: parameters)
         self.listener = listener
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
