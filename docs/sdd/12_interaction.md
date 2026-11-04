@@ -34,9 +34,9 @@ a breakpoint (ADR-0125).
   closed. The server writes the queue in order, only after `HelloAck`,
   so an envelope queued as the session is published still comes second.
 - The headless server (`make server`) accepts the channel and sends on it
-  only `--mocks FILE`'s rules and, with `--replay PATH`, a `ReplayRequest`
-  for each session's first request to that URL path (ADR-0122 D.1); a
-  call its device holds goes on at its timeout.
+  only `--mocks FILE`'s rules, `--breakpoints FILE`'s breakpoints and
+  their resumes (ADR-0188), and, with `--replay PATH`, a `ReplayRequest`
+  for each session's first request to that URL path (ADR-0122 D.1).
 
 ### Messages
 
@@ -250,6 +250,16 @@ with `message`), and sends the set once to every session that accepted
 logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt`,
 `Main.kt`); `make e2e-android` uses it (SDD 02, ADR-0116).
 
+`make server ARGS="--breakpoints FILE"` reads breakpoints the same way
+(`id`, `method`, `host`, `path`, `request`, `response`, `timeout_ms`,
+plus `resume_status_code`), sends them once to every session, logging
+`sent N breakpoints`, and answers each `BreakpointHit` (logged
+`interaction/BreakpointHit <request id> <stage> rule <id>`) with a
+`BreakpointResume`: the request unchanged, the response with its rule's
+`resume_status_code` when set, logged `resumed <request id> <stage>` and
+` status <code>`. Code: `BreakpointFile.kt`; `make e2e-ios` uses it
+(SDD 02, ADR-0188).
+
 ### Tests that drive it
 
 | Case | Test |
@@ -296,7 +306,8 @@ logged with ` mock <id>` at the end. Code: `tools/headless-server` (`MockFile.kt
 | A device keeps the last breakpoints, waits on a hit until its own resume or abort, its timeout or the session's end; a hit over a frame or dropped unwritten goes on unchanged at once, also when a desktop that stops reading fills the buffer | `MonitorClientBreakpointsTest`, `EventBufferTest`, `StalledDesktopBreakpointTest` (JVM) in `sdk/core` |
 | OkHttp and Ktor hold a request and a response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a call cancelled while held | `BreakpointTest` in `sdk/android-okhttp` and `sdk/ktor`; what each outcome decides, `CallCaptureTest` in `sdk/core` (ADR-0182) |
 | The Swift SDK keeps the last breakpoints, waits on a hit until its resume or abort, its timeout or the session's end; a hit over a frame or dropped unwritten goes on unchanged at once | `BreakpointsTests`, `MonitorClientBreakpointsTests`, `EventBufferTests` in `sdk/ios` |
-| `URLSession` holds a data or upload task's request and response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a held task cancelled; its delegate gets the data; a response held at `maxBodyBytes`, not its end, still read to its end while held, then handed over whole or with the edited body | `BreakpointTests` in `sdk/ios` (macOS host, DEBT-0086) |
+| `URLSession` holds a data or upload task's request and response, mocked or not, resumed edited (a masked header left alone keeps its value) or unchanged, aborted, an edit refused, a held task cancelled; its delegate gets the data; a response held at `maxBodyBytes`, not its end, still read to its end while held, then handed over whole or with the edited body | `BreakpointTests` in `sdk/ios` (macOS host) |
+| The sample's upload held on the simulator at both stages, each resumed by the headless server, the response's status the resumed one | `make e2e-ios` (`held:` and `status:` in `e2e_lib.sh`, ADR-0188) |
 | A breakpoint made, turned off and on in the window reaches a stand-in device each time; its held request resumed edited from the dialog (URL and body only sent back), a held response aborted | `BreakpointsUiTest` in `desktop/app` (`breakpoint.png`) |
 
 ## Limits

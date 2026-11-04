@@ -8,6 +8,7 @@ import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.server.shutdownHook
 import appmonitor.desktop.server.startWithShutdownHook
 import appmonitor.protocol.Protocol
+import appmonitor.v1.BreakpointHit
 import appmonitor.v1.Envelope
 import appmonitor.v1.ReplayRefused
 import appmonitor.v1.RequestFailed
@@ -44,6 +45,18 @@ fun main(args: Array<String>) {
                 exitProcess(2)
             }
         }
+    val breakpoints =
+        options.breakpointsFile?.let { file ->
+            try {
+                readBreakpoints(file.readText())
+            } catch (e: IOException) {
+                System.err.println("Cannot read $file: ${e.message}")
+                exitProcess(2)
+            } catch (e: IllegalArgumentException) {
+                System.err.println("Bad breakpoints in $file: ${e.message}")
+                exitProcess(2)
+            }
+        }
     val server = AppMonitorServer(ServerConfig(port = options.port, desktopId = options.desktopId))
     runBlocking {
         val bound =
@@ -67,6 +80,11 @@ fun main(args: Array<String>) {
                 if (mocks != null && session.send(mockRulesEnvelope(mocks, System.currentTimeMillis()))) {
                     println("[${session.id}] sent ${mocks.rules.size} mock rules")
                 }
+                if (breakpoints != null &&
+                    session.send(breakpointRulesEnvelope(breakpoints.rules, System.currentTimeMillis()))
+                ) {
+                    println("[${session.id}] sent ${breakpoints.rules.rules.size} breakpoints")
+                }
                 var replayAsked = false
                 var printedDrops: Drops? = null
                 val printDrops = {
@@ -78,6 +96,11 @@ fun main(args: Array<String>) {
                 session.envelopes.collect { envelope ->
                     println("[${session.id}] ${describe(envelope)}")
                     printDrops()
+                    breakpoints?.let { breakpointResume(envelope, it) }?.let { resume ->
+                        if (session.send(breakpointResumeEnvelope(resume, System.currentTimeMillis()))) {
+                            println("[${session.id}] ${describe(resume)}")
+                        }
+                    }
                     val asked = if (replayAsked) null else options.replayPath?.let { replayTarget(envelope, it) }
                     if (asked != null) {
                         replayAsked = true
@@ -112,11 +135,12 @@ internal data class ServerArgs(
     val mocksFile: Path? = null,
     val replayPath: String? = null,
     val desktopId: String? = null,
+    val breakpointsFile: Path? = null,
 )
 
 /**
  * `--port`, `--proxy DIR` (ADR-0109), `--mocks FILE` (ADR-0116), `--replay PATH` (ADR-0122), `--desktop-id UUID`
- * (ADR-0168); null after one line on [err].
+ * (ADR-0168), `--breakpoints FILE` (ADR-0188); null after one line on [err].
  */
 internal fun parseArgs(
     args: Array<String>,
@@ -136,6 +160,7 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
                 "--port" -> options.copy(port = value.toIntOrNull()?.takeIf { it in 0..MAX_PORT } ?: return null)
                 "--proxy" -> options.copy(proxyDirectory = Path.of(value))
                 "--mocks" -> options.copy(mocksFile = Path.of(value))
+                "--breakpoints" -> options.copy(breakpointsFile = Path.of(value))
                 "--replay" -> options.copy(replayPath = value.takeIf { it.startsWith("/") } ?: return null)
                 "--desktop-id" -> options.copy(desktopId = value.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null)
                 else -> return null
@@ -145,9 +170,9 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
 }
 
 private const val USAGE =
-    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--replay PATH] [--desktop-id UUID], PORT from 0 " +
-        "(ephemeral) to 65535, DIR the proxy's CA directory, FILE mock rules as JSON, PATH a URL path starting with /, " +
-        "UUID the id devices pin"
+    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--breakpoints FILE] [--replay PATH] [--desktop-id UUID], " +
+        "PORT from 0 (ephemeral) to 65535, DIR the proxy's CA directory, FILE mock rules or breakpoints as JSON, " +
+        "PATH a URL path starting with /, UUID the id devices pin"
 
 private const val MAX_PORT = 65_535
 
@@ -176,6 +201,10 @@ internal fun describe(envelope: Envelope): String {
 
                 "network/RequestFailed" -> {
                     RequestFailed.ADAPTER.decode(envelope.payload).run { "$request_id $error" }
+                }
+
+                "interaction/BreakpointHit" -> {
+                    BreakpointHit.ADAPTER.decode(envelope.payload).run { "${request?.request_id} $stage rule $rule_id" }
                 }
 
                 "interaction/ReplayRefused" -> {

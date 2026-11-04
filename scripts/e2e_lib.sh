@@ -96,11 +96,12 @@ foreign_urls() {
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
 # a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, mock:<rule id>
-# for a request that rule answered on the device (ADR-0110), or `replay` for a request the device sent
-# again with the same terminal (ADR-0122).
+# for a request that rule answered on the device (ADR-0110), `replay` for a request the device sent
+# again with the same terminal (ADR-0122), `held:<request|response>` for a stage a breakpoint held and
+# the server resumed, or `status:<code>` for the status the device captured (ADR-0188).
 # Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
 missing() {
-  local method url terminal frames id frame replay
+  local method url terminal frames id frame replay stage
   grep -q "\] connected: .* $1 " "$server_log" || echo "no device connected with app id $1"
   while read -r method url terminal frames; do
     id="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { print $3; exit }' "$server_log")"
@@ -117,6 +118,17 @@ missing() {
         else
           grep -q " network/$terminal $replay " "$server_log" || echo "$method $url: no $terminal for its replay $replay"
         fi
+        continue
+      fi
+      if [[ "$frame" == held:* ]]; then
+        stage="BREAKPOINT_STAGE_$(echo "${frame#held:}" | tr '[:lower:]' '[:upper:]')"
+        grep -q " interaction/BreakpointHit $id $stage " "$server_log" || echo "$method $url: no ${frame#held:} held"
+        grep -Eq " resumed $id $stage( |\$)" "$server_log" || echo "$method $url: ${frame#held:} not resumed"
+        continue
+      fi
+      if [[ "$frame" == status:* ]]; then
+        grep -q " network/ResponseReceived $id ${frame#status:}," "$server_log" \
+          || echo "$method $url: no status ${frame#status:} for $id"
         continue
       fi
       if [[ "$frame" == mock:* ]]; then

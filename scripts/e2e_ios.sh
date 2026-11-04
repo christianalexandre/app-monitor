@@ -48,14 +48,20 @@ cat >"$out/mocks.json" <<JSON
 {"rules": [{"id": 1, "method": "GET", "host": "127.0.0.1", "path": "/status/418",
   "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}}]}
 JSON
+# The upload held at both stages for longer than the wait, so only the server's resumes let it end
+# within E2E_TIMEOUT; the response resumed with another status (DEBT-0086, ADR-0188).
+cat >"$out/breakpoints.json" <<JSON
+{"rules": [{"id": 2, "method": "PUT", "host": "127.0.0.1", "path": "/put", "request": true, "response": true,
+  "timeout_ms": 600000, "resume_status_code": 299}]}
+JSON
 launch=()
 if [[ -n "$grpc" ]]; then
   start_target --grpc-trust "$out/grpc-trust.p12"
   grpc_port="$(logged '^gRPC on port \([0-9]*\)$' "$target_log")"
   [[ -n "$grpc_port" ]] || fail "the target printed no gRPC port, log in $target_log"
   # The proxy verifies origins against the JVM's trust store; this one holds the target's certificate only.
-  SERVER_OPTS="-Djavax.net.ssl.trustStore=$out/grpc-trust.p12 -Djavax.net.ssl.trustStorePassword=e2e-target" \
-    start_server --proxy "$out/proxy" --mocks "$out/mocks.json" --replay /json
+  HEADLESS_SERVER_OPTS="-Djavax.net.ssl.trustStore=$out/grpc-trust.p12 -Djavax.net.ssl.trustStorePassword=e2e-target" \
+    start_server --proxy "$out/proxy" --mocks "$out/mocks.json" --breakpoints "$out/breakpoints.json" --replay /json
   proxy_port="$(logged '^Proxy on port \([0-9]*\),.*' "$server_log")"
   [[ -n "$proxy_port" ]] || fail "the server printed no proxy port, log in $server_log"
   export SIMCTL_CHILD_grpc_proxy="http://127.0.0.1:$proxy_port"
@@ -63,7 +69,7 @@ if [[ -n "$grpc" ]]; then
   launch=(-grpcTarget "127.0.0.1:$grpc_port")
 else
   start_target
-  start_server --mocks "$out/mocks.json" --replay /json
+  start_server --mocks "$out/mocks.json" --breakpoints "$out/breakpoints.json" --replay /json
 fi
 target="http://127.0.0.1:$target_port"
 
@@ -78,7 +84,7 @@ expected="GET $target/json ResponseReceived replay
 POST $target/post ResponseReceived
 GET $target/status/404 ResponseReceived
 GET $target/delay/10 RequestFailed
-PUT $target/put ResponseReceived
+PUT $target/put ResponseReceived held:request held:response status:299
 GET $target/ws ResponseReceived DIRECTION_SENT:OPCODE_TEXT DIRECTION_RECEIVED:OPCODE_TEXT DIRECTION_SENT:OPCODE_CLOSE
 GET $target/bytes/4096 ResponseReceived
 GET $target/status/418 ResponseReceived mock:1"
