@@ -143,8 +143,30 @@ class ProxyServerTest {
                 val exchange = ended(1).single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)
-                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+                assertEquals(ClientHandler.NO_REQUEST, exchange.error)
             }
+        }
+    }
+
+    @Test
+    fun `a host no certificate can name closes the tunnel and fails the CONNECT exchange`() {
+        withProxy {
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 10_000
+                socket.getOutputStream().write("CONNECT [fe80::1%zz]:443 HTTP/1.1\r\nHost: x\r\n\r\n".toByteArray())
+                val input = socket.getInputStream().bufferedReader()
+                val reply = input.readLine()
+                assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                input.readLine()
+                socket.getOutputStream().write(byteArrayOf(0x16, 0x03, 0x01, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3c, 0x03, 0x03))
+                socket.getOutputStream().flush()
+
+                assertEquals(null, input.readLine())
+            }
+
+            val exchange = ended(1).single().exchange
+            assertEquals("CONNECT", exchange.method)
+            assertTrue(exchange.error!!.startsWith("Could not make a certificate for fe80::1%zz"), exchange.error)
         }
     }
 

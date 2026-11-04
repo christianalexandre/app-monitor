@@ -8,10 +8,8 @@ import java.util.zip.DataFormatException
 import java.util.zip.Inflater
 
 /**
- * Reads the frames of one WebSocket the proxy relays after its `101` (RFC 6455) without consuming the relayed bytes,
- * and sends [capture] each message, as one frame, and each control frame (ADR-0193). Messages compressed with
- * `permessage-deflate` (RFC 7692) are inflated. A direction that stops parsing is relayed and no longer captured.
- * Event loop only.
+ * Reads one relayed WebSocket's frames without consuming the bytes, and sends [capture] each message, inflated, and
+ * control frame (ADR-0193). A direction that stops parsing is relayed and no longer captured. Event loop only.
  */
 internal class WebSocketCapture private constructor(
     private val capture: Capture,
@@ -42,6 +40,8 @@ internal class WebSocketCapture private constructor(
         deflate: Boolean,
     ) {
         private var inflater: Inflater? = if (deflate) Inflater(true) else null
+        private val window = if (deflate) ByteArray(WINDOW) else ByteArray(0)
+        private var windowSize = 0
         private val header = ByteArray(MAX_HEADER)
         private var headerRead = 0
         private var inPayload = false
@@ -168,12 +168,33 @@ internal class WebSocketCapture private constructor(
                 inflating.setInput(input)
                 while (true) {
                     val count = inflating.inflate(out)
-                    if (count > 0) message?.add(out, count)
-                    if (count == 0 && (inflating.needsInput() || inflating.needsDictionary() || inflating.finished())) break
+                    if (count > 0) {
+                        message?.add(out, count)
+                        remember(out, count)
+                    }
+                    if (inflating.finished()) {
+                        val left = inflating.remaining
+                        // RFC 7692 7.2.3.4: a final block ends the zlib stream, not the context later messages refer to.
+                        inflating.reset()
+                        inflating.setDictionary(window, 0, windowSize)
+                        inflating.setInput(input, input.size - left, left)
+                    } else if (count == 0 && (inflating.needsInput() || inflating.needsDictionary())) {
+                        break
+                    }
                 }
             } catch (_: DataFormatException) {
                 stop()
             }
+        }
+
+        private fun remember(
+            bytes: ByteArray,
+            count: Int,
+        ) {
+            val kept = minOf(windowSize, WINDOW - count)
+            System.arraycopy(window, windowSize - kept, window, 0, kept)
+            System.arraycopy(bytes, 0, window, kept, count)
+            windowSize = kept + count
         }
 
         private fun stop() {
@@ -195,7 +216,10 @@ internal class WebSocketCapture private constructor(
         private const val RSV1 = 0x40
         private const val MAX_HEADER = 14
         private const val MAX_CONTROL = 125L
+
+        // remember() needs a chunk no longer than the window, DEFLATE's largest distance.
         private const val INFLATE_CHUNK = 16 * 1024
+        private const val WINDOW = 32 * 1024
         private val DEFLATE_TAIL = byteArrayOf(0, 0, -1, -1)
         private val CONTROL_OPCODES = mapOf(CLOSE to Opcode.OPCODE_CLOSE, 9 to Opcode.OPCODE_PING, PONG to Opcode.OPCODE_PONG)
 

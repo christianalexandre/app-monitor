@@ -81,7 +81,11 @@ Castle, ADR-0105); the switch, status and commands in
    closes (ADR-0101 E.1). A client that checks the leaf after its handshake
    (curl 8.23 with OpenSSL) succeeds in it and closes: a tunnel closed
    before its first request is stored the same way, error `The client closed
-   the tunnel after the TLS handshake, before any request: …`.
+   the tunnel after the TLS handshake, before any request: …`. One closed
+   before any TLS byte or whole request stores `The client closed the tunnel
+   before any TLS or request`. A leaf that cannot be made (a scoped IPv6
+   host, `fe80::1%en0`, has no certificate name) stores `Could not make a
+   certificate for …` and closes the connection (`ProxyServerTest`).
 2. **A request** inside a tunnel goes to the tunnel's host; outside one
    it needs an absolute `http://` or `https://` URL, else `400` and
    nothing is stored. The URI becomes origin-form, `Proxy-Connection`
@@ -109,7 +113,9 @@ Castle, ADR-0105); the switch, status and commands in
    off and bytes are relayed as they are. When its `Upgrade` is
    `websocket`, `WebSocketCapture` reads the bytes each way as they are
    relayed, without changing them (ADR-0193): each message, fragments
-   joined, client masks removed, `permessage-deflate` inflated, is one
+   joined, client masks removed, `permessage-deflate` inflated (a message
+   ending in a `BFINAL=1` block, RFC 7692 7.2.3.4, restarts the inflater
+   with the last 32 KiB it produced, which later messages may refer to), is one
    `WebSocketFrame` with its opcode, at most `Protocol.MAX_BODY_BYTES`
    and its full size; each ping, pong and close frame is one too. The
    connection closing with no close frame either way stores

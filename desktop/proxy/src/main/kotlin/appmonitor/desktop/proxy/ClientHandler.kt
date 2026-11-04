@@ -62,6 +62,7 @@ internal class ClientHandler(
     private lateinit var client: ChannelHandlerContext
     private var tunnel: Target? = null
     private var connectCapture: Capture? = null
+    private var tunnelIsTls = false
     private var skipContent = false
     private var upstream: Channel? = null
     private var upstreamTarget: Target? = null
@@ -181,8 +182,16 @@ internal class ClientHandler(
             client.name(),
             "tunnel-tls",
             TunnelTls(
-                ask = { then -> originAlpn.ask(target.host, target.port, client.channel().eventLoop() as EventLoop, then) },
+                ask = { then ->
+                    tunnelIsTls = true
+                    originAlpn.ask(target.host, target.port, client.channel().eventLoop() as EventLoop, then)
+                },
                 leaf = { http2 -> ca.serverContext(target.host, alpn = http2) },
+                failed = { cause ->
+                    connectCapture?.failed("Could not make a certificate for ${target.host}: ${cause.message ?: cause}")
+                    connectCapture = null
+                    client.close()
+                },
             ),
         )
         pipeline.addBefore(client.name(), "preface", PrefaceDetector(::http2))
@@ -400,10 +409,18 @@ internal class ClientHandler(
     override fun channelInactive(ctx: ChannelHandlerContext) {
         // A client leaving before any TLS byte fires no handshake event; one checking the leaf after its handshake sees success.
         connectCapture?.failed(
-            if (tunnel?.tls == true) {
-                "The client closed the tunnel after the TLS handshake, before any request: it may have refused the certificate"
-            } else {
-                "TLS handshake with the client failed: the client closed the connection"
+            when {
+                tunnel?.tls == true -> {
+                    "The client closed the tunnel after the TLS handshake, before any request: it may have refused the certificate"
+                }
+
+                tunnelIsTls -> {
+                    "TLS handshake with the client failed: the client closed the connection"
+                }
+
+                else -> {
+                    NO_REQUEST
+                }
             },
         )
         connectCapture = null
@@ -507,6 +524,9 @@ internal class ClientHandler(
     }
 
     companion object {
+        /** The error of a tunnel the client closed before it held TLS or a whole request. */
+        const val NO_REQUEST = "The client closed the tunnel before any TLS or request"
+
         private const val CONNECT_TIMEOUT_MS = 10_000
 
         private fun releaseAll(messages: ArrayDeque<Any>) {
