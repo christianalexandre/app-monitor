@@ -3,7 +3,7 @@ id: DEBT-0120
 title: Findings of the H5 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-03
-trigger: "The next PR that touches `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
+trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
 paid_date:
 ---
 
@@ -29,8 +29,8 @@ None of them is hit in normal use (PLAN-0015, *H5 milestone review*):
    An idle app's last oversized envelope is counted late, or never if the SDK
    stops first. Paid in `MonitorClient.kt` by PLAN-0016 H6.3d: the drop wakes the
    sender (`anIdleSessionReportsAnOversizedEnvelopeAtOnce`).
-5. `trailer_check.sh`: with `pipefail`, a failing `git log` reads as grep
-   finding nothing, so an unknown base passes the check having read no commit.
+5. Paid in PLAN-0016 H6.6a: `trailer_check.sh`, with `pipefail`, read a failing
+   `git log` as grep finding nothing, so an unknown base passed having read no commit.
 6. `LocalNetworkPermission.kt` and `FirstSettledScreen.kt`: a 5-line KDoc block
    each, against the 4-line limit of guideline 02.
 
@@ -59,6 +59,9 @@ Swift side is H6.4's.
 Fired in H6.4a, on `Device.swift` and `MonitorClient.swift`. Items 2 and 4 were paid there for the
 Swift SDK (`aPinnedDesktopIsExcludedFromBackup`, `anIdleSessionReportsAnOversizedEnvelopeAtOnce`), and
 both files leave the trigger.
+
+Fired in H6.6a, on the trailer check. Item 5 was paid there (an unknown base exits 128, under test),
+and the script leaves the trigger.
 
 ## How it was paid
 

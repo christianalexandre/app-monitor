@@ -27,6 +27,7 @@ check "co-author trailer" 1 main release/1.0.0
 git switch -q dev
 git commit -q --allow-empty -m "fix: two" -m "🤖 Generated with [a tool](https://example.com)"
 check "generated-with trailer" 1 main dev
+check "unknown base read no commit" 128 no-such-base dev
 cd "$here" && rm -rf "$repo"
 
 if ((failures > 0)); then

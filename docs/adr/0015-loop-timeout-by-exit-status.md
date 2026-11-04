@@ -1,9 +1,9 @@
 ---
 id: ADR-0015
 title: Loop reports a timeout only when the watchdog's TERM killed the session
-status: Accepted
+status: Superseded
 date: 2026-10-22
-superseded_by:
+superseded_by: ADR-0196
 ---
 
 # ADR-0015 — Loop reports a timeout only when the watchdog's TERM killed the session

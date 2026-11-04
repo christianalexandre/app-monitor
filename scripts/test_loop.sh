@@ -39,12 +39,31 @@ code=$?
 check "run after a timeout on the same log returns its code" test "$code" -eq 3
 check "run after a timeout clears the stale .timeout" test ! -e "$tmp/slow.jsonl.timeout"
 
-# Ignoring TERM stands in for a session that exits as the deadline hits.
+kill_grace_s=1
 timeout_s=1
-run_session "$tmp/late.jsonl" sh -c 'trap "" TERM; sleep 1.5; exit 5'
+run_session "$tmp/own-code.jsonl" sh -c 'trap "exit 5" TERM; sleep 30 & wait'
 code=$?
-check "session exiting by itself at the deadline returns its code" test "$code" -eq 5
-check "session exiting by itself still sees the marker" test -e "$tmp/late.jsonl.timeout"
+check "session exiting with its own code on TERM times out with 124" test "$code" -eq 124
+check "session exiting with its own code on TERM leaves a .timeout" test -e "$tmp/own-code.jsonl.timeout"
+
+start=$SECONDS
+run_session "$tmp/deaf.jsonl" sh -c 'trap "" TERM; while :; do sleep 0.1; done'
+code=$?
+check "session ignoring TERM times out with 124" test "$code" -eq 124
+check "session ignoring TERM is killed after the grace" test $((SECONDS - start)) -lt 5
+
+# The fraction carries the PID: pgrep stays off other processes' sleeps.
+left="sleep 30.$$"
+run_session "$tmp/child.jsonl" sh -c "trap 'exit 7' TERM; sh -c \"trap '' TERM; $left\" & wait"
+code=$?
+check "session leaving a child that ignores TERM times out with 124" test "$code" -eq 124
+check "a child ignoring TERM is not left behind" test -z "$(pgrep -f "$left")"
+
+# A tool's shell in a real session runs in its own process group (ADR-0196).
+run_session "$tmp/group.jsonl" bash -c "set -m; $left & set +m; wait"
+code=$?
+check "session with a child in its own group times out with 124" test "$code" -eq 124
+check "a child in its own process group is not left behind" test -z "$(pgrep -f "$left")"
 
 echo "test-loop: watchdog"
 timeout_s=30
@@ -188,6 +207,24 @@ session allowed 'LOOP: STOP waiting on \"owner\"' >"$tmp/quote.jsonl"
 fake_loop "$tmp/quote.jsonl"
 check "notification passes quotes through verbatim" \
   test "$(tail -1 "$tmp/notified")" = 'stopped after 1 iteration(s): LOOP: STOP waiting on "owner"'
+
+echo "test-loop: loop with a session past its timeout"
+mkdir -p "$tmp/bin-term"
+cat >"$tmp/bin-term/claude" <<EOF
+#!/bin/sh
+trap 'exit 7' TERM
+sh -c "trap '' TERM; $left" &
+wait
+EOF
+cp "$tmp/bin/osascript" "$tmp/bin-term/"
+chmod +x "$tmp/bin-term/claude"
+NOTIFIED="$tmp/notified" PATH="$tmp/bin-term:$PATH" LOOP_WORKTREE="$tmp/wt" MAX_ITERATIONS=1 ITERATION_TIMEOUT=1 KILL_GRACE=1 \
+  "$tmp/clone/scripts/loop.sh" >"$tmp/term.out" 2>&1
+code=$?
+check "session trapping TERM exits the loop with 1" test "$code" -eq 1
+check "session trapping TERM is logged as a timeout" grep -q "timed out after 1s" "$tmp/term.out"
+check "session trapping TERM is not logged as no verdict" not_grep "no verdict line" "$tmp/term.out"
+check "session trapping TERM leaves no child" test -z "$(pgrep -f "$left")"
 
 rm -rf "$tmp"
 ((failures == 0)) && echo "test-loop: ok" || { echo "test-loop: $failures failed" >&2; exit 1; }
