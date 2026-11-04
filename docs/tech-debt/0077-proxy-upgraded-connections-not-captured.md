@@ -1,10 +1,10 @@
 ---
 id: DEBT-0077
 title: The proxy does not capture what crosses an upgraded connection
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "A developer's WebSocket through the proxy shown with no frames, or the next PR that changes how `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt` handles a `101`"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0077 — The proxy does not capture what crosses an upgraded connection
@@ -37,4 +37,8 @@ Fired by the PLAN-0009 milestone review. Not paid: no developer has reported a W
 
 ## How it was paid
 
-> Filled when closing.
+In `feat/proxy-websocket-frames` (ADR-0193), on PLAN-0016 H6.5c rather than
+on its event: `WebSocketCapture` reads each frame as `ClientHandler` relays
+it, unmasked, fragments joined and `permessage-deflate` inflated, and sends
+it as a `WebSocketFrame` after the `101`; a connection closed with no close
+frame ends the exchange as failed (`ProxyWebSocketTest`).

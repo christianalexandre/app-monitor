@@ -1,10 +1,10 @@
 ---
 id: DEBT-0122
 title: Tests that run the system curl are cached without its version
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-11-03
 trigger: A CI runner image changes the outcome of a test that a `FROM-CACHE` result hid again, or the next PR that changes `desktop/proxy/build.gradle.kts`
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0122 — Tests that run the system curl are cached without its version
@@ -27,3 +27,11 @@ fix that does not need it; it waits for a second miss.
 
 A CI runner image changes the outcome of a test that a `FROM-CACHE` result hid
 again, or the next PR that changes `desktop/proxy/build.gradle.kts`.
+
+## How it was paid
+
+In `feat/proxy-websocket-frames`, on its trigger (a change to
+`desktop/proxy/build.gradle.kts`): `:desktop:proxy:test` and `:desktop:mcp:test`
+take the first line of `curl --version` as an input, `APPMONITOR_CURL`'s for the
+proxy. Rerun with the same curl, the task was `UP-TO-DATE`; with
+`APPMONITOR_CURL=/opt/homebrew/opt/curl/bin/curl` it ran again, and passed.
