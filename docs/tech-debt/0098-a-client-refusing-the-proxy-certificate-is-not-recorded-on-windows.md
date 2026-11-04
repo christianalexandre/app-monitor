@@ -35,3 +35,7 @@ Windows job is the check, and H6.5's Accept already names it.
 ## Trigger
 
 The release gate's Windows job runs `ProxyServerTest`, no longer skipped there.
+
+Not fired by PLAN-0016 H6.5: the gate has not run since (its last run is
+2026-10-31, before the test ran on Windows again), and the loop does not dispatch
+it. The next `dev` to `main` PR runs it.

@@ -25,7 +25,8 @@ Left open, each waiting on an event outside the repository or on the
 owner: DEBT-0001 (a JmDNS release), DEBT-0019 (a concrete case for body
 masking), DEBT-0029 (OkHttp exposing pings), DEBT-0046 (the hosted
 runner's local network), DEBT-0059 (a kotlinx-io release), DEBT-0069 (the
-owner's MCP client), DEBT-0076 (the owner's Instruments finding).
+owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
+(the release gate's Windows job, on the next `dev` to `main` PR).
 
 ## Tasks
 
@@ -175,11 +176,11 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   an exact name or `*.domain`, are tunnelled as raw bytes at their next `CONNECT`, nothing stored
   (DEBT-0078, ADR-0194). Split from H6.5.
   Accept: `./gradlew :desktop:proxy:test :desktop:feature:settings:test :desktop:app:test`.
-- [ ] **H6.5 Proxy.** An HTTP/2 client reaches an HTTP/1.1-only origin
-  (DEBT-0079); a client refusing the
-  certificate recorded on Windows (DEBT-0098).
-  Accept: `./gradlew :desktop:proxy:test :desktop:app:test`; the release
-  gate's Windows job green on `ProxyServerTest`.
+- [x] **H6.5 Proxy.** (`fix/proxy-http2-client-http1-origin`) An HTTP/2 client reaches an
+  HTTP/1.1-only origin: the origin is asked before the client's handshake and the leaf offers what
+  it does (DEBT-0079, ADR-0195). DEBT-0098 moved to *Left open*: the loop does not dispatch the
+  release gate, so its Windows job, this task's other Accept, runs on the next `dev` to `main` PR.
+  Accept: `./gradlew :desktop:proxy:test :desktop:app:test`.
 - [ ] **H6.6 Loop, scripts and build.** The loop's watchdog kills the
   session's process group and reports any exit after a kill as a timeout
   (DEBT-0013, DEBT-0016); `make check`'s time measured against

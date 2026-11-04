@@ -46,7 +46,7 @@ Castle, ADR-0105); the switch, status and commands in
   host keeps the leaf it has, which clients refuse until the switch off and on
   or "Reset CA" makes a new CA (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
   and never past the CA. Its TLS context offers ALPN `h2`, then
-  `http/1.1`.
+  `http/1.1`, or none for an origin without `h2` (ADR-0195).
 - "Reset proxy CA" and "Clear all data" delete both files; a running
   proxy restarts with a new CA, and the settings remind to relaunch the
   apps started with the old one, which keep it in memory.
@@ -64,8 +64,14 @@ Castle, ADR-0105); the switch, status and commands in
    codec comes off and bytes are relayed as they are, both ways, paced
    as after a `101`. Nothing is stored (`ProxyPassThroughTest`).
 1. **`CONNECT host:port`** → `200 Connection Established`, the HTTP codec
-   comes off, and `OptionalSslHandler` looks at the first bytes: TLS →
-   the handshake with the leaf for `host`, plain → HTTP as is. Then
+   comes off, and `TunnelTls` looks at the first bytes. Plain → HTTP as
+   is. TLS → `OriginAlpn` first asks the origin what it negotiates, with
+   one handshake of its own offering `h2` and `http/1.1`, kept per host
+   and port while the proxy runs; then the handshake with the leaf for
+   `host`, offering ALPN `h2` and `http/1.1`, or none when the origin
+   chose no `h2`, so that client stays on HTTP/1.1 (ADR-0195). No answer
+   in 3 s, a refused connection or a refused handshake counts as `h2`
+   and is not kept. Then
    `PrefaceDetector` reads up to 24 bytes: the HTTP/2 preface hands the
    tunnel to `Http2Session` (next section), anything else stays on the
    HTTP/1.1 steps below (ADR-0106 B.1). A failed
@@ -131,8 +137,9 @@ Castle, ADR-0105); the switch, status and commands in
    a slow side's flow control window reaches the other peer, stream by
    stream (ADR-0191, `ProxyFlowTest`).
 4. **Failures**: the upstream connection refused or timed out, its TLS
-   refused, an origin without `h2` (`<host>:<port> does not offer
-   HTTP/2`, DEBT-0079) or a stream that cannot open → the exchange is
+   refused, an origin no longer offering `h2` since it was asked or too
+   slow to answer (`<host>:<port> does not offer HTTP/2`; kept, so the
+   next tunnel goes over HTTP/1.1, ADR-0195) or a stream that cannot open → the exchange is
    stored failed and the client stream gets `502` with the reason as
    text when it has no response yet, else a `RST_STREAM`. Either side's
    reset is passed on and stored as the failure; the client closing the
@@ -200,8 +207,8 @@ the proxy's 2 s.
 - Loopback only: physical devices cannot use it (ADR-0101 A.1).
 - On a simulator only gRPC-Core follows the launch command; a client
   that reads only the keychain is not served (ADR-0108).
-- An HTTP/2 client reaching an HTTP/1.1-only origin gets `502`
-  (DEBT-0079).
+- A client speaking only `h2` to an HTTP/1.1-only origin gets `502`
+  (ADR-0195, `Http2ProxyTest`).
 - Only a WebSocket is read after a `101`, over HTTP/1.1: other upgrades
   and RFC 8441 WebSockets over HTTP/2 are relayed with no frames
   (ADR-0193).
