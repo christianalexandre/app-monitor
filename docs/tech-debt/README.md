@@ -144,3 +144,4 @@ Rules:
 | [0124](0124-title-bar-repaint-not-seen-by-eye.md) | The title bar following a picked theme was not seen by eye | The owner's next run of the desktop on macOS, or the first session that runs `titleBarScreenshots` with Screen Recording allowed | Open |
 | [0125](0125-ios-headers-sent-without-a-response.md) | iOS requests without a network response keep their resume headers | A developer reports a header missing from a failed, held, mocked or background iOS request, or the next PR that changes `RequestFailed` in `network.proto` | Open |
 | [0126](0126-h6-review-findings.md) | Findings of the H6 milestone review that normal use does not hit | The next PR that touches a file its items name | Paid |
+| [0127](0127-h7-review-findings.md) | Findings of the H7 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |

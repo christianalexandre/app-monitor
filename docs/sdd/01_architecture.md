@@ -502,7 +502,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   caption says so: opened, over the bound, or cut or broken with the bytes read
   (nothing read: the bytes as sent). Anything else under that header is shown as
   it came. Only the window changes: the store, the MCP tools, the HAR export,
-  cURL, "Mock this" and a replay keep the sent bytes (ADR-0199).
+  cURL and a replay keep the sent bytes (ADR-0199); "Mock this" drafts from
+  its own gunzip, up to `Protocol.MAX_BODY_BYTES` (`mockDraftOf`, DEBT-0127). A
+  body that opens to nothing has nothing to copy.
 - Rendering (ADR-0029): the detail pane is a `LazyColumn`. Each body is
   rendered by `renderBody` on `Dispatchers.Default` ("Rendering…" until then)
   and split into chunks, one item each, so the UI thread lays out only
