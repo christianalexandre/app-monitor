@@ -76,6 +76,7 @@ private fun bodyText(
     body.bytes
         .takeIf { it.size > 0 }
         ?.let { DecodedBody(it, headers) }
+        ?.takeIf { it.bytes.size > 0 }
         ?.let { it.text ?: hexDump(it.bytes) }
 
 /** What a search inside the request counts in each tab (ADR-0152); cURL repeats the others, so it is highlighted, not counted. */

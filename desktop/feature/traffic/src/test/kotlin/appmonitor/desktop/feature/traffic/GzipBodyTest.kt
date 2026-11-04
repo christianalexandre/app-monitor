@@ -181,6 +181,22 @@ class GzipBodyTest {
     }
 
     @Test
+    fun `a gzip body that opens to nothing has nothing to copy`() {
+        val exchange =
+            HttpExchange(
+                id = 1,
+                requestId = "r1",
+                requestHeaders = listOf(encoded),
+                requestBody = CapturedBody(gzip("")),
+                responseHeaders = listOf(encoded),
+                responseBody = CapturedBody(gzip("")),
+            )
+
+        assertNull(textOf(exchange, DetailPart.RequestBody))
+        assertNull(textOf(exchange, DetailPart.ResponseBody))
+    }
+
+    @Test
     fun `a character cut in half leaves, a whole one stays`() {
         listOf("é", "€", "😀").forEach { character ->
             val bytes = ("a$character").encodeUtf8()
