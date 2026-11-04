@@ -56,6 +56,11 @@ enum Samples {
         $0.body = Data([0x00, 0x7F, 0x80, 0xFF])
         $0.bodyTruncated = true
         $0.bodySize = 2_097_152
+        $0.requestHeaders = [
+            header("Content-Type", "application/json"),
+            header("Accept", "application/json"),
+            header("User-Agent", "Sample/1 CFNetwork"),
+        ]
     }
 
     static let requestFailed = Appmonitor_V1_RequestFailed.with {

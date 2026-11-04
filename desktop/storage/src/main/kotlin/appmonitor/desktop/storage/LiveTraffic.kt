@@ -299,7 +299,10 @@ class LiveTraffic(
                         grpcStatus = decoded.grpcStatus?.toInt(),
                         endedAtMs = at,
                     )
-                exchange.response = event
+                exchange.response = event.copy(request_headers = emptyList())
+                if (event.request_headers.isNotEmpty()) {
+                    exchange.request = exchange.request?.copy(headers = event.request_headers) // ADR-0189
+                }
                 exchange.resize(exchange.request?.body, event.body)
             }
 

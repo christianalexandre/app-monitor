@@ -142,8 +142,13 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   server's start script (`SERVER_OPTS`, now `HEADLESS_SERVER_OPTS`): fixed here. Split from H6.4.
   Accept: `./gradlew :tools:headless-server:test`, `make scripts-test`, `make e2e-ios` and
   `make e2e-kmp-ios`.
-- [ ] **H6.4 iOS SDK.** Headers CFNetwork adds at send time (DEBT-0037) and every
-  end of a WebSocket (DEBT-0038) captured.
+- [x] **H6.4d Headers sent.** (`fix/ios-headers-sent-at-send-time`) Headers CFNetwork adds
+  at send time reach the desktop with the response, from the task's transaction metrics, in
+  `ResponseReceived.request_headers` (DEBT-0037, ADR-0189); a request without a network response
+  keeps its resume headers (DEBT-0125). Split from H6.4.
+  Accept: `swift test --package-path sdk/ios`, `./gradlew :protocol:allTests
+  :desktop:storage:test`, `make swift`, `make swift-sim`, `make e2e-ios` and `make e2e-kmp-ios`.
+- [ ] **H6.4 iOS SDK.** Every end of a WebSocket captured (DEBT-0038).
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames

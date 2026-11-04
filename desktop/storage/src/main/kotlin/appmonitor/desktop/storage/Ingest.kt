@@ -4,6 +4,7 @@ import appmonitor.desktop.storage.db.AppMonitorDatabase
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
+import appmonitor.v1.RequestStarted
 import kotlinx.coroutines.CompletableDeferred
 import okio.ByteString
 import java.io.IOException
@@ -638,8 +639,14 @@ internal class Ingest(
             is NetworkEvent.Responded -> {
                 val event = decoded.event
                 val id = exchange(session, event.request_id)
-                val meta = event.copy(body = ByteString.EMPTY).encode()
+                val meta = event.copy(body = ByteString.EMPTY, request_headers = emptyList()).encode()
                 queries.responded(decoded.statusCode?.toLong(), decoded.grpcStatus, at, meta, id)
+                if (event.request_headers.isNotEmpty()) {
+                    queries.requestMeta(id).executeAsOneOrNull()?.request_meta?.let {
+                        val sent = RequestStarted.ADAPTER.decode(it).copy(headers = event.request_headers)
+                        queries.requestSent(sent.encode(), id)
+                    }
+                }
                 putBody(id, PART_RESPONSE, event.body)
             }
 

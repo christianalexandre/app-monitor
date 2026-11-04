@@ -87,6 +87,12 @@ object Samples {
             body = byteArrayOf(0x00, 0x7F, 0x80.toByte(), 0xFF.toByte()).toByteString(),
             body_truncated = true,
             body_size = 2_097_152,
+            request_headers =
+                listOf(
+                    Header("Content-Type", "application/json"),
+                    Header("Accept", "application/json"),
+                    Header("User-Agent", "Sample/1 CFNetwork"),
+                ),
         )
 
     val requestFailed =

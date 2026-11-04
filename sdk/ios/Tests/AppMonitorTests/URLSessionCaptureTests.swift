@@ -118,6 +118,27 @@ extension ProcessWideHooks {
             #expect(started.headers.map { [$0.name, $0.value] } == [["Authorization", mask], ["X-Extra", "1"]])
         }
 
+        @Test func headersCFNetworkAddsAtSendTimeAreCapturedAndMasked() async throws {
+            capture()
+            let configuration = URLSessionConfiguration.ephemeral
+            let url = server.url("/ok")
+            configuration.httpCookieStorage?.setCookie(
+                try #require(HTTPCookie(properties: [.domain: url.host!, .path: "/", .name: "sid", .value: "abc"])))
+            let session = URLSession(configuration: configuration)
+            defer { session.finishTasksAndInvalidate() }
+
+            _ = try await session.data(from: url)
+
+            let (started, end) = try await sink.exchange(url)
+            #expect(!started.headers.contains { $0.name == "Cookie" || $0.name == "User-Agent" })
+            let sent = try received(end).requestHeaders
+            let agent = try #require(server.received.first?.headers["user-agent"])
+            #expect(server.received.first?.headers["cookie"] == "sid=abc")
+            #expect(sent.contains { $0.name == "Cookie" && $0.value == mask })
+            #expect(sent.contains { $0.name == "User-Agent" && $0.value == agent })
+            #expect(sent.contains { $0.name == "Accept-Encoding" })
+        }
+
         @Test func aFollowedRedirectEndsWithTheFinalResponse() async throws {
             capture()
 
