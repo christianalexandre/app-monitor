@@ -44,7 +44,7 @@ private fun IssueDetail.toJson() =
         put("exchange_ids", JsonArray(exchangeIds.map(::JsonPrimitive)))
     }
 
-/** `list_issues` (SDD 10): saved issues newest first, with their exchange ids. */
+/** `list_issues`: saved issues newest first, with their exchange ids. */
 internal object ListIssues {
     const val NAME = "list_issues"
     private const val MAX_LIMIT = 100L
@@ -93,7 +93,7 @@ internal object ListIssues {
     }
 }
 
-/** `save_issue` (SDD 10): creates an issue, or changes the fields given of one (ADR-0095 C.1, ADR-0096 B.1). */
+/** `save_issue`: creates an issue, or changes the fields given of one (ADR-0095 C.1, ADR-0096 B.1). */
 internal object SaveIssue {
     const val NAME = "save_issue"
     private const val MAX_TAGS = 50

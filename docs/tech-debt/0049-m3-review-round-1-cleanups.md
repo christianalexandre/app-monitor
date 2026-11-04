@@ -3,7 +3,7 @@ id: DEBT-0049
 title: Non-correctness findings of the first M3 milestone review
 status: Open
 date: 2026-10-24
-trigger: The first Android 17 preview image in use, or M10's first published desktop package
+trigger: M10's first published desktop package
 paid_date:
 ---
 
@@ -34,8 +34,7 @@ today. The duplicate builds cost minutes, not correctness.
 
 ## Trigger
 
-The first Android 17 preview image the gate or the Mac runs pays the
-local network grant item. The `packageVersion` item is paid before M10's
+The `packageVersion` item is paid before M10's
 first published desktop package. It fired on `feat/desktop-app-on-storage`
 (M5.4), which only adds a dependency and the `java.sql` module there: no
 package is published yet, and the version scheme belongs to the release.
@@ -66,3 +65,8 @@ lengthen the gate. `e2e-android` and `e2e-kmp-android` build before the
 emulator boots; the script's own `./gradlew` call is then up to date. The
 grant moved into `e2e_lib.sh`, still on the SDK level, for both Android end to
 ends.
+
+The local network grant item is dropped by PLAN-0016 H6.6: the Mac's only Android 17 image
+(`android-37.2`) now reports `ro.build.version.sdk` 37 and `ro.build.version.codename` `REL`, so the
+gate on the SDK level grants there, and `make e2e-android` passed on it and on `android-36.1`. No image
+reporting 36 for Android 17 is left to run. Left open: the `packageVersion` item, waiting on M10.

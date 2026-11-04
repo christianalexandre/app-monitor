@@ -4,7 +4,7 @@ import Testing
 
 @testable import AppMonitor
 
-// SDD 06 against an in-process desktop; bounds shortened, no jitter.
+// The client against an in-process desktop; bounds shortened, no jitter.
 @Suite(.serialized)
 struct MonitorClientTests {
     static let config = ClientConfig(

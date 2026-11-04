@@ -20,7 +20,7 @@ internal fun localNetworkGranted(context: Context): Boolean =
     Build.VERSION.SDK_INT < ANDROID_17 ||
         context.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
 
-/** The mDNS source of SDD 04: skipped, with one log line per client, without the local network permission. */
+/** The mDNS source: skipped, with one log line per client, without the local network permission. */
 internal fun nsdBrowser(context: Context): () -> MdnsBrowser? {
     var logged = false
     return {

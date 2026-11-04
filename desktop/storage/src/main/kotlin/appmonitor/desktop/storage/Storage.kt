@@ -59,7 +59,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
 /**
- * The desktop's SQLite store (SDD 09). Writes go through one queue to one writer thread;
+ * The desktop's SQLite store. Writes go through one queue to one writer thread;
  * reads run on [Dispatchers.IO], each in its own transaction. Once [close] starts, reads return nothing and observed
  * queries end.
  */
@@ -400,7 +400,7 @@ class Storage private constructor(
         applyRetention()
     }
 
-    /** The stored value of a `settings` key other than retention's (SDD 09); null when unset or the store is closing. */
+    /** The stored value of a `settings` key other than retention's; null when unset or the store is closing. */
     suspend fun setting(key: String): String? = read(null) { settingQueries.valueOf(key).executeAsOneOrNull() }
 
     /** Queues writing a `settings` key; [clearAll] deletes it with the rest. */
@@ -685,7 +685,7 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): List<StoredExchange> = read(emptyList()) { exchangeSearch(driver, filter, afterId, limit).executeAsList() }
 
-    /** [searchExchanges] with the stored size of each exchange's bodies (`endpoint_stats`, SDD 10). */
+    /** [searchExchanges] with the stored size of each exchange's bodies (`endpoint_stats`). */
     suspend fun searchExchangeSizes(
         filter: ExchangeFilter,
         afterId: Long = 0,
@@ -847,7 +847,7 @@ class Storage private constructor(
         private const val VACUUM_CHUNK = 1_000L
 
         /**
-         * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (SDD 09, ADR-0142).
+         * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (ADR-0142).
          * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched, and
          * [DataDirectoryInUseException] while another store holds [directory] (ADR-0175).
          */

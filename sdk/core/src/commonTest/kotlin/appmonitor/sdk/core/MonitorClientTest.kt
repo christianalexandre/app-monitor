@@ -40,7 +40,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/** SDD 04's states against [StandInDesktop], on every target (ADR-0066 C). */
+/** The client's states against [StandInDesktop], on every target (ADR-0066 C). */
 class MonitorClientTest {
     private val hello =
         Hello(
@@ -423,7 +423,7 @@ internal suspend fun MonitorClient.awaitState(expected: ClientState) {
     withTimeout(5.seconds) { state.first { it == expected } }
 }
 
-/** Stops and checks the release finished within the bound of SDD 04. */
+/** Stops and checks the release finished within its bound. */
 internal suspend fun MonitorClient.stopAndJoin() {
     stop()
     withTimeout(2.seconds) { join() }

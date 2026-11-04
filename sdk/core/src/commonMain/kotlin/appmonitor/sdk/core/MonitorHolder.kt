@@ -4,7 +4,7 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
 /**
- * The `start` / `stop` of SDD 04 around one [MonitorClient] at a time: idle until started, a second
+ * The `start` / `stop` around one [MonitorClient] at a time: idle until started, a second
  * `start()` ignored while a client runs, a new client after `stop()`.
  */
 internal class MonitorHolder {

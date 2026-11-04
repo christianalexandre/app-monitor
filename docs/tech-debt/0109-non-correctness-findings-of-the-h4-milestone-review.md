@@ -1,10 +1,10 @@
 ---
 id: DEBT-0109
 title: Findings of the H4 milestone review that normal use does not hit
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt`"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0109 — Findings of the H4 milestone review that normal use does not hit
@@ -71,4 +71,10 @@ and the simulators), so a compressed body held early reports no size. `Breakpoin
 
 ## How it was paid
 
-> Filled when closing.
+Last items in PLAN-0016 H6.6. Item 8: no source file cites an SDD chapter any more; 83 citations
+in 62 files, the count the plan's 85 had come down to. Item 2 is dropped: `Activity.requestPermissions`
+(`android-37.0` sources) answers a second request on the same Activity with a cancellation, empty
+arrays, and no public API tells the SDK an app request is coming. The way around it is an Activity of
+the SDK's own, a manifest entry in every debug app for one cancelled result, once per process, until
+the permission is granted. An app's request made on resume is safe: it pauses the Activity before the
+500 ms settle, and the SDK asks after it.

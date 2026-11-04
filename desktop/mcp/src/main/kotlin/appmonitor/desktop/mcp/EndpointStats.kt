@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import appmonitor.desktop.domain.EndpointStats as Stats
 
-/** `endpoint_stats` (SDD 10): the exchanges a filter matches, grouped by method, host and path. */
+/** `endpoint_stats`: the exchanges a filter matches, grouped by method, host and path. */
 internal object EndpointStats {
     const val NAME = "endpoint_stats"
     private const val MAX_LIMIT = 500L

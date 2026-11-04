@@ -22,7 +22,7 @@ sdk_names() {
     grep -oE '(^|[^A-Za-z_.])AppMonitor\.[A-Za-z0-9_]+' | sed 's/.*AppMonitor\.//' | sort -u || true
 }
 
-# The C target of the connection layer (SDD 07) has no Swift names.
+# The C target of the connection layer has no Swift names.
 c_symbols() {
   app_binaries "$1" | xargs nm 2>/dev/null |
     grep -c appmonitor_connections_install || true

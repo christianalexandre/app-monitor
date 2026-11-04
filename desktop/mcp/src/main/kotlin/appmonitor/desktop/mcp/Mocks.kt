@@ -23,7 +23,7 @@ import okio.ByteString
 import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.encodeUtf8
 
-/** `create_mock` (SDD 10, ADR-0114 C.1): a rule that stays pending until the owner confirms it in the window (ADR-0005). */
+/** `create_mock` (ADR-0114 C.1): a rule that stays pending until the owner confirms it in the window (ADR-0005). */
 internal object CreateMock {
     const val NAME = "create_mock"
     private const val MAX_HEADERS = 100

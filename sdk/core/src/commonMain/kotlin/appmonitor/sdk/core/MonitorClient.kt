@@ -57,10 +57,10 @@ internal data class Endpoint(
     val checksPin: Boolean = true,
 )
 
-/** The states of SDD 04; [Idle] until [MonitorClient.start]. */
+/** The client's states; [Idle] until [MonitorClient.start]. */
 internal enum class ClientState { Idle, Discovering, Connecting, Handshaking, Connected, BackingOff, Stopped }
 
-/** Bounds of SDD 04; tests shorten them. */
+/** The client's bounds; tests shorten them. */
 internal data class ClientConfig(
     val discoveryTimeout: Duration = 5.seconds,
     val connectTimeout: Duration = 10.seconds,
@@ -73,7 +73,7 @@ internal data class ClientConfig(
 )
 
 /**
- * One connection to the desktop as the state machine of SDD 04 (ADR-0022). Single use:
+ * One connection to the desktop as a state machine (ADR-0022). Single use:
  * [start] once, [stop] once; [send] is safe from any thread and never blocks.
  */
 internal class MonitorClient(

@@ -1,9 +1,8 @@
 package appmonitor.sdk.core
 
 /**
- * Calls [ask] once, on the first screen that stays resumed [settleMs] (ADR-0156); with several resumed at once
- * (multi-window), on the last one. [answered] runs once, on the first screen resumed after [ask]: the dialog is
- * gone. [schedule] runs its block after a delay and returns its cancel; every call comes from Android's main thread.
+ * Calls [ask] once, on the first screen resumed for [settleMs], the last of several (ADR-0156), and [answered] once,
+ * on the first resumed after [ask]. [schedule] returns its cancel; every call comes from Android's main thread.
  */
 internal class FirstSettledScreen<S : Any>(
     private val settleMs: Long,

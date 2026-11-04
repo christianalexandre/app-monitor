@@ -4,7 +4,7 @@ import Testing
 
 @testable import AppMonitor
 
-// SDD 06's discovery and ADR-0024's cases with fake browsers; bounds shortened, real time.
+// Discovery and ADR-0024's cases with fake browsers; bounds shortened, real time.
 struct DiscoveryTests {
     static let config = DiscoveryConfig(mdnsBeforeSimulatorHost: 0.3, txtGrace: 0.2)
 

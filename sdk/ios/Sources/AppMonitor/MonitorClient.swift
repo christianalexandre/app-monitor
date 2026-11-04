@@ -21,12 +21,12 @@ struct Endpoint: Equatable, Sendable {
     }
 }
 
-/// The states of SDD 04 and SDD 06; `idle` until `MonitorClient.start()`.
+/// The client's states; `idle` until `MonitorClient.start()`.
 enum ClientState: Sendable {
     case idle, discovering, connecting, handshaking, connected, backingOff, stopped
 }
 
-/// Bounds of SDD 06, in seconds; tests shorten them.
+/// The client's bounds, in seconds; tests shorten them.
 struct ClientConfig: Sendable {
     var discoveryTimeout: Double = 5
     var connectTimeout: Double = 10
@@ -43,7 +43,7 @@ struct ClientConfig: Sendable {
 /// looking when the returned closure is called.
 typealias Discover = @Sendable (DispatchQueue, @escaping @Sendable (Endpoint?) -> Void) -> @Sendable () -> Void
 
-/// A manual host: the endpoint at once, nothing else tried (SDD 06).
+/// A manual host: the endpoint at once, nothing else tried.
 func manualDiscovery(_ endpoint: Endpoint) -> Discover {
     { queue, found in
         queue.async { found(endpoint) }
@@ -51,7 +51,7 @@ func manualDiscovery(_ endpoint: Endpoint) -> Discover {
     }
 }
 
-/// One connection to the desktop as the state machine of SDD 06 (ADR-0040). Single use: `start()`
+/// One connection to the desktop as a state machine (ADR-0040). Single use: `start()`
 /// once, `stop()` once; `send(_:)` is safe from any thread and never blocks beyond the buffer's lock.
 final class MonitorClient: @unchecked Sendable {
     // ADR-0040: every member below `buffer` is confined to `queue`.
@@ -396,7 +396,7 @@ final class MonitorClient: @unchecked Sendable {
         send(interactionEnvelope("ReplayRefused", refused))
     }
 
-    /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
+    /// Writes the next accepted frame; one write in flight, the next from its completion.
     private func pump() {
         guard !stopping, current == .connected, !sending, let connection else { return }
         let drops = (evicted: buffer.dropped, oversized: oversized.value)

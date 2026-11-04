@@ -162,6 +162,13 @@ class MainTest {
     }
 
     @Test
+    fun `the server advertises unless told not to`() {
+        assertEquals(true, parseOptions().first?.advertise)
+        assertEquals(false, parseOptions("--advertise", "false").first?.advertise)
+        assertNull(parseOptions("--advertise", "no").first)
+    }
+
+    @Test
     fun `a taken port is one line, not a stack trace`() =
         runBlocking {
             ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->

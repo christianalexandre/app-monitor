@@ -8,7 +8,7 @@ import appmonitor.v1.WebSocketFrame
 import java.net.URI
 import java.net.URISyntaxException
 
-/** A `network` envelope as the store and the live list both read it (SDD 09). */
+/** A `network` envelope as the store and the live list both read it. */
 internal sealed interface NetworkEvent {
     class Started(
         val event: RequestStarted,

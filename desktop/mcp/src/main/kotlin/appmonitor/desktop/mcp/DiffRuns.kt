@@ -17,7 +17,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-/** `diff_runs` (SDD 10): `endpoint_stats`' grouping of two runs, compared per endpoint by `BenchmarkRepository.diff`. */
+/** `diff_runs`: `endpoint_stats`' grouping of two runs, compared per endpoint by `BenchmarkRepository.diff`. */
 internal object DiffRuns {
     const val NAME = "diff_runs"
     private const val MAX_LIMIT = 500L

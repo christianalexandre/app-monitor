@@ -4,7 +4,7 @@ import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 
-/** One run with its exchange count and the sessions that joined it, as `list_runs` pages them (SDD 10). */
+/** One run with its exchange count and the sessions that joined it, as `list_runs` pages them. */
 data class RunSummary(
     val run: Run,
     val exchangeCount: Long,
@@ -39,7 +39,7 @@ data class ExchangeDetail(
         get() = if (exchange.isConnection) ConnectionBytes(sent = response?.sent_size, received = response?.body_size) else null
 }
 
-/** The stored traffic a page at a time, as the MCP tools read it (SDD 10, ADR-0138). */
+/** The stored traffic a page at a time, as the MCP tools read it (ADR-0138). */
 interface TrafficQueryRepository {
     /** True once the store began closing: a read since may have stopped early or read nothing. */
     val isClosing: Boolean

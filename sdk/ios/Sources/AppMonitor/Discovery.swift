@@ -60,7 +60,7 @@ protocol MdnsBrowser: Sendable {
     ) -> @Sendable () -> Void
 }
 
-/// Bounds of SDD 06's discovering state, in seconds; tests shorten them.
+/// Bounds of the discovering state, in seconds; tests shorten them.
 struct DiscoveryConfig: Sendable {
     var mdnsBeforeSimulatorHost: Double = 3
     var txtGrace: Double = 0.5
@@ -82,7 +82,7 @@ func missingLocalNetworkKeys(_ info: [String: Any]?) -> [String] {
     return missing
 }
 
-/// The `Discover` of `MonitorClient` for `options` (SDD 06): a manual host is the only source, its pin
+/// The `Discover` of `MonitorClient` for `options`: a manual host is the only source, its pin
 /// unchecked; else `mdns`, skipping desktops other than `pinned`'s (ADR-0168), then `simulatorHost` when
 /// `onSimulator`. Missing `infoPlist` keys on a device, a failing browser and a refused desktop are each
 /// logged once; the failing browser finds nothing.

@@ -105,7 +105,7 @@ data class DetailState(
     val curl: Result<String>? = null,
 )
 
-/** The traffic panes: devices, requests, one request and the runs (SDD 09); every list follows the live list or the store. */
+/** The traffic panes: devices, requests, one request and the runs; every list follows the live list or the store. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrafficViewModel(
     private val runRepository: RunRepository,

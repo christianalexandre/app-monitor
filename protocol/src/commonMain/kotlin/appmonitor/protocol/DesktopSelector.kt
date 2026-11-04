@@ -10,7 +10,7 @@ data class DesktopAnswer(
 )
 
 /**
- * The rules every client applies to mDNS answers (SDD 04): instance names match case-insensitively,
+ * The rules every client applies to mDNS answers: instance names match case-insensitively,
  * the first desktop answered with an address is kept and every other name ignored, and its path
  * waits for the TXT record up to [TXT_GRACE_MS]. With [pinnedId], only a desktop whose TXT record carries that
  * id is kept (ADR-0168). Not thread-safe: callers feed it from one coroutine.

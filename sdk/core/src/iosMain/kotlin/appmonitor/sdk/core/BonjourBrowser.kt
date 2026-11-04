@@ -60,7 +60,7 @@ import platform.posix.sockaddr_in
 /** `kDNSServiceErr_PolicyDenied`: local network access is not granted (TN3179). */
 private const val POLICY_DENIED = -65570
 
-/** The mDNS source of SDD 04 on iOS; a browser that cannot run is logged once per client. */
+/** The mDNS source on iOS; a browser that cannot run is logged once per client. */
 internal fun bonjourBrowser(log: (String) -> Unit = ::platformLog): () -> MdnsBrowser? {
     val logged = atomic(false)
     val browser =

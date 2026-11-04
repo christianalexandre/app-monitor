@@ -23,7 +23,7 @@ import okio.ByteString
 import java.net.URI
 import java.net.URLDecoder
 
-/** `export_har` (SDD 10): the exchanges a filter matches, oldest first, as one HAR 1.2 log. */
+/** `export_har`: the exchanges a filter matches, oldest first, as one HAR 1.2 log. */
 internal object ExportHar {
     const val NAME = "export_har"
     private val bodyModes = listOf("none", "capped", "full")

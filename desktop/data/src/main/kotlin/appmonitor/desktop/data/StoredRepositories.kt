@@ -56,7 +56,7 @@ fun Storage.runRepository(): RunRepository = StoredRunRepository(this)
 /** The traffic of this store. */
 fun Storage.trafficRepository(): TrafficRepository = StoredTrafficRepository(this)
 
-/** The live list when a read names no run or stored session or exchange, else this store (SDD 09, ADR-0141). */
+/** The live list when a read names no run or stored session or exchange, else this store (ADR-0141). */
 fun Storage.trafficRepository(live: LiveTraffic): TrafficRepository = LiveTrafficRepository(this, live)
 
 /** The mock rules of this store. */

@@ -25,7 +25,7 @@ data class InsightsState(
     val exportNote: String? = null,
 )
 
-/** The benchmarks, the run diff and the HAR export of the window (SDD 01). */
+/** The benchmarks, the run diff and the HAR export of the window. */
 class InsightsViewModel(
     private val benchmarks: BenchmarkRepository,
     private val hars: HarRepository,

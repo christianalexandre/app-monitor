@@ -22,7 +22,7 @@ class EndpointChange(
 }
 
 /**
- * Two groupings compared per endpoint (SDD 09): [added] in run only, [gone] from it, both in the grouping's order;
+ * Two groupings compared per endpoint: [added] in run only, [gone] from it, both in the grouping's order;
  * [changed] largest error rate change first, then largest p95 move; [unchanged] counted.
  */
 class EndpointDiff(

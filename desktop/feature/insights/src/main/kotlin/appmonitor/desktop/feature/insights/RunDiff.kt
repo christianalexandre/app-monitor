@@ -85,7 +85,7 @@ data class DiffRow(
 
 /**
  * Two runs picked from [runs] (newest first), [filter] applied to both, compared per endpoint with `diff_runs`' code
- * (SDD 01); read again on a pick and on "Refresh".
+ *; read again on a pick and on "Refresh".
  */
 @Composable
 fun RunDiff(

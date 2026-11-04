@@ -92,7 +92,7 @@ data class TrafficLinks(
     val onMock: (HttpExchange) -> Unit = {},
 )
 
-/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog (SDD 09). */
+/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog. */
 @Composable
 fun TrafficScreen(
     links: TrafficLinks,

@@ -6,7 +6,7 @@ import appmonitor.v1.Hello
 import appmonitor.v1.WebSocketFrame
 import okio.ByteString
 
-/** One stored run: a recording between Record and Stop, or "Saved" (SDD 09). [name] is null until the developer names it. */
+/** One stored run: a recording between Record and Stop, or "Saved". [name] is null until the developer names it. */
 data class Run(
     val id: Long,
     val name: String?,
@@ -69,7 +69,7 @@ data class Exchange(
 }
 
 /**
- * What the exchange list is narrowed to (SDD 09); every null, false or empty field matches all. [statusClasses] and [hosts]
+ * What the exchange list is narrowed to; every null, false or empty field matches all. [statusClasses] and [hosts]
  * keep the rows of any one of them.
  */
 data class ExchangeFilter(
@@ -137,7 +137,7 @@ data class HttpExchange(
     val endedAtMs: Long? = null,
     val frames: List<CapturedFrame> = emptyList(),
     val frameCount: Long = 0,
-    /** Frames the source still holds, the oldest of [frameCount] cut from the live list (SDD 09). */
+    /** Frames the source still holds, the oldest of [frameCount] cut from the live list. */
     val framesKept: Long = frameCount,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
     val connection: ConnectionBytes? = null,

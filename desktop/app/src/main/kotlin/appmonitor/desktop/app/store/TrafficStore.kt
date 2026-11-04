@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Feeds [sink] with each session's envelopes in order (SDD 09); pushes [storage]'s rules, holds calls, sends replays (SDD 12). */
+/** Feeds [sink] with each session's envelopes in order; pushes [storage]'s rules, holds calls, sends replays. */
 internal class TrafficStore(
     private val storage: Storage,
     private val sink: TrafficSink,

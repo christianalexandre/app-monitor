@@ -21,9 +21,8 @@ private val registered = AtomicBoolean(false)
 private const val SETTLED_MS = 500L
 
 /**
- * Asks for the permission the SDK declares on the first Activity that stays resumed [SETTLED_MS], once per
- * process (ADR-0156): a dismissed dialog resumes the Activity, and asking again there would loop. That resume
- * logs a denial once.
+ * Asks on the first Activity that stays resumed [SETTLED_MS], once per process (ADR-0156): a dismissed dialog
+ * resumes the Activity, and asking again there would loop. That resume logs a denial once.
  */
 internal fun requestLocalNetworkOnFirstActivity(app: Application) {
     if (Build.VERSION.SDK_INT < ANDROID_17 || app.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED) return

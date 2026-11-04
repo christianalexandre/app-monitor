@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.map
 import okio.ByteString
 import java.io.IOException
 
-/** Where a device's session and its envelopes go, in the order the session produced them (SDD 09). */
+/** Where a device's session and its envelopes go, in the order the session produced them. */
 interface TrafficSink {
     /** A session's start; call before its first [received]. */
     suspend fun connected(

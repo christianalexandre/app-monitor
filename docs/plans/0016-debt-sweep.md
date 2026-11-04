@@ -26,7 +26,8 @@ owner: DEBT-0001 (a JmDNS release), DEBT-0019 (a concrete case for body
 masking), DEBT-0029 (OkHttp exposing pings), DEBT-0046 (the hosted
 runner's local network), DEBT-0059 (a kotlinx-io release), DEBT-0069 (the
 owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
-(the release gate's Windows job, on the next `dev` to `main` PR).
+(the release gate's Windows job, on the next `dev` to `main` PR), DEBT-0049
+(the desktop package's version, on M10's first published package).
 
 ## Tasks
 
@@ -189,11 +190,14 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
   Accept: `make scripts-test`, with a session that traps `TERM` logged as
   a timeout and no child left; `make check` timed on a warm cache, the
   time in the PR.
-- [ ] **H6.6 Loop, scripts and build.** The M3 review
-  findings in `e2e_lib.sh` and the Android sample (DEBT-0049,
-  DEBT-0051); the 85 comments citing `SDD NN` (DEBT-0109, item 8), and the
-  SDK's permission request beside an app's (item 2); the two long KDocs
-  (DEBT-0120, item 6).
+- [x] **H6.6 Loop, scripts and build.** (`chore/m3-findings-and-sdd-citations`) `make e2e-android`
+  rotates the emulator and kills the process, a session kept and one reconnection (DEBT-0051); no
+  source comment cites `SDD NN` (DEBT-0109, item 8), 83 in 62 files; the two long KDocs (DEBT-0120,
+  item 6). Dropped with their reasons in the DEBTs: the grant on a preview image, the 37.2 image now
+  reporting 37 (DEBT-0049), and the SDK's permission request beside an app's (DEBT-0109, item 2).
+  DEBT-0049 moved to *Left open* for its `packageVersion` item, waiting on M10. Added: the headless
+  server's `--advertise false`, since an emulator found it by mDNS and M3.R5's fix undone still passed;
+  DEBT-0118's run on iOS 16 found a test pinning a newer iOS's error code, fixed here.
   Accept: `make check`; `make e2e-android`.
 
 ## Outcome

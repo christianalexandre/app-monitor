@@ -99,7 +99,7 @@ fun mockDraftOf(
 
 private val LEFT_OUT_HEADERS = setOf("content-length", "transfer-encoding", "content-encoding")
 
-/** [body] gunzipped when it is still gzip, as `sdk/ktor` stores it (SDD 08); else, or cut by the device, as it is. */
+/** [body] gunzipped when it is still gzip, as `sdk/ktor` stores it; else, or cut by the device, as it is. */
 private fun decodedBody(body: ByteString): ByteString {
     if (body.size < 2 || body[0] != 0x1f.toByte() || body[1] != 0x8b.toByte()) return body
     return try {

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0120
 title: Findings of the H5 milestone review that normal use does not hit
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-11-03
 trigger: "The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt`"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0120 — Findings of the H5 milestone review that normal use does not hit
@@ -65,4 +65,5 @@ and the script leaves the trigger.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Item 6, the last, in PLAN-0016 H6.6: both KDocs are 4 lines. What they cut is in ADR-0156 or the code
+below them.

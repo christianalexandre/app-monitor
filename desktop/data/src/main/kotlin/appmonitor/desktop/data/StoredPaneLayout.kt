@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** The stored panes' layout, the defaults when unset or unreadable (SDD 09, ADR-0153). */
+/** The stored panes' layout, the defaults when unset or unreadable (ADR-0153). */
 suspend fun SettingRepository.paneLayoutRepository(): PaneLayoutRepository =
     StoredPaneLayoutRepository(this, setting(KEY_PANES)?.let(::paneLayoutOf) ?: PaneLayout())
 
