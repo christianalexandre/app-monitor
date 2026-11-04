@@ -57,25 +57,68 @@ class Http2ProxyTest {
     }
 
     @Test
-    fun `an http2 client to an origin without http2 gets a 502 and a failed exchange`() {
+    fun `an http2 client to an origin without http2 goes over http1 and is stored`() {
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
+                val target = "https://127.0.0.1:${origin.port}/old"
                 val result =
-                    curl(
-                        "--proxy",
-                        url,
-                        "--http2",
-                        "--cacert",
-                        caFile.toString(),
-                        "-w",
-                        "%{http_code}",
-                        "https://127.0.0.1:${origin.port}/old",
-                    )
+                    curl("--proxy", url, "--http2", "--cacert", caFile.toString(), "-w", " %{http_version}", "--data", "ping", target)
 
-                assertTrue(result.output.endsWith("502"), result.output)
-                val exchange = ended(1).single().exchange
-                assertTrue(exchange.failed)
-                assertEquals("127.0.0.1:${origin.port} does not offer HTTP/2", exchange.error)
+                assertEquals(0, result.exit, result.output)
+                assertEquals("POST /old ping 1.1", result.output)
+                val detail = ended(1).single()
+                assertEquals(target, detail.exchange.url)
+                assertEquals(200, detail.exchange.statusCode)
+                assertEquals("ping", detail.request!!.body.utf8())
+                assertEquals("POST /old ping", detail.response!!.body.utf8())
+            }
+        }
+    }
+
+    @Test
+    fun `a client speaking only http2 to an origin without it gets a 502 and a failed exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                val target = "https://127.0.0.1:${origin.port}/old"
+                val result = curl("--proxy", url, "--http2-prior-knowledge", "--cacert", caFile.toString(), "-w", " %{http_code}", target)
+
+                assertTrue(result.output.endsWith(" 502"), result.output)
+                assertEquals("127.0.0.1:${origin.port} does not offer HTTP/2", ended(1).single().exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `an origin is asked once, a second tunnel keeps its answer`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                val target = "https://127.0.0.1:${origin.port}/old"
+                repeat(2) {
+                    val result = curl("--proxy", url, "--http2", "--cacert", caFile.toString(), "-w", " %{http_version}", target)
+                    assertEquals("GET /old  1.1", result.output)
+                }
+                assertEquals(3, origin.connections, "one question and one relay per tunnel")
+            }
+        }
+    }
+
+    @Test
+    fun `an origin that stopped offering http2 gets one 502, and http1 from then on`() {
+        withProxy(upstreamTrust = trusting(originCa)) {
+            val args = arrayOf("--proxy", url, "--http2", "--cacert", caFile.toString(), "-w", " %{http_code} %{http_version}")
+            val port =
+                Http2Origin(originCa.serverContext("127.0.0.1")).use { origin ->
+                    val result = curl(*args, "https://127.0.0.1:${origin.port}/new")
+                    assertTrue(result.output.endsWith(" 200 2"), result.output)
+                    origin.port
+                }
+            Origin(originCa.serverContext("127.0.0.1", alpn = false), port).use {
+                val refused = curl(*args, "https://127.0.0.1:$port/old")
+                assertTrue(refused.output.endsWith(" 502 2"), refused.output)
+                assertEquals("127.0.0.1:$port does not offer HTTP/2", ended(2).first { it.exchange.failed }.exchange.error)
+
+                val next = curl(*args, "https://127.0.0.1:$port/old")
+                assertTrue(next.output.endsWith(" 200 1.1"), next.output)
             }
         }
     }

@@ -64,6 +64,7 @@ internal class PrefaceDetector(
 internal class Http2Session(
     private val target: Target,
     private val upstreamTls: SslContext,
+    private val originAlpn: OriginAlpn,
     private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
 ) : ChannelInboundHandlerAdapter() {
@@ -197,6 +198,7 @@ internal class Http2Session(
                     }
 
                     protocol != ApplicationProtocolNames.HTTP_2 -> {
+                        originAlpn.remember(target.host, target.port, http2 = false)
                         failWaiting("${target.host}:${target.port} does not offer HTTP/2")
                     }
 

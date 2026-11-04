@@ -1,10 +1,10 @@
 ---
 id: DEBT-0079
 title: An HTTP/2 client cannot reach an HTTP/1.1-only origin through the proxy
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "A developer's HTTPS origin without HTTP/2 answering 502 through the proxy to a client that cannot be told to use HTTP/1.1"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0079 — An HTTP/2 client cannot reach an HTTP/1.1-only origin through the proxy
@@ -33,4 +33,9 @@ Fired by the PLAN-0009 milestone review. Not paid: no such origin has been repor
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0016 H6.5, ADR-0195: the proxy asks an origin what it negotiates before
+the client's handshake, and the leaf offers `h2` only when the origin does, so
+the client stays on the HTTP/1.1 relay. `Http2ProxyTest` runs `curl --http2`
+to an origin without HTTP/2: `200` over HTTP/1.1, stored. No translation: a
+client speaking only `h2` gets the `502`, and could not reach that origin without
+the proxy either.

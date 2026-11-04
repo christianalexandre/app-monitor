@@ -10,6 +10,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.ChannelOption
+import io.netty.channel.EventLoop
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.handler.codec.http.DefaultFullHttpResponse
@@ -25,7 +26,6 @@ import io.netty.handler.codec.http.HttpServerCodec
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.handler.codec.http.HttpVersion
 import io.netty.handler.codec.http.LastHttpContent
-import io.netty.handler.ssl.OptionalSslHandler
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.util.ReferenceCountUtil
@@ -54,6 +54,7 @@ internal class ClientHandler(
     private val ca: ProxyCa,
     private val upstreamTls: SslContext,
     private val upstreamHttp2Tls: SslContext,
+    private val originAlpn: OriginAlpn,
     private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
     private val passThrough: () -> Collection<String>,
@@ -176,7 +177,14 @@ internal class ClientHandler(
         client.writeAndFlush(established)
         val pipeline = client.pipeline()
         pipeline.remove(ProxyServer.CODEC)
-        pipeline.addBefore(client.name(), "tls", OptionalSslHandler(ca.serverContext(target.host)))
+        pipeline.addBefore(
+            client.name(),
+            "tunnel-tls",
+            TunnelTls(
+                ask = { then -> originAlpn.ask(target.host, target.port, client.channel().eventLoop() as EventLoop, then) },
+                leaf = { http2 -> ca.serverContext(target.host, alpn = http2) },
+            ),
+        )
         pipeline.addBefore(client.name(), "preface", PrefaceDetector(::http2))
         pipeline.addBefore(client.name(), ProxyServer.CODEC, HttpServerCodec())
     }
@@ -226,7 +234,7 @@ internal class ClientHandler(
         val target = tunnel ?: return
         connectCapture = null
         client.pipeline().remove(ProxyServer.CODEC)
-        Http2Session(target, upstreamHttp2Tls, record, clock).install(client.pipeline(), client.name())
+        Http2Session(target, upstreamHttp2Tls, originAlpn, record, clock).install(client.pipeline(), client.name())
     }
 
     override fun userEventTriggered(

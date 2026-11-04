@@ -42,6 +42,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyStore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.TrustManagerFactory
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
@@ -52,7 +53,13 @@ import kotlin.time.Duration.Companion.seconds
 /** An HTTP origin on `127.0.0.1` answering `200` with `method path body`, over TLS when [tls] is given. */
 internal class Origin(
     tls: SslContext?,
+    port: Int = 0,
 ) : AutoCloseable {
+    private val accepted = AtomicInteger()
+
+    /** The connections it accepted, the proxy's question about ALPN included. */
+    val connections: Int get() = accepted.get()
+
     private val group = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
     private val channel: Channel =
         ServerBootstrap()
@@ -61,11 +68,12 @@ internal class Origin(
             .childHandler(
                 object : ChannelInitializer<SocketChannel>() {
                     override fun initChannel(ch: SocketChannel) {
+                        accepted.incrementAndGet()
                         tls?.let { ch.pipeline().addLast(it.newHandler(ch.alloc())) }
                         ch.pipeline().addLast(HttpServerCodec(), HttpObjectAggregator(1 shl 20), Answer())
                     }
                 },
-            ).bind(InetSocketAddress("127.0.0.1", 0))
+            ).bind(InetSocketAddress("127.0.0.1", port))
             .sync()
             .channel()
 

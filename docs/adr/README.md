@@ -212,3 +212,4 @@ Rules:
 | [0192](0192-a-reused-socket-number-ends-its-old-connection.md) | A reused socket number ends its old connection at the next connect | Accepted |
 | [0193](0193-the-proxy-reads-a-websockets-frames-as-they-cross.md) | The proxy reads a WebSocket's frames as they cross, inflating permessage-deflate | Accepted |
 | [0194](0194-the-proxys-pass-through-list.md) | The proxy's pass-through list, matched at each CONNECT and relayed as raw bytes | Accepted |
+| [0195](0195-a-tunnels-leaf-offers-what-its-origin-does.md) | A tunnel's leaf offers what its origin does, asked before the client's handshake | Accepted |
