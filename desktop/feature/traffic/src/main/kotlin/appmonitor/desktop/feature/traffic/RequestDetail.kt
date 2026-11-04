@@ -331,11 +331,11 @@ private fun rememberBodyView(
     headers: List<Header>,
     captured: CapturedBody,
 ): BodyView {
-    val decoded = remember(captured.bytes) { DecodedBody(captured.bytes) }
+    val decoded = remember(captured.bytes, headers) { DecodedBody(captured.bytes, headers) }
     var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
     val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
         value = null
-        if (decoded.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
+        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
     }
     return BodyView(captured, rendered) { chosen = it }
 }
@@ -349,6 +349,7 @@ private fun LazyListScope.body(
     item {
         if (captured.truncated) Text(truncationNote(captured), role = TextRole.Caption)
         if (captured.bytes.size == 0 && !captured.truncated) Text("None", role = TextRole.Caption)
+        view.rendered?.note?.let { Text(it, role = TextRole.Caption) }
         if (captured.bytes.size > 0) {
             Row(Modifier.padding(vertical = Spacing.xs), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 BodyFormat.entries.forEach { option ->

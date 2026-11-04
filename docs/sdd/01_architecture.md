@@ -481,8 +481,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   value, in the order sent, each heading with its count. The URL, bodies
   and cURL sit in a code block; a JSON body colors its keys, strings and
   literals. Each part has "Copy": the URL, headers as `Name: value`
-  lines, a body whole as the device sent it (UTF-8, else its hex dump,
-  not the indented view), the timing lines, the cURL command; a note
+  lines, a body whole as the device sent it, a gzip one opened (UTF-8,
+  else its hex dump, not the indented view), the timing lines, the cURL command; a note
   at the pane's bottom says "Copied", "Nothing to copy" or why not, and
   goes after two seconds (ADR-0153). The
   detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
@@ -496,6 +496,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   body is rendered once per format. The hex dump is one linear pass.
   A truncated body shows "Truncated: N of M bytes shown" (or "original size
   unknown") above it; an unread one shows only that note.
+  A body whose `Content-Encoding` is a lone `gzip` or `x-gzip` and whose bytes
+  start with `1f 8b` is opened first, off the UI thread, up to `MAX_OPENED_BYTES`
+  (16 MiB), so every format and the search read what it opened to, and a
+  caption says so: opened, over the bound, or cut or broken with the bytes read
+  (nothing read: the bytes as sent). Anything else under that header is shown as
+  it came. Only the window changes: the store, the MCP tools, the HAR export,
+  cURL, "Mock this" and a replay keep the sent bytes (ADR-0199).
 - Rendering (ADR-0029): the detail pane is a `LazyColumn`. Each body is
   rendered by `renderBody` on `Dispatchers.Default` ("Rendering…" until then)
   and split into chunks, one item each, so the UI thread lays out only

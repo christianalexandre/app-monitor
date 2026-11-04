@@ -216,3 +216,4 @@ Rules:
 | [0196](0196-loop-watchdog-ends-the-sessions-whole-tree.md) | The loop's watchdog ends the session's whole process tree, and its kill is the timeout | Accepted |
 | [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |
 | [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) | A DEBT trigger path that exists from the root matches only there | Accepted |
+| [0199](0199-a-gzip-body-opens-in-the-detail-before-its-formats.md) | A gzip body opens in the detail before its formats, bounded | Accepted |

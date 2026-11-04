@@ -23,13 +23,76 @@ import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Header
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
+import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
+import okio.ByteString.Companion.toByteString
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class DetailTabsUiTest {
+    @Test
+    fun `a gzip body opens in the detail, says so, and is copied opened, a cut one too`() =
+        withStorage { storage ->
+            val document = """{"items":[${List(3_000) { "\"item-$it\"" }.joinToString(",")}]}"""
+            val whole = gzip(document)
+            val encoded = listOf(Header("Content-Type", "application/json"), Header("Content-Encoding", "gzip"))
+            val live = LiveTraffic()
+            live.record(
+                envelope(
+                    RequestStarted(
+                        request_id = "r1",
+                        method = "POST",
+                        url = URL,
+                        headers = encoded,
+                        body = gzip("{\"sent\":true}"),
+                    ),
+                    1_000,
+                ),
+                envelope(
+                    ResponseReceived(
+                        request_id = "r1",
+                        status_code = 200,
+                        headers = encoded,
+                        body = whole.substring(0, whole.size / 2),
+                    ),
+                    1_120,
+                ),
+            )
+            val clipboard = FakeClipboard()
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent {
+                    CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                        AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live)
+                    }
+                }
+
+                awaitText(URL)
+                onNodeWithText(URL).performClick()
+                showTab("Body")
+                awaitText("{\n    \"sent\": true\n}")
+                awaitText("Opened from gzip: ", substring = true)
+                awaitText("Gzip stream cut: the ", substring = true)
+                awaitText("{\"items\":[\"item-0\",\"item-1\"", substring = true)
+                screenshot("detail-gzip.png")
+
+                onNodeWithTag(COPY + DetailPart.RequestBody.name).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { clipboard.copied != null }
+                assertEquals("{\"sent\":true}", clipboard.copied!!.text)
+                clipboard.copied = null
+                onNodeWithTag(COPY + DetailPart.ResponseBody.name).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { clipboard.copied != null }
+                val copied = clipboard.copied!!.text
+                assertTrue(copied.length > 20 && document.startsWith(copied), copied)
+
+                onNodeWithTag(DETAIL_SEARCH).performTextInput("item-1\"")
+                awaitText("1 of 1")
+            }
+        }
+
     @Test
     fun `each detail tab shows its part of the request and copies it`() =
         withStorage { storage ->
@@ -124,4 +187,10 @@ class DetailTabsUiTest {
                 onNodeWithTag(DETAIL_MATCHES).assertDoesNotExist()
             }
         }
+
+    private fun gzip(text: String): ByteString {
+        val out = ByteArrayOutputStream()
+        GZIPOutputStream(out).use { it.write(text.toByteArray()) }
+        return out.toByteArray().toByteString()
+    }
 }
