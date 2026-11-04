@@ -209,3 +209,4 @@ Rules:
 | [0189](0189-ios-headers-sent-read-from-the-transaction-metrics.md) | iOS headers sent are read from the transaction metrics at the response | Accepted |
 | [0190](0190-ios-websocket-ends-read-at-the-tasks-finish.md) | An iOS WebSocket's end is read where the task finishes | Accepted |
 | [0191](0191-the-proxy-relays-at-the-slower-sides-pace.md) | The proxy relays at the slower side's pace and cuts an exchange it dropped an event of | Accepted |
+| [0192](0192-a-reused-socket-number-ends-its-old-connection.md) | A reused socket number ends its old connection at the next connect | Accepted |

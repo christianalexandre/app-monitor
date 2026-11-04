@@ -159,11 +159,16 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   `ClientHandler.kt` and `Http2Relay.kt` items); an exchange the recording dropped an event of is
   cut whole or ended as failed (DEBT-0107, paid). ADR-0191. Split from H6.5.
   Accept: `./gradlew :desktop:proxy:test :tools:headless-server:test`.
+- [x] **H6.5b The M8 review's last findings.** (`fix/reused-socket-and-one-status`) A socket
+  closed outside the rebound `close` ends its exchange when its number connects again
+  (`connections.c`, ADR-0192); the row's and the detail's status in one rule in `desktop/ui`
+  (DEBT-0081, paid whole). Split from H6.5.
+  Accept: `swift test --package-path sdk/ios --filter ConnectionCaptureTests`,
+  `./gradlew :desktop:ui:test :desktop:feature:traffic:test`, `make swift`, `make swift-sim`.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
   (DEBT-0077); the pass-through list of ADR-0101 E.1 in Settings
   (DEBT-0078); an HTTP/2 client reaches an HTTP/1.1-only origin
-  (DEBT-0079); the M8 review findings left in `connections.c` and
-  `App.kt`'s two `statusOf` (DEBT-0081); a client refusing the
+  (DEBT-0079); a client refusing the
   certificate recorded on Windows (DEBT-0098).
   Accept: `./gradlew :desktop:proxy:test :desktop:app:test`; the release
   gate's Windows job green on `ProxyServerTest`.

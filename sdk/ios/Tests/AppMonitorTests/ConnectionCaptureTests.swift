@@ -204,6 +204,32 @@ extension ProcessWideHooks {
             #expect(failed.error == "NSPOSIXErrorDomain 61: Connection refused")
         }
 
+        @Test func aSocketClosedOutsideCloseEndsWhenItsNumberConnectsAgain() async throws {
+            let first = try TestSocketServer(expected: 2, reply: Data("a".utf8))
+            let second = try TestSocketServer(expected: 3, reply: Data("bc".utf8))
+            var buffer = [UInt8](repeating: 0, count: 16)
+            let fd = socket(AF_INET, SOCK_STREAM, 0)
+            #expect(connect(fd, loopback(port: first.port)) == 0)
+            _ = send(fd, "hi", 2, 0)
+            while recv(fd, &buffer, buffer.count, 0) > 0 {}
+            // `dup2` closes the first socket without the rebound `close`, and `fd` is a new one.
+            let other = socket(AF_INET, SOCK_STREAM, 0)
+            #expect(dup2(other, fd) == fd)
+            Darwin.close(other)
+            #expect(connect(fd, loopback(port: second.port)) == 0)
+            _ = send(fd, "abc", 3, 0)
+            while recv(fd, &buffer, buffer.count, 0) > 0 {}
+            Darwin.close(fd)
+
+            let (_, firstEnd) = try await connection(first.port)
+            let firstResponse = try Appmonitor_V1_ResponseReceived(serializedBytes: firstEnd.payload)
+            #expect(firstResponse.sentSize == 2 && firstResponse.bodySize == 1)
+            let (_, secondEnd) = try await connection(second.port)
+            let secondResponse = try Appmonitor_V1_ResponseReceived(serializedBytes: secondEnd.payload)
+            #expect(secondResponse.sentSize == 3 && secondResponse.bodySize == 2)
+            #expect(sink.all.count == 4)
+        }
+
         @Test func loopbackIsNotReportedInTheApp() async throws {
             ConnectionCapture.reportsLoopback = false
             let server = try TestSocketServer(expected: 0, reply: Data())

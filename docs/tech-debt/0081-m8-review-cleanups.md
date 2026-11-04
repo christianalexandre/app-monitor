@@ -1,10 +1,10 @@
 ---
 id: DEBT-0081
 title: Non-correctness findings of the M8 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The next PR that touches `sdk/ios/Sources/AppMonitorConnections/connections.c` or the two `statusOf` in `desktop/app/src/main/kotlin/appmonitor/desktop/app/App.kt`"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0081 — Non-correctness findings of the M8 milestone review
@@ -100,3 +100,11 @@ next PR that changes `responseEnded`, `content` or `forward`.
 the body and closes the upstream connection; each side is read only while the
 other takes its writes, per stream over HTTP/2 (`ProxyFlowTest`, its three tests
 failing on the earlier code). Open: `connections.c` and the two `statusOf`.
+
+`connections.c` and the two `statusOf` paid in `fix/reused-socket-and-one-status`,
+the last items: a `connect` on a counted number whose socket has another local port
+ends the old exchange first (ADR-0192,
+`aSocketClosedOutsideCloseEndsWhenItsNumberConnectsAgain`, failing on the earlier
+code); the two `statusOf`, by then in `desktop/ui`'s `Text.kt` and
+`RequestDetail.kt`, share one rule there (`TextTest`'s "a row and its detail show
+the same status").

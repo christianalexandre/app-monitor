@@ -55,6 +55,7 @@ import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.statusOf
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
@@ -481,15 +482,6 @@ private fun layerOf(layer: CaptureLayer): String =
         CaptureLayer.CAPTURE_LAYER_CONNECTION -> "Connection layer"
         CaptureLayer.CAPTURE_LAYER_PROXY -> "Proxy layer"
         CaptureLayer.CAPTURE_LAYER_UNSPECIFIED -> "Unknown layer"
-    }
-
-private fun statusOf(exchange: HttpExchange): String =
-    when {
-        exchange.error != null -> "failed"
-        exchange.connection != null -> if (exchange.endedAtMs != null) "closed" else "open"
-        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
-        exchange.statusCode != null -> exchange.statusCode.toString()
-        else -> "…"
     }
 
 // ADR-0110 E.1: the device names the rule; a deleted one is left with its id.
