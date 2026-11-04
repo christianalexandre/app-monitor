@@ -14,6 +14,10 @@ on="$device${SIM_OS:+ (iOS $SIM_OS)}"
 mkdir -p build
 log=build/ios-simulator.log
 
+# A simulator still on its first boot starved the tests: 54 s against the host's 8 s, on one CI job.
+udid="$(xcrun simctl list devices available | scripts/sim_runtime.sh | scripts/sim_list.sh | awk -v d="$device" 'substr($0, 38) == d' | head -1)"
+xcrun simctl bootstatus "${udid%% *}" -b >/dev/null
+
 # $1 what ran; the log's last Swift Testing summary, else its failures.
 run_tests() {
   if "${@:2}" >>"$log" 2>&1; then

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0098
 title: A client refusing the proxy's certificate not confirmed recorded on Windows
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-26
 trigger: The release gate's Windows job runs `ProxyServerTest`, no longer skipped there
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0098 — A client refusing the proxy's certificate not confirmed recorded on Windows
@@ -39,3 +39,9 @@ The release gate's Windows job runs `ProxyServerTest`, no longer skipped there.
 Not fired by PLAN-0016 H6.5: the gate has not run since (its last run is
 2026-10-31, before the test ran on Windows again), and the loop does not dispatch
 it. The next `dev` to `main` PR runs it.
+
+## How it was paid
+
+The release gate's `desktop (windows-latest)` job, on PR #379 (run 41866461707), ran
+`:desktop:proxy:test` and passed, with no skip left in `ProxyServerTest`. So the cause found on
+Homebrew's curl 8.23 holds there too.
