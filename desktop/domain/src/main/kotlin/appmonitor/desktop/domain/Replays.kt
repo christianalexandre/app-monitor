@@ -33,7 +33,7 @@ interface ReplayRepository {
 
 /** One stored request as something to run elsewhere. */
 interface ExportRepository {
-    /** `to_curl`'s command for exchange [id], or why there is none (SDD 10). */
+    /** `to_curl`'s command for exchange [id], or why there is none. */
     suspend fun curl(id: Long): Result<String>
 }
 

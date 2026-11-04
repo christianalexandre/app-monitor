@@ -14,7 +14,7 @@ struct BufferedFrame: Sendable {
     }
 }
 
-/// Offline ring buffer (SDD 04, SDD 06): `offer` never blocks beyond the lock and drops the
+/// Offline ring buffer: `offer` never blocks beyond the lock and drops the
 /// oldest frame once `maxCount` or `maxBytes` is reached; `poll` serves a single consumer.
 final class EventBuffer: @unchecked Sendable {
     static let maxCount = 4096

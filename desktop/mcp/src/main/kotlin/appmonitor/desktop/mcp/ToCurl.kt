@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import okio.ByteString
 
-/** `to_curl` (SDD 10): one stored request as a POSIX shell cURL command. */
+/** `to_curl`: one stored request as a POSIX shell cURL command. */
 internal object ToCurl {
     const val NAME = "to_curl"
 

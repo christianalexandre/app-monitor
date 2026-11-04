@@ -202,7 +202,9 @@ extension ProcessWideHooks.URLSessionCaptureTests {
 
         let (started, end) = try await sink.exchange(echo.httpURL("/drop"))
         #expect(try received(end).statusCode == 101)
-        #expect(try await sink.failure(started.requestID).hasPrefix("NSPOSIXErrorDomain 54"))
+        // The system's own code: 57 on iOS 16, 54 on the newer ones.
+        let failure = try await sink.failure(started.requestID)
+        #expect(failure.hasPrefix("NSPOSIXErrorDomain 54") || failure.hasPrefix("NSPOSIXErrorDomain 57"))
         #expect(flat(try await sink.frames(started.requestID, count: 1)) == [frame(.sent, .text, Data("drop".utf8))])
     }
 

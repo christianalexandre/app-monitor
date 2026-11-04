@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
-/** The body's bytes to return: UTF-8 text, else the uncut slice as base64 (SDD 10, ADR-0089 C.1). */
+/** The body's bytes to return: UTF-8 text, else the uncut slice as base64 (ADR-0089 C.1). */
 internal class BodySlice(
     val offset: Int,
     val bytes: ByteString,
@@ -46,7 +46,7 @@ private fun ByteString.utf8OrNull(): String? =
         null
     }
 
-/** A body or frame payload as SDD 10's body object; null when nothing is stored and the device cut nothing. */
+/** A body or frame payload as the MCP tools' body object; null when nothing is stored and the device cut nothing. */
 internal fun bodyJson(
     stored: ByteString,
     originalSize: Long?,

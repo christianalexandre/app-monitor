@@ -209,7 +209,7 @@ internal suspend fun stopBoth(
     }
 }
 
-/** Stops [mcp], then [server], each even when the other fails, and only then runs [closeStorage] (SDD 10). */
+/** Stops [mcp], then [server], each even when the other fails, and only then runs [closeStorage]. */
 internal suspend fun stopAll(
     mcp: suspend () -> Unit,
     server: suspend () -> Unit,

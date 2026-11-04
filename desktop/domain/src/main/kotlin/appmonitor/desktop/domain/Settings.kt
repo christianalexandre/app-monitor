@@ -28,7 +28,7 @@ interface RetentionRepository {
     suspend fun setRetention(retention: Retention)
 }
 
-/** The store's `settings` keys other than retention's (SDD 09). */
+/** The store's `settings` keys other than retention's. */
 interface SettingRepository {
     /** Null when unset or the store is closing. */
     suspend fun setting(key: String): String?
@@ -64,7 +64,7 @@ interface AnsweredDeviceRepository {
     suspend fun forgetAll()
 }
 
-/** What the settings show about a local server the window starts: the MCP server or the proxy (SDD 10, SDD 11). */
+/** What the settings show about a local server the window starts: the MCP server or the proxy. */
 sealed interface ServiceStatus {
     data object Off : ServiceStatus
 

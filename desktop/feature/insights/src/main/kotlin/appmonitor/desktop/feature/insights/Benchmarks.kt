@@ -105,7 +105,7 @@ internal fun endpointLabel(endpoint: Endpoint): String = "${endpoint.method ?: "
 
 /**
  * Per endpoint numbers of the exchanges [filter] matches across every device of the run it names, read when opened and
- * on "Refresh" (SDD 01), or per device of that run with "By device"; [scope] says which run and filter in the title.
+ * on "Refresh", or per device of that run with "By device"; [scope] says which run and filter in the title.
  */
 @Composable
 fun Benchmarks(

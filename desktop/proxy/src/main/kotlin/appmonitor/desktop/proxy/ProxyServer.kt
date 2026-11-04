@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The proxy of ADR-0101 on `127.0.0.1` only (A.1): plain HTTP and `CONNECT` with TLS interception, each exchange sent to
  * [record] as `PROXY` events, except a `CONNECT` to a host [passThrough] lists, read at each one, which is tunnelled
- * untouched (ADR-0194). Single use; lifecycle in SDD 11.
+ * untouched (ADR-0194). Single use.
  */
 class ProxyServer(
     private val ca: ProxyCa,

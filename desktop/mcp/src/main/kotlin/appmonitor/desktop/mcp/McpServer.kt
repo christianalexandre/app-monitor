@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The MCP server, read-only but `save_issue`, `create_mock` and `replay_request` (left to [replays]), over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
+ * The MCP server, read-only but `save_issue`, `create_mock` and `replay_request` (left to [replays]), over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (ADR-0092). Single use:
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(

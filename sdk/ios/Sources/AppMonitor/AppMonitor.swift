@@ -81,7 +81,7 @@ public struct AppMonitorOptions: Sendable {
     }
 }
 
-/// The `start` / `stop` of SDD 06 around one `MonitorClient` at a time: idle until started, a second
+/// The `start` / `stop` around one `MonitorClient` at a time: idle until started, a second
 /// `start` ignored while a client runs, a new client after `stop`.
 final class MonitorHolder: @unchecked Sendable {
     private let lock = NSLock()

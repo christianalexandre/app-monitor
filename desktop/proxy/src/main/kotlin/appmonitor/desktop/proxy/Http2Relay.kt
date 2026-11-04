@@ -226,7 +226,7 @@ internal class Http2Session(
         }
     }
 
-    /** One client stream and its upstream twin: frames relayed as they come, the exchange captured (SDD 11). */
+    /** One client stream and its upstream twin: frames relayed as they come, the exchange captured. */
     private inner class StreamRelay : ChannelInboundHandlerAdapter() {
         private lateinit var stream: ChannelHandlerContext
         private var capture: Capture? = null

@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** One test per cell of SDD 11's lifecycle table. */
+/** One test per cell of the proxy's lifecycle table. */
 class ProxyLifecycleTest {
     private val ca = ProxyCa.loadOrCreate(createTempDirectory("ca"))
 

@@ -8,7 +8,7 @@ let defaultMaskedHeaders: Set<String> = ["Authorization", "Proxy-Authorization",
 /// Response headers whose value is a URL, masked as one (ADR-0033).
 let urlResponseHeaders: Set<String> = ["Location", "Content-Location"]
 
-/// ADR-0036 A: Android's rule (SDD 05), names compared case-insensitively, the name kept and the value
+/// ADR-0036 A: Android's rule, names compared case-insensitively, the name kept and the value
 /// replaced by `mask`; `protocol/fixtures/masking.json` pins both SDKs to it.
 struct Masking: Sendable {
     private let enabled: Bool

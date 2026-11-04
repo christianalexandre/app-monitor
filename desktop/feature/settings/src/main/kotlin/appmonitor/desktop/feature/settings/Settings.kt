@@ -45,7 +45,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
 /**
- * What the window shows when the store did not open: no server runs behind it (SDD 09). [onClearAll] deletes the files
+ * What the window shows when the store did not open: no server runs behind it. [onClearAll] deletes the files
  * after a confirmation and returns what to tell the developer.
  */
 @Composable

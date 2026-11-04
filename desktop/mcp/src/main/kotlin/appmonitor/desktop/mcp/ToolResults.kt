@@ -23,7 +23,7 @@ internal const val DATA_NOTE =
 
 internal const val CLOSING = "App Monitor is closing"
 
-/** A tool's answer to a bad argument, an unknown id or a closing store: one sentence (SDD 10). */
+/** A tool's answer to a bad argument, an unknown id or a closing store: one sentence. */
 internal class ToolError(
     message: String,
 ) : Exception(message)

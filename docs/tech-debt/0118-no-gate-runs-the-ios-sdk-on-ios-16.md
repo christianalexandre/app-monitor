@@ -28,6 +28,11 @@ M10's first tagged release, or the next PR that changes `Masking.swift`, `Mocks.
 second install of `TestHost` fails ("Could not hardlink copy"), so first shut down and
 `xcrun simctl erase` the simulator. For the release, decide whether the gate gets a job.
 
+Fired in PLAN-0016 H6.6, on a comment in `Masking.swift`. `SIM_OS=16.0 make swift-sim` failed on `origin/dev`
+too: `aSocketDroppedAfterTheUpgradeFails` (#362) pinned `NSPOSIXErrorDomain 54`, and iOS 16 reports 57. The
+test now takes both, and the suite is green there (183 and 46 tests). The trigger stays: this is the failure it
+exists to find, on a PR that changed none of those files.
+
 ## How it was paid
 
 > Filled when closing.

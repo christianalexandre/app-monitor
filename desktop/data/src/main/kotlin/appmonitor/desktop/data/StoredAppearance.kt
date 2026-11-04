@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** The stored theme, [ThemeMode.System] when unset or unreadable (SDD 09). */
+/** The stored theme, [ThemeMode.System] when unset or unreadable. */
 suspend fun SettingRepository.appearanceRepository(): AppearanceRepository =
     StoredAppearanceRepository(this, ThemeMode.entries.firstOrNull { it.name.lowercase() == setting(KEY_THEME) } ?: ThemeMode.System)
 

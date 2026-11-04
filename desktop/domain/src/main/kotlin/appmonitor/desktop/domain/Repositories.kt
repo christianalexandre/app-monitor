@@ -3,7 +3,7 @@ package appmonitor.desktop.domain
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
-/** The runs, and the one new sessions join (SDD 09). */
+/** The runs, and the one new sessions join. */
 interface RunRepository {
     /** The id of the run being recorded, null when none (ADR-0140 B). */
     val recording: StateFlow<Long?>

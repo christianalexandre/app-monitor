@@ -1,10 +1,10 @@
 ---
 id: DEBT-0051
 title: Non-correctness findings of the third M3 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: The next PR that touches `samples/android/src/main/AndroidManifest.xml`, or a rotation or process-death regression in the Android sample
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0051 — Non-correctness findings of the third M3 milestone review
@@ -39,10 +39,14 @@ regression found by hand, pays the coverage item.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
-
 Partly paid: the line wrapping of the Android end to end paragraph in SDD 02
 and of the M3.R5 task line, in `fix/android-sample-extras-per-target`.
 
 The trigger item, in `feat/kmp-sample-app`: DEBT-0050's `Makefile` item was
 paid there, and the `Makefile` left its trigger.
+
+Paid by PLAN-0016 H6.6: `make e2e-android` rotates the emulator there and back with no new session
+(M3.R3), then kills the process from the background and reopens the task, one new session and no
+call run again (M3.R5). It waits for `mCurrentRotation`, so a rotation that did not happen fails. The
+server is not advertised (`--advertise false`): an API 37 emulator found it by mDNS without the extras,
+and the check passed with M3.R5's fix undone. Each fix undone now fails its line.

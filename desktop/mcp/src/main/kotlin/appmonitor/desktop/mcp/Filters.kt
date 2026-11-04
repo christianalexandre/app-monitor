@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-/** The filter fields shared by the tools that read many exchanges, one to one onto [ExchangeFilter] (SDD 10). */
+/** The filter fields shared by the tools that read many exchanges, one to one onto [ExchangeFilter]. */
 internal object Filters {
     private val statusClasses = StatusClass.entries.associateBy { "${it.from / 100}xx" }
 

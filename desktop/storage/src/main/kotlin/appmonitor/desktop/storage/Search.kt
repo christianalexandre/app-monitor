@@ -9,7 +9,7 @@ import appmonitor.v1.Hello
 import appmonitor.v1.ResponseReceived
 
 /**
- * What the exchange list is narrowed to (SDD 09); every null or false field matches all. [text] is a substring of the
+ * What the exchange list is narrowed to; every null or false field matches all. [text] is a substring of the
  * URL, the host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them, and
  * match all when empty.
  */

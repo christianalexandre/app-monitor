@@ -113,7 +113,11 @@ runs every button in turn, on first launch only. The script then waits up to
 `E2E_TIMEOUT` seconds (120) for each call's `RequestStarted`, its response or
 failure, and the WebSocket's sent, received and close frames, and prints one
 `ok` or `missing` line per call, and fails when a request went anywhere but
-the target or an expected request was captured twice (ADR-0075). Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
+the target or an expected request was captured twice (ADR-0075). Then it
+rotates the emulator there and back, asserting no new session, and kills the
+process from the background and reopens the task, asserting one new session
+and no call run again (about 15 s). The server runs with `--advertise false`,
+since an emulator finds an advertised one by mDNS, without the extras. Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
 script's expected list.
 
 ### The iOS sample against a desktop

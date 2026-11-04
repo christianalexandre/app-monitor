@@ -163,7 +163,7 @@ final class TaskCapture: @unchecked Sendable {
         }
     }
 
-    /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body (SDD 05's rule).
+    /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body.
     func didFinish(_ error: NSError?) {
         let state: (URLResponse?, [AnyHashable: Any]?, Data, Int64)? = lock.withLock {
             guard !finished else { return nil }

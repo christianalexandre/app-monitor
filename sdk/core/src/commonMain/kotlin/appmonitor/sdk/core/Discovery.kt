@@ -21,14 +21,14 @@ internal fun interface MdnsBrowser {
 /** Where the iOS simulator reaches its Mac's loopback: it shares the Mac's network stack (ADR-0002). */
 internal const val SIMULATOR_HOST: String = "127.0.0.1"
 
-/** Bounds of SDD 04's discovering state; tests shorten them. */
+/** Bounds of the discovering state; tests shorten them. */
 internal data class DiscoveryConfig(
     val mdnsBeforeFallback: Duration = 3.seconds,
     val txtGrace: Duration = DesktopSelector.TXT_GRACE_MS.milliseconds,
 )
 
 /**
- * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only, its pin unchecked; else mDNS
+ * The `discover` of [MonitorClient] for [options]: a manual host only, its pin unchecked; else mDNS
  * through [mdns] (null when it may not run), skipping desktops other than [pinned]'s, the first logged
  * (ADR-0168), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
 internal fun discovery(

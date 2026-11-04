@@ -17,7 +17,7 @@ package enum AdapterPayload: Sendable {
     case unread
 }
 
-/// One call seen by an adapter in another target of this package (ADR-0099): the events of SDD 07 with
+/// One call seen by an adapter in another target of this package (ADR-0099): the connection layer's events with
 /// `capture_layer = ADAPTER`, masked and cut at `maxBodyBytes` like `URLSession`'s. Ends once.
 package final class AdapterExchange: @unchecked Sendable {
     private let id = UUID().uuidString.lowercased()

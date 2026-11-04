@@ -60,7 +60,7 @@ internal fun readBreakpoints(text: String): Breakpoints {
     }
 }
 
-/** The rules as the desktop sends them (SDD 12). */
+/** The rules as the desktop sends them. */
 internal fun breakpointRulesEnvelope(
     rules: BreakpointRules,
     atMs: Long,

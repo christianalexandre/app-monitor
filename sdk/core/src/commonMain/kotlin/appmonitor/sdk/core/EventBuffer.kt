@@ -12,7 +12,7 @@ internal class BufferedFrame(
 )
 
 /**
- * Offline ring buffer (SDD 04): [offer] never blocks and drops the oldest frame once
+ * Offline ring buffer: [offer] never blocks and drops the oldest frame once
  * [maxCount] or [maxBytes] is reached; [take] serves a single consumer.
  */
 internal class EventBuffer(

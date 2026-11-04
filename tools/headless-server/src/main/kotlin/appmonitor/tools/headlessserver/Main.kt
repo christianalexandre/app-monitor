@@ -57,7 +57,7 @@ fun main(args: Array<String>) {
                 exitProcess(2)
             }
         }
-    val server = AppMonitorServer(ServerConfig(port = options.port, desktopId = options.desktopId))
+    val server = AppMonitorServer(ServerConfig(port = options.port, advertise = options.advertise, desktopId = options.desktopId))
     runBlocking {
         val bound =
             startOrNull(options.port, System.err) { startWithShutdownHook(server, Runtime.getRuntime()::addShutdownHook) }
@@ -140,11 +140,12 @@ internal data class ServerArgs(
     val replayPath: String? = null,
     val desktopId: String? = null,
     val breakpointsFile: Path? = null,
+    val advertise: Boolean = true,
 )
 
 /**
  * `--port`, `--proxy DIR` (ADR-0109), `--mocks FILE` (ADR-0116), `--replay PATH` (ADR-0122), `--desktop-id UUID`
- * (ADR-0168), `--breakpoints FILE` (ADR-0188); null after one line on [err].
+ * (ADR-0168), `--breakpoints FILE` (ADR-0188), `--advertise false`; null after one line on [err].
  */
 internal fun parseArgs(
     args: Array<String>,
@@ -166,6 +167,7 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
                 "--mocks" -> options.copy(mocksFile = Path.of(value))
                 "--breakpoints" -> options.copy(breakpointsFile = Path.of(value))
                 "--replay" -> options.copy(replayPath = value.takeIf { it.startsWith("/") } ?: return null)
+                "--advertise" -> options.copy(advertise = value.toBooleanStrictOrNull() ?: return null)
                 "--desktop-id" -> options.copy(desktopId = value.takeIf { runCatching { UUID.fromString(it) }.isSuccess } ?: return null)
                 else -> return null
             }
@@ -174,7 +176,8 @@ private fun serverArgs(args: Array<String>): ServerArgs? {
 }
 
 private const val USAGE =
-    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--breakpoints FILE] [--replay PATH] [--desktop-id UUID], " +
+    "Usage: server [--port PORT] [--proxy DIR] [--mocks FILE] [--breakpoints FILE] [--replay PATH] [--desktop-id UUID] " +
+        "[--advertise false], " +
         "PORT from 0 (ephemeral) to 65535, DIR the proxy's CA directory, FILE mock rules or breakpoints as JSON, " +
         "PATH a URL path starting with /, UUID the id devices pin"
 
