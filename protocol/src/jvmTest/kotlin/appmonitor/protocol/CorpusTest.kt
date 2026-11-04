@@ -14,9 +14,8 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 /**
- * Random messages of every type, from a fixed seed, written by Wire to `fixtures/corpus/<Message>.bin` as
- * varint-length-prefixed records; the Swift SDK decodes and re-encodes each one byte for byte (ADR-0160).
- * Regenerate with the fixtures: ./gradlew :protocol:jvmTest -PupdateFixtures
+ * Random messages of every type, from a fixed seed, written by Wire to `fixtures/corpus/<Message>.bin` as varint-
+ * length-prefixed records; the Swift SDK re-encodes each byte for byte (ADR-0160). Regenerate: `-PupdateFixtures`.
  */
 class CorpusTest {
     companion object {

@@ -41,9 +41,8 @@ interface TrafficSink {
 }
 
 /**
- * The live list in memory, as the store's rows (ADR-0140 A, ADR-0141): the oldest exchange goes past [maxExchanges] or
- * [maxBytes] of bodies and frames; an exchange keeps its last [maxFramesPerExchange] frames, at most a quarter of
- * [maxBytes]; ids from [FIRST_ID]; only `network` envelopes it decodes are kept.
+ * The live list in memory as the store's rows, ids from [FIRST_ID], decoded `network` envelopes only (ADR-0140 A,
+ * ADR-0141): past [maxExchanges] or [maxBytes] the oldest goes; each keeps [maxFramesPerExchange], a quarter at most.
  */
 class LiveTraffic(
     private val maxExchanges: Int = MAX_EXCHANGES,

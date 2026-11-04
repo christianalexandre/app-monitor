@@ -46,11 +46,8 @@ internal class BodyCapture {
 }
 
 /**
- * One exchange the proxy relays, written as the events an SDK sends (ADR-0101): [RequestStarted] once the request is
- * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame], a
- * WebSocket's frames after its `101` once [keepOpen] was called.
- * Event loop only; each event goes to [record] once. One [record] dropped cuts the exchange: nothing more is sent, and
- * when its [RequestStarted] was kept a [RequestFailed] with [CUT] ends it.
+ * One exchange the proxy relays, as an SDK's events (ADR-0101). Event loop only; each event goes to [record] once. One
+ * [record] dropped cuts it: nothing more is sent, and a kept [RequestStarted] ends with a [RequestFailed] with [CUT].
  */
 internal class Capture(
     private val method: String,

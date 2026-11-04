@@ -18,9 +18,8 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 
 /**
- * The desktop [DesktopSelector] picks among [Protocol.MDNS_SERVICE_TYPE] answers, named [serviceName] if
- * set, on any of [addresses], or `null` after [timeoutMs]. An address whose browser fails is skipped;
- * fails only when all of them do. [resolve] runs off the JmDNS listener thread: it may block.
+ * The desktop [DesktopSelector] picks among [Protocol.MDNS_SERVICE_TYPE] answers, named [serviceName] if set, on any of
+ * [addresses], or `null` after [timeoutMs]; fails only when every browser does. [resolve] may block: off JmDNS's.
  */
 internal suspend fun discover(
     timeoutMs: Long,

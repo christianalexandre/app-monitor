@@ -20,7 +20,15 @@ serial=$ANDROID_SERIAL
 
 ./gradlew -q :samples:android:assembleDebug :tools:headless-server:installDist :tools:e2e-target:installDist
 mkdir -p "$out"
-trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true; adb shell settings put system user_rotation 0 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
+# Back as the developer had it: Android reads a setting never written as `null`, which `put` would store.
+restore_auto_rotation() {
+  case "${auto_rotation:-}" in
+    "") ;;
+    null) adb shell settings delete system accelerometer_rotation >/dev/null ;;
+    *) adb shell settings put system accelerometer_rotation "$auto_rotation" ;;
+  esac
+}
+trap 'kill "${server_pid:-}" "${target_pid:-}" 2>/dev/null || true; adb shell settings put system user_rotation 0 2>/dev/null || true; restore_auto_rotation 2>/dev/null || true; adb logcat -d >"$out/logcat.txt" 2>/dev/null || true' EXIT
 # One rule for the last call of runAll, by then connected (ADR-0110); the target would answer 418.
 mkdir -p "$out" && cat >"$out/mocks.json" <<JSON
 {"rules": [{"id": 1, "method": "GET", "host": "$host", "path": "/status/418",
@@ -56,7 +64,8 @@ assert_no_drops "$app"
 rotate() {
   adb shell settings put system user_rotation "$2"
   for _ in $(seq 1 15); do
-    adb shell dumpsys window displays | grep -q "mCurrentRotation=ROTATION_$1" && return 0
+    # Not a pipe into `grep -q`: its early exit breaks adb's pipe, a failure under pipefail.
+    [[ "$(adb shell dumpsys window displays)" == *"mCurrentRotation=ROTATION_$1"* ]] && return 0
     sleep 1
   done
   fail "the display did not reach rotation $1"
@@ -64,6 +73,7 @@ rotate() {
 
 started="$(grep -c ' network/RequestStarted ' "$server_log")"
 connected="$(sessions "$app" kotlin)"
+auto_rotation="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
 adb shell settings put system accelerometer_rotation 0
 rotate 90 1
 sleep 3

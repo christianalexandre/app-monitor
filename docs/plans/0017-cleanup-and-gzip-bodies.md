@@ -25,10 +25,12 @@ The roadmap's `Hold` stays: M10 is still the owner's go.
   failure (item 3).
   Accept: `./gradlew :desktop:proxy:test`, a test for each item failing without its fix.
   Item 1 reproduced through the proxy: a scoped IPv6 host has no certificate name.
-- [ ] **H7.2 The rest of DEBT-0126.** The data directory lock survives a refused second open
+- [x] **H7.2 The rest of DEBT-0126.** (#375) The data directory lock survives a refused second open
   inside one JVM (item 4); `scripts/e2e_android.sh`'s `grep -q` under `pipefail`, and
   `accelerometer_rotation` restored on the emulator (item 5); the 16 KDocs over guideline 02's
   4 lines (item 6). DEBT-0126 paid.
+  Deviation: two blocks the debt did not list, `LiveDeviceScreenshots.kt` and `CorpusTest.kt`, were
+  over the limit too and went with it.
   Accept: `./gradlew :desktop:storage:test`; `make check`; `make e2e-android`.
 - [ ] **H7.3 DEBT-0050.** Its two `pr-conventions.yml` items read against today's
   `scripts/trailer_check.sh` and `origin/main..origin/dev`, each paid or dropped with that

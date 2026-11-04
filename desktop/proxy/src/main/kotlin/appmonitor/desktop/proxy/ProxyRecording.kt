@@ -15,10 +15,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Writes what one [ProxyServer] relays to [sink] as one session, its device unknown (ADR-0101): [record] never
- * blocks the event loop, the events wait in memory for the sink, up to [maxPendingBytes] of payloads, and past
- * that are dropped, a `RequestFailed` excepted: it ends its exchange and is small. Not [open], it writes nothing until
- * [open].
+ * One [ProxyServer]'s traffic to [sink] as one session, device unknown (ADR-0101), nothing until [open]. [record] never
+ * blocks the event loop: past [maxPendingBytes] of payloads waiting, events are dropped, a `RequestFailed` excepted.
  */
 class ProxyRecording(
     private val sink: TrafficSink,
