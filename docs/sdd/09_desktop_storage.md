@@ -73,7 +73,10 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   `ResponseReceived` payload re-encoded with Wire **without** its body
   (headers, truncation, sizes and any field this desktop does not know, kept
   by Wire's unknown fields). The columns beside them are what lists, search
-  and filters read; `host` is parsed from `url` at ingest.
+  and filters read; `host` is parsed from `url` at ingest. A
+  `ResponseReceived` with `request_headers` rewrites `request_meta`'s
+  headers with them and is stored without them, in the live list too
+  (ADR-0189).
 - `bodies` and `frame_payloads` keep the bytes apart, so list queries never
   read them (ADR-0005). `codec` is `raw` or `deflate` (ADR-0085); `size` is
   the stored byte count before compression, which is what the device sent

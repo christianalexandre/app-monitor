@@ -1,10 +1,10 @@
 ---
 id: DEBT-0037
 title: Headers CFNetwork adds at send time are not captured on iOS
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: M2.13 compares the desktop with a server log of the same request, or a developer reports a header missing from an iOS request
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0037 — Headers CFNetwork adds at send time are not captured on iOS
@@ -33,4 +33,9 @@ developer reports a header missing from an iOS request.
 
 ## How it was paid
 
-> Filled when closing.
+`ResponseReceived.request_headers` carries the headers of the task's
+transaction metrics, read when the response arrives, and the desktop puts
+them in place of the started ones (ADR-0189, H6.4d).
+`URLSessionCaptureTests.headersCFNetworkAddsAtSendTimeAreCapturedAndMasked`
+checks `Cookie` masked and `User-Agent` equal to what the server got. A
+request without a network response keeps its resume headers (DEBT-0125).

@@ -146,6 +146,7 @@ struct Appmonitor_V1_ResponseReceived: ProtoMessage, Hashable, Sendable {
     var hasSentSize: Bool { _sentSize != nil }
     mutating func clearSentSize() { _sentSize = nil }
     private var _sentSize: Int64? = nil
+    var requestHeaders: [Appmonitor_V1_Header] = []
 
     var unknownFields = ProtoUnknownFields()
 
@@ -159,6 +160,7 @@ struct Appmonitor_V1_ResponseReceived: ProtoMessage, Hashable, Sendable {
         if !(!bodyTruncated) { writer.bool(5, bodyTruncated) }
         if let value = _bodySize { writer.int64(6, value) }
         if let value = _sentSize { writer.int64(7, value) }
+        for value in requestHeaders { writer.message(8, value) }
         writer.unknown(unknownFields)
     }
 
@@ -171,6 +173,7 @@ struct Appmonitor_V1_ResponseReceived: ProtoMessage, Hashable, Sendable {
         case 5: bodyTruncated = try reader.varint() != 0
         case 6: _bodySize = Int64(bitPattern: try reader.varint())
         case 7: _sentSize = Int64(bitPattern: try reader.varint())
+        case 8: requestHeaders.append(try reader.message(Appmonitor_V1_Header.self))
         default: try reader.skip(into: &unknownFields)
         }
     }

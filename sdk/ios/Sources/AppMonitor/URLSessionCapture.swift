@@ -101,6 +101,7 @@ final class TaskCapture: @unchecked Sendable {
     let heldRequest: URLRequest?
     private let lock = NSLock()
     private var response: URLResponse?
+    private var sentHeaders: [AnyHashable: Any]?
     private var body = Data()
     private var received: Int64 = 0
     private var finished = false
@@ -121,8 +122,11 @@ final class TaskCapture: @unchecked Sendable {
         heldRequest = self.held ? request : nil
     }
 
-    func didReceive(_ response: URLResponse) {
-        lock.withLock { self.response = response }
+    func didReceive(_ response: URLResponse, sentHeaders: [AnyHashable: Any]? = nil) {
+        lock.withLock {
+            self.response = response
+            self.sentHeaders = sentHeaders
+        }
     }
 
     /// A held task's `RequestStarted`, sent by `sendStart` or, at the latest, before its end (ADR-0123 C.1).
@@ -161,13 +165,13 @@ final class TaskCapture: @unchecked Sendable {
 
     /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body (SDD 05's rule).
     func didFinish(_ error: NSError?) {
-        let state: (URLResponse?, Data, Int64)? = lock.withLock {
+        let state: (URLResponse?, [AnyHashable: Any]?, Data, Int64)? = lock.withLock {
             guard !finished else { return nil }
             finished = true
             sendStartLocked(nil)
-            return (response, body, received)
+            return (response, sentHeaders, body, received)
         }
-        guard let (response, body, received) = state else { return }
+        guard let (response, sentHeaders, body, received) = state else { return }
         if let response = response as? HTTPURLResponse {
             emit(sink, "ResponseReceived") {
                 var event = Appmonitor_V1_ResponseReceived()
@@ -180,6 +184,7 @@ final class TaskCapture: @unchecked Sendable {
                 event.body = body
                 event.bodyTruncated = error != nil || received > Int64(limit)
                 if error == nil { event.bodySize = received }
+                if let sentHeaders { event.requestHeaders = masking.headers(sortedHeaders(sentHeaders)) }
                 return try event.serializedBytes()
             }
         } else {
@@ -303,6 +308,7 @@ enum Hooks {
     nonisolated(unsafe) private static var uploadKey: UInt8 = 0
     nonisolated(unsafe) private static var skipKey: UInt8 = 0
     private static let sessionSelector = NSSelectorFromString("session")
+    private static let metricsSelector = NSSelectorFromString("_incompleteCurrentTaskTransactionMetrics")
 
     static func capture(of task: AnyObject) -> TaskCapture? {
         objc_getAssociatedObject(task, &captureKey) as? TaskCapture
@@ -342,7 +348,12 @@ enum Hooks {
         typealias Response = @convention(c) (AnyObject, Selector, AnyObject?, Bool) -> Void
         MethodHook.replace(response, arguments: 2, Response.self) { original, selector in
             let block: @convention(block) (AnyObject, AnyObject?, Bool) -> Void = { connection, response, sniff in
-                if let response = response as? URLResponse { task(connection)?.didReceive(response) }
+                if let response = response as? URLResponse,
+                    let owner = object_getIvar(connection, taskIvar).map({ $0 as AnyObject }),
+                    let capture = capture(of: owner)
+                {
+                    capture.didReceive(response, sentHeaders: capture.mock == nil && !capture.held ? sent(owner) : nil)
+                }
                 original(connection, selector, response, sniff)
             }
             return block
@@ -375,6 +386,15 @@ enum Hooks {
                 "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
         }
         return true
+    }
+
+    /// The headers the task's current request went out with, CFNetwork's own included (ADR-0189).
+    private static func sent(_ task: AnyObject) -> [AnyHashable: Any]? {
+        guard task.responds(to: metricsSelector),
+            let metrics = task.perform(metricsSelector)?.takeUnretainedValue() as? URLSessionTaskTransactionMetrics,
+            let headers = metrics.request.allHTTPHeaderFields, !headers.isEmpty
+        else { return nil }
+        return headers
     }
 
     /// The method `cls` itself defines, never an inherited one: replacing that would hook the superclass.

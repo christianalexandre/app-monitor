@@ -60,6 +60,20 @@ class LiveTrafficTest {
         }
 
     @Test
+    fun theHeadersARequestWentOutWithReplaceItsStartedOnes() =
+        runBlocking {
+            val live = LiveTraffic { 5_000 }
+            live.connected("s1", hello(), null)
+            val sent = listOf(appmonitor.v1.Header("User-Agent", "Sample/1 CFNetwork"))
+            live.received("s1", envelope(started("r1")))
+            live.received("s1", envelope(response("r1", 200).copy(request_headers = sent)))
+
+            val detail = live.exchange(live.searchExchanges(ExchangeFilter()).single().id)!!
+            assertEquals(started("r1").copy(headers = sent), detail.request)
+            assertEquals(response("r1", 200), detail.response)
+        }
+
+    @Test
     fun eventsRoundTripAsTheStoreGivesThem() =
         runBlocking {
             val live = LiveTraffic { 5_000 }

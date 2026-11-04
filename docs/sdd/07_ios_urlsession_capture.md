@@ -52,7 +52,7 @@ app ── any URLSession ── task.resume() ──────────►
 | Event | Sent when | Body |
 | --- | --- | --- |
 | `RequestStarted` | The task's first `resume()`, before the original runs, on the caller's thread | `httpBody` or the upload data: the first `maxBodyBytes`, `body_size` the whole. An upload file: its first `maxBodyBytes` read on the caller's thread, `body_size` the file size. `httpBodyStream` or `uploadTask(withStreamedRequest:)`: empty, `body_truncated`, no size; the stream is never read. No body: empty, no size. `capture_layer = PLATFORM`. |
-| `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. |
+| `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. `request_headers`: the headers the request went out with, from `_incompleteCurrentTaskTransactionMetrics` read in `_didReceiveResponse:sniff:`, masked; the desktop shows them in place of `RequestStarted`'s (ADR-0189). |
 | `RequestFailed` | `_didFinishWithError:` without a response, a cancelled task included | `error` is `NSURLErrorDomain <code>: <description>`, never the error's `userInfo`. |
 
 A task whose request carries `X-AppMonitor-Capture` (any value) is not
@@ -323,7 +323,9 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
   iOS 15 (DEBT-0111, DEBT-0118).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
-  among them, are not captured (DEBT-0037).
+  among them, reach the desktop with the response (ADR-0189); a request
+  without a network response (failed, held, mocked, background) keeps its
+  resume headers (DEBT-0125).
 - An iOS WebSocket that drops after the upgrade sends no event; a peer's
   close without a pending `receive` and a bare `cancel()` record no close
   frame (DEBT-0038). Ping and pong frames are not seen (DEBT-0029).

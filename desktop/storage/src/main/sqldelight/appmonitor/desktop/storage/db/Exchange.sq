@@ -51,6 +51,13 @@ WHERE id = :id;
 responded:
 UPDATE exchanges SET status_code = :statusCode, grpc_status = :grpcStatus, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
 
+requestMeta:
+SELECT request_meta FROM exchanges WHERE id = :id;
+
+-- ADR-0189: the headers a request went out with, known at its response.
+requestSent:
+UPDATE exchanges SET request_meta = :meta WHERE id = :id;
+
 failed:
 UPDATE exchanges SET failed = 1, error = :error, ended_at_ms = :atMs WHERE id = :id;
 

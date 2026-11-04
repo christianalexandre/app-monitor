@@ -55,6 +55,10 @@ message ResponseReceived {
   // CAPTURE_LAYER_CONNECTION only: bytes the app wrote, body_size the bytes it
   // read; status_code 0 and no body (ADR-0103).
   optional int64 sent_size = 7;
+  // The request's headers as they went out, when the sender learns them only
+  // after RequestStarted; replaces RequestStarted.headers when not empty
+  // (ADR-0189).
+  repeated Header request_headers = 8;
 }
 
 message RequestFailed {
