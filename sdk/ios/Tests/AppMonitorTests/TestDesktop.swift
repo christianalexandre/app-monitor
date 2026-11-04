@@ -188,8 +188,9 @@ final class Once: @unchecked Sendable {
     }
 }
 
-/// Polls `condition` every 10 ms until it holds or `timeout` seconds pass.
-func eventually(timeout: Double = 5, _ condition: () -> Bool) async -> Bool {
+/// Polls `condition` every 10 ms until it holds or `timeout` seconds pass. A passing test never waits
+/// the bound, and a hosted runner's simulator stalled past 5 s.
+func eventually(timeout: Double = 30, _ condition: () -> Bool) async -> Bool {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         if condition() { return true }
