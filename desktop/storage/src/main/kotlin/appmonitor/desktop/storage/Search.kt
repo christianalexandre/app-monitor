@@ -9,9 +9,8 @@ import appmonitor.v1.Hello
 import appmonitor.v1.ResponseReceived
 
 /**
- * What the exchange list is narrowed to; every null or false field matches all. [text] is a substring of the
- * URL, the host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them, and
- * match all when empty.
+ * What the exchange list is narrowed to; a null, false or empty field matches all. [text] is a substring of the URL,
+ * host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them.
  */
 data class ExchangeFilter(
     val text: String? = null,

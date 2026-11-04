@@ -12,9 +12,8 @@ import kotlinx.coroutines.withContext
 import java.net.BindException
 
 /**
- * A stored switch that starts and stops one service. [startService] returns the bound port and cleans up after itself
- * when it throws: a taken port or any failure is a [status], never a throw. Once [close]d it stays off.
- * A [set] before [start] reads the stored switch wins over it.
+ * A stored switch for one service. [startService] returns the bound port and cleans up when it throws; any failure is
+ * a [status], never a throw. Once [close]d it stays off; a [set] before [start] reads the stored switch wins over it.
  */
 internal class ServiceSwitch(
     private val onByDefault: Boolean,

@@ -38,9 +38,8 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Not a unit test: run by `liveScreenshots` only, against a real device running the sample (ADR-0031).
- * Real server on the default port with mDNS, the window's composable rendered offscreen on the live list while
- * recording, then the store reopened on the recording.
+ * Run by `liveScreenshots` only, against a real device running the sample (ADR-0031): real server on the default port
+ * with mDNS, the window offscreen on the live list while recording, then the store reopened on the recording.
  */
 @OptIn(ExperimentalTestApi::class)
 class LiveDeviceScreenshots {

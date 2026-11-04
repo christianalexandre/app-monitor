@@ -59,9 +59,8 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
 /**
- * The desktop's SQLite store. Writes go through one queue to one writer thread;
- * reads run on [Dispatchers.IO], each in its own transaction. Once [close] starts, reads return nothing and observed
- * queries end.
+ * The desktop's SQLite store. Writes go through one queue to one writer thread; reads run on [Dispatchers.IO], each in
+ * its own transaction. Once [close] starts, reads return nothing and observed queries end.
  */
 class Storage private constructor(
     /** The database file. */
@@ -413,8 +412,7 @@ class Storage private constructor(
 
     /**
      * Deletes ended sessions outside named runs, oldest first, past the age bound, then down to 90 % of the size bound
-     * (ADR-0082), on the writer thread between batches; failures go to [retentionStatus]. Closing: the last status.
-     * A session holding an issue's exchange keeps it and its row, and loses the rest (ADR-0095 B.1).
+     * (ADR-0082, ADR-0095 B.1), between batches on the writer thread; failures in [retentionStatus]. Closing: its last.
      */
     suspend fun applyRetention(): RetentionStatus =
         whileOpen {
@@ -847,9 +845,8 @@ class Storage private constructor(
         private const val VACUUM_CHUNK = 1_000L
 
         /**
-         * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (ADR-0142).
-         * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched, and
-         * [DataDirectoryInUseException] while another store holds [directory] (ADR-0175).
+         * Opens or creates `appmonitor.db` in [directory], and a new run if [startRun] (ADR-0142). Blocking; throws
+         * [NewerDatabaseException], the file untouched, and [DataDirectoryInUseException] (ADR-0175).
          */
         fun open(
             directory: Path,
@@ -1148,9 +1145,8 @@ data class StoredExchange(
 }
 
 /**
- * [request] and [response] are the events as received, bodies restored; null until that event is stored.
- * [mockRuleName] is null when the exchange was not mocked or its rule is no longer stored; [replayOfId] when it is
- * not a replay or its original is no longer stored.
+ * [request] and [response] are the events as received, bodies restored, null until stored. [mockRuleName] is null when
+ * not mocked or its rule is no longer stored; [replayOfId] when not a replay or its original is no longer stored.
  */
 data class ExchangeDetail(
     val exchange: StoredExchange,

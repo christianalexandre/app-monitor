@@ -1,10 +1,10 @@
 ---
 id: DEBT-0126
 title: Findings of the H6 milestone review that normal use does not hit
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-11-04
 trigger: "The next PR that touches a file its items name: `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`, `scripts/e2e_android.sh`"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0126 — Findings of the H6 milestone review that normal use does not hit
@@ -40,4 +40,15 @@ such a PR touches.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0017: items 1 to 3 in H7.1 (#374), the rest in H7.2.
+
+- 4: `DataDirectoryLock` keeps the directories this process holds and refuses before
+  opening the file, so no second channel can close. `DataDirectoryLockTest` reproduced the
+  drop first: a second process opened the directory after a refusal inside the first.
+- 5: `rotate` matches `dumpsys`' output without a pipe; the script restores
+  `accelerometer_rotation` as it found it, `null` included.
+- 6: every block in `desktop/`, `protocol/` and `tools/` is within 4 lines. Two more than
+  the list had, `LiveDeviceScreenshots.kt` and `CorpusTest.kt`, went too. What was cut is
+  in SDD 09, SDD 11 or the ADR the KDoc cites.
+
+Nothing is left of it.

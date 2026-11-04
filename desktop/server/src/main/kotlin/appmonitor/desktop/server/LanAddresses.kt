@@ -4,9 +4,8 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 
 /**
- * The IPv4 addresses a device on the LAN can reach: on interfaces up, multicast-capable, neither
- * loopback, virtual nor point-to-point (a VPN's `utun`). The desktop advertises on them and the fake
- * client browses on them; both must pick the same ones (ADR-0164).
+ * The IPv4 addresses a LAN device can reach: interfaces up, multicast-capable, not loopback, virtual or point-to-point
+ * (a VPN's `utun`). The desktop advertises and the fake client browses on them; both must pick the same (ADR-0164).
  */
 object LanAddresses {
     fun current(): List<Inet4Address> =

@@ -69,8 +69,7 @@ data class RunsState(
 
 /**
  * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), the
- * picked [row] and its [detail], the [marked] exchanges (ADR-0095 A.1), the [disconnected] devices (ADR-0144); [hosts]
- * are the shown list's and the filter's own, for the filter sheet.
+ * picked [row], its [detail], [marked] (ADR-0095 A.1), [disconnected] (ADR-0144); [hosts] for the filter sheet.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),

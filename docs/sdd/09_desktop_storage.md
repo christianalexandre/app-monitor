@@ -31,6 +31,8 @@ Opening (`Storage.open(dir)`):
    `appmonitor.db` empty with `0600` if absent. Take `appmonitor.lock` in the
    directory, held until `close`; another holder is
    `DataDirectoryInUseException`, with nothing else touched (ADR-0175).
+   Inside one process a set of held directories refuses before the file is
+   opened: on POSIX, closing any channel on it drops the process's lock.
 2. Open the driver with the connection properties of ADR-0085 (WAL,
    `foreign_keys`, `secure_delete`, `busy_timeout`).
 3. `user_version` is read first on one plain connection, without the
@@ -509,7 +511,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A read in flight keeps the database open until it returns, reads after close return nothing, observed queries end without an exception | `WriteQueueTest.aReadInFlightKeepsTheDriverOpenUntilItReturns`, `WriteQueueTest.observedQueriesEndWhenTheStoreCloses` (M5.R10) |
 | Run summaries page newest first with sessions and counts; settings kept across launches, deleted by clear all, null once closing | `RunsTest.runSummariesPageNewestFirstWithSessionsAndCounts`, `RunsTest.settingsAreKeptUntilClearAll` |
 | Data directory per OS and its override | `DataDirectoryTest` |
-| A second process refused until the first closes or is killed, the first's run left alone | `DataDirectoryLockTest` |
+| A second process refused until the first closes or is killed, the first's run left alone; a refusal inside the process, by a link too, keeping the lock | `DataDirectoryLockTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
 | A 10k-request session listed in bounded time and not stored, a stored run one click away after a restart, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4, H3.1b) |

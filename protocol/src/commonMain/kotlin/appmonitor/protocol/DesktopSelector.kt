@@ -10,10 +10,8 @@ data class DesktopAnswer(
 )
 
 /**
- * The rules every client applies to mDNS answers: instance names match case-insensitively,
- * the first desktop answered with an address is kept and every other name ignored, and its path
- * waits for the TXT record up to [TXT_GRACE_MS]. With [pinnedId], only a desktop whose TXT record carries that
- * id is kept (ADR-0168). Not thread-safe: callers feed it from one coroutine.
+ * The rules every client applies to mDNS answers: names match case-insensitively, the first desktop with an address
+ * wins, its path waits for TXT up to [TXT_GRACE_MS], [pinnedId] must match it (ADR-0168). Callers: one coroutine.
  */
 class DesktopSelector(
     private val serviceName: String? = null,
