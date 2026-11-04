@@ -280,7 +280,7 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 | Rebound symbol | What it reports |
 | --- | --- |
 | `getaddrinfo` | Nothing sent: each address it returns is mapped to the name asked (at most 512 kept) |
-| `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once |
+| `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once. A counted number whose socket now has another local port was closed outside `close`: its exchange ends first, as at `close` with no error read (ADR-0192) |
 | `read`, `readv`, `recv`, `recvfrom`, `recvmsg` | Bytes read, added to the socket's count (one table lookup when the socket is not counted) |
 | `write`, `writev`, `send`, `sendto`, `sendmsg` | Bytes written, likewise |
 | `close` | Before the original: `ResponseReceived` with status 0, no body and not `body_truncated`, `body_size` read, `sent_size` written; a pending `SO_ERROR`, or a socket that never connected and moved no byte, is `RequestFailed` instead |
@@ -301,7 +301,8 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 - **Tests**: `ConnectionCaptureTests` drives raw BSD sockets from the test
   image against `TestSocketServer` on loopback (loopback reported for the
   test): a blocking client by name with its bytes and duration, a
-  non-blocking connect counted once, a refused port, loopback, the option
+  non-blocking connect counted once, a number closed by `dup2` and connected
+  again as two exchanges, a refused port, loopback, the option
   off and an idle monitor, a `MonitorClient` to a `TestDesktop` that
   reports nothing, and sockets to desktops found by a `FakeBrowser` and a
   manual host on TEST-NET-1 addresses, skipped while another port on the

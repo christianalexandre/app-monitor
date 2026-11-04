@@ -1,6 +1,7 @@
 package appmonitor.desktop.ui
 
 import appmonitor.desktop.domain.Exchange
+import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Run
 import appmonitor.v1.Header
 import okio.ByteString
@@ -32,11 +33,24 @@ private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZo
 
 /** The status column of a request row. */
 fun statusOf(exchange: Exchange): String =
+    statusText(exchange.failed, exchange.isConnection, exchange.endedAtMs, exchange.grpcStatus, exchange.statusCode)
+
+/** The status the request detail shows, as its row in [statusOf]. */
+fun statusOf(exchange: HttpExchange): String =
+    statusText(exchange.error != null, exchange.connection != null, exchange.endedAtMs, exchange.grpcStatus, exchange.statusCode)
+
+private fun statusText(
+    failed: Boolean,
+    connection: Boolean,
+    endedAtMs: Long?,
+    grpcStatus: Int?,
+    statusCode: Int?,
+): String =
     when {
-        exchange.failed -> "failed"
-        exchange.isConnection -> if (exchange.endedAtMs != null) "closed" else "open"
-        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
-        exchange.statusCode != null -> exchange.statusCode.toString()
+        failed -> "failed"
+        connection -> if (endedAtMs != null) "closed" else "open"
+        (grpcStatus ?: 0) != 0 -> "grpc $grpcStatus"
+        statusCode != null -> statusCode.toString()
         else -> "…"
     }
 
