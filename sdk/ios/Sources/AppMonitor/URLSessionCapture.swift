@@ -383,7 +383,7 @@ enum Hooks {
         }
         if !WebSocketHooks.install() {
             Logger(subsystem: "AppMonitor", category: "capture").error(
-                "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
+                "WebSocket capture is off: this OS lacks the hooks of ADR-0045 and ADR-0190")
         }
         return true
     }

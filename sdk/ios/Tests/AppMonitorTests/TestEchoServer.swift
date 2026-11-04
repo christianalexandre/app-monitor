@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 /// WebSocket echo on 127.0.0.1 for capture tests: echoes text and binary frames; the text `close`
-/// is answered with a close frame, code 4000, reason `bye`.
+/// is answered with a close frame, code 4000, reason `bye`; the text `drop` drops the connection, no close frame.
 final class TestEchoServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "test.echo")
     private var listener: NWListener?
@@ -62,6 +62,7 @@ final class TestEchoServer: @unchecked Sendable {
             else { return }
             let data = data ?? Data()
             frames.append(data)
+            if metadata.opcode == .text, data == Data("drop".utf8) { return connection.forceCancel() }
             if metadata.opcode == .text, data == Data("close".utf8) {
                 let close = NWProtocolWebSocket.Metadata(opcode: .close)
                 close.closeCode = .privateCode(4000)

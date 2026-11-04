@@ -207,3 +207,4 @@ Rules:
 | [0187](0187-one-method-hook-for-the-ios-capture.md) | One method hook for the iOS capture | Accepted |
 | [0188](0188-a-held-call-in-the-ios-end-to-end.md) | A held call in the iOS end to end | Accepted |
 | [0189](0189-ios-headers-sent-read-from-the-transaction-metrics.md) | iOS headers sent are read from the transaction metrics at the response | Accepted |
+| [0190](0190-ios-websocket-ends-read-at-the-tasks-finish.md) | An iOS WebSocket's end is read where the task finishes | Accepted |

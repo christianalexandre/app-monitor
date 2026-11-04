@@ -148,7 +148,9 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   keeps its resume headers (DEBT-0125). Split from H6.4.
   Accept: `swift test --package-path sdk/ios`, `./gradlew :protocol:allTests
   :desktop:storage:test`, `make swift`, `make swift-sim`, `make e2e-ios` and `make e2e-kmp-ios`.
-- [ ] **H6.4 iOS SDK.** Every end of a WebSocket captured (DEBT-0038).
+- [x] **H6.4 iOS SDK.** (`fix/ios-websocket-every-end`) Every end of a WebSocket captured, read
+  where the task finishes (DEBT-0038, ADR-0190). A peer's close with no `receive` pending is not
+  read by the task itself, probed: it is recorded when the app next receives or cancels.
   Accept: `make swift`, `make swift-sim`, `make e2e-ios` and
   `make e2e-kmp-ios`.
 - [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames

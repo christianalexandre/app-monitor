@@ -10,7 +10,7 @@ final class WebSocketCapture: @unchecked Sendable {
     let limit: Int
     let requestURL: URL?
     private let lock = NSLock()
-    private var responded = false
+    private var status: Int?
     private var closed = false
 
     init(sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?) {
@@ -22,7 +22,7 @@ final class WebSocketCapture: @unchecked Sendable {
 
     func didReceive(_ response: URLResponse) {
         guard let response = response as? HTTPURLResponse else { return }
-        lock.withLock { responded = true }
+        lock.withLock { status = response.statusCode }
         emit(sink, "ResponseReceived") {
             var event = Appmonitor_V1_ResponseReceived()
             event.requestID = id
@@ -32,9 +32,26 @@ final class WebSocketCapture: @unchecked Sendable {
         }
     }
 
-    /// Only an upgrade that never got a response fails; a socket that drops later just stops sending frames.
-    func didFinish(_ error: NSError?) {
-        guard let error, !lock.withLock({ responded }) else { return }
+    /// Every end of the task (ADR-0190): an upgrade without a response fails; after a `101`, a close code is
+    /// the peer's close unless the app's came first, a cancel is the close without a code the task sends, and
+    /// any other error fails, as OkHttp's capture does. A rejected upgrade has ended at its response.
+    func ended(_ error: NSError?, closeCode: Int, closeReason: Data?) {
+        switch lock.withLock({ status }) {
+        case nil:
+            if let error { failed(error) }
+        case 101:
+            if closeCode != URLSessionWebSocketTask.CloseCode.invalid.rawValue {
+                close(.received, code: closeCode, reason: closeReason)
+            } else if let error, error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled {
+                close(.sent, payload: Data())
+            } else if let error {
+                failed(error)
+            }
+        default: break
+        }
+    }
+
+    private func failed(_ error: NSError) {
         emit(sink, "RequestFailed") {
             var event = Appmonitor_V1_RequestFailed()
             event.requestID = id
@@ -54,13 +71,17 @@ final class WebSocketCapture: @unchecked Sendable {
 
     /// The first close of either side; the payload is the 2-byte code and the reason (RFC 6455).
     func close(_ direction: Appmonitor_V1_WebSocketFrame.Direction, code: Int, reason: Data?) {
+        let code = UInt16(clamping: code)
+        close(direction, payload: Data([UInt8(code >> 8), UInt8(code & 0xFF)]) + (reason ?? Data()))
+    }
+
+    private func close(_ direction: Appmonitor_V1_WebSocketFrame.Direction, payload: Data) {
         let first = lock.withLock {
             defer { closed = true }
             return !closed
         }
         guard first else { return }
-        let code = UInt16(clamping: code)
-        frame(direction, .close, Data([UInt8(code >> 8), UInt8(code & 0xFF)]) + (reason ?? Data()))
+        frame(direction, .close, payload)
     }
 
     private func frame(
@@ -84,7 +105,7 @@ final class WebSocketCapture: @unchecked Sendable {
 /// `NSURLSessionWebSocketMessageTypeData`; `…TypeString` is 1.
 private let dataMessageType = 0
 
-/// The hooks of ADR-0045 on `__NSURLSessionWebSocketTask`; each calls the original with the same arguments.
+/// The hooks of ADR-0045 on `__NSURLSessionWebSocketTask`, and ADR-0190's on its superclass; each calls the original.
 enum WebSocketHooks {
     nonisolated(unsafe) private static var captureKey: UInt8 = 0
 
@@ -98,8 +119,8 @@ enum WebSocketHooks {
         guard let send = Hooks.own(cls, "sendMessage:completionHandler:"),
             let receive = Hooks.own(cls, "receiveMessageWithCompletionHandler:"),
             let response = Hooks.own(cls, "_onqueue_didReceiveResponse:completion:"),
-            let finish = Hooks.own(cls, "connection:didFinishLoadingWithError:"),
-            let close = Hooks.own(cls, "cancelWithCloseCode:reason:")
+            let close = Hooks.own(cls, "cancelWithCloseCode:reason:"),
+            let finish = Hooks.own(NSClassFromString("__NSCFLocalSessionTask"), "_onqueue_didFinishWithError:")
         else { return false }
         // Each records before the original runs, so a reply is never recorded before the frame it answers.
         MethodHook.before(send) { task, message, _ in
@@ -108,7 +129,11 @@ enum WebSocketHooks {
         MethodHook.before(response) { task, response, _ in
             if let response = response as? URLResponse { capture(of: task)?.didReceive(response) }
         }
-        MethodHook.before(finish) { task, _, error in capture(of: task)?.didFinish(error as? NSError) }
+        // The superclass's: an HTTP task passes here too, and has no WebSocket capture.
+        MethodHook.before(finish) { object, error in
+            guard let capture = capture(of: object), let task = object as? URLSessionWebSocketTask else { return }
+            capture.ended(error as? NSError, closeCode: task.closeCode.rawValue, closeReason: task.closeReason)
+        }
         hookReceive(receive)
         hookClose(close)
         return true
@@ -131,9 +156,8 @@ enum WebSocketHooks {
         }
     }
 
-    /// Wraps the app's handler: a message is recorded before the app gets it; an error after the peer's
-    /// close frame records that frame, read from the task's public `closeCode` and `closeReason`. The capture
-    /// is looked up on completion: Ktor's Darwin engine asks before it resumes the task (ADR-0158).
+    /// Wraps the app's handler: a message is recorded before the app gets it. The capture is looked up on
+    /// completion: Ktor's Darwin engine asks before it resumes the task (ADR-0158).
     private static func hookReceive(_ method: Method) {
         typealias Original = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
         typealias Handler = @convention(block) (AnyObject?, AnyObject?) -> Void
@@ -144,11 +168,7 @@ enum WebSocketHooks {
                 let app = unsafeBitCast(handler, to: Handler.self)
                 let wrapped: Handler = { message, error in
                     guard let capture = capture(of: task) else { return app(message, error) }
-                    if let message = message as? NSObject {
-                        capture.message(.received, message)
-                    } else if error != nil, task.closeCode != .invalid {
-                        capture.close(.received, code: task.closeCode.rawValue, reason: task.closeReason)
-                    }
+                    if let message = message as? NSObject { capture.message(.received, message) }
                     app(message, error)
                 }
                 original(object, selector, unsafeBitCast(wrapped, to: AnyObject.self))
