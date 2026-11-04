@@ -54,7 +54,7 @@ internal class ClientHandler(
     private val ca: ProxyCa,
     private val upstreamTls: SslContext,
     private val upstreamHttp2Tls: SslContext,
-    private val record: (Envelope) -> Unit,
+    private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
 ) : ChannelInboundHandlerAdapter() {
     private lateinit var client: ChannelHandlerContext
@@ -71,11 +71,17 @@ internal class ClientHandler(
     private var exchange: Exchange? = null
     private var raw = false
 
+    // The client is read while neither holds: [held] from a request's last part to its response's end (one exchange
+    // at a time), [upstreamFull] while the upstream's write buffer is past its high mark (backpressure).
+    private var held = false
+    private var upstreamFull = false
+
     private class Exchange(
         val capture: Capture,
         val keepAlive: Boolean,
     ) {
         var responded = false
+        var requestEnded = false
         var informational = false
         var status = 0
         var response: HttpResponse? = null
@@ -144,8 +150,10 @@ internal class ClientHandler(
         }
         current.capture.requestContent(msg.content())
         if (msg is LastHttpContent) {
+            current.requestEnded = true
             current.capture.requestDone()
-            client.channel().config().isAutoRead = false
+            held = true
+            readClient()
         }
         forward(msg)
     }
@@ -196,6 +204,7 @@ internal class ClientHandler(
 
     private fun openUpstream(target: Target) {
         connecting = true
+        upstreamFull = false
         upstreamTarget = target
         val handler = UpstreamHandler()
         val future =
@@ -241,6 +250,30 @@ internal class ClientHandler(
                 if (!done.isSuccess) fail("Could not write to ${upstreamTarget?.host}: ${done.cause().message}")
             },
         )
+        checkUpstreamFull(open)
+    }
+
+    private fun checkUpstreamFull(open: Channel) {
+        if (open.isWritable) return
+        upstreamFull = true
+        readClient()
+    }
+
+    private fun readClient() {
+        client.channel().config().isAutoRead = !held && !upstreamFull
+    }
+
+    /** Closes the upstream connection; the client is read again if only that one held it. */
+    private fun dropUpstream() {
+        upstream?.close()
+        upstream = null
+        upstreamFull = false
+        readClient()
+    }
+
+    override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+        if (ctx.channel().isWritable) upstream?.config()?.isAutoRead = true
+        super.channelWritabilityChanged(ctx)
     }
 
     /** Ends the exchange in flight as failed: a `502` when the client has no response yet, else a closed connection. */
@@ -248,8 +281,7 @@ internal class ClientHandler(
         val current = exchange ?: return
         if (current.capture.ended) return
         current.capture.failed(error)
-        upstream?.close()
-        upstream = null
+        dropUpstream()
         if (current.responded) {
             client.close()
         } else {
@@ -277,9 +309,14 @@ internal class ClientHandler(
             client.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE)
             return
         }
-        client.channel().config().isAutoRead = true
+        if (!current.requestEnded) {
+            // Answered before the request's end: the rest of its body is read and dropped, the upstream is not reused.
+            skipContent = true
+            dropUpstream()
+        }
+        held = false
+        readClient()
         while (queued.isNotEmpty() && !(exchange != null && queued.first() is HttpRequest)) dispatch(queued.removeFirst())
-        client.read()
     }
 
     // A 101 hands both sides over to raw bytes; what crosses after it is not captured (DEBT-0077).
@@ -287,9 +324,9 @@ internal class ClientHandler(
         raw = true
         client.pipeline().remove(ProxyServer.CODEC)
         upstreamContext.pipeline().remove(ProxyServer.CODEC)
-        client.channel().config().isAutoRead = true
+        held = false
+        readClient()
         while (queued.isNotEmpty()) relay(queued.removeFirst(), upstream)
-        client.read()
     }
 
     private fun relay(
@@ -301,6 +338,11 @@ internal class ClientHandler(
             return
         }
         to.writeAndFlush(msg)
+        if (to == upstream) checkUpstreamFull(to) else holdUpstreamIfClientFull()
+    }
+
+    private fun holdUpstreamIfClientFull() {
+        if (!client.channel().isWritable) upstream?.config()?.isAutoRead = false
     }
 
     override fun channelInactive(ctx: ChannelHandlerContext) {
@@ -351,6 +393,7 @@ internal class ClientHandler(
             if (msg is HttpContent && !current.informational) current.body.add(msg.content())
             val last = msg is LastHttpContent
             client.writeAndFlush(msg)
+            holdUpstreamIfClientFull()
             when {
                 current.informational -> {
                     if (last) current.informational = false
@@ -379,6 +422,14 @@ internal class ClientHandler(
             super.userEventTriggered(ctx, evt)
         }
 
+        override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+            if (ctx.channel() == upstream && ctx.channel().isWritable) {
+                upstreamFull = false
+                readClient()
+            }
+            super.channelWritabilityChanged(ctx)
+        }
+
         override fun channelInactive(ctx: ChannelHandlerContext) {
             if (raw) {
                 client.close()
@@ -386,6 +437,8 @@ internal class ClientHandler(
             }
             if (upstream != ctx.channel()) return
             upstream = null
+            upstreamFull = false
+            readClient()
             if (exchange != null) fail("${upstreamTarget?.host} closed the connection before the response ended")
         }
 

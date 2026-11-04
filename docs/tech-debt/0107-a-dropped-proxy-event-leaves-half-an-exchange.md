@@ -1,10 +1,10 @@
 ---
 id: DEBT-0107
 title: A proxy event dropped past its bound leaves half an exchange
-status: Open
+status: Paid
 date: 2026-10-30
 trigger: "The desktop logs `Proxy recording dropped`, or the next PR that changes how `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ProxyRecording.kt` bounds or drops events"
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0107 — A proxy event dropped past its bound leaves half an exchange
@@ -36,4 +36,8 @@ or mark the exchange as cut.
 
 ## How it was paid
 
-> Filled when closing.
+In `fix/proxy-flow-and-cut-exchanges` (ADR-0191): `ProxyRecording.record`
+answers whether it kept the event, and a `RequestFailed` passes the bound. A
+`Capture` whose `RequestStarted` was dropped sends nothing more; one whose
+later event was dropped sends a `RequestFailed` with `Capture.CUT` and nothing
+after it (`ProxyRecordingTest`).

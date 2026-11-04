@@ -66,7 +66,11 @@ fun main(args: Array<String>) {
         server.advertisingProblem?.let { println("mDNS: $it") }
         options.desktopId?.let { println("Desktop id $it") }
         options.proxyDirectory?.let { directory ->
-            val proxy = ProxyServer(ProxyCa.loadOrCreate(directory), { println("[proxy] ${describe(it)}") }, port = 0)
+            val proxy =
+                ProxyServer(ProxyCa.loadOrCreate(directory), {
+                    println("[proxy] ${describe(it)}")
+                    true
+                }, port = 0)
             Runtime.getRuntime().addShutdownHook(shutdownHook { proxy.stop() })
             println("Proxy on port ${proxy.start()}, CA in ${directory.resolve(ProxyCa.CERTIFICATE_FILE)}")
         }

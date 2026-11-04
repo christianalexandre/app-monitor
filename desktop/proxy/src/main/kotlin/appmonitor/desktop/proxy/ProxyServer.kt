@@ -29,7 +29,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 class ProxyServer(
     private val ca: ProxyCa,
-    private val record: (Envelope) -> Unit,
+    private val record: (Envelope) -> Boolean,
     private val port: Int = DEFAULT_PORT,
     upstreamTrust: TrustManagerFactory? = null,
     private val clock: () -> Long = System::currentTimeMillis,
