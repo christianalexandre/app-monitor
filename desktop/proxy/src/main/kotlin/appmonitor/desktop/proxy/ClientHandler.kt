@@ -70,6 +70,7 @@ internal class ClientHandler(
     private val queued = ArrayDeque<Any>()
     private var exchange: Exchange? = null
     private var raw = false
+    private var webSocket: WebSocketCapture? = null
 
     // The client is read while neither holds: [held] from a request's last part to its response's end (one exchange
     // at a time), [upstreamFull] while the upstream's write buffer is past its high mark (backpressure).
@@ -319,7 +320,7 @@ internal class ClientHandler(
         while (queued.isNotEmpty() && !(exchange != null && queued.first() is HttpRequest)) dispatch(queued.removeFirst())
     }
 
-    // A 101 hands both sides over to raw bytes; what crosses after it is not captured (DEBT-0077).
+    // A 101 hands both sides over to raw bytes, a WebSocket's frames read as they cross (ADR-0193).
     private fun upgrade(upstreamContext: ChannelHandlerContext) {
         raw = true
         client.pipeline().remove(ProxyServer.CODEC)
@@ -337,6 +338,7 @@ internal class ClientHandler(
             ReferenceCountUtil.release(msg)
             return
         }
+        webSocket?.let { if (to == upstream) it.client(msg) else it.origin(msg) }
         to.writeAndFlush(msg)
         if (to == upstream) checkUpstreamFull(to) else holdUpstreamIfClientFull()
     }
@@ -355,6 +357,7 @@ internal class ClientHandler(
             },
         )
         connectCapture = null
+        webSocket?.ended()
         exchange?.capture?.failed("The client closed the connection")
         exchange = null
         upstream?.close()
@@ -401,6 +404,7 @@ internal class ClientHandler(
 
                 last && current.status == 101 -> {
                     current.capture.responded(101, headersOf(current.response!!.headers()), current.body)
+                    webSocket = WebSocketCapture.of(current.capture, current.response!!)
                     exchange = null
                     upgrade(ctx)
                 }

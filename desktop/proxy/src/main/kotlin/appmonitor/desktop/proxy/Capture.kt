@@ -21,7 +21,7 @@ internal class BodyCapture {
 
     fun add(content: ByteBuf) {
         val readable = content.readableBytes()
-        val room = (Protocol.MAX_BODY_BYTES - kept.size).toInt().coerceIn(0, readable)
+        val room = room(readable)
         if (room > 0) {
             val bytes = ByteArray(room)
             content.getBytes(content.readerIndex(), bytes)
@@ -30,6 +30,16 @@ internal class BodyCapture {
         size += readable
     }
 
+    fun add(
+        bytes: ByteArray,
+        count: Int = bytes.size,
+    ) {
+        kept.write(bytes, 0, room(count))
+        size += count
+    }
+
+    private fun room(count: Int) = (Protocol.MAX_BODY_BYTES - kept.size).toInt().coerceIn(0, count)
+
     val truncated: Boolean get() = kept.size < size
 
     fun bytes() = kept.snapshot()
@@ -37,7 +47,8 @@ internal class BodyCapture {
 
 /**
  * One exchange the proxy relays, written as the events an SDK sends (ADR-0101): [RequestStarted] once the request is
- * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame].
+ * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame], a
+ * WebSocket's frames after its `101` once [keepOpen] was called.
  * Event loop only; each event goes to [record] once. One [record] dropped cuts the exchange: nothing more is sent, and
  * when its [RequestStarted] was kept a [RequestFailed] with [CUT] ends it.
  */
@@ -53,6 +64,7 @@ internal class Capture(
     private val requestBody = BodyCapture()
     private var started = false
     private var cut = false
+    private var open = false
     var ended = false
         private set
 
@@ -98,18 +110,29 @@ internal class Capture(
         )
     }
 
-    /** One gRPC message, after [requestDone] and before the end; [message] keeps what [BodyCapture] keeps. */
+    /** Frames and one [failed] are taken after [responded], until [failed] or [closed]: a WebSocket's (ADR-0193). */
+    fun keepOpen() {
+        open = true
+    }
+
+    /** The WebSocket ended with a close frame: nothing more is sent. */
+    fun closed() {
+        open = false
+    }
+
+    /** One gRPC message before the end, or a WebSocket frame; [message] keeps what [BodyCapture] keeps. */
     fun frame(
         sent: Boolean,
         message: BodyCapture,
+        opcode: WebSocketFrame.Opcode = WebSocketFrame.Opcode.OPCODE_BINARY,
     ) {
-        if (ended) return
+        if (ended && !open) return
         requestDone()
         emit(
             WebSocketFrame(
                 request_id = requestId,
                 direction = if (sent) WebSocketFrame.Direction.DIRECTION_SENT else WebSocketFrame.Direction.DIRECTION_RECEIVED,
-                opcode = WebSocketFrame.Opcode.OPCODE_BINARY,
+                opcode = opcode,
                 payload = message.bytes(),
                 payload_truncated = message.truncated,
                 payload_size = message.size,
@@ -119,7 +142,8 @@ internal class Capture(
     }
 
     fun failed(error: String) {
-        if (ended) return
+        if (ended && !open) return
+        open = false
         requestDone()
         ended = true
         emit(RequestFailed(request_id = requestId, error = error), clock())

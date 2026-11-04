@@ -92,7 +92,16 @@ Castle, ADR-0105); the switch, status and commands in
    with it as text when no response started, else its connection closes.
    The client closing first stores `The client closed the connection`.
 6. **`101`**: the exchange is stored with status 101, both codecs come
-   off and bytes are relayed as they are (DEBT-0077).
+   off and bytes are relayed as they are. When its `Upgrade` is
+   `websocket`, `WebSocketCapture` reads the bytes each way as they are
+   relayed, without changing them (ADR-0193): each message, fragments
+   joined, client masks removed, `permessage-deflate` inflated, is one
+   `WebSocketFrame` with its opcode, at most `Protocol.MAX_BODY_BYTES`
+   and its full size; each ping, pong and close frame is one too. The
+   connection closing with no close frame either way stores
+   `The WebSocket's connection closed without a close frame`. A frame it
+   cannot parse stops the capture of that direction, not the relay
+   (`ProxyWebSocketTest`).
 7. A `1xx` other than 101 is forwarded and not stored. A response that
    is not keep-alive, or a request that was not, closes the client after
    the last part.
@@ -185,8 +194,9 @@ the proxy's 2 s.
   that reads only the keychain is not served (ADR-0108).
 - An HTTP/2 client reaching an HTTP/1.1-only origin gets `502`
   (DEBT-0079).
-- Nothing after a `101` is captured (DEBT-0077); no pass-through list for
-  pinned hosts (DEBT-0078).
+- Only a WebSocket is read after a `101`, over HTTP/1.1: other upgrades
+  and RFC 8441 WebSockets over HTTP/2 are relayed with no frames
+  (ADR-0193); no pass-through list for pinned hosts (DEBT-0078).
 - One request at a time per HTTP/1.1 client connection; HTTP/2 streams
   run side by side.
 - Bodies are stored as sent: a compressed body keeps its

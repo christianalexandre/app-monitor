@@ -165,8 +165,13 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding).
   (DEBT-0081, paid whole). Split from H6.5.
   Accept: `swift test --package-path sdk/ios --filter ConnectionCaptureTests`,
   `./gradlew :desktop:ui:test :desktop:feature:traffic:test`, `make swift`, `make swift-sim`.
-- [ ] **H6.5 Proxy.** A WebSocket through the proxy shows its frames
-  (DEBT-0077); the pass-through list of ADR-0101 E.1 in Settings
+- [x] **H6.5c A WebSocket's frames through the proxy.** (`feat/proxy-websocket-frames`) After a
+  `101` to `websocket` each message and control frame is read as it is relayed, unmasked, joined
+  and inflated, and stored as a `WebSocketFrame`; no close frame either way ends it failed
+  (DEBT-0077, ADR-0193). DEBT-0122 paid on its trigger: the tests' curl version is an input of
+  `:desktop:proxy:test` and `:desktop:mcp:test`. Split from H6.5.
+  Accept: `./gradlew :desktop:proxy:test`.
+- [ ] **H6.5 Proxy.** The pass-through list of ADR-0101 E.1 in Settings
   (DEBT-0078); an HTTP/2 client reaches an HTTP/1.1-only origin
   (DEBT-0079); a client refusing the
   certificate recorded on Windows (DEBT-0098).
