@@ -214,3 +214,4 @@ Rules:
 | [0194](0194-the-proxys-pass-through-list.md) | The proxy's pass-through list, matched at each CONNECT and relayed as raw bytes | Accepted |
 | [0195](0195-a-tunnels-leaf-offers-what-its-origin-does.md) | A tunnel's leaf offers what its origin does, asked before the client's handshake | Accepted |
 | [0196](0196-loop-watchdog-ends-the-sessions-whole-tree.md) | The loop's watchdog ends the session's whole process tree, and its kill is the timeout | Accepted |
+| [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |

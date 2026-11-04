@@ -188,8 +188,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `saved = 1`, which the first save opens, named "Saved" and ended at
   once. Each live session gets one session row there, found again by
   `server_session_id`; each exchange is written by `Ingest`'s own event
-  code. One already saved takes its request and outcome again, not its
-  frames, so a request saved before its response gets it. Returns each live id's
+  code. One already saved takes its request and outcome again and only
+  the frames received since its last save, counted by the writer for the
+  store's lifetime (ADR-0197), so a request saved before its response gets
+  it and a live WebSocket its new frames. Returns each live id's
   stored id once written, nothing when lost or closed.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
@@ -526,6 +528,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A version 9 file migrated, its rows found through the new indexes | `SearchTest.aVersionNineFileIsMigratedWithItsRowsIndexed` (ADR-0177) |
 | One table of filters and one set of odd events on the store and the live list | `FilterMatchTest` (DEBT-0104) |
 | A request saved before its response gets it on the next Save, its frames not doubled | `SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt` |
+| A live WebSocket saved again gets the frames since, none twice, past frames the list cut, after a lost batch and after "Clear all data" | `SaveTest.savedAgainALiveWebSocketStoresTheFramesSince`, `framesCutFromTheListBetweenSavesAreLeftOutAndTheRestStored`, `aSaveLostInItsBatchStoresItsFramesWithTheNextSave`, `savedAgainAfterClearAllItsFramesAreStoredAgain` |
 | The filter sheet narrows the list by status class, host and method, and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
 | The hosts of a run, a session or every stored exchange | `SearchTest.hostsOfARunASessionOrEveryExchange` (H3.6c) |
 | The sheet offers the shown hosts, a host filter keeps only that host's rows | `TrafficViewModelTest` in `desktop/feature/traffic` (H3.6c) |

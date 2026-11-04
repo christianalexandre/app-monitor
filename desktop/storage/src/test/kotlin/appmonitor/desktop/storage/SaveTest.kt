@@ -6,6 +6,7 @@ import appmonitor.v1.WebSocketFrame
 import kotlinx.coroutines.runBlocking
 import okio.ByteString.Companion.encodeUtf8
 import java.sql.DriverManager
+import java.sql.SQLException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -13,6 +14,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class SaveTest {
+    private fun frame(payload: String) =
+        envelope(WebSocketFrame(request_id = "ws", payload = payload.encodeUtf8(), payload_size = payload.length.toLong()))
+
     @Test
     fun savedExchangesGoToOneSavedRunAndSurviveARestart() =
         withDataDir { dir ->
@@ -88,6 +92,101 @@ class SaveTest {
                 assertEquals(101, stored.statusCode)
                 assertEquals(1_200, stored.endedAtMs)
                 assertEquals(1, stored.frameCount, "the frame saved first is not stored twice")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun savedAgainALiveWebSocketStoresTheFramesSince() =
+        withDataDir { dir ->
+            val live = LiveTraffic()
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                live.connected("s1", hello(), null)
+                live.received("s1", envelope(started("ws"), atMs = 1_000))
+                live.received("s1", frame("a"))
+                live.received("s1", frame("b"))
+                val ids = live.searchExchanges(ExchangeFilter()).map { it.id }
+                val first = storage.save(live.copies(ids))
+                val stored = first.getValue(ids.single())
+
+                live.received("s1", frame("c"))
+                // The same payload again is a new frame, not one saved before.
+                live.received("s1", frame("a"))
+                assertEquals(first, storage.save(live.copies(ids)))
+                assertEquals(first, storage.save(live.copies(ids)))
+
+                assertEquals(listOf("a", "b", "c", "a"), storage.frames(stored).map { it.payload.utf8() })
+                assertEquals(4, storage.exchangesOfRun(storage.runs().single().id).single().frameCount)
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun framesCutFromTheListBetweenSavesAreLeftOutAndTheRestStored() =
+        withDataDir { dir ->
+            val live = LiveTraffic(maxFramesPerExchange = 2)
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                live.connected("s1", hello(), null)
+                live.received("s1", envelope(started("ws"), atMs = 1_000))
+                live.received("s1", frame("a"))
+                val ids = live.searchExchanges(ExchangeFilter()).map { it.id }
+                val stored = storage.save(live.copies(ids)).getValue(ids.single())
+
+                live.received("s1", frame("b"))
+                storage.save(live.copies(ids))
+                listOf("c", "d", "e").forEach { live.received("s1", frame(it)) }
+                storage.save(live.copies(ids))
+
+                assertEquals(listOf("a", "b", "d", "e"), storage.frames(stored).map { it.payload.utf8() })
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aSaveLostInItsBatchStoresItsFramesWithTheNextSave() =
+        withDataDir { dir ->
+            var failing = false
+            val live = LiveTraffic()
+            val storage =
+                Storage.open(dir, { 1_000 }, Storage.MAX_QUEUE_BYTES, startRun = false, retentionInterval = null) {
+                    if (failing) throw SQLException("disk I/O error")
+                }
+            runBlocking {
+                live.connected("s1", hello(), null)
+                live.received("s1", envelope(started("ws"), atMs = 1_000))
+                live.received("s1", frame("a"))
+                val ids = live.searchExchanges(ExchangeFilter()).map { it.id }
+                val stored = storage.save(live.copies(ids)).getValue(ids.single())
+
+                live.received("s1", frame("b"))
+                failing = true
+                assertEquals(emptyMap(), storage.save(live.copies(ids)))
+                failing = false
+                storage.save(live.copies(ids))
+
+                assertEquals(listOf("a", "b"), storage.frames(stored).map { it.payload.utf8() })
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun savedAgainAfterClearAllItsFramesAreStoredAgain() =
+        withDataDir { dir ->
+            val live = LiveTraffic()
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                live.connected("s1", hello(), null)
+                live.received("s1", envelope(started("ws"), atMs = 1_000))
+                live.received("s1", frame("a"))
+                val ids = live.searchExchanges(ExchangeFilter()).map { it.id }
+                storage.save(live.copies(ids))
+                storage.clearAll()
+
+                val stored = storage.save(live.copies(ids)).getValue(ids.single())
+
+                assertEquals(listOf("a"), storage.frames(stored).map { it.payload.utf8() })
                 storage.close(5.seconds)
             }
         }
