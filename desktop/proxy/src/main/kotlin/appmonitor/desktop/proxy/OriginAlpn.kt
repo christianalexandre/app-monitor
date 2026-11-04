@@ -118,6 +118,7 @@ internal class OriginAlpn(
 internal class TunnelTls(
     private val ask: (then: (http2: Boolean) -> Unit) -> Unit,
     private val leaf: (http2: Boolean) -> SslContext,
+    private val failed: (Exception) -> Unit,
 ) : ByteToMessageDecoder() {
     private var decided = false
 
@@ -134,7 +135,14 @@ internal class TunnelTls(
         }
         ask { http2 ->
             if (!ctx.isRemoved && ctx.channel().isActive) {
-                ctx.pipeline().addAfter(ctx.name(), "tls", leaf(http2).newHandler(ctx.alloc()))
+                // ask's answer may come in a listener, where a throw would reach nothing and leave the client waiting.
+                val tls =
+                    try {
+                        leaf(http2).newHandler(ctx.alloc())
+                    } catch (e: Exception) {
+                        return@ask failed(e)
+                    }
+                ctx.pipeline().addAfter(ctx.name(), "tls", tls)
                 ctx.pipeline().remove(this)
             }
         }

@@ -18,12 +18,13 @@ The roadmap's `Hold` stays: M10 is still the owner's go.
 
 ## Tasks
 
-- [ ] **H7.1 The proxy's review findings.** A WebSocket message ending in a `BFINAL=1` block
+- [x] **H7.1 The proxy's review findings.** (#374) A WebSocket message ending in a `BFINAL=1` block
   no longer leaves every later message captured empty (DEBT-0126, item 2, RFC 7692 7.2.3.4);
   a leaf that cannot be built in `TunnelTls`' asynchronous callback fails the tunnel instead
   of leaving it hanging (item 1); a plain tunnel closed without a byte is not labelled a TLS
   failure (item 3).
   Accept: `./gradlew :desktop:proxy:test`, a test for each item failing without its fix.
+  Item 1 reproduced through the proxy: a scoped IPv6 host has no certificate name.
 - [ ] **H7.2 The rest of DEBT-0126.** The data directory lock survives a refused second open
   inside one JVM (item 4); `scripts/e2e_android.sh`'s `grep -q` under `pipefail`, and
   `accelerometer_rotation` restored on the emulator (item 5); the 16 KDocs over guideline 02's

@@ -178,6 +178,32 @@ class ProxyWebSocketTest {
     }
 
     @Test
+    fun aMessageEndingInAFinalBlockLeavesLaterOnesReadableWithTheirWindow() {
+        val text = "a message later ones copy from, under context takeover. ".repeat(10)
+        val finished = Deflater(Deflater.DEFAULT_COMPRESSION, true)
+        finished.setInput(text.toByteArray())
+        finished.finish()
+        val buffer = ByteArray(4096)
+        val final = buffer.copyOf(finished.deflate(buffer)) + 0
+        val following = Deflater(Deflater.DEFAULT_COMPRESSION, true).apply { setDictionary(text.toByteArray()) }
+        val copying = deflated(following, text)
+        assertTrue(copying.size < 20, "the next message does not refer to the first")
+        val wire =
+            frame(fin = true, rsv1 = true, opcode = 1, final, mask = false) +
+                frame(fin = true, rsv1 = true, opcode = 1, copying, mask = false) +
+                frame(fin = true, rsv1 = true, opcode = 1, deflated(following, text), mask = false)
+
+        for (chunks in listOf(wire.toList().map { byteArrayOf(it) }, listOf(wire))) {
+            val (capture, events) = upgraded()
+            val socket = WebSocketCapture.of(capture, response("permessage-deflate"))!!
+
+            chunks.forEach { socket.origin(Unpooled.wrappedBuffer(it)) }
+
+            assertEquals(listOf(text, text, text), events.frames().map { it.payload.utf8() })
+        }
+    }
+
+    @Test
     fun anUnknownOpcodeStopsTheCaptureNotTheRest() {
         val (capture, events) = upgraded()
         val socket = WebSocketCapture.of(capture, response(null))!!

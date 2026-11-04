@@ -1,6 +1,8 @@
 package appmonitor.desktop.proxy
 
+import io.netty.buffer.Unpooled
 import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.nio.NioIoHandler
 import io.netty.handler.ssl.ApplicationProtocolConfig
 import io.netty.handler.ssl.ApplicationProtocolNames
@@ -58,6 +60,26 @@ class OriginAlpnTest {
             assertTrue(ask(silent.localPort))
             assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - before) < 2_000)
         }
+    }
+
+    @Test
+    fun `a leaf that cannot be built when the answer comes later is reported, not thrown into the listener`() {
+        var answer: ((Boolean) -> Unit)? = null
+        var failure: Exception? = null
+        val channel =
+            EmbeddedChannel(
+                TunnelTls(
+                    ask = { answer = it },
+                    leaf = { error("no certificate") },
+                    failed = { failure = it },
+                ),
+            )
+        channel.writeInbound(Unpooled.wrappedBuffer(byteArrayOf(0x16, 0x03, 0x01, 0x00, 0x40, 0x01)))
+
+        answer!!(true)
+
+        assertEquals("no certificate", failure?.message)
+        channel.finishAndReleaseAll()
     }
 
     private fun ask(port: Int): Boolean {
