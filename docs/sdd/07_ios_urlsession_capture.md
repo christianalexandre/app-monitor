@@ -175,14 +175,16 @@ latter, so the captured URL is `http` or `https`, as on Android (ADR-0071).
 | --- | --- |
 | `RequestStarted` | The first `resume()`, as for a data task, no body. |
 | `ResponseReceived` | `_onqueue_didReceiveResponse:completion:`: the `101` (or the status that refused the upgrade) and its masked headers, no body. |
-| `RequestFailed` | `connection:didFinishLoadingWithError:` with an error before any response, e.g. a refused connection. |
-| `WebSocketFrame` sent | `sendMessage:completionHandler:`, before the original runs, so an echo is never recorded before it; text or binary. `cancelWithCloseCode:reason:` on a running task: a close frame. |
-| `WebSocketFrame` received | The app's `receive` handler, before the app gets the message; an error there after the peer's close frame, read from `closeCode` and `closeReason`: a received close frame. |
+| `RequestFailed` | `_onqueue_didFinishWithError:` (`__NSCFLocalSessionTask`'s, ADR-0190) with an error before any response (a refused connection, a cancel), or after the `101` with an error other than a cancel and no close code (a dropped socket), as on Android. |
+| `WebSocketFrame` sent | `sendMessage:completionHandler:`, before the original runs, so an echo is never recorded before it; text or binary. `cancelWithCloseCode:reason:` on a running task: a close frame. A bare `cancel()` after the `101`: a close frame with an empty payload, as it goes out, at the task's finish. |
+| `WebSocketFrame` received | The app's `receive` handler, before the app gets the message. At the task's finish after the `101`, a close code the app did not send: the peer's close frame, from `closeCode` and `closeReason`. |
 
 Payloads are cut at `maxBodyBytes` with `payload_truncated` and
 `payload_size` (ADR-0028), never masked (ADR-0036); a close payload is the
 2-byte code and the reason. Only the first close of either side is
-recorded.
+recorded. CFNetwork reads the socket only for a pending `receive`: a peer's
+close or drop with none pending is recorded when the app next receives or
+cancels, as the app learns it (ADR-0190).
 
 ### One background task
 
@@ -326,9 +328,7 @@ hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
   among them, reach the desktop with the response (ADR-0189); a request
   without a network response (failed, held, mocked, background) keeps its
   resume headers (DEBT-0125).
-- An iOS WebSocket that drops after the upgrade sends no event; a peer's
-  close without a pending `receive` and a bare `cancel()` record no close
-  frame (DEBT-0038). Ping and pong frames are not seen (DEBT-0029).
+- iOS WebSocket ping and pong frames are not seen (DEBT-0029).
 - An adopted background task's request body is not captured, and no test
   relaunches the app to adopt an earlier launch's task (ADR-0131).
 - The hooks are private CFNetwork names, proven by `swift test` on the

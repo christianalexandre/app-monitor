@@ -17,6 +17,27 @@ extension RecordingSink {
     }
 }
 
+extension RecordingSink {
+    /// The error `requestID` failed with, waited for up to 5 s.
+    func failure(_ requestID: String) async throws -> String {
+        for _ in 0..<100 {
+            if let failed = try all.filter({ $0.type == "RequestFailed" })
+                .map({ try Appmonitor_V1_RequestFailed(serializedBytes: $0.payload) })
+                .first(where: { $0.requestID == requestID })
+            {
+                return failed.error
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw CaptureTestError.noExchange(requestID)
+    }
+
+    func frameCount(_ requestID: String) throws -> Int {
+        try all.filter { $0.type == "WebSocketFrame" }
+            .filter { try Appmonitor_V1_WebSocketFrame(serializedBytes: $0.payload).requestID == requestID }.count
+    }
+}
+
 func frame(
     _ direction: Appmonitor_V1_WebSocketFrame.Direction,
     _ opcode: Appmonitor_V1_WebSocketFrame.Opcode,
@@ -62,6 +83,9 @@ extension ProcessWideHooks.URLSessionCaptureTests {
                 frame(.sent, .close, Data([0x03, 0xE9]) + Data("done".utf8)),
             ])
         #expect(frames.allSatisfy { !$0.payloadTruncated && $0.payloadSize == Int64($0.payload.count) })
+        try await Task.sleep(nanoseconds: 200_000_000)
+        #expect(try sink.frameCount(started.requestID) == 5)
+        #expect(sink.all.filter { $0.type == "RequestFailed" }.isEmpty)
         guard case .string("hi") = text, case .data(let bytes) = binary else {
             Issue.record("the app got \(text) and \(String(describing: binary))")
             return
@@ -159,6 +183,63 @@ extension ProcessWideHooks.URLSessionCaptureTests {
                 frame(.received, .close, Data([0x0F, 0xA0]) + Data("bye".utf8)),
             ])
         #expect(task.closeCode.rawValue == 4000)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        #expect(try sink.frameCount(started.requestID) == 2)
+        #expect(sink.all.filter { $0.type == "RequestFailed" }.isEmpty)
+    }
+
+    @Test func aSocketDroppedAfterTheUpgradeFails() async throws {
+        let echo = TestEchoServer()
+        try await echo.start()
+        defer { echo.stop() }
+        capture()
+        let task = URLSession.shared.webSocketTask(with: echo.url("/drop"))
+        task.resume()
+        let reply = Task { try await task.receive() }
+
+        try await task.send(.string("drop"))
+        await #expect(throws: (any Error).self) { _ = try await reply.value }
+
+        let (started, end) = try await sink.exchange(echo.httpURL("/drop"))
+        #expect(try received(end).statusCode == 101)
+        #expect(try await sink.failure(started.requestID).hasPrefix("NSPOSIXErrorDomain 54"))
+        #expect(flat(try await sink.frames(started.requestID, count: 1)) == [frame(.sent, .text, Data("drop".utf8))])
+    }
+
+    @Test func aBareCancelIsACloseFrameWithoutACode() async throws {
+        let echo = TestEchoServer()
+        try await echo.start()
+        defer { echo.stop() }
+        capture()
+        let task = URLSession.shared.webSocketTask(with: echo.url("/cancel"))
+        task.resume()
+
+        try await task.send(.string("hi"))
+        _ = try await task.receive()
+        task.cancel()
+
+        let (started, _) = try await sink.exchange(echo.httpURL("/cancel"))
+        let frames = try await sink.frames(started.requestID, count: 3)
+        #expect(
+            flat(frames) == [
+                frame(.sent, .text, Data("hi".utf8)), frame(.received, .text, Data("hi".utf8)),
+                frame(.sent, .close, Data()),
+            ])
+        try await Task.sleep(nanoseconds: 200_000_000)
+        #expect(sink.all.filter { $0.type == "RequestFailed" }.isEmpty)
+    }
+
+    @Test func aCancelBeforeTheUpgradeFails() async throws {
+        capture()
+        let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(server.port)/hang")!)
+        task.resume()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        task.cancel()
+
+        let (_, end) = try await sink.exchange(server.url("/hang"))
+        #expect(end.type == "RequestFailed")
+        #expect(try Appmonitor_V1_RequestFailed(serializedBytes: end.payload).error.hasPrefix("NSURLErrorDomain -999"))
+        #expect(sink.all.filter { $0.type == "WebSocketFrame" }.isEmpty)
     }
 
     @Test func aRefusedConnectionIsAFailedUpgrade() async throws {
