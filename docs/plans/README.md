@@ -54,6 +54,7 @@ record of how the milestone was actually built once it is done.
 | [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
+| [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Active |
 
 ## Roadmap
 
@@ -79,10 +80,10 @@ swaps the SDK for its no-ops in release builds, published with the SDK
 ### Later — readable bodies
 
 A body the window cannot read today (owner, 2026-10-30, after Firebase's
-`batchlog` in the field test): first a gzip `Content-Encoding` opened
-before formatting, then protobuf decoded without a schema (field numbers
-and values), later with `.proto` files the developer adds. Product scope:
-the owner picks when.
+`batchlog` in the field test): a gzip `Content-Encoding` opens since
+[PLAN-0017](0017-cleanup-and-gzip-bodies.md); next protobuf decoded without
+a schema (field numbers and values), later with `.proto` files the developer
+adds. Product scope: the owner picks when.
 
 ### Later — more debug channels
 
