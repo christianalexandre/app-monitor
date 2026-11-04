@@ -18,7 +18,7 @@ The roadmap's `Hold` stays: M10 is still the owner's go.
 
 ## Tasks
 
-- [x] **H7.1 The proxy's review findings.** A WebSocket message ending in a `BFINAL=1` block
+- [x] **H7.1 The proxy's review findings.** (#374) A WebSocket message ending in a `BFINAL=1` block
   no longer leaves every later message captured empty (DEBT-0126, item 2, RFC 7692 7.2.3.4);
   a leaf that cannot be built in `TunnelTls`' asynchronous callback fails the tunnel instead
   of leaving it hanging (item 1); a plain tunnel closed without a byte is not labelled a TLS
