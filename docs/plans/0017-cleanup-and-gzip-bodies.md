@@ -32,7 +32,7 @@ The roadmap's `Hold` stays: M10 is still the owner's go.
   Deviation: two blocks the debt did not list, `LiveDeviceScreenshots.kt` and `CorpusTest.kt`, were
   over the limit too and went with it.
   Accept: `./gradlew :desktop:storage:test`; `make check`; `make e2e-android`.
-- [ ] **H7.3 DEBT-0050.** Its two `pr-conventions.yml` items read against today's
+- [x] **H7.3 DEBT-0050.** (#376) Its two `pr-conventions.yml` items read against today's
   `scripts/trailer_check.sh` and `origin/main..origin/dev`, each paid or dropped with that
   evidence; `scripts/debt_check.sh`'s basename and short path items paid or dropped with a
   case from this repository.
