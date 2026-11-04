@@ -2,7 +2,7 @@
 # Runs /next in a fresh session per iteration in a dedicated worktree until it
 # reports STOP; `--worktree` only creates the worktree. Env (defaults):
 #   MAX_ITERATIONS=50  MAX_BUDGET_USD=20 (per iteration)  ITERATION_TIMEOUT=5400 (s)
-#   LIMIT_RETRIES=8    LOOP_WORKTREE=../<repo>-loop
+#   KILL_GRACE=10 (s, from TERM to KILL)  LIMIT_RETRIES=8  LOOP_WORKTREE=../<repo>-loop
 #   PLAN_CHECKPOINT=1 stops at each plan's close instead of merging it (ADR-0019)
 set -uo pipefail
 
@@ -11,6 +11,7 @@ worktree="${LOOP_WORKTREE:-$(dirname "$repo")/$(basename "$repo")-loop}"
 max="${MAX_ITERATIONS:-50}"
 budget="${MAX_BUDGET_USD:-20}"
 timeout_s="${ITERATION_TIMEOUT:-5400}"
+kill_grace_s="${KILL_GRACE:-10}"
 limit_retries="${LIMIT_RETRIES:-8}"
 poll_s=0.2
 logs="$repo/.loop"
@@ -30,20 +31,43 @@ ensure_worktree() {
   echo "loop: created worktree $worktree"
 }
 
-# Kills $1 after $timeout_s seconds and touches $2, unless $3 appears first.
-# Polled, never cancelled by a signal: ADR-0014.
+# Every process under $1 right now, children first.
+descendants() {
+  local child
+  for child in $(pgrep -P "$1"); do
+    descendants "$child"
+    echo "$child"
+  done
+}
+
+# After $timeout_s seconds touches $2 and ends $1 and all under it, TERM then KILL (ADR-0196), unless
+# $3 appears first. Polled, never cancelled by a signal: ADR-0014.
 watchdog() {
   local deadline=$((SECONDS + timeout_s))
   while ((SECONDS < deadline)); do
     [[ -e "$3" ]] && return 0
     sleep "$poll_s"
   done
-  [[ -e "$3" ]] || { kill -TERM "$1" 2>/dev/null && touch "$2"; }
+  [[ -e "$3" ]] && return 0
+  local tree
+  tree="$(descendants "$1")"
+  kill -TERM "$1" 2>/dev/null || return 0
+  touch "$2"
+  # shellcheck disable=SC2086
+  kill -TERM $tree 2>/dev/null
+  deadline=$((SECONDS + kill_grace_s))
+  # shellcheck disable=SC2086
+  while ((SECONDS < deadline)) && kill -0 "$1" $tree 2>/dev/null; do
+    sleep "$poll_s"
+  done
+  tree="$tree $(descendants "$1")"
+  # shellcheck disable=SC2086
+  kill -KILL "$1" $tree 2>/dev/null
 }
 
 # Runs "${@:2}" in the worktree, stdout into $1, stderr into $1.err (jq reads
-# $1 and stops at the first non-JSON line). Exit 124: the watchdog's TERM
-# killed it; a session that exits by itself keeps its code (ADR-0015).
+# $1 and stops at the first non-JSON line). Exit 124: the watchdog ended it,
+# whatever its code; a session that exits by itself keeps its own (ADR-0196).
 run_session() {
   local log="$1"
   shift
@@ -57,7 +81,7 @@ run_session() {
   touch "$log.done"
   wait "$watchdog_pid"
   rm -f "$log.done"
-  [[ -e "$log.timeout" ]] && ((code == 143)) && return 124
+  [[ -e "$log.timeout" ]] && return 124
   return "$code"
 }
 

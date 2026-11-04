@@ -1,10 +1,10 @@
 ---
 id: DEBT-0016
 title: A watchdog kill that does not exit 143 is not reported as a timeout
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0016 — A watchdog kill that does not exit 143 is not reported as a timeout
@@ -29,4 +29,7 @@ of a timeout.
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0016 H6.6a, ADR-0196, superseding ADR-0015: the `.timeout` marker alone makes a timeout,
+so `test_loop.sh`'s session that traps `TERM` and exits 7 is logged as timed out through the
+whole `loop.sh`. The same test found a session ignoring `TERM` blocking the loop for good;
+`KILL` after the grace ends it. The trigger never fired.

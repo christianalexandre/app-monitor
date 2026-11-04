@@ -181,17 +181,20 @@ owner's MCP client), DEBT-0076 (the owner's Instruments finding), DEBT-0098
   it does (DEBT-0079, ADR-0195). DEBT-0098 moved to *Left open*: the loop does not dispatch the
   release gate, so its Windows job, this task's other Accept, runs on the next `dev` to `main` PR.
   Accept: `./gradlew :desktop:proxy:test :desktop:app:test`.
-- [ ] **H6.6 Loop, scripts and build.** The loop's watchdog kills the
-  session's process group and reports any exit after a kill as a timeout
-  (DEBT-0013, DEBT-0016); `make check`'s time measured against
-  DEBT-0002's bound, paid or dropped with the number; the M3 review
-  findings in `e2e_lib.sh` and the Android sample (DEBT-0049,
-  DEBT-0051); the 85 comments citing `SDD NN` (DEBT-0109, item 8), and the
-  SDK's permission request beside an app's (item 2); `trailer_check.sh` and
-  the two long KDocs (DEBT-0120, items 5 and 6).
+- [x] **H6.6a The loop's watchdog.** (`fix/loop-watchdog-kills-the-tree`) At the deadline the
+  session and every process under it get `TERM`, then `KILL`, and that is a timeout whatever the
+  exit code (DEBT-0013, DEBT-0016, ADR-0196). The tree, not the process group the task asked: a
+  real session's Bash tool runs in its own group. `make check` measured at 45 s warm, DEBT-0002
+  dropped with the number; an unknown base fails `trailer_check.sh` (DEBT-0120, item 5). Split from H6.6.
   Accept: `make scripts-test`, with a session that traps `TERM` logged as
   a timeout and no child left; `make check` timed on a warm cache, the
-  time in the PR; `make e2e-android`.
+  time in the PR.
+- [ ] **H6.6 Loop, scripts and build.** The M3 review
+  findings in `e2e_lib.sh` and the Android sample (DEBT-0049,
+  DEBT-0051); the 85 comments citing `SDD NN` (DEBT-0109, item 8), and the
+  SDK's permission request beside an app's (item 2); the two long KDocs
+  (DEBT-0120, item 6).
+  Accept: `make check`; `make e2e-android`.
 
 ## Outcome
 

@@ -3,7 +3,9 @@
 # Matches the trailer's form at a line start, so prose such as "files generated with protoc" passes.
 set -euo pipefail
 
-if found="$(git log --format=%B "$1..$2" | grep -iE '^co-authored-by:|^[^[:alnum:]]*generated with ')"; then
+# Apart from the grep: in one pipeline, a failing log would read as no trailer found.
+messages="$(git log --format=%B "$1..$2")"
+if found="$(grep -iE '^co-authored-by:|^[^[:alnum:]]*generated with ' <<<"$messages")"; then
   echo "$found" >&2
   echo "trailer-check: commits in $1..$2 carry attribution trailers (guidelines 03)." >&2
   exit 1

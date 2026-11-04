@@ -19,7 +19,7 @@ Rules:
 | Debt | Title | Trigger | Status |
 | --- | --- | --- | --- |
 | [0001](0001-jmdns-pinned-to-3-6-3.md) | JmDNS pinned to 3.6.3 | A JmDNS release newer than 3.6.4, or a security advisory for 3.6.3 | Open |
-| [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check` | Open |
+| [0002](0002-make-check-runs-full-build.md) | make check runs the full Gradle build | `make check` over 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check` | Dropped |
 | [0003](0003-websocket-frames-not-shown.md) | Desktop app ignores WebSocket frames | The first SDK that emits `WebSocketFrame` lands | Paid |
 | [0004](0004-traffic-state-quadratic-ingest.md) | TrafficState ingest is linear per event | M5 replaces the in-memory store, or a session over 10k requests lags the UI | Paid |
 | [0005](0005-duplicated-lan-interface-filter.md) | LAN interface filter duplicated in server and fake client | The first change to either filter, or a JVM client of `sdk/core` needs mDNS | Paid |
@@ -30,10 +30,10 @@ Rules:
 | [0010](0010-headless-server-bind-failure-trace.md) | Headless server prints a stack trace when the port is taken | The headless server is started by something other than a developer at a terminal, or someone reports the trace as a bug | Paid |
 | [0011](0011-fake-client-discovery-listener.md) | Fake client discovery blocks the JmDNS listener and matches names by case | More than one `_appmonitor._tcp` service is seen on one LAN, or M1 `sdk/core` implements discovery | Paid |
 | [0012](0012-mdns-instances-share-names.md) | Per-address mDNS instances share a host and service name | A desktop with two addresses on one LAN is seen renamed or flapping, or an SDK option filters by service name | Paid |
-| [0013](0013-loop-timeout-leaves-children.md) | Loop timeout kills only the session process | An iteration after a timeout fails on a held port or a Gradle lock | Open |
+| [0013](0013-loop-timeout-leaves-children.md) | Loop timeout kills only the session process | An iteration after a timeout fails on a held port or a Gradle lock | Paid |
 | [0014](0014-late-frame-rejection-reported-normal.md) | A rejection of a late frame reaches the client as a normal close | An SDK or a test needs to know the desktop rejected one of the last frames it sent | Paid |
 | [0015](0015-stop-bound-vs-jmdns-close.md) | The 5 s stop bound may cut a slow mDNS close | A "Server stop timed out" status or a shutdown hook timeout seen on a real desktop | Paid |
-| [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Open |
+| [0016](0016-loop-timeout-needs-exit-143.md) | A watchdog kill that does not exit 143 is not reported as a timeout | A loop session killed by the watchdog is logged as "no verdict line" instead of a timeout | Paid |
 | [0017](0017-spotless-walks-build-dir.md) | Spotless walks build directories while tests write them | The same spotless failure on a build file appears a second time, locally or in CI | Paid |
 | [0018](0018-empty-request-id-merges-exchanges.md) | Network events without a request id merge into one exchange | The M1 SDK starts sending network envelopes to the desktop | Paid |
 | [0019](0019-sdk-bodies-not-masked.md) | The SDK masks headers and query parameters, never bodies | The first request to mask a field inside a request or response body | Open |
@@ -137,7 +137,7 @@ Rules:
 | [0117](0117-kmp-ios-consumer-kotlin-floor-not-measured.md) | No KMP app's iOS target on Kotlin 2.2 was compiled against the SDK's klibs | M10's plan is written, or a KMP app on Kotlin 2.2 reports a klib error from `appmonitor-ktor` or `appmonitor-core` | Open |
 | [0118](0118-no-gate-runs-the-ios-sdk-on-ios-16.md) | No gate runs the iOS SDK on iOS 16 | M10's first tagged release, or the next PR that changes `Masking.swift`, `Mocks.swift` or `Breakpoints.swift` | Open |
 | [0119](0119-stop-releases-everything-missed-a-close.md) | stopReleasesEverything missed the desktop's close once | `MonitorClientTests.stopReleasesEverything` fails a second time, locally or on CI | Open |
-| [0120](0120-h5-review-findings.md) | Findings of the H5 milestone review that normal use does not hit | The next PR that touches `scripts/trailer_check.sh`, `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt` | Open |
+| [0120](0120-h5-review-findings.md) | Findings of the H5 milestone review that normal use does not hit | The next PR that touches `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/LocalNetworkPermission.kt` or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/FirstSettledScreen.kt` | Open |
 | [0121](0121-log-lines-unread-on-a-physical-iphone.md) | The SDK's public log lines not read on a physical iPhone | The next time an iPhone is connected to run the SDK on it (the owner's field test, or a device end to end) | Open |
 | [0122](0122-tests-running-curl-are-cached-without-its-version.md) | Tests that run the system curl are cached without its version | A CI runner image changes the outcome of a test that a `FROM-CACHE` result hid again, or the next PR that changes `desktop/proxy/build.gradle.kts` | Paid |
 | [0123](0123-link-local-address-advertised-on-the-lan.md) | A link-local interface's instance is heard on the LAN | A device on the LAN fails to connect by discovery while the desktop also has a link-local interface up, or a change to `LanAddresses.kt` | Open |

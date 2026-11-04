@@ -1,10 +1,10 @@
 ---
 id: DEBT-0013
 title: Loop timeout kills only the session process
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: An iteration after a timeout fails on a held port or a Gradle lock
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0013 — Loop timeout kills only the session process
@@ -30,4 +30,8 @@ lock.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+PLAN-0016 H6.6a, ADR-0196: the watchdog sends `TERM` to the session and every process
+under it, and `KILL` after `KILL_GRACE`. A process group, as the title of the task
+asked, would not have done it: a real session's Bash tool runs in its own group. The
+trigger never fired. `test_loop.sh` leaves no child that ignores `TERM` or sits in its
+own group. A daemon that has already detached survives, as this item expected.
