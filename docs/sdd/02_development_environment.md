@@ -377,12 +377,27 @@ The `publish` job, on macOS, runs `make publish-dry-run` and uploads
 `build/maven-dry-run/` as the `maven-dry-run` artifact for 7 days.
 
 The gate runs in three steps (ADR-0200): `branch`, then `contract` and
-`desktop`, the jobs that fail most and finish first (at most 9 min on
-2026-11-05), then every other job, skipped when one of those failed. A green
-gate takes about 9 min longer for it; `gh run rerun <id> --failed` reruns a
-failed job and the jobs after it. It also runs on `dev` on Mondays and
-Thursdays at 06:00 UTC, the only runs that write the macOS and Windows Gradle
-caches a release PR reads (`setup-gradle` writes on the default branch alone).
+`desktop`, the jobs that fail most and finish first, then every other job,
+skipped when one of those failed; `gh run rerun <id> --failed` reruns a failed
+job and the jobs after it. It also runs on `dev` on Mondays and Thursdays at
+06:00 UTC, the only runs that write the macOS Gradle cache a release PR reads
+(`setup-gradle` writes on the default branch alone). The Windows job never
+saves one (DEBT-0129).
+
+Measured on `dev` at `ac5b460`, 2026-11-05, minutes:
+
+| | Cold cache (run `42074065010`) | Warm cache (run `42088402191`) |
+| --- | --- | --- |
+| `contract` and `desktop`, the first step | 20.4 | 8.0 (Windows 7.8, `contract` 6.5) |
+| `samples`, the longest after them | 27.8 | 30.2 |
+| `e2e-ios-grpc` | 27.9 | 23.4 |
+| `e2e-kmp-ios` | 20.9 | 19.5 |
+| Whole gate | 48.6 | 38.2 |
+
+The first step's 20.4 min was `contract` on a slow simulator (the package's
+suite in 50 s, against 8 s on the warm run), not the cache: ADR-0200's "at most
+9 minutes" holds on that runner only. Before ADR-0200 a gate took about 47 min,
+pass or fail.
 
 `make swift-stress` repeats the iOS suites by hand (ADR-0201): `STRESS_RUNS`
 (20) rounds of the package's and TestHost's suites, idle, then under

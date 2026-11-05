@@ -3,7 +3,7 @@ id: DEBT-0128
 title: Test failures whose cause was not proven
 status: Open
 date: 2026-11-05
-trigger: One of `BreakpointsUiTest.kt`, `LifecycleTest.kt`, `MonitorClientTests.swift` or `TestDesktop.swift` fails again in the way this item describes
+trigger: One of `BreakpointsUiTest.kt`, `LifecycleTest.kt`, `MonitorClientTests.swift`, `TestDesktop.swift` or `e2e_ios.sh` fails again in the way this item describes
 paid_date:
 ---
 
@@ -11,7 +11,7 @@ paid_date:
 
 ## What is missing
 
-Four failures seen around release PR #379, none explained by a reproduction:
+Five failures seen around release PR #379, none explained by a reproduction:
 
 - `BreakpointsUiTest`, *a breakpoint moves up and down*: timed out once on the
   gate's Windows runner waiting for the second move (run `42045925738`, attempt 2).
@@ -22,6 +22,12 @@ Four failures seen around release PR #379, none explained by a reproduction:
   left of `McpServer.GRACE` after the test's `delay(100)`.
 - `aConnectFailureAfterAGoodSessionIsLoggedAgain`: took 41 s on bounds of 5 s
   (run `41866461707`).
+- `e2e-ios-grpc` on `dev` (run `42074065010`): the `PUT` the breakpoint rule names
+  went through unheld, and the proxy saw no gRPC-Core call; the same job passed on
+  the next run, and 27 of 27 runs on the owner's Mac (idle, under 100 busy loops,
+  and on a new simulator each time). The SDK holds an upload only when its body is
+  known (`UploadBox` in `URLSessionCapture.swift`), so an upload taken as streamed
+  would pass unheld; whether that happened is not known.
 - `TestDesktop`'s port: which socket held 22755 (run `41889263190`) is not known.
   `TestDesktop` now draws another.
 
@@ -33,8 +39,8 @@ only at that load would change what the app does for no observed failure.
 
 ## Trigger
 
-One of `BreakpointsUiTest.kt`, `LifecycleTest.kt`, `MonitorClientTests.swift` or
-`TestDesktop.swift` fails again in the way this item describes: keep the run's
+One of `BreakpointsUiTest.kt`, `LifecycleTest.kt`, `MonitorClientTests.swift`,
+`TestDesktop.swift` or `e2e_ios.sh` fails again in the way this item describes: keep the run's
 logs, and find the cause before rerunning it.
 
 ## How it was paid
