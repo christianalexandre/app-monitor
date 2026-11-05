@@ -21,8 +21,8 @@ struct DiscoveryTests {
     static func run(_ discover: @escaping Discover, for seconds: Double) async -> Round {
         let queue = DispatchQueue(label: "test.discovery")
         let round = Round()
-        let started = Date()
-        let cancel = queue.sync { discover(queue) { round.record($0, at: Date().timeIntervalSince(started)) } }
+        let started = DispatchTime.now()
+        let cancel = queue.sync { discover(queue) { round.record($0, at: elapsed(since: started)) } }
         try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
         queue.sync { cancel() }
         return round

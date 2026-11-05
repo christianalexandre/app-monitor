@@ -112,6 +112,10 @@ final class AppDelegate: NSObject, URLSessionDownloadDelegate, URLSessionDataDel
         record(error == nil ? "didComplete" : "didCompleteWithError")
         lock.withLock { finished }?.resume()
     }
+
+    func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        BackgroundSessionTests.ending.leave()
+    }
 }
 
 // The hooks are process-wide: one test at a time owns `URLSessionCapture.sink`.
@@ -121,13 +125,18 @@ final class BackgroundSessionTests {
     let delegate = AppDelegate()
     let session: URLSession
 
+    // A session started while the last one's being cleaned up: nsurlsessiond fails its file upload with -1.
+    static let ending = DispatchGroup()
+
     init() async throws {
+        await withCheckedContinuation { done in Self.ending.notify(queue: .global()) { done.resume() } }
         try await server.start()
         let configuration = URLSessionConfiguration.background(withIdentifier: "test.\(UUID().uuidString)")
         session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
     }
 
     deinit {
+        Self.ending.enter()
         session.invalidateAndCancel()
         URLSessionCapture.sink = monitor
         server.stop()

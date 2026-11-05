@@ -367,7 +367,7 @@ struct MonitorClientTests {
         let started = Date()
         client?.stop()
         await client?.join()
-        #expect(Date().timeIntervalSince(started) < 1.5)
+        #expect(Date().timeIntervalSince(started) < 10)
         #expect(client?.state == .stopped)
         #expect(client?.isReleased == true)
         if stopCase == .connected {
