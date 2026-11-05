@@ -56,6 +56,19 @@ final class TestDesktop: @unchecked Sendable {
 
     /// Starts listening on `port`, or on a free one when 0.
     func start(port: UInt16 = 0) async throws {
+        guard port == 0 else { return try await listen(on: port) }
+        // In the ephemeral range a client's source port can land on this one: connect then waits on EADDRINUSE.
+        for _ in 0..<10 {
+            do {
+                return try await listen(on: UInt16.random(in: 20_000..<40_000))
+            } catch NWError.posix(.EADDRINUSE) {
+                continue
+            }
+        }
+        try await listen(on: UInt16.random(in: 20_000..<40_000))
+    }
+
+    private func listen(on port: UInt16) async throws {
         let parameters: NWParameters
         if case .noUpgrade = mode {
             parameters = .tcp
@@ -66,9 +79,7 @@ final class TestDesktop: @unchecked Sendable {
             parameters.defaultProtocolStack.applicationProtocols.insert(webSocket, at: 0)
         }
         parameters.allowLocalEndpointReuse = true
-        // In the ephemeral range a client's source port can land on this one: connect then waits on EADDRINUSE (DEBT-0114).
-        let chosen = port != 0 ? port : UInt16.random(in: 20_000..<40_000)
-        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: chosen)!)
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!)
         let listener = try NWListener(using: parameters)
         self.listener = listener
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
@@ -77,7 +88,9 @@ final class TestDesktop: @unchecked Sendable {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready: once.run { continuation.resume(returning: listener.port?.rawValue ?? 0) }
-                case .failed(let error): once.run { continuation.resume(throwing: error) }
+                case .failed(let error):
+                    listener.cancel()
+                    once.run { continuation.resume(throwing: error) }
                 default: break
                 }
             }
@@ -119,13 +132,15 @@ final class TestDesktop: @unchecked Sendable {
 
     private func receive(_ connection: NWConnection) {
         connection.receiveMessage { [weak self] data, context, _, error in
-            guard let self, error == nil else { return }
+            guard let self else { return }
             let metadata =
                 context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
+            // The peer's close can come with the socket's error: read it first, as `MonitorClient` does.
             if let metadata, metadata.opcode == .close {
                 self.closeCodes.append(metadata.closeCode)
                 return
             }
+            guard error == nil else { return }
             if metadata?.opcode == .binary, let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data)
             {
                 self.received.append(envelope)
@@ -186,6 +201,11 @@ final class Once: @unchecked Sendable {
         }
         if first { body() }
     }
+}
+
+/// Seconds since `start`, on the clock dispatch timers run on; `Date` drifts against it and a timer reads early.
+func elapsed(since start: DispatchTime) -> Double {
+    Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
 }
 
 /// Polls `condition` every 10 ms until it holds or `timeout` seconds pass. A passing test never waits

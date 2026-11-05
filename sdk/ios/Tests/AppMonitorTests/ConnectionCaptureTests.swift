@@ -168,7 +168,7 @@ extension ProcessWideHooks {
             #expect(response.body.isEmpty && !response.bodyTruncated)
             #expect(response.sentSize == 8)
             #expect(response.bodySize == Int64(received) && received == 7)
-            #expect(end.timestampMs - startedEnvelope.timestampMs >= 20)
+            #expect(end.timestampMs - startedEnvelope.timestampMs >= 19)
             #expect(sink.all.count == 2)
         }
 

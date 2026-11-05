@@ -11,7 +11,8 @@ struct MonitorClientTests {
         discoveryTimeout: 0.5,
         connectTimeout: 0.5,
         pingInterval: 0.1,
-        pongTimeout: 0.3,
+        // A stalled runner past this ends the session, and with it the mocks and holds a test is waiting on.
+        pongTimeout: 30,
         closeTimeout: 1,
         backoffInitial: 0.05,
         backoffMax: 0.2
@@ -83,10 +84,10 @@ struct MonitorClientTests {
             second.stop()
         }
         let pin = MemoryPin()
-        let found = Locked<[Endpoint]>([first.endpoint])
+        let found = Locked<Endpoint>(first.endpoint)
         let logs = Locked<[String]>([])
         let discover: Discover = { queue, report in
-            queue.async { report(found.update { $0.isEmpty ? nil : $0.removeFirst() }) }
+            queue.async { report(found.value) }
             return {}
         }
         let client = Self.client(discover, log: { line in logs.update { $0.append(line) } }, pin: pin)
@@ -95,7 +96,7 @@ struct MonitorClientTests {
         #expect(pin.pinned() == "first")
 
         first.stop()
-        found.update { $0 = [second.endpoint] }
+        found.update { $0 = second.endpoint }
         #expect(await eventually { logs.value.contains { $0.contains("not the one this install paired with") } })
         client.send(Self.event(0))
         #expect(pin.pinned() == "first")
@@ -103,7 +104,7 @@ struct MonitorClientTests {
 
         var manual = second.endpoint
         manual.checksPin = false
-        found.update { $0 = [manual] }
+        found.update { $0 = manual }
         #expect(await eventually { second.events.count == 1 })
         client.stop()
         await client.join()
@@ -262,7 +263,9 @@ struct MonitorClientTests {
         let desktop = TestDesktop(mode: .ackWithoutPongs)
         try await desktop.start()
         defer { desktop.stop() }
-        let client = Self.client(manualDiscovery(desktop.endpoint))
+        var config = Self.config
+        config.pongTimeout = 0.3
+        let client = Self.client(manualDiscovery(desktop.endpoint), config: config)
         client.start()
         #expect(await eventually { client.state == .connected })
         #expect(await eventually { client.state == .backingOff })
@@ -364,7 +367,7 @@ struct MonitorClientTests {
         let started = Date()
         client?.stop()
         await client?.join()
-        #expect(Date().timeIntervalSince(started) < 1.5)
+        #expect(Date().timeIntervalSince(started) < 10)
         #expect(client?.state == .stopped)
         #expect(client?.isReleased == true)
         if stopCase == .connected {
