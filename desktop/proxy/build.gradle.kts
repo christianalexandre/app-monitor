@@ -14,8 +14,21 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.grpc.netty.shaded)
     testImplementation(libs.grpc.stub)
+    testImplementation(libs.okhttp)
+    testImplementation(libs.okhttp.mockwebserver3)
 }
+
+// DEBT-0122: the curl the tests run is one of their inputs, so a new one is not hidden by the cache.
+val curl = providers.environmentVariable("APPMONITOR_CURL").filter { it.isNotBlank() }.orElse("curl")
+val curlVersion =
+    providers
+        .exec {
+            commandLine(curl.get(), "--version")
+            isIgnoreExitValue = true
+        }.standardOutput.asText
+        .map { it.lineSequence().first() }
 
 tasks.test {
     testLogging.exceptionFormat = TestExceptionFormat.FULL
+    inputs.property("curlVersion", curlVersion)
 }

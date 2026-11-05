@@ -1,10 +1,10 @@
 ---
 id: DEBT-0043
 title: Non-correctness findings of the second M2 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR after #114 that touches Masking.swift, or a run of the iOS SDK tests on an iOS 15 or 16 simulator
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0043 — Non-correctness findings of the second M2 milestone review
@@ -43,4 +43,10 @@ together with DEBT-0044.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0015 H5.6, whose run of the vector on the iOS 16.0 simulator
+fired it. The first item was a real leak, not a guard: below iOS 17 `URL`
+takes `http://user:pw@h:p/x`, `URLComponents` rejects it, and `url(_:)` sent
+it unmasked. It now falls back to `uri(_:)`, and `headers` sends such a
+value to `uri(_:)` as written (ADR-0170). `fields` returns early on no
+masked names, as OkHttp's does. The custom-scheme path has a fourth vector
+case, every character a scheme may hold.

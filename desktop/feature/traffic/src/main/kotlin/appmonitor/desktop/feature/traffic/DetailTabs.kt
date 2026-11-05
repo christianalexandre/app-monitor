@@ -5,7 +5,7 @@ import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.headersText
-import appmonitor.desktop.ui.utf8OrNull
+import appmonitor.v1.Header
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -53,7 +53,7 @@ internal fun timingOf(
 
 private val TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.ROOT)
 
-/** [part] of [exchange] as text, null when there is none; a body is copied as the device sent it, hex when not UTF-8. */
+/** [part] of [exchange] as text, null when there is none; a body as the device sent it but opened (ADR-0199), hex when not UTF-8. */
 internal fun textOf(
     exchange: HttpExchange,
     part: DetailPart,
@@ -63,13 +63,21 @@ internal fun textOf(
         DetailPart.Url -> exchange.url
         DetailPart.RequestHeaders -> exchange.requestHeaders.takeIf { it.isNotEmpty() }?.let(::headersText)
         DetailPart.ResponseHeaders -> exchange.responseHeaders.takeIf { it.isNotEmpty() }?.let(::headersText)
-        DetailPart.RequestBody -> bodyText(exchange.requestBody)
-        DetailPart.ResponseBody -> bodyText(exchange.responseBody)
+        DetailPart.RequestBody -> bodyText(exchange.requestHeaders, exchange.requestBody)
+        DetailPart.ResponseBody -> bodyText(exchange.responseHeaders, exchange.responseBody)
         DetailPart.Timing -> timingOf(exchange, zone).joinToString("\n") { (name, value) -> "$name: $value" }
         DetailPart.Curl -> null
     }
 
-private fun bodyText(body: CapturedBody): String? = body.bytes.takeIf { it.size > 0 }?.let { utf8OrNull(it) ?: hexDump(it) }
+private fun bodyText(
+    headers: List<Header>,
+    body: CapturedBody,
+): String? =
+    body.bytes
+        .takeIf { it.size > 0 }
+        ?.let { DecodedBody(it, headers) }
+        ?.takeIf { it.bytes.size > 0 }
+        ?.let { it.text ?: hexDump(it.bytes) }
 
 /** What a search inside the request counts in each tab (ADR-0152); cURL repeats the others, so it is highlighted, not counted. */
 internal fun searchedTexts(

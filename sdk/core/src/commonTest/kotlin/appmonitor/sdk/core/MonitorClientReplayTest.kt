@@ -105,6 +105,35 @@ class MonitorClientReplayTest {
         assertNull(recent.replay("c"))
     }
 
+    @Test
+    fun bodiesPastTheByteBoundLetTheOldestGo() {
+        val recent = RecentRequests(maxBytes = 10)
+        recent.keep("a", bodyBytes = 6) { null }
+        recent.keep("b", bodyBytes = 4) { null }
+        recent.keep("a", bodyBytes = 1) { null }
+        recent.keep("unknown", bodyBytes = -1) { null }
+        recent.keep("c", bodyBytes = 5) { null }
+        assertNull(recent.replay("b"))
+
+        recent.keep("d", bodyBytes = 1) { null }
+
+        assertEquals(RecentRequests.NOT_KEPT, recent.replay("b"))
+        assertNull(recent.replay("a"))
+        assertNull(recent.replay("c"))
+        assertNull(recent.replay("d"))
+    }
+
+    @Test
+    fun theNewestStaysHoweverLargeItsBody() {
+        val recent = RecentRequests(maxBytes = 10)
+        recent.keep("a", bodyBytes = 1) { null }
+
+        recent.keep("large", bodyBytes = 100) { null }
+
+        assertEquals(RecentRequests.NOT_KEPT, recent.replay("a"))
+        assertNull(recent.replay("large"))
+    }
+
     /** Sends each id of [requests] as a `ReplayRequest`, and puts each `ReplayRefused` the device sends in [refusals]. */
     private suspend fun desktop(
         requests: Channel<String>,
@@ -136,7 +165,7 @@ class MonitorClientReplayTest {
     }
 
     private fun client(port: Int): MonitorClient {
-        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, { true }, {})
+        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, {})
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

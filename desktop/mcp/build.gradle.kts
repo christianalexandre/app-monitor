@@ -19,10 +19,22 @@ dependencies {
     testImplementation(libs.mcp.kotlin.sdk.client)
     testImplementation(libs.ktor.client.cio)
     testImplementation(project(":tools:fake-client"))
+    testImplementation(project(":desktop:server"))
     testImplementation(project(":desktop:data"))
     testImplementation(project(":desktop:storage"))
 }
 
+// DEBT-0122: the curl the tests run is one of their inputs, so a new one is not hidden by the cache.
+val curl = providers.provider { "curl" }
+val curlVersion =
+    providers
+        .exec {
+            commandLine(curl.get(), "--version")
+            isIgnoreExitValue = true
+        }.standardOutput.asText
+        .map { it.lineSequence().first() }
+
 tasks.test {
     testLogging.exceptionFormat = TestExceptionFormat.FULL
+    inputs.property("curlVersion", curlVersion)
 }

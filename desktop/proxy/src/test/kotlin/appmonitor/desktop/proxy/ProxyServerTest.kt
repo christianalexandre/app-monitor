@@ -1,7 +1,7 @@
 package appmonitor.desktop.proxy
 
 import appmonitor.v1.CaptureLayer
-import org.junit.jupiter.api.Assumptions.assumeFalse
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import java.net.BindException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -11,11 +11,17 @@ import java.net.Socket
 import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
+import java.time.Duration
+import java.time.Instant
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -81,7 +87,6 @@ class ProxyServerTest {
 
     @Test
     fun `a client refusing the proxy certificate is a failed exchange, not a hang`() {
-        assumeFalse(System.getProperty("os.name").startsWith("Windows"), "DEBT-0098")
         Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
             withProxy(upstreamTrust = trusting(originCa)) {
                 // A CA that is not the proxy's: curl reaches the handshake and refuses the leaf, with or without a system bundle.
@@ -95,7 +100,32 @@ class ProxyServerTest {
                     }.getOrElse { fail("no CONNECT ended; stored: ${stored()}; curl: ${result.output}", it) }.single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)
-                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+                // curl 8.23 checks the leaf after its handshake, older ones during it.
+                assertTrue(exchange.error!!.contains("TLS handshake"), exchange.error)
+            }
+        }
+    }
+
+    @Test
+    fun `a client closing its tunnel after the TLS handshake, before any request, is a failed exchange`() {
+        Origin(originCa.serverContext("127.0.0.1", alpn = false)).use { origin ->
+            withProxy(upstreamTrust = trusting(originCa)) {
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.getOutputStream().write("CONNECT 127.0.0.1:${origin.port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n".toByteArray())
+                    val reply = socket.getInputStream().bufferedReader().readLine()
+                    assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                    val context =
+                        SSLContext
+                            .getInstance(
+                                "TLS",
+                            ).apply { init(null, InsecureTrustManagerFactory.INSTANCE.trustManagers, null) }
+                    context.socketFactory.createSocket(socket, "127.0.0.1", origin.port, true).use { (it as SSLSocket).startHandshake() }
+                }
+
+                val exchange = ended(1).single().exchange
+                assertEquals("CONNECT", exchange.method)
+                assertTrue(exchange.failed)
+                assertTrue(exchange.error!!.startsWith("The client closed the tunnel after the TLS handshake"), exchange.error)
             }
         }
     }
@@ -113,8 +143,30 @@ class ProxyServerTest {
                 val exchange = ended(1).single().exchange
                 assertEquals("CONNECT", exchange.method)
                 assertTrue(exchange.failed)
-                assertTrue(exchange.error!!.startsWith("TLS handshake with the client failed"), exchange.error)
+                assertEquals(ClientHandler.NO_REQUEST, exchange.error)
             }
+        }
+    }
+
+    @Test
+    fun `a host no certificate can name closes the tunnel and fails the CONNECT exchange`() {
+        withProxy {
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 10_000
+                socket.getOutputStream().write("CONNECT [fe80::1%zz]:443 HTTP/1.1\r\nHost: x\r\n\r\n".toByteArray())
+                val input = socket.getInputStream().bufferedReader()
+                val reply = input.readLine()
+                assertTrue(reply.startsWith("HTTP/1.1 200"), reply)
+                input.readLine()
+                socket.getOutputStream().write(byteArrayOf(0x16, 0x03, 0x01, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3c, 0x03, 0x03))
+                socket.getOutputStream().flush()
+
+                assertEquals(null, input.readLine())
+            }
+
+            val exchange = ended(1).single().exchange
+            assertEquals("CONNECT", exchange.method)
+            assertTrue(exchange.error!!.startsWith("Could not make a certificate for fe80::1%zz"), exchange.error)
         }
     }
 
@@ -191,7 +243,7 @@ class ProxyServerTest {
     @Test
     fun `a taken port fails start with a bind exception`() {
         ServerSocket(0, 1, InetAddress.getByName(ProxyServer.HOST)).use { taken ->
-            val server = ProxyServer(originCa, {}, port = taken.localPort)
+            val server = ProxyServer(originCa, { true }, port = taken.localPort)
             assertFailsWith<BindException> { server.start() }
             server.stop()
         }
@@ -206,7 +258,7 @@ class ProxyServerTest {
                 .filter { it.isUp && !it.isLoopback }
                 .flatMap { it.inetAddresses().toList() }
                 .firstOrNull { it is Inet4Address }
-        val server = ProxyServer(originCa, {}, port = 0)
+        val server = ProxyServer(originCa, { true }, port = 0)
         val port = server.start()
         try {
             Socket(ProxyServer.HOST, port).close()
@@ -229,6 +281,46 @@ class ProxyServerTest {
         }
         ProxyCa.delete(dir)
         assertNotEquals(first.certificate, ProxyCa.loadOrCreate(dir).certificate)
+    }
+
+    @Test
+    fun `in the ca's last day a leaf is kept, not minted per handshake`() {
+        var now = Instant.now()
+        val ca = ProxyCa.loadOrCreate(createTempDirectory("last-day-ca")) { now }
+        now =
+            ca.certificate.notAfter
+                .toInstant()
+                .minus(Duration.ofHours(12))
+
+        val first = ca.serverContext("api.example.com")
+
+        assertSame(first, ca.serverContext("api.example.com"))
+    }
+
+    @Test
+    fun `past the ca's end a leaf is kept, not minted per handshake`() {
+        var now = Instant.now()
+        val ca = ProxyCa.loadOrCreate(createTempDirectory("expired-ca")) { now }
+        now =
+            ca.certificate.notAfter
+                .toInstant()
+                .plus(Duration.ofDays(1))
+
+        val first = ca.serverContext("api.example.com")
+
+        assertSame(first, ca.serverContext("api.example.com"))
+    }
+
+    @Test
+    fun `a leaf about to expire is minted again`() {
+        var now = Instant.now()
+        val ca = ProxyCa.loadOrCreate(createTempDirectory("leaf-ca")) { now }
+        val first = ca.serverContext("api.example.com")
+        assertSame(first, ca.serverContext("api.example.com"))
+
+        now = now.plus(Duration.ofDays(30))
+
+        assertNotSame(first, ca.serverContext("api.example.com"))
     }
 
     @Test

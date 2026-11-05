@@ -20,22 +20,29 @@ internal fun localNetworkGranted(context: Context): Boolean =
     Build.VERSION.SDK_INT < ANDROID_17 ||
         context.checkSelfPermission(ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
 
-/** The mDNS source of SDD 04: skipped, with one log line per client, without the local network permission. */
+/** The mDNS source: skipped, with one log line per client, without the local network permission. */
 internal fun nsdBrowser(context: Context): () -> MdnsBrowser? {
     var logged = false
     return {
         if (localNetworkGranted(context)) {
             NsdBrowser(context.getSystemService(NsdManager::class.java))
         } else {
-            if (!logged) platformLog("mDNS skipped: $ACCESS_LOCAL_NETWORK is not granted; request it, or set AppMonitorOptions.host")
+            if (!logged) {
+                platformLog(
+                    "mDNS skipped until $ACCESS_LOCAL_NETWORK is granted: the SDK asks on the first screen, or set AppMonitorOptions.host",
+                )
+            }
             logged = true
             null
         }
     }
 }
 
-/** `Hello` for this install (ADR-0018 D): a random id in no-backup storage, the model, never the user-set name. */
-internal fun androidHello(context: Context): Hello {
+/** `Hello` for this install (ADR-0018 D): a random id in no-backup storage, the model, never the user-set name; [appName] from the options. */
+internal fun androidHello(
+    context: Context,
+    appName: String? = null,
+): Hello {
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     return Hello(
         protocol_version = Protocol.VERSION,
@@ -48,5 +55,6 @@ internal fun androidHello(context: Context): Hello {
         sdk_version = SDK_VERSION,
         channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION),
         sdk_name = SDK_NAME,
+        app_name = appName.orEmpty(),
     )
 }

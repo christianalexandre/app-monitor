@@ -137,12 +137,16 @@ private fun StringBuilder.appendHex(
     return this
 }
 
-/** A body with its UTF-8 text and indented JSON computed at most once, shared by [defaultFormat] and [render]. */
+/** A body opened (ADR-0199), with its UTF-8 text and indented JSON computed at most once, shared by [defaultFormat] and [render]. */
 internal class DecodedBody(
-    val bytes: ByteString,
+    sent: ByteString,
+    headers: List<Header> = emptyList(),
 ) {
     // Renderings of two formats may run at once off the UI thread.
-    val text: String? by lazy { utf8OrNull(bytes) }
+    private val opened by lazy { openBody(headers, sent) }
+    val bytes: ByteString get() = opened.bytes
+    val note: String? get() = opened.note
+    val text: String? by lazy { utf8OrNull(if (opened.partial) bytes.withoutCutCharacter() else bytes) }
     val prettyJson: String? by lazy { text?.let(::prettyJsonOrNull) }
 }
 
@@ -150,6 +154,7 @@ internal class DecodedBody(
 internal data class RenderedBody(
     val format: BodyFormat,
     val chunks: List<String>,
+    val note: String? = null,
 )
 
 /** Renders [body] as [format], or as its [defaultFormat] when null; slow on large bodies, so off the UI thread. */
@@ -159,7 +164,7 @@ internal fun renderBody(
     format: BodyFormat?,
 ): RenderedBody {
     val chosen = format ?: defaultFormat(headers, body)
-    return RenderedBody(chosen, chunked(render(body, chosen)))
+    return RenderedBody(chosen, chunked(render(body, chosen)), body.note)
 }
 
 /**

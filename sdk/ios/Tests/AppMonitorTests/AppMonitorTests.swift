@@ -20,6 +20,14 @@ struct DeviceTests {
         #expect(deviceID(file: file) == id)
     }
 
+    @Test func aPinnedDesktopIsExcludedFromBackup() throws {
+        let file = Self.tempFile()
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let id = UUID().uuidString.lowercased()
+        #expect(FileDesktopPin(file: file).pin(id) == id)
+        #expect(try file.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+    }
+
     @Test func anUnreadableDeviceIDIsReplaced() throws {
         let file = Self.tempFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
@@ -57,6 +65,8 @@ struct DeviceTests {
         #expect(!hello.appID.isEmpty)
         #expect(hello.sdkVersion == sdkVersion)
         #expect(hello.sdkName == "swift")
+        #expect(hello.appName.isEmpty)
+        #expect(appleHello(deviceIDFile: file, appName: "Sample").appName == "Sample")
         #expect(
             hello.channels == [
                 ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
@@ -74,6 +84,8 @@ struct AppMonitorOptionsTests {
         #expect(options.maskedHeaders.isEmpty && options.maskedQueryParameters.isEmpty)
     }
 
+    // Swift Testing has no exit tests on iOS: these run on the macOS host only.
+    #if os(macOS)
     @Test func anOutOfRangePortStopsTheApp() async {
         await #expect(processExitsWith: .failure) { _ = AppMonitorOptions(port: 0) }
     }
@@ -89,6 +101,7 @@ struct AppMonitorOptionsTests {
             AppMonitor.start(options)
         }
     }
+    #endif
 }
 
 @Suite(.serialized)

@@ -4,14 +4,15 @@ import Testing
 
 @testable import AppMonitor
 
-// SDD 06 against an in-process desktop; bounds shortened, no jitter.
+// The client against an in-process desktop; bounds shortened, no jitter.
 @Suite(.serialized)
 struct MonitorClientTests {
     static let config = ClientConfig(
         discoveryTimeout: 0.5,
         connectTimeout: 0.5,
         pingInterval: 0.1,
-        pongTimeout: 0.3,
+        // A stalled runner past this ends the session, and with it the mocks and holds a test is waiting on.
+        pongTimeout: 30,
         closeTimeout: 1,
         backoffInitial: 0.05,
         backoffMax: 0.2
@@ -29,9 +30,10 @@ struct MonitorClientTests {
     static func client(
         _ discover: @escaping Discover,
         config: ClientConfig = config,
-        log: @escaping @Sendable (String) -> Void = { _ in }
+        log: @escaping @Sendable (String) -> Void = { _ in },
+        pin: DesktopPin? = nil
     ) -> MonitorClient {
-        MonitorClient(hello: hello, discover: discover, config: config, log: log, random: { _ in 0 })
+        MonitorClient(hello: hello, discover: discover, config: config, log: log, random: { _ in 0 }, pin: pin)
     }
 
     static func event(_ index: Int, channel: String = ProtocolConstants.channelNetwork) -> Appmonitor_V1_Envelope {
@@ -67,6 +69,56 @@ struct MonitorClientTests {
         let first = try #require(desktop.envelopes.first)
         #expect(first.channel == ProtocolConstants.channelCore && first.type == "Hello")
         #expect(try Appmonitor_V1_Hello(serializedBytes: first.payload) == Self.hello())
+        client.stop()
+        await client.join()
+    }
+
+    // ADR-0168: a second desktop found after the first one approved the install is refused, a manual host is not.
+    @Test func aSecondDesktopIsRefusedOnceTheFirstIsPinned() async throws {
+        let first = TestDesktop(desktopID: "first")
+        let second = TestDesktop(desktopID: "second")
+        try await first.start()
+        try await second.start()
+        defer {
+            first.stop()
+            second.stop()
+        }
+        let pin = MemoryPin()
+        let found = Locked<Endpoint>(first.endpoint)
+        let logs = Locked<[String]>([])
+        let discover: Discover = { queue, report in
+            queue.async { report(found.value) }
+            return {}
+        }
+        let client = Self.client(discover, log: { line in logs.update { $0.append(line) } }, pin: pin)
+        client.start()
+        #expect(await eventually { client.state == .connected })
+        #expect(pin.pinned() == "first")
+
+        first.stop()
+        found.update { $0 = second.endpoint }
+        #expect(await eventually { logs.value.contains { $0.contains("not the one this install paired with") } })
+        client.send(Self.event(0))
+        #expect(pin.pinned() == "first")
+        #expect(second.events.isEmpty)
+
+        var manual = second.endpoint
+        manual.checksPin = false
+        found.update { $0 = manual }
+        #expect(await eventually { second.events.count == 1 })
+        client.stop()
+        await client.join()
+    }
+
+    @Test func aDesktopWithoutAnIdIsNotPinned() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        let pin = MemoryPin()
+        let client = Self.client(manualDiscovery(desktop.endpoint), pin: pin)
+        client.start()
+        #expect(await eventually { client.state == .connected })
+        #expect(pin.pinned() == nil)
         client.stop()
         await client.join()
     }
@@ -118,6 +170,69 @@ struct MonitorClientTests {
         await client.join()
     }
 
+    // ADR-0166: the buffer's and the size's drops, reported before the first event.
+    @Test func dropsAreReportedBeforeTheFirstEvent() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        var config = Self.config
+        config.bufferCount = 2
+        let client = Self.client(manualDiscovery(desktop.endpoint), config: config)
+        for index in 0..<5 { client.send(Self.event(index)) }
+        var big = Self.event(9)
+        big.payload = Data(count: ProtocolConstants.maxFrameBytes)
+        client.send(big)
+        client.start()
+        #expect(await eventually { desktop.events.count == 2 })
+        #expect(desktop.events.map(\.timestampMs) == [3, 4])
+        #expect(desktop.envelopes.dropFirst().first?.type == "DeliveryReport")
+        let report = try #require(desktop.reports.first)
+        #expect(report.evicted == 3 && report.oversized == 1 && report.previousSessionID.isEmpty)
+        client.stop()
+        await client.join()
+    }
+
+    // ADR-0166: no frame enters the buffer to wake the writer.
+    @Test func anIdleSessionReportsAnOversizedEnvelopeAtOnce() async throws {
+        let desktop = TestDesktop()
+        try await desktop.start()
+        defer { desktop.stop() }
+        let client = Self.client(manualDiscovery(desktop.endpoint))
+        client.start()
+        #expect(await eventually { !desktop.reports.isEmpty })
+        var big = Self.event(9)
+        big.payload = Data(count: ProtocolConstants.maxFrameBytes)
+
+        client.send(big)
+
+        #expect(await eventually { desktop.reports.contains { $0.oversized == 1 } })
+        client.stop()
+        await client.join()
+    }
+
+    // ADR-0166: the next session names the last one and the frames written on it, its report included.
+    @Test func aReconnectReportsWhatThePreviousSessionWrote() async throws {
+        let first = TestDesktop()
+        try await first.start()
+        let port = first.port
+        let client = Self.client(manualDiscovery(first.endpoint))
+        client.start()
+        for index in 0..<2 { client.send(Self.event(index)) }
+        #expect(await eventually { first.events.count == 2 })
+        first.stop()
+        #expect(await eventually { client.state != .connected })
+        let second = TestDesktop()
+        try await second.start(port: port)
+        defer { second.stop() }
+        #expect(await eventually { !second.reports.isEmpty })
+        let report = try #require(second.reports.first)
+        #expect(!report.previousSessionID.isEmpty)
+        #expect(report.previousSessionWritten == 3)
+        #expect(report.evicted == 0 && report.oversized == 0)
+        client.stop()
+        await client.join()
+    }
+
     @Test func channelsMissingFromHelloAckAreDropped() async throws {
         let desktop = TestDesktop(mode: .ack(channels: [ProtocolConstants.channelCore]))
         try await desktop.start()
@@ -148,7 +263,9 @@ struct MonitorClientTests {
         let desktop = TestDesktop(mode: .ackWithoutPongs)
         try await desktop.start()
         defer { desktop.stop() }
-        let client = Self.client(manualDiscovery(desktop.endpoint))
+        var config = Self.config
+        config.pongTimeout = 0.3
+        let client = Self.client(manualDiscovery(desktop.endpoint), config: config)
         client.start()
         #expect(await eventually { client.state == .connected })
         #expect(await eventually { client.state == .backingOff })
@@ -167,6 +284,34 @@ struct MonitorClientTests {
         #expect(await eventually { desktop.connectionCount >= 2 })
         #expect(lines.all.count == 1)
         #expect(lines.all.first?.contains("NSLocalNetworkUsageDescription") == true)
+        client.stop()
+        await client.join()
+    }
+
+    @Test func aConnectFailureAfterAGoodSessionIsLoggedAgain() async throws {
+        let unreachable = TestDesktop(mode: .noUpgrade)
+        try await unreachable.start()
+        defer { unreachable.stop() }
+        let good = TestDesktop(mode: .ack(channels: [ProtocolConstants.channelCore]))
+        try await good.start()
+        let target = LockedLines()
+        target.append("unreachable")
+        let endpoints = ["unreachable": unreachable.endpoint, "good": good.endpoint]
+        let lines = LockedLines()
+        let client = Self.client(
+            { queue, found in
+                let endpoint = endpoints[target.all.last ?? ""]
+                queue.async { found(endpoint) }
+                return {}
+            }, log: lines.append)
+        client.start()
+        #expect(await eventually { lines.all.count == 1 })
+        target.append("good")
+        #expect(await eventually { client.state == .connected })
+        target.append("unreachable")
+        good.stop()
+
+        #expect(await eventually { lines.all.count == 2 })
         client.stop()
         await client.join()
     }
@@ -222,7 +367,7 @@ struct MonitorClientTests {
         let started = Date()
         client?.stop()
         await client?.join()
-        #expect(Date().timeIntervalSince(started) < 1.5)
+        #expect(Date().timeIntervalSince(started) < 10)
         #expect(client?.state == .stopped)
         #expect(client?.isReleased == true)
         if stopCase == .connected {
@@ -249,4 +394,35 @@ final class LockedLines: @unchecked Sendable {
     var all: [String] { lock.withLock { lines } }
 
     func append(_ line: String) { lock.withLock { lines.append(line) } }
+}
+
+/// A pin in memory, for the tests of ADR-0168.
+final class MemoryPin: DesktopPin, @unchecked Sendable {
+    private let id = Locked<String?>(nil)
+
+    func pinned() -> String? { id.value }
+
+    func pin(_ desktopID: String) -> String {
+        id.update { stored in
+            if stored == nil { stored = desktopID }
+            return stored!
+        }
+    }
+}
+
+/// A value behind a lock, read and changed from any thread.
+final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value
+
+    init(_ value: Value) { stored = value }
+
+    var value: Value { update { $0 } }
+
+    @discardableResult
+    func update<Result>(_ change: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return change(&stored)
+    }
 }

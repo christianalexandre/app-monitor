@@ -118,6 +118,27 @@ extension ProcessWideHooks {
             #expect(started.headers.map { [$0.name, $0.value] } == [["Authorization", mask], ["X-Extra", "1"]])
         }
 
+        @Test func headersCFNetworkAddsAtSendTimeAreCapturedAndMasked() async throws {
+            capture()
+            let configuration = URLSessionConfiguration.ephemeral
+            let url = server.url("/ok")
+            configuration.httpCookieStorage?.setCookie(
+                try #require(HTTPCookie(properties: [.domain: url.host!, .path: "/", .name: "sid", .value: "abc"])))
+            let session = URLSession(configuration: configuration)
+            defer { session.finishTasksAndInvalidate() }
+
+            _ = try await session.data(from: url)
+
+            let (started, end) = try await sink.exchange(url)
+            #expect(!started.headers.contains { $0.name == "Cookie" || $0.name == "User-Agent" })
+            let sent = try received(end).requestHeaders
+            let agent = try #require(server.received.first?.headers["user-agent"])
+            #expect(server.received.first?.headers["cookie"] == "sid=abc")
+            #expect(sent.contains { $0.name == "Cookie" && $0.value == mask })
+            #expect(sent.contains { $0.name == "User-Agent" && $0.value == agent })
+            #expect(sent.contains { $0.name == "Accept-Encoding" })
+        }
+
         @Test func aFollowedRedirectEndsWithTheFinalResponse() async throws {
             capture()
 
@@ -234,7 +255,7 @@ extension ProcessWideHooks {
             let streamed = await withCheckedContinuation { continuation in
                 let task = session.uploadTask(withStreamedRequest: request)
                 Task {
-                    while task.state != .completed { try? await Task.sleep(for: .milliseconds(20)) }
+                    while task.state != .completed { try? await Task.sleep(nanoseconds: 20_000_000) }
                     continuation.resume(returning: task.error == nil)
                 }
                 task.resume()
@@ -267,13 +288,28 @@ struct MaskingTests {
             let maskedResponseHeaders: [[String]]?
         }
 
+        struct Restore: Decodable {
+            let name: String
+            let maskedHeaders: Set<String>?
+            let maskedQueryParameters: Set<String>?
+            let masking: Bool?
+            let url: String
+            let editedUrl: String
+            let restoredUrl: String
+            let headers: [[String]]?
+            let editedHeaders: [[String]]?
+            let restoredHeaders: [[String]]?
+        }
+
         let cases: [Case]
+        let restores: [Restore]
     }
 
-    static let cases: [Vector.Case] = {
+    static let vector: Vector = {
         let data = try! FixtureTests.fixture("masking.json")
-        return try! JSONDecoder().decode(Vector.self, from: data).cases
+        return try! JSONDecoder().decode(Vector.self, from: data)
     }()
+    static let cases = vector.cases
 
     // The same file is read by the OkHttp MaskingVectorTest (ADR-0036 A).
     @Test(arguments: cases.map(\.name))
@@ -292,5 +328,38 @@ struct MaskingTests {
         #expect(flat(masking.headers(pairs(vector.requestHeaders))) == vector.maskedRequestHeaders ?? [])
         let base = URL(string: vector.url)
         #expect(flat(masking.headers(pairs(vector.responseHeaders), base: base)) == vector.maskedResponseHeaders ?? [])
+    }
+
+    @Test(arguments: vector.restores.map(\.name))
+    func restoreGoesBackAsTheVectorSays(name: String) throws {
+        let vector = try #require(Self.vector.restores.first { $0.name == name })
+        let masking = Masking(
+            AppMonitorOptions(
+                maskedHeaders: vector.maskedHeaders ?? [],
+                maskedQueryParameters: vector.maskedQueryParameters ?? [],
+                masking: vector.masking ?? true
+            )
+        )
+        #expect(masking.restoredURL(vector.editedUrl, own: vector.url) == vector.restoredUrl)
+        let edited = (vector.editedHeaders ?? []).map { header($0[0], $0[1]) }
+        let own = (vector.headers ?? []).map { (name: $0[0], value: $0[1]) }
+        #expect(masking.restoredHeaders(edited, own: own).map { [$0.name, $0.value] } == vector.restoredHeaders ?? [])
+    }
+
+    // Below iOS 17 such a request URL exists: `URL` takes it, `URLComponents` does not (ADR-0170).
+    @Test func aURLComponentsRejectsIsMaskedByTheGenericSyntax() {
+        let options = AppMonitorOptions(maskedQueryParameters: ["code"])
+        let value = "http://user:s3cret@h:p/x?code=1#code=2"
+        #expect(Masking(options).url(value) == "http://██:██@h:p/x?code=██#code=██")
+        let off = AppMonitorOptions(maskedQueryParameters: ["code"], masking: false)
+        #expect(Masking(off).url(value) == value)
+    }
+
+    // Parsers differ on this one, so it is not in the vector: resolved or as written, `code` is masked.
+    @Test func aValueWithNeitherSchemeNorAuthorityIsMasked() throws {
+        let masking = Masking(AppMonitorOptions(maskedQueryParameters: ["code"]))
+        let base = URL(string: "https://auth.example.com/authorize")
+        let header = try #require(masking.headers([(name: "Location", value: "not a url?code=1")], base: base).first)
+        #expect(header.value.hasSuffix("?code=██"))
     }
 }

@@ -30,13 +30,18 @@ trigger_names() {
 }
 
 # A name that is some file's whole basename (`Makefile`) never matches by stem.
-basenames="$(printf '%s\n' "$changed" "$(git ls-files)" | sed 's|.*/||' | sort -u)"
+all_files="$(printf '%s\n' "$changed" "$(git ls-files)")"
+basenames="$(sed 's|.*/||' <<<"$all_files" | sort -u)"
 
 names_file() { # name file
   local name="$1" file="$2" base_name stem
   if [[ "$name" == */* ]]; then
     name="${name%/}"
-    [[ "/$file/" == *"/$name/"* ]]
+    if [[ $'\n'"$all_files"$'\n' == *$'\n'"$name"[/$'\n']* ]]; then # ADR-0198
+      [[ "$file/" == "$name/"* ]]
+    else
+      [[ "/$file/" == *"/$name/"* ]]
+    fi
     return
   fi
   base_name="${file##*/}"

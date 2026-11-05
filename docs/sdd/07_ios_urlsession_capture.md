@@ -3,7 +3,7 @@
 How `sdk/ios` turns every `URLSession` task of the app into `network`
 envelopes for the running monitor of SDD 06. Code in
 `sdk/ios/Sources/AppMonitor/URLSessionCapture.swift`, `WebSocketCapture.swift`,
-`BackgroundCapture.swift`, `Mocks.swift`, `Replays.swift`, `Breakpoints.swift` and `Masking.swift`; the mechanism
+`BackgroundCapture.swift`, `MethodHook.swift`, `Mocks.swift`, `Replays.swift`, `Breakpoints.swift` and `Masking.swift`; the mechanism
 is ADR-0043 (WebSocket tasks ADR-0045, background sessions ADR-0046, mocks ADR-0117, replay ADR-0124, breakpoints
 ADR-0125), what is masked and
 bounded ADR-0036. The grpc-swift adapter, a second product beside it, is
@@ -28,7 +28,7 @@ app ── any URLSession ── task.resume() ──────────►
   `_didReceiveData:` and `_didFinishWithError:`, which find their task
   through the `_task` ivar; on `NSURLSession`, the six upload constructors
   (data and file, plain, completion handler, `async`). Each records, then
-  calls the original with the same arguments. A missing `resume` or
+  calls the original with the same arguments, through `MethodHook` (ADR-0187). A missing `resume` or
   connection method turns the whole capture off with one log line.
 - **What is captured**: `http` and `https` data, upload, download and
   WebSocket tasks of local sessions, and the tasks of background sessions.
@@ -40,7 +40,8 @@ app ── any URLSession ── task.resume() ──────────►
   user name and password → `██`; `Location` and `Content-Location` resolved
   against the response URL and masked as URLs; a value with another scheme
   is masked as written by RFC 3986 generic syntax (ADR-0044), and so is a
-  value Foundation's `URL` does not parse, relative ones included. Unlike OkHttp, the fields that are not
+  value `URL` or `URLComponents` does not parse, relative ones included
+  (below iOS 17 `URL` takes what `URLComponents` rejects). Unlike OkHttp, the fields that are not
   masked keep the app's encoding. `masking = false` turns every rule off.
   `protocol/fixtures/masking.json` is read by both SDKs' tests.
 - **Headers**: Foundation keeps them in dictionaries; they are sent sorted
@@ -51,7 +52,7 @@ app ── any URLSession ── task.resume() ──────────►
 | Event | Sent when | Body |
 | --- | --- | --- |
 | `RequestStarted` | The task's first `resume()`, before the original runs, on the caller's thread | `httpBody` or the upload data: the first `maxBodyBytes`, `body_size` the whole. An upload file: its first `maxBodyBytes` read on the caller's thread, `body_size` the file size. `httpBodyStream` or `uploadTask(withStreamedRequest:)`: empty, `body_truncated`, no size; the stream is never read. No body: empty, no size. `capture_layer = PLATFORM`. |
-| `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. |
+| `ResponseReceived` | `_didFinishWithError:` after an HTTP response, before the app's completion | Copied from each `_didReceiveData:` up to `maxBodyBytes`; `body_size` the bytes received. With an error after the response: cut, `body_truncated`, no size. A followed redirect sends only the final response. `request_headers`: the headers the request went out with, from `_incompleteCurrentTaskTransactionMetrics` read in `_didReceiveResponse:sniff:`, masked; the desktop shows them in place of `RequestStarted`'s (ADR-0189). |
 | `RequestFailed` | `_didFinishWithError:` without a response, a cancelled task included | `error` is `NSURLErrorDomain <code>: <description>`, never the error's `userInfo`. |
 
 A task whose request carries `X-AppMonitor-Capture` (any value) is not
@@ -93,7 +94,8 @@ through the app's own session (ADR-0111 D.1, ADR-0124):
 
 - **Kept at the first resume**, by the hook that sends `RequestStarted`:
   a sender per HTTP task, by request id, in the session's
-  `MonitorClient` (`RecentRequests`, the last 200; emptied when the
+  `MonitorClient` (`RecentRequests`, the last 200 within 32 MiB of bodies
+  in memory, the newest staying whatever its size; emptied when the
   session ends). It holds the task's `originalRequest` and upload body,
   and its session weakly.
 - **Sent** as a new task on that session with a completion handler that
@@ -103,10 +105,11 @@ through the app's own session (ADR-0111 D.1, ADR-0124):
   matches, with `RequestStarted.replay_of` the original's request id.
 - **Refused** with `ReplayRefused` and a reason: a request not kept (an
   older one, a past session's, a WebSocket), a background session's task,
-  a streamed body, a session the app released, or one it invalidated,
-  read from `NSURLSession`'s `_invalid_ivar` before the task is made: a
-  task made on an invalidated session raises an exception that ends the
-  app (DEBT-0084 for the race).
+  a streamed body, a session the app released, or one it invalidated:
+  `NSURLSession`'s `_invalid_ivar` is read first, and the task is made
+  inside `appmonitor_replay_task`'s `@try`, since a task made on an
+  invalidated session can raise an exception that would end the app
+  (ADR-0186).
 
 ### One held task
 
@@ -123,7 +126,8 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
   getter. A request rule: the hook sends no `RequestStarted`; the protocol
   sends `BreakpointHit` with the request (masked, no mock id) and waits on
   the loading thread's run loop. A resume applies only its fields (method,
-  URL, `set_headers` and `removed_headers` by name, body); the mock is
+  URL, `set_headers` and `removed_headers` by name, body), a `██` left in
+  an edited URL or header going out as the device's own (ADR-0185); the mock is
   matched on the request as resumed; then one `RequestStarted` with what
   goes out. An abort sends the held `RequestStarted` and fails the task
   as a mock failure; a URL that is not `http` or `https` with a host, or
@@ -138,13 +142,24 @@ sent and its response before the app reads it (ADR-0111, ADR-0125):
   none, default handling and the redirect followed. A refused redirect
   is the task's response (ADR-0130). Without a response rule matching the request as sent, the response is
   handed to the task as it comes.
-- **A response rule**: the response is read whole, sent in
-  `BreakpointHit` with the request as sent, then handed over unchanged or
-  with the resume's status, headers and body; an abort fails the task.
+- **A response rule**: the response is read whole, or held once its body
+  passes `maxBodyBytes` (`body_truncated`, `body_size` its
+  `Content-Length`, else none). Past that point the task keeps reading,
+  so the server never sees an idle connection, and the rest goes to a
+  temporary file, not memory. The response is sent in `BreakpointHit`
+  with the request as sent, then handed over unchanged or with the
+  resume's status, headers and body; past the limit, the file follows in
+  1 MiB chunks, then whatever is still coming, unless the resume replaces
+  the body. A write or read of that file that fails, or reads back fewer
+  bytes than written, fails the task, so the app never gets a body with a
+  gap. The file is deleted at the resume, the abort or a cancel.
+  An abort fails the task.
 - **Ends** at the resume, the abort, the hit's timeout or the session's
   end, the last two unchanged. A task the app cancels while held drops
   the hold and sends the held `RequestStarted` before the capture's
-  `RequestFailed`.
+  `RequestFailed`: the held start waits on the task's `TaskCapture`, and
+  the end sends it first, under the capture's lock, when `stopLoading`
+  has not run yet.
 - **Captured as any task**: the connection hooks see what the protocol
   hands over, so `ResponseReceived` is what the app read.
 
@@ -160,14 +175,16 @@ latter, so the captured URL is `http` or `https`, as on Android (ADR-0071).
 | --- | --- |
 | `RequestStarted` | The first `resume()`, as for a data task, no body. |
 | `ResponseReceived` | `_onqueue_didReceiveResponse:completion:`: the `101` (or the status that refused the upgrade) and its masked headers, no body. |
-| `RequestFailed` | `connection:didFinishLoadingWithError:` with an error before any response, e.g. a refused connection. |
-| `WebSocketFrame` sent | `sendMessage:completionHandler:`, before the original runs, so an echo is never recorded before it; text or binary. `cancelWithCloseCode:reason:` on a running task: a close frame. |
-| `WebSocketFrame` received | The app's `receive` handler, before the app gets the message; an error there after the peer's close frame, read from `closeCode` and `closeReason`: a received close frame. |
+| `RequestFailed` | `_onqueue_didFinishWithError:` (`__NSCFLocalSessionTask`'s, ADR-0190) with an error before any response (a refused connection, a cancel), or after the `101` with an error other than a cancel and no close code (a dropped socket), as on Android. |
+| `WebSocketFrame` sent | `sendMessage:completionHandler:`, before the original runs, so an echo is never recorded before it; text or binary. `cancelWithCloseCode:reason:` on a running task: a close frame. A bare `cancel()` after the `101`: a close frame with an empty payload, as it goes out, at the task's finish. |
+| `WebSocketFrame` received | The app's `receive` handler, before the app gets the message. At the task's finish after the `101`, a close code the app did not send: the peer's close frame, from `closeCode` and `closeReason`. |
 
 Payloads are cut at `maxBodyBytes` with `payload_truncated` and
 `payload_size` (ADR-0028), never masked (ADR-0036); a close payload is the
 2-byte code and the reason. Only the first close of either side is
-recorded.
+recorded. CFNetwork reads the socket only for a pending `receive`: a peer's
+close or drop with none pending is recorded when the app next receives or
+cancels, as the app learns it (ADR-0190).
 
 ### One background task
 
@@ -208,8 +225,8 @@ macOS 15; ADR-0099 A.1). The app passes it once in the client's
 never builds or links it (`make publish-dry-run` checks the binary). Code in
 `sdk/ios/Sources/AppMonitorGRPC/`, events built by `AdapterExchange`
 (`package` access, `AppMonitor/AdapterCapture.swift`) so the protobuf types
-stay `internal`. In release the interceptor only calls `next` (ADR-0048,
-its own `api/AppMonitorGRPC.swiftinterface`).
+stay `internal`. Release builds exclude it with `AppMonitor*` (ADR-0155);
+its public API is `api/AppMonitorGRPC.swiftinterface`.
 
 One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
 
@@ -243,10 +260,11 @@ One RPC is one exchange with `capture_layer = ADAPTER` (ADR-0099 C.1, ADR-0102):
 Every IPv4 and IPv6 stream socket the app's own code connects, a
 third-party SDK's included, is one exchange with `capture_layer =
 CONNECTION` and no content (ADR-0100, ADR-0103). C in
-`sdk/ios/Sources/AppMonitorConnections/` (fishhook vendored at
+`sdk/ios/Sources/AppMonitorConnections/`, beside the replay's one Objective-C
+file (fishhook vendored at
 `aadc161`, BSD-3-Clause, its two functions renamed so an app's own copy
-links), reporting in `AppMonitor/ConnectionCapture.swift`; compiled only
-with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
+links), reporting in `AppMonitor/ConnectionCapture.swift`; nothing installs the
+hooks until `AppMonitor.start`, and release builds exclude it (ADR-0155).
 
 - **Installed once**, at the first `start()` with `enabled` and
   `captureConnections` (default true). Each `connect` reads
@@ -262,7 +280,7 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 | Rebound symbol | What it reports |
 | --- | --- |
 | `getaddrinfo` | Nothing sent: each address it returns is mapped to the name asked (at most 512 kept) |
-| `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once |
+| `connect` | On an `AF_INET` or `AF_INET6` stream socket not counted yet: `RequestStarted` dated before the call, method `CONNECT`, URL `tcp://<name or address>:<port>`. An error other than `EINPROGRESS` or `EINTR`: `RequestFailed` at once. A counted number whose socket now has another local port was closed outside `close`: its exchange ends first, as at `close` with no error read (ADR-0192) |
 | `read`, `readv`, `recv`, `recvfrom`, `recvmsg` | Bytes read, added to the socket's count (one table lookup when the socket is not counted) |
 | `write`, `writev`, `send`, `sendto`, `sendmsg` | Bytes written, likewise |
 | `close` | Before the original: `ResponseReceived` with status 0, no body and not `body_truncated`, `body_size` read, `sent_size` written; a pending `SO_ERROR`, or a socket that never connected and moved no byte, is `RequestFailed` instead |
@@ -272,7 +290,7 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
   every mDNS answer and the manual host, by address or the name it was
   resolved from and its port, where another SDK of the app, `sdk/core`
   in a KMP app, connects too (ADR-0100 C.1); one opened before that
-  answer is reported (DEBT-0090); sockets numbered 4096 and up;
+  answer is reported; sockets numbered 4096 and up;
   Network.framework's `nw_connection_*` (DEBT-0076).
 - **Errors** read `NSPOSIXErrorDomain <errno>: <strerror>`, e.g.
   `NSPOSIXErrorDomain 61: Connection refused`.
@@ -283,7 +301,8 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 - **Tests**: `ConnectionCaptureTests` drives raw BSD sockets from the test
   image against `TestSocketServer` on loopback (loopback reported for the
   test): a blocking client by name with its bytes and duration, a
-  non-blocking connect counted once, a refused port, loopback, the option
+  non-blocking connect counted once, a number closed by `dup2` and connected
+  again as two exchanges, a refused port, loopback, the option
   off and an idle monitor, a `MonitorClient` to a `TestDesktop` that
   reports nothing, and sockets to desktops found by a `FakeBrowser` and a
   manual host on TEST-NET-1 addresses, skipped while another port on the
@@ -297,21 +316,27 @@ with `APPMONITOR_DEBUG`, set by both manifests in debug (ADR-0048).
 - A mocked `3xx` reaches the app as is; the protocol never redirects.
 - A replay of a redirected task sends its first request again; a
   WebSocket is refused as not kept.
-- The hold is tested on the macOS host only (DEBT-0086), a session-wide
+- The hold's abort, edits and cancel are tested on the macOS host only, `make e2e-ios`
+  holding one call on the simulator (ADR-0188); a session-wide
   challenge to a held task not at all (ADR-0130).
+- `MockProtocol` and `HoldProtocol` read the task they were made for from
+  their own property, set in `init(task:cachedResponse:client:)`, never
+  `URLProtocol.task`: on iOS 16 that getter raises "unrecognized
+  selector" and ends the app. The suite runs on iOS 16.0 by hand, nothing on
+  iOS 15 (DEBT-0111, DEBT-0118).
 
 - Headers CFNetwork adds at send time, `Cookie` from the cookie storage
-  among them, are not captured (DEBT-0037).
-- An iOS WebSocket that drops after the upgrade sends no event; a peer's
-  close without a pending `receive` and a bare `cancel()` record no close
-  frame (DEBT-0038). Ping and pong frames are not seen (DEBT-0029).
+  among them, reach the desktop with the response (ADR-0189); a request
+  without a network response (failed, held, mocked, background) keeps its
+  resume headers (DEBT-0125).
+- iOS WebSocket ping and pong frames are not seen (DEBT-0029).
 - An adopted background task's request body is not captured, and no test
   relaunches the app to adopt an earlier launch's task (ADR-0131).
 - The hooks are private CFNetwork names, proven by `swift test` on the
   macOS host and, for background sessions, on the iOS simulator; the rest
   on iOS by M2.12 and M2.13.
 - An event whose URL and headers exceed 256 KiB is dropped whole by
-  `MonitorClient` (DEBT-0023).
+  `MonitorClient`, and counted in its `DeliveryReport` (ADR-0166).
 - The desktop shows a gRPC message as bytes; it has no `.proto` to decode
   fields (ADR-0099 C.1). A status other than OK after the server accepted
   the call is status 200 with `grpc-status`, which the desktop reads as an

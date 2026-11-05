@@ -36,7 +36,11 @@ boot_simulator() {
   local pick
   pick="$(xcrun simctl list devices booted | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
   if [[ -z "$pick" ]]; then
-    pick="$(xcrun simctl list devices available | scripts/sim_list.sh | awk -v d="${SIM_DEVICE:-}" 'd == "" || substr($0, 38) == d' | head -1)"
+    if [[ -n "${SIM_DEVICE:-}" ]]; then
+      pick="$(xcrun simctl list devices available | scripts/sim_list.sh | awk -v d="$SIM_DEVICE" 'substr($0, 38) == d' | head -1)"
+    else
+      pick="$(xcrun simctl list devices available | scripts/sim_runtime.sh | scripts/sim_list.sh | head -1)"
+    fi
     [[ -n "$pick" ]] || fail "no iPhone simulator${SIM_DEVICE:+ named $SIM_DEVICE} (Xcode > Settings > Components)"
     xcrun simctl boot "${pick%% *}"
   fi
@@ -44,12 +48,13 @@ boot_simulator() {
   xcrun simctl bootstatus "$udid" -b >/dev/null
 }
 
-# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path: builds the Debug app for the picked
-# simulator, log in $out/build.log. Release and its SDK name scan are `make swift`'s (ADR-0075).
+# $1 an XcodeGen spec, $2 its scheme, $3 the derived data path, $4 its project name if not the scheme's:
+# builds the Debug app for the picked simulator, log in $out/build.log. Release and its SDK name scan
+# are `make swift`'s (ADR-0075).
 build_ios_debug() {
   command -v xcodegen >/dev/null 2>&1 || fail "xcodegen not found ('brew install xcodegen'; ADR-0050)"
   xcodegen generate --quiet --spec "$1"
-  xcodebuild build -project "$(dirname "$1")/$2.xcodeproj" -scheme "$2" -configuration Debug \
+  xcodebuild build -project "$(dirname "$1")/${4:-$2}.xcodeproj" -scheme "$2" -configuration Debug \
     -destination "id=$udid" -derivedDataPath "$3" >"$out/build.log" 2>&1 \
     || { grep -E 'error:' "$out/build.log" >&2 || true; fail "iOS Debug build failed, log in $out/build.log"; }
 }
@@ -70,9 +75,9 @@ listen() {
   fail "$1 did not print its port, log in $2"
 }
 
-# Starts desktop/server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
+# Starts tools/headless-server's installDist, built by the caller, its arguments passed on; sets server_pid and port.
 start_server() {
-  listen desktop/server/build/install/server/bin/server "$server_log" "$@"
+  listen tools/headless-server/build/install/headless-server/bin/headless-server "$server_log" "$@"
   server_pid=$listener_pid port=$listener_port
 }
 
@@ -91,11 +96,12 @@ foreign_urls() {
 
 # $1 app id, $2 one expectation per line: <method> <url> <ResponseReceived|RequestFailed> [<frame>...],
 # a frame being <direction>:<opcode> of WebSocketFrame, e.g. DIRECTION_SENT:OPCODE_TEXT, mock:<rule id>
-# for a request that rule answered on the device (ADR-0110), or `replay` for a request the device sent
-# again with the same terminal (ADR-0122).
+# for a request that rule answered on the device (ADR-0110), `replay` for a request the device sent
+# again with the same terminal (ADR-0122), `held:<request|response>` for a stage a breakpoint held and
+# the server resumed, or `status:<code>` for the status the device captured (ADR-0188).
 # Prints what is still missing from the server log, one line per expectation; nothing when all arrived.
 missing() {
-  local method url terminal frames id frame replay
+  local method url terminal frames id frame replay stage
   grep -q "\] connected: .* $1 " "$server_log" || echo "no device connected with app id $1"
   while read -r method url terminal frames; do
     id="$(awk -v m="$method" -v u="$url" '$2 == "network/RequestStarted" && $4 == m && $5 == u { print $3; exit }' "$server_log")"
@@ -112,6 +118,17 @@ missing() {
         else
           grep -q " network/$terminal $replay " "$server_log" || echo "$method $url: no $terminal for its replay $replay"
         fi
+        continue
+      fi
+      if [[ "$frame" == held:* ]]; then
+        stage="BREAKPOINT_STAGE_$(echo "${frame#held:}" | tr '[:lower:]' '[:upper:]')"
+        grep -q " interaction/BreakpointHit $id $stage " "$server_log" || echo "$method $url: no ${frame#held:} held"
+        grep -Eq " resumed $id $stage( |\$)" "$server_log" || echo "$method $url: ${frame#held:} not resumed"
+        continue
+      fi
+      if [[ "$frame" == status:* ]]; then
+        grep -q " network/ResponseReceived $id ${frame#status:}," "$server_log" \
+          || echo "$method $url: no status ${frame#status:} for $id"
         continue
       fi
       if [[ "$frame" == mock:* ]]; then
@@ -144,6 +161,40 @@ sessions() {
   awk -v a="$1" -v s="$2" '$2 == "connected:" && $NF == s {
       for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) n++; break } }
     END { print n + 0 }' "$server_log"
+}
+
+# $1 app id, $2 an app name (`Hello.app_name`, ADR-0165): prints, sorted, each session of the app
+# the server did not log `app name: $2` for.
+unnamed() {
+  awk -v a="$1" -v n="$2" '
+    $2 == "connected:" { for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) s[$1] = 1; break } }
+    $2 == "app" && $3 == "name:" { v = $0; sub(/^[^ ]+ app name: /, "", v); named[$1] = v }
+    END { for (k in s) if (named[k] != n) print k }' "$server_log" | sort
+}
+
+# $1 app id, $2 the app name its sessions must carry; fails on one without it.
+assert_app_name() {
+  local gaps
+  gaps="$(unnamed "$1" "$2")"
+  [[ -z "$gaps" ]] || fail "session(s) of $1 without app name '$2': $(echo $gaps), server log in $server_log"
+  echo "$tag: ok app name '$2'"
+}
+
+# $1 app id: prints, sorted, each session of the app whose last `drops:` line (`DeliveryReport`, ADR-0166)
+# is not all zero, or that logged none.
+dropping() {
+  awk -v a="$1" '
+    $2 == "connected:" { for (i = 3; i < NF; i++) if ($i ~ /^\(PLATFORM_[A-Z_]+\)$/) { if ($(i + 1) == a) s[$1] = 1; break } }
+    $2 == "drops:" { v = $0; sub(/^[^ ]+ /, "", v); d[$1] = v }
+    END { for (k in s) if (d[k] != "drops: evicted 0, oversized 0, lost 0") print k }' "$server_log" | sort
+}
+
+# $1 app id; fails on a session of it that dropped an envelope or reported nothing.
+assert_no_drops() {
+  local gaps
+  gaps="$(dropping "$1")"
+  [[ -z "$gaps" ]] || fail "session(s) of $1 dropped envelopes or sent no DeliveryReport: $(echo $gaps), server log in $server_log"
+  echo "$tag: ok no drops"
 }
 
 # $1 app id, $2 expectations as for `missing`, $3 timeout (s), $4 where the device log is,

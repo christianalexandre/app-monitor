@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.map
 import okio.ByteString
 import java.io.IOException
 
-/** Where a device's session and its envelopes go, in the order the session produced them (SDD 09). */
+/** Where a device's session and its envelopes go, in the order the session produced them. */
 interface TrafficSink {
     /** A session's start; call before its first [received]. */
     suspend fun connected(
@@ -31,16 +31,23 @@ interface TrafficSink {
         envelope: Envelope,
     )
 
+    /** The session's latest [StoredDrops], in order with its envelopes; a sink without sessions ignores it (ADR-0166). */
+    suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) = Unit
+
     suspend fun disconnected(sessionId: String)
 }
 
 /**
- * The live list in memory, as the store's rows (ADR-0140 A, ADR-0141): the oldest exchange goes past [maxExchanges] or
- * [maxBytes] of bodies and frames; ids from [FIRST_ID]; only `network` envelopes it decodes are kept.
+ * The live list in memory as the store's rows, ids from [FIRST_ID], decoded `network` envelopes only (ADR-0140 A,
+ * ADR-0141): past [maxExchanges] or [maxBytes] the oldest goes; each keeps [maxFramesPerExchange], a quarter at most.
  */
 class LiveTraffic(
     private val maxExchanges: Int = MAX_EXCHANGES,
     private val maxBytes: Long = MAX_BYTES,
+    private val maxFramesPerExchange: Int = MAX_FRAMES_PER_EXCHANGE,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : TrafficSink {
     private class LiveSession(
@@ -52,9 +59,12 @@ class LiveTraffic(
         var row: StoredExchange,
         var request: RequestStarted? = null,
         var response: ResponseReceived? = null,
-        val frames: MutableList<StoredFrame> = mutableListOf(),
-        var bytes: Long = 0,
-    )
+        val frames: ArrayDeque<StoredFrame> = ArrayDeque(),
+        var bodyBytes: Long = 0,
+        var frameBytes: Long = 0,
+    ) {
+        val bytes: Long get() = bodyBytes + frameBytes
+    }
 
     private val lock = Any()
     private var nextId = FIRST_ID
@@ -66,8 +76,12 @@ class LiveTraffic(
     private val exchangeIds = HashMap<Pair<Long, String>, Long>()
     private var bytes = 0L
 
-    // Bumped after each change; the observed reads run again on it.
+    // Bumped after each change; the observed reads run again on it. Sessions' too on any envelope.
     private val changes = MutableStateFlow(0L)
+    private val sessionChanges = MutableStateFlow(0L)
+
+    /** How many times the exchanges changed, for tests. */
+    internal val exchangesVersion: Long get() = changes.value
 
     override suspend fun connected(
         sessionId: String,
@@ -85,16 +99,28 @@ class LiveTraffic(
         sessionId: String,
         envelope: Envelope,
     ) {
-        change {
-            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return@change
+        synchronized(lock) {
+            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return
             session.row = session.row.copy(lastEnvelopeAtMs = clock())
-            if (envelope.channel != Protocol.CHANNEL_NETWORK) return@change
+            sessionChanges.value += 1
+            if (envelope.channel != Protocol.CHANNEL_NETWORK) return
             try {
                 network(session, envelope)
             } catch (_: IOException) {
-                return@change
+                return
             }
             trim()
+            changes.value += 1
+        }
+    }
+
+    override suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) {
+        change {
+            val session = sessionIds[sessionId]?.let { sessions[it] } ?: return@change
+            session.row = session.row.copy(drops = drops)
         }
     }
 
@@ -122,7 +148,7 @@ class LiveTraffic(
     fun sessions(): List<StoredSession> = synchronized(lock) { sessions.values.map { it.row } }
 
     /** The live sessions, oldest first, again after each change. */
-    fun observeSessions(): Flow<List<StoredSession>> = observe { sessions() }
+    fun observeSessions(): Flow<List<StoredSession>> = observe(sessionChanges) { sessions() }
 
     fun session(id: Long): StoredSession? = synchronized(lock) { sessions[id]?.row }
 
@@ -170,6 +196,7 @@ class LiveTraffic(
                 request = exchange.request,
                 response = exchange.response,
                 replayOfId = row.replayOf?.let { exchangeIds[row.sessionId to it] },
+                framesKept = exchange.frames.size.toLong(),
             )
         }
 
@@ -187,7 +214,7 @@ class LiveTraffic(
             ids.distinct().sorted().mapNotNull { id ->
                 val exchange = exchanges[id] ?: return@mapNotNull null
                 val session = sessions[exchange.row.sessionId]?.row ?: return@mapNotNull null
-                LiveCopy(id, exchange.row.requestId, session, exchange.envelopes())
+                LiveCopy(id, exchange.row.requestId, session, exchange.envelopes(), exchange.row.frameCount)
             }
         }
 
@@ -214,34 +241,27 @@ class LiveTraffic(
         map: (LiveExchange) -> T,
     ): List<T> {
         if (filter.runId != null) return emptyList()
-        val text = filter.text?.takeIf { it.isNotEmpty() }?.asciiLowercase()
+        val matches = filter.liveMatcher()
         return synchronized(lock) {
             exchanges.values
                 .asSequence()
-                .filter { exchange ->
-                    val row = exchange.row
-                    val hello = sessions[row.sessionId]?.row?.hello
-                    row.id > afterId &&
-                        (filter.sessionId == null || row.sessionId == filter.sessionId) &&
-                        (filter.deviceId == null || hello?.device_id == filter.deviceId) &&
-                        (filter.appId == null || hello?.app_id == filter.appId) &&
-                        (filter.method == null || row.method == filter.method) &&
-                        (filter.statusClasses.isEmpty() || filter.statusClasses.any { row.statusCode?.minus(it.from) in 0..99 }) &&
-                        (filter.hosts.isEmpty() || row.host in filter.hosts) &&
-                        (!filter.failedOnly || row.failed) &&
-                        (text == null || row.url?.asciiLowercase()?.contains(text) == true)
-                }.take(limit.toInt())
+                .filter { it.row.id > afterId && matches(it.row, sessions[it.row.sessionId]?.row?.hello) }
+                .take(limit.toInt())
                 .map(map)
                 .toList()
         }
     }
 
-    private fun <T> observe(read: () -> T): Flow<T> = changes.map { read() }.distinctUntilChanged().flowOn(Dispatchers.Default)
+    private fun <T> observe(
+        source: MutableStateFlow<Long> = changes,
+        read: () -> T,
+    ): Flow<T> = source.map { read() }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     private inline fun change(block: () -> Unit) {
         synchronized(lock) {
             block()
             changes.value += 1
+            sessionChanges.value += 1
         }
     }
 
@@ -251,15 +271,15 @@ class LiveTraffic(
         envelope: Envelope,
     ) {
         val at = envelope.timestamp_ms
-        when (envelope.type) {
-            "RequestStarted" -> {
-                val event = RequestStarted.ADAPTER.decode(envelope.payload)
+        when (val decoded = envelope.networkEvent() ?: return) {
+            is NetworkEvent.Started -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.row =
                     exchange.row.copy(
                         method = event.method,
                         url = event.url,
-                        host = hostOf(event.url),
+                        host = decoded.host,
                         startedAtMs = at,
                         captureLayer = event.capture_layer,
                         mockRuleId = event.mock_rule_id,
@@ -269,28 +289,30 @@ class LiveTraffic(
                 exchange.resize(event.body, exchange.response?.body)
             }
 
-            "ResponseReceived" -> {
-                val event = ResponseReceived.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Responded -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
-                // ADR-0104: status 0 is no status, as a closed `CONNECTION` sends.
                 exchange.row =
                     exchange.row.copy(
-                        statusCode = event.status_code.takeIf { it != 0 },
-                        grpcStatus = grpcStatusOf(event)?.toInt(),
+                        statusCode = decoded.statusCode,
+                        grpcStatus = decoded.grpcStatus?.toInt(),
                         endedAtMs = at,
                     )
-                exchange.response = event
+                exchange.response = event.copy(request_headers = emptyList())
+                if (event.request_headers.isNotEmpty()) {
+                    exchange.request = exchange.request?.copy(headers = event.request_headers) // ADR-0189
+                }
                 exchange.resize(exchange.request?.body, event.body)
             }
 
-            "RequestFailed" -> {
-                val event = RequestFailed.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Failed -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.row = exchange.row.copy(failed = true, error = event.error, endedAtMs = at)
             }
 
-            "WebSocketFrame" -> {
-                val event = WebSocketFrame.ADAPTER.decode(envelope.payload)
+            is NetworkEvent.Frame -> {
+                val event = decoded.event
                 val exchange = exchange(session, event.request_id)
                 exchange.frames +=
                     StoredFrame(
@@ -303,8 +325,16 @@ class LiveTraffic(
                         payloadSize = event.payload_size,
                     )
                 exchange.row = exchange.row.copy(frameCount = exchange.row.frameCount + 1)
-                exchange.bytes += event.payload.size
-                bytes += event.payload.size
+                exchange.addFrameBytes(event.payload.size + FRAME_OVERHEAD_BYTES)
+                while (exchange.frames.size > maxFramesPerExchange || exchange.frameBytes > maxBytes / 4) {
+                    exchange.addFrameBytes(
+                        -(
+                            exchange.frames
+                                .removeFirst()
+                                .payload.size + FRAME_OVERHEAD_BYTES
+                        ),
+                    )
+                }
             }
         }
     }
@@ -346,9 +376,13 @@ class LiveTraffic(
         response: ByteString?,
     ) {
         val bodies = (request?.size ?: 0).toLong() + (response?.size ?: 0)
-        val frameBytes = frames.sumOf { it.payload.size.toLong() }
-        this@LiveTraffic.bytes += bodies + frameBytes - bytes
-        bytes = bodies + frameBytes
+        this@LiveTraffic.bytes += bodies - bodyBytes
+        bodyBytes = bodies
+    }
+
+    private fun LiveExchange.addFrameBytes(delta: Long) {
+        frameBytes += delta
+        this@LiveTraffic.bytes += delta
     }
 
     // The events the store would have been given, as far as the list kept them.
@@ -399,18 +433,21 @@ class LiveTraffic(
 
         const val MAX_EXCHANGES = 10_000
         const val MAX_BYTES = 128L * 1024 * 1024
+        const val MAX_FRAMES_PER_EXCHANGE = 10_000
+
+        /** What a kept frame costs beside its payload, so empty frames count toward [MAX_BYTES]. */
+        const val FRAME_OVERHEAD_BYTES = 128L
 
         /** True when [id] is a live session's, exchange's or frame's. */
         fun isLive(id: Long): Boolean = id >= FIRST_ID
     }
 }
 
-/** One live exchange as [LiveTraffic.copies] gives it: its live [id], its [session] and the events that make it. */
+/** One live exchange as [LiveTraffic.copies] gives it: its live [id], its [session], the events kept, [framesReceived] ever. */
 class LiveCopy(
     val id: Long,
     val requestId: String,
     val session: StoredSession,
     val envelopes: List<Envelope>,
+    val framesReceived: Long,
 )
-
-private fun String.asciiLowercase(): String = String(CharArray(length) { this[it].let { c -> if (c in 'A'..'Z') c + 32 else c } })

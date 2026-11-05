@@ -35,8 +35,8 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
     /// The requests `keepForReplay` got, as a session's `MonitorClient` keeps them.
     let replays = RecentRequests()
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
-        replays.keep(requestID, replay)
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
+        replays.keep(requestID, bodyBytes: bodyBytes, replay)
     }
 
     /// The breakpoints `breakpoint` and `hold` answer from, as a session's `MonitorClient` keeps them.
@@ -50,7 +50,7 @@ final class RecordingSink: CaptureSink, @unchecked Sendable {
     func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
         -> @Sendable () -> Void
     {
-        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+        breakpoints.hold(hit, send: { hit, _ in send(interactionEnvelope("BreakpointHit", hit)) }, done: done)
     }
 
     /// The `BreakpointHit` sent so far at `stage`, waited for up to 5 s.

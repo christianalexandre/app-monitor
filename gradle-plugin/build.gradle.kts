@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
     id("appmonitor.kotlin-jvm")
 }
 
@@ -30,12 +31,42 @@ gradlePlugin {
     }
 }
 
-// The app's own AGP is the one at run time; the functional tests put this one on the plugin's classpath.
+// ADR-0157: the plugin adds the SDK of its own release, the root's VERSION_NAME.
+val sdkVersion =
+    providers.fileContents(layout.projectDirectory.file("../gradle.properties")).asText.map { text ->
+        text
+            .lineSequence()
+            .first { it.startsWith("VERSION_NAME=") }
+            .substringAfter("=")
+            .trim()
+    }
+val generateSdkVersion by tasks.registering {
+    val output = layout.buildDirectory.dir("generated/sdkVersion")
+    inputs.property("version", sdkVersion)
+    outputs.dir(output)
+    doLast {
+        val file = output.get().file("appmonitor/gradle/SdkVersion.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText("package appmonitor.gradle\n\ninternal const val SDK_VERSION: String = \"${sdkVersion.get()}\"\n")
+    }
+}
+kotlin.sourceSets.main { kotlin.srcDir(generateSdkVersion) }
+
+// ADR-0162: `publishToMavenLocal` until M10 publishes the plugin with the SDK.
+group = "io.github.christianalexandre"
+version = sdkVersion.get()
+publishing.publications.withType<MavenPublication>().matching { it.name == "pluginMaven" }.configureEach {
+    artifactId = "appmonitor-gradle-plugin"
+}
+
+// The app's own AGP and KGP are the ones at run time; the functional tests put these on the plugin's classpath.
 val agp = configurations.create("agp")
 
 dependencies {
     compileOnly(libs.android.gradle.api)
+    compileOnly(libs.kotlin.gradle.plugin)
     agp(libs.android.gradle.plugin)
+    agp(libs.kotlin.gradle.plugin)
     testImplementation(kotlin("test"))
     testImplementation(libs.android.gradle.api)
     testImplementation(libs.okhttp)
@@ -53,6 +84,7 @@ testing {
                     val sdkDir = providers.environmentVariable("ANDROID_HOME").orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
                     systemProperty("appmonitor.androidSdk", sdkDir.getOrElse(""))
                     systemProperty("appmonitor.okhttp", libs.versions.okhttp.get())
+                    systemProperty("appmonitor.sdkVersion", sdkVersion.get())
                     systemProperty(
                         "appmonitor.compileSdk",
                         libs.versions.android.compileSdk

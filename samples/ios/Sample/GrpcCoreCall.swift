@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if SAMPLE_GRPC
 /// One unary gRPC-Core call over TLS: `grpc_proxy` sends it through the desktop's proxy and
 /// `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` makes its CA trusted (ADR-0108). `-grpcTarget host:port`
 /// at launch replaces grpcb.in, as `make e2e-ios` does.

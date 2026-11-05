@@ -1,10 +1,10 @@
 ---
 id: DEBT-0071
 title: Non-correctness findings of the first M6 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: "The first desktop release, or the first PR that changes `Storage.setSetting`"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0071 — Non-correctness findings of the first M6 milestone review
@@ -62,4 +62,11 @@ first release forces.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2c (`refactor/service-switch`). The packaged server says the build's
+`VERSION_NAME`: `desktop/app` passes `-Dappmonitor.version` to `run` and to the
+package (read in the `.cfg` of `createDistributable`), and `McpController` gives it
+to `McpServer` (`McpWiringTest.theServerSaysTheVersionItWasGiven`). `dev` is left for
+tests and IDEs.
+
+Dropped: reporting a refused `setSetting`. It is refused only after `close`, when no
+switch is reachable, and a failed batch is already in the storage health.

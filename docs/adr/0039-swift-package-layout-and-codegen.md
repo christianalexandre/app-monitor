@@ -1,9 +1,9 @@
 ---
 id: ADR-0039
 title: Swift package layout, protobuf code generation and Swift gates
-status: Accepted
+status: Superseded
 date: 2026-10-23
-superseded_by:
+superseded_by: ADR-0160
 ---
 
 # ADR-0039 — Swift package layout, protobuf code generation and Swift gates

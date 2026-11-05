@@ -64,7 +64,7 @@ import java.io.File
 
 /**
  * The traffic panes under the device to approve ([approvals] when given) with Disconnect ([connections] when given), the runs or the
- * settings ([answered], [mcp], [proxy] and [appearance] when given; light without [appearance]); the panes as [panes] left them, the defaults without it. Every pane reads [traffic], [runRepository] or [storage] and follows their commits (SDD 09).
+ * settings ([answered], [mcp], [proxy] and [appearance] when given; light without [appearance]); the panes as [panes] left them, the defaults without it. Every pane reads [traffic], [runRepository] or [storage] and follows their commits.
  */
 @Composable
 internal fun AppMonitorApp(

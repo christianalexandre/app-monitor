@@ -1,0 +1,197 @@
+package appmonitor.tools.headlessserver
+
+import appmonitor.desktop.server.AppMonitorServer
+import appmonitor.desktop.server.Drops
+import appmonitor.desktop.server.ServerConfig
+import appmonitor.protocol.Protocol
+import appmonitor.v1.Envelope
+import appmonitor.v1.Header
+import appmonitor.v1.MockFailure
+import appmonitor.v1.MockResponse
+import appmonitor.v1.MockRule
+import appmonitor.v1.ReplayRefused
+import appmonitor.v1.RequestStarted
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import okio.ByteString.Companion.encodeUtf8
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class MainTest {
+    @Test
+    fun `no arguments use the default port`() {
+        assertEquals(Protocol.DEFAULT_PORT, parse().first)
+    }
+
+    @Test
+    fun `a valid port is used`() {
+        assertEquals(8080, parse("--port", "8080").first)
+    }
+
+    @Test
+    fun `the proxy directory is read with the port in any order`() {
+        assertEquals(ServerArgs(0, Path.of("ca")), parseOptions("--proxy", "ca", "--port", "0").first)
+        assertNull(parseOptions("--port", "0").first?.proxyDirectory)
+    }
+
+    @Test
+    fun `the mocks file is read with the other options`() {
+        assertEquals(ServerArgs(0, mocksFile = Path.of("rules.json")), parseOptions("--mocks", "rules.json", "--port", "0").first)
+        assertNull(parseOptions("--mocks").first)
+    }
+
+    @Test
+    fun `a rules file becomes one mock rules set in file order`() {
+        val rules =
+            readMockRules(
+                """
+                {"rules": [
+                  {"id": 3, "method": "GET", "host": "10.0.2.2", "path": "/status/418",
+                   "response": {"status_code": 200, "headers": [{"name": "Content-Type", "value": "text/plain"}], "body": "mocked"}},
+                  {"id": 4, "host": "10.0.2.2", "path": "/v1/*", "delay_ms": 50, "failure": {"message": "reset"}}
+                ]}
+                """.trimIndent(),
+            ).rules
+        assertEquals(
+            listOf(
+                MockRule(
+                    id = 3,
+                    method = "GET",
+                    host = "10.0.2.2",
+                    path = "/status/418",
+                    response = MockResponse(200, listOf(Header("Content-Type", "text/plain")), "mocked".encodeUtf8()),
+                ),
+                MockRule(id = 4, host = "10.0.2.2", path = "/v1/*", delay_ms = 50, failure = MockFailure("reset")),
+            ),
+            rules,
+        )
+    }
+
+    @Test
+    fun `a bad rules file is refused`() {
+        listOf(
+            "not json",
+            "{}",
+            """{"rules": [{"id": 1, "host": "h", "path": "/"}]}""",
+            """{"rules": [{"id": 1, "host": "h", "path": "/", "failure": {}, "response": {"status_code": 200}}]}""",
+            """{"rules": [{"id": 1, "path": "/", "failure": {}}]}""",
+            """{"rules": [{"id": "x", "host": "h", "path": "/", "failure": {}}]}""",
+            """{"rules": [{"id": 1, "host": "h", "path": "/", "response": {"status_code": 200, "headers": [{}]}}]}""",
+        ).forEach { text -> assertFailsWith<IllegalArgumentException>(text) { readMockRules(text) } }
+    }
+
+    @Test
+    fun `a mocked request is logged with its rule`() {
+        val started = RequestStarted(request_id = "r1", method = "GET", url = "http://h/x", mock_rule_id = 3)
+        val envelope = Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = started.encodeByteString())
+        assertEquals("network/RequestStarted r1 GET http://h/x mock 3", describe(envelope))
+        assertEquals(
+            "network/RequestStarted r1 GET http://h/x",
+            describe(envelope.copy(payload = started.copy(mock_rule_id = null).encodeByteString())),
+        )
+    }
+
+    @Test
+    fun `the replay path is read with the other options`() {
+        assertEquals(ServerArgs(0, replayPath = "/json"), parseOptions("--port", "0", "--replay", "/json").first)
+        assertNull(parseOptions("--replay", "json").first)
+    }
+
+    @Test
+    fun `the desktop id is a UUID`() {
+        val id = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
+        assertEquals(ServerArgs(desktopId = id), parseOptions("--desktop-id", id).first)
+        assertNull(parseOptions("--desktop-id", "mine").first)
+    }
+
+    @Test
+    fun `the first request of an app to the replay path is asked again, not its replay`() {
+        val started = RequestStarted(request_id = "r1", method = "GET", url = "http://h:8080/json?x=1")
+        val envelope = Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = started.encodeByteString())
+        assertEquals("r1", replayTarget(envelope, "/json"))
+        assertNull(replayTarget(envelope, "/post"))
+        val replay = envelope.copy(payload = started.copy(request_id = "r2", replay_of = "r1").encodeByteString())
+        assertNull(replayTarget(replay, "/json"))
+        assertEquals("network/RequestStarted r2 GET http://h:8080/json?x=1 replay_of r1", describe(replay))
+        assertEquals("interaction/ReplayRequest", replayRequestEnvelope("r1", 0).run { "$channel/$type" })
+    }
+
+    // The end to end scripts match this line (ADR-0166).
+    @Test
+    fun `drops are logged with each count, lost unknown when the previous session is not known`() {
+        assertEquals("drops: evicted 0, oversized 0, lost 0", describe(Drops(0, 0, 0)))
+        assertEquals("drops: evicted 3, oversized 1, lost unknown", describe(Drops(3, 1, null)))
+    }
+
+    @Test
+    fun `a refused replay is logged with its reason`() {
+        val refused = ReplayRefused(request_id = "r1", reason = "not kept")
+        val envelope = Envelope(channel = Protocol.CHANNEL_INTERACTION, type = "ReplayRefused", payload = refused.encodeByteString())
+        assertEquals("interaction/ReplayRefused r1 not kept", describe(envelope))
+    }
+
+    @Test
+    fun `a bad port is a one-line error`() {
+        listOf(
+            arrayOf("--port", "abc"),
+            arrayOf("--port"),
+            arrayOf("--port", "70000"),
+            arrayOf("--prot", "1"),
+            arrayOf("--port", "1", "--proxy"),
+            arrayOf("--port", "abc", "--proxy", "ca"),
+        ).forEach { args ->
+            val (port, err) = parse(*args)
+
+            assertNull(port, args.joinToString(" "))
+            assertEquals(1, err.trimEnd().lines().size, err)
+            assertTrue(err.startsWith("Usage: server"), err)
+        }
+    }
+
+    @Test
+    fun `the server advertises unless told not to`() {
+        assertEquals(true, parseOptions().first?.advertise)
+        assertEquals(false, parseOptions("--advertise", "false").first?.advertise)
+        assertNull(parseOptions("--advertise", "no").first)
+    }
+
+    @Test
+    fun `a taken port is one line, not a stack trace`() =
+        runBlocking {
+            ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
+                val server = AppMonitorServer(ServerConfig(host = "127.0.0.1", port = taken.localPort, advertise = false))
+                val err = ByteArrayOutputStream()
+
+                assertNull(startOrNull(taken.localPort, PrintStream(err)) { server.start() })
+
+                val line = err.toString().trimEnd()
+                assertEquals(1, line.lines().size, line)
+                assertTrue(line.startsWith("Cannot listen on port ${taken.localPort}: "), line)
+            }
+        }
+
+    private fun parse(vararg args: String): Pair<Int?, String> = parseOptions(*args).let { (options, err) -> options?.port to err }
+
+    private fun parseOptions(vararg args: String): Pair<ServerArgs?, String> {
+        val err = ByteArrayOutputStream()
+        val options = parseArgs(arrayOf(*args), PrintStream(err))
+        return options to err.toString()
+    }
+
+    private companion object {
+        const val TIMEOUT_MS = 5_000L
+    }
+}

@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-/** `get_request` (SDD 10): one exchange with its headers, bodies capped per ADR-0089 B.1, and a page of its frames. */
+/** `get_request`: one exchange with its headers, bodies capped per ADR-0089 B.1, and a page of its frames. */
 internal object GetRequest {
     const val NAME = "get_request"
     private val parts = listOf("request", "response", "both")

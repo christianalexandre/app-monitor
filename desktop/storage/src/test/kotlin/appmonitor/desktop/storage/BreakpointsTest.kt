@@ -40,6 +40,36 @@ class BreakpointsTest {
         }
 
     @Test
+    fun aBreakpointMovesInItsAppsOrderOnly() =
+        withDataDir { dir ->
+            var storage = Storage.open(dir)
+            runBlocking {
+                val first = saved(storage.createBreakpoint(APP, "first", items))
+                val elsewhere = saved(storage.createBreakpoint("other.app", "elsewhere", items))
+                val second = saved(storage.createBreakpoint(APP, "second", orders))
+
+                suspend fun order() = storage.observeActiveBreakpoints(APP).first().map { it.id }
+
+                storage.moveBreakpoint(second, RuleMove.UP)
+                storage.flush()
+                assertEquals(listOf(second, first), order())
+                storage.moveBreakpoint(second, RuleMove.DOWN)
+                storage.moveBreakpoint(second, RuleMove.DOWN)
+                storage.moveBreakpoint(elsewhere, RuleMove.DOWN)
+                storage.moveBreakpoint(elsewhere + 100, RuleMove.DOWN)
+                storage.flush()
+                assertEquals(listOf(first, second), order(), "nothing past either end, nor for an unknown breakpoint")
+                storage.moveBreakpoint(second, RuleMove.UP)
+                storage.flush()
+
+                storage.close(5.seconds)
+                storage = Storage.open(dir)
+                assertEquals(listOf(second, first), order(), "kept across a reopen")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun theEnabledBreakpointsAreObservedAgainOnlyWhenTheyChange() =
         withDataDir { dir ->
             val storage = Storage.open(dir)
@@ -72,6 +102,10 @@ class BreakpointsTest {
                     it.execute("DROP TABLE breakpoint_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("ALTER TABLE runs DROP COLUMN saved")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 5")
                 }
             }
@@ -81,7 +115,7 @@ class BreakpointsTest {
                 assertEquals(1, storage.observeActiveBreakpoints(APP).first().size)
                 storage.close(5.seconds)
             }
-            assertEquals(8, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     @Test

@@ -1,14 +1,18 @@
-#if DEBUG
 import Foundation
 import Network
-import SwiftProtobuf
 import os
 
-/// Where a desktop listens.
+/// The SDK's line for Console and the device's syslog; private, it reads `<private>` there (ADR-0173).
+@Sendable func sdkLog(_ line: String) {
+    Logger(subsystem: "AppMonitor", category: "sdk").error("\(line, privacy: .public)")
+}
+
+/// Where a desktop listens; `checksPin` false for a manual host, which neither checks nor pins (ADR-0168).
 struct Endpoint: Equatable, Sendable {
     var host: String
     var port: UInt16 = ProtocolConstants.defaultPort
     var path: String = ProtocolConstants.websocketPath
+    var checksPin = true
 
     /// An IPv6 zone id is sent as `%25` (RFC 6874), which older Foundation requires.
     var url: URL? {
@@ -17,12 +21,12 @@ struct Endpoint: Equatable, Sendable {
     }
 }
 
-/// The states of SDD 04 and SDD 06; `idle` until `MonitorClient.start()`.
+/// The client's states; `idle` until `MonitorClient.start()`.
 enum ClientState: Sendable {
     case idle, discovering, connecting, handshaking, connected, backingOff, stopped
 }
 
-/// Bounds of SDD 06, in seconds; tests shorten them.
+/// The client's bounds, in seconds; tests shorten them.
 struct ClientConfig: Sendable {
     var discoveryTimeout: Double = 5
     var connectTimeout: Double = 10
@@ -39,7 +43,7 @@ struct ClientConfig: Sendable {
 /// looking when the returned closure is called.
 typealias Discover = @Sendable (DispatchQueue, @escaping @Sendable (Endpoint?) -> Void) -> @Sendable () -> Void
 
-/// A manual host: the endpoint at once, nothing else tried (SDD 06).
+/// A manual host: the endpoint at once, nothing else tried.
 func manualDiscovery(_ endpoint: Endpoint) -> Discover {
     { queue, found in
         queue.async { found(endpoint) }
@@ -47,7 +51,7 @@ func manualDiscovery(_ endpoint: Endpoint) -> Discover {
     }
 }
 
-/// One connection to the desktop as the state machine of SDD 06 (ADR-0040). Single use: `start()`
+/// One connection to the desktop as a state machine (ADR-0040). Single use: `start()`
 /// once, `stop()` once; `send(_:)` is safe from any thread and never blocks beyond the buffer's lock.
 final class MonitorClient: @unchecked Sendable {
     // ADR-0040: every member below `buffer` is confined to `queue`.
@@ -56,6 +60,7 @@ final class MonitorClient: @unchecked Sendable {
     private let makeHello: @Sendable () -> Appmonitor_V1_Hello
     private let discover: Discover
     private let log: @Sendable (String) -> Void
+    private let pin: DesktopPin?
     private let buffer: EventBuffer
     private let oversized = LockedCount()
 
@@ -67,11 +72,18 @@ final class MonitorClient: @unchecked Sendable {
     private var backoff: Backoff
     private var hello: Appmonitor_V1_Hello?
     private var connectFailureLogged = false
+    private var pinRefusalLogged = false
+    private var endpoint: Endpoint?
     private var round = 0
     private var cancelDiscovery: (@Sendable () -> Void)?
     private var connection: NWConnection?
     private var accepted: Set<String> = []
     private var sending = false
+    // ADR-0166: this session's HelloAck id, frames written after Hello on it, and the last one's.
+    private var sessionID: String?
+    private var written: Int64 = 0
+    private var previousSession: (id: String, written: Int64)?
+    private var reported: (evicted: Int, oversized: Int)?
     private var discoveryTimer: DispatchSourceTimer?
     private var connectTimer: DispatchSourceTimer?
     private var pingTimer: DispatchSourceTimer?
@@ -85,13 +97,15 @@ final class MonitorClient: @unchecked Sendable {
         hello: @escaping @Sendable () -> Appmonitor_V1_Hello,
         discover: @escaping Discover,
         config: ClientConfig = ClientConfig(),
-        log: @escaping @Sendable (String) -> Void = { Logger(subsystem: "AppMonitor", category: "sdk").info("\($0)") },
-        random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) }
+        log: @escaping @Sendable (String) -> Void = sdkLog,
+        random: @escaping @Sendable (ClosedRange<Double>) -> Double = { Double.random(in: $0) },
+        pin: DesktopPin? = nil
     ) {
         self.makeHello = hello
         self.discover = discover
         self.config = config
         self.log = log
+        self.pin = pin
         self.buffer = EventBuffer(maxCount: config.bufferCount, maxBytes: config.bufferBytes)
         self.backoff = Backoff(initial: config.backoffInitial, max: config.backoffMax, random: random)
     }
@@ -107,7 +121,7 @@ final class MonitorClient: @unchecked Sendable {
     /// The desktop's breakpoints and the tasks they hold; every held task goes on when a session ends (ADR-0118).
     let breakpoints = Breakpoints()
 
-    /// Envelopes dropped by the buffer or for their size (DEBT-0023).
+    /// Envelopes dropped by the buffer or for their size, reported to the desktop (ADR-0166).
     var dropped: Int { buffer.dropped + oversized.value }
 
     /// The delay of the latest backing off, for tests.
@@ -139,14 +153,20 @@ final class MonitorClient: @unchecked Sendable {
         }
     }
 
-    /// Buffers `envelope` for the desktop; dropped when stopped or larger than a frame (ADR-0022).
-    func send(_ envelope: Appmonitor_V1_Envelope) {
-        guard let bytes: Data = try? envelope.serializedBytes() else { return }
-        guard bytes.count <= ProtocolConstants.maxFrameBytes else {
-            oversized.increment()
+    /// Buffers `envelope` for the desktop; dropped when stopped or larger than a frame (ADR-0022), then
+    /// `onDropped`.
+    func send(_ envelope: Appmonitor_V1_Envelope, onDropped: (@Sendable () -> Void)? = nil) {
+        guard let bytes: Data = try? envelope.serializedBytes() else {
+            onDropped?()
             return
         }
-        buffer.offer(BufferedFrame(channel: envelope.channel, bytes: bytes))
+        guard bytes.count <= ProtocolConstants.maxFrameBytes else {
+            oversized.increment()
+            buffer.wake()
+            onDropped?()
+            return
+        }
+        buffer.offer(BufferedFrame(channel: envelope.channel, bytes: bytes, onDropped: onDropped))
     }
 
     /// Returns at once; the release runs on the client's queue, bounded by `ClientConfig.closeTimeout`.
@@ -201,6 +221,7 @@ final class MonitorClient: @unchecked Sendable {
 
     private func connect(_ endpoint: Endpoint) {
         setState(.connecting)
+        self.endpoint = endpoint
         guard let url = endpoint.url else {
             logConnectFailure(endpoint, reason: "not a valid host")
             backOff()
@@ -306,10 +327,38 @@ final class MonitorClient: @unchecked Sendable {
             lose(.lost)
             return
         }
+        if let endpoint, endpoint.checksPin, !trusts(ack.desktopID) {
+            if !pinRefusalLogged {
+                pinRefusalLogged = true
+                log(
+                    "the desktop at \(endpoint.host):\(endpoint.port) is not the one this install paired with; "
+                        + "clear the app's data, or set AppMonitorOptions.host"
+                )
+            }
+            connection.send(
+                content: nil,
+                contentContext: Self.context(.close, code: .protocolCode(.normalClosure)),
+                isComplete: true,
+                completion: .contentProcessed { _ in }
+            )
+            lose(.rejected)
+            return
+        }
         backoff.reset()
+        connectFailureLogged = false
         accepted = Set(ack.channels)
+        sessionID = ack.sessionID
+        written = 0
+        reported = nil
         setState(.connected)
         pump()
+    }
+
+    /// ADR-0168: the pinned desktop only; the first one with an id is pinned.
+    private func trusts(_ desktopID: String) -> Bool {
+        guard let pin else { return true }
+        guard let pinned = pin.pinned() else { return desktopID.isEmpty || pin.pin(desktopID) == desktopID }
+        return desktopID == pinned
     }
 
     /// After `HelloAck` only the `interaction` messages below are read; anything else is dropped.
@@ -347,24 +396,53 @@ final class MonitorClient: @unchecked Sendable {
         send(interactionEnvelope("ReplayRefused", refused))
     }
 
-    /// Writes the next accepted frame; one write in flight, the next from its completion (SDD 06).
+    /// Writes the next accepted frame; one write in flight, the next from its completion.
     private func pump() {
         guard !stopping, current == .connected, !sending, let connection else { return }
-        while let frame = buffer.poll(onAvailable: { [weak self] in self?.queue.async { self?.pump() } }) {
-            guard accepted.contains(frame.channel) else { continue }
-            sending = true
-            connection.send(
-                content: frame.bytes,
-                contentContext: Self.context(.binary),
-                isComplete: true,
-                completion: .contentProcessed { [weak self, weak connection] error in
-                    guard let self, let connection, connection === self.connection else { return }
-                    self.sending = false
-                    if error != nil { self.lose(.lost) } else { self.pump() }
-                }
-            )
+        let drops = (evicted: buffer.dropped, oversized: oversized.value)
+        if accepted.contains(ProtocolConstants.channelCore), reported.map({ $0 != drops }) ?? true {
+            reported = drops
+            write(deliveryReport(drops), on: connection)
             return
         }
+        while let frame = buffer.poll(onAvailable: { [weak self] in self?.queue.async { self?.pump() } }) {
+            guard accepted.contains(frame.channel) else {
+                frame.onDropped?()
+                continue
+            }
+            write(frame.bytes, on: connection)
+            return
+        }
+    }
+
+    private func write(_ bytes: Data, on connection: NWConnection) {
+        sending = true
+        written += 1
+        connection.send(
+            content: bytes,
+            contentContext: Self.context(.binary),
+            isComplete: true,
+            completion: .contentProcessed { [weak self, weak connection] error in
+                guard let self, let connection, connection === self.connection else { return }
+                self.sending = false
+                if error != nil { self.lose(.lost) } else { self.pump() }
+            }
+        )
+    }
+
+    /// ADR-0166: counts from this client's start, and the frames written on its previous session.
+    private func deliveryReport(_ drops: (evicted: Int, oversized: Int)) -> Data {
+        var report = Appmonitor_V1_DeliveryReport()
+        report.evicted = Int64(drops.evicted)
+        report.oversized = Int64(drops.oversized)
+        report.previousSessionID = previousSession?.id ?? ""
+        report.previousSessionWritten = previousSession?.written ?? 0
+        var envelope = Appmonitor_V1_Envelope()
+        envelope.channel = ProtocolConstants.channelCore
+        envelope.type = "DeliveryReport"
+        envelope.payload = (try? report.serializedBytes()) ?? Data()
+        envelope.timestampMs = Int64(Date().timeIntervalSince1970 * 1000)
+        return (try? envelope.serializedBytes()) ?? Data()
     }
 
     private func startPinger(_ connection: NWConnection) {
@@ -410,6 +488,8 @@ final class MonitorClient: @unchecked Sendable {
         pingTimer = nil
         pongTimer = nil
         sending = false
+        if let sessionID { previousSession = (sessionID, written) }
+        sessionID = nil
         mocks.clear()
         replays.clear()
         breakpoints.clear()
@@ -517,4 +597,3 @@ private final class LockedCount: @unchecked Sendable {
 
     func increment() { lock.withLock { count += 1 } }
 }
-#endif

@@ -33,6 +33,36 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalTestApi::class)
 class IssuesUiTest {
     @Test
+    fun `the list opens unfiltered after being closed under a filter`() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            storage.record(
+                envelope(RequestStarted(request_id = "r1", method = "GET", url = "https://api.example.com/feed")),
+            )
+            runBlocking {
+                val id = storage.allExchanges().single().id
+                storage.createIssue("Tagged", "", listOf("checkout"), listOf(id), IssueSource.MCP)
+                storage.createIssue("Untagged", "", emptyList(), listOf(id), IssueSource.MCP)
+            }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
+                onNodeWithTag(ISSUES).performClick()
+                awaitText("Untagged")
+                pick("Tag: Any ▾", "checkout")
+                waitUntil(timeoutMillis = TIMEOUT_MS) { !exists("Untagged") }
+
+                onNodeWithText("Close").performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { !exists("Tagged") }
+                onNodeWithTag(ISSUES).performClick()
+
+                awaitText("Untagged")
+                onNodeWithText("Tag: Any ▾").assertExists()
+            }
+            runBlocking<Unit> { storage.close(5.seconds) }
+        }
+
+    @Test
     fun `requests saved as an issue are listed, filtered, edited and kept across a reopen`() =
         withDataDir { dir ->
             val storage = Storage.open(dir)
@@ -69,8 +99,8 @@ class IssuesUiTest {
                 onNodeWithTag(ISSUE_TAGS).performTextReplacement("checkout, flaky")
                 onNodeWithTag(SAVE_ISSUE).performClick()
 
-                awaitText("Cart fails then succeeds")
-                onNodeWithText("Open · checkout, flaky · 2 requests · in the window", substring = true).assertExists()
+                awaitText("Open · checkout, flaky · 2 requests · in the window", substring = true)
+                onNodeWithText("Cart fails then succeeds").assertExists()
                 onNodeWithText("Open · backend · 1 request · by MCP", substring = true).assertExists()
                 onNodeWithText("Save as issue").assertExists()
                 screenshot("issues.png")

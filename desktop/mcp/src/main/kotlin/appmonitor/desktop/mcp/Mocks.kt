@@ -23,7 +23,7 @@ import okio.ByteString
 import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.encodeUtf8
 
-/** `create_mock` (SDD 10, ADR-0114 C.1): a rule that stays pending until the owner confirms it in the window (ADR-0005). */
+/** `create_mock` (ADR-0114 C.1): a rule that stays pending until the owner confirms it in the window (ADR-0005). */
 internal object CreateMock {
     const val NAME = "create_mock"
     private const val MAX_HEADERS = 100
@@ -81,6 +81,7 @@ internal object CreateMock {
         mocks: MockRepository,
         arguments: JsonObject?,
         health: () -> StoreHealth,
+        closing: () -> Boolean,
     ): JsonObject {
         val appId = arguments.required("app_id")
         val name = arguments.required("name")
@@ -116,8 +117,10 @@ internal object CreateMock {
                 MockWrite.UnknownMock -> throw ToolError("the rule was not saved")
                 MockWrite.NotSaved -> throw ToolError("the rule was not saved" + (health().lastError?.let { ": $it" } ?: ""))
             }
+        val stored = mocks.mocks().firstOrNull { it.id == id }
+        if (stored == null && closing()) return savedWhileClosing("mock", id)
         // Deleted in the window between the write and this read.
-        val stored = mocks.mocks().firstOrNull { it.id == id } ?: throw ToolError("no mock rule with id $id")
+        if (stored == null) throw ToolError("no mock rule with id $id")
         return buildJsonObject { put("mock", stored.toJson()) }
     }
 

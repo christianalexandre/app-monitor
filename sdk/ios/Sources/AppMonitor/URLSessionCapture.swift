@@ -1,7 +1,5 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
-import SwiftProtobuf
 import os
 
 /// Where captured events go: the running monitor, or a test double.
@@ -14,8 +12,9 @@ protocol CaptureSink: AnyObject, Sendable {
     /// The desktop's first rule for this call, nil outside a session (ADR-0110).
     func mock(method: String, url: String) -> Appmonitor_V1_MockRule?
 
-    /// Keeps what sends `requestID`'s task again for a `ReplayRequest`; dropped outside a session (ADR-0122 A.1).
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?)
+    /// Keeps what sends `requestID`'s task again, holding `bodyBytes` of body, for a `ReplayRequest`; dropped
+    /// outside a session (ADR-0122 A.1).
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?)
 
     /// The desktop's first breakpoint holding this call at `stage`, nil outside a session (ADR-0118).
     func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
@@ -34,8 +33,8 @@ extension MonitorHolder: CaptureSink {
         client?.mocks.match(method: method, url: url)
     }
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
-        client?.replays.keep(requestID, replay)
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
+        client?.replays.keep(requestID, bodyBytes: bodyBytes, replay)
     }
 
     func breakpoint(method: String, url: String, stage: Appmonitor_V1_BreakpointStage) -> Appmonitor_V1_BreakpointRule?
@@ -50,7 +49,8 @@ extension MonitorHolder: CaptureSink {
             done(.unchanged)
             return {}
         }
-        return client.breakpoints.hold(hit, send: { client.send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+        return client.breakpoints.hold(
+            hit, send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) }, done: done)
     }
 }
 
@@ -101,9 +101,12 @@ final class TaskCapture: @unchecked Sendable {
     let heldRequest: URLRequest?
     private let lock = NSLock()
     private var response: URLResponse?
+    private var sentHeaders: [AnyHashable: Any]?
     private var body = Data()
     private var received: Int64 = 0
     private var finished = false
+    private var heldStart: Appmonitor_V1_RequestStarted?
+    private var startSent = false
 
     init(
         sink: CaptureSink, options: AppMonitorOptions, requestURL: URL?, mock: Appmonitor_V1_MockRule? = nil,
@@ -119,8 +122,28 @@ final class TaskCapture: @unchecked Sendable {
         heldRequest = self.held ? request : nil
     }
 
-    func didReceive(_ response: URLResponse) {
-        lock.withLock { self.response = response }
+    func didReceive(_ response: URLResponse, sentHeaders: [AnyHashable: Any]? = nil) {
+        lock.withLock {
+            self.response = response
+            self.sentHeaders = sentHeaders
+        }
+    }
+
+    /// A held task's `RequestStarted`, sent by `sendStart` or, at the latest, before its end (ADR-0123 C.1).
+    func holdStart(_ started: Appmonitor_V1_RequestStarted) {
+        lock.withLock { if !startSent { heldStart = started } }
+    }
+
+    /// Sends `started`, or the held one when nil, once; under the lock so no end can pass it.
+    func sendStart(_ started: Appmonitor_V1_RequestStarted? = nil) {
+        lock.withLock { sendStartLocked(started) }
+    }
+
+    private func sendStartLocked(_ started: Appmonitor_V1_RequestStarted?) {
+        guard !startSent, let started = started ?? heldStart else { return }
+        startSent = true
+        heldStart = nil
+        emit(sink, "RequestStarted") { try started.serializedBytes() }
     }
 
     func didReceive(_ data: NSData) {
@@ -140,14 +163,15 @@ final class TaskCapture: @unchecked Sendable {
         }
     }
 
-    /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body (SDD 05's rule).
+    /// A response seen ends as `ResponseReceived`, cut when `error` stopped its body.
     func didFinish(_ error: NSError?) {
-        let state: (URLResponse?, Data, Int64)? = lock.withLock {
+        let state: (URLResponse?, [AnyHashable: Any]?, Data, Int64)? = lock.withLock {
             guard !finished else { return nil }
             finished = true
-            return (response, body, received)
+            sendStartLocked(nil)
+            return (response, sentHeaders, body, received)
         }
-        guard let (response, body, received) = state else { return }
+        guard let (response, sentHeaders, body, received) = state else { return }
         if let response = response as? HTTPURLResponse {
             emit(sink, "ResponseReceived") {
                 var event = Appmonitor_V1_ResponseReceived()
@@ -160,6 +184,7 @@ final class TaskCapture: @unchecked Sendable {
                 event.body = body
                 event.bodyTruncated = error != nil || received > Int64(limit)
                 if error == nil { event.bodySize = received }
+                if let sentHeaders { event.requestHeaders = masking.headers(sortedHeaders(sentHeaders)) }
                 return try event.serializedBytes()
             }
         } else {
@@ -268,7 +293,7 @@ func requestStartedEvent(
 }
 
 /// Wraps `message` for the `interaction` channel.
-func interactionEnvelope(_ type: String, _ message: some SwiftProtobuf.Message) -> Appmonitor_V1_Envelope {
+func interactionEnvelope(_ type: String, _ message: some ProtoMessage) -> Appmonitor_V1_Envelope {
     var envelope = Appmonitor_V1_Envelope()
     envelope.channel = ProtocolConstants.channelInteraction
     envelope.type = type
@@ -283,6 +308,7 @@ enum Hooks {
     nonisolated(unsafe) private static var uploadKey: UInt8 = 0
     nonisolated(unsafe) private static var skipKey: UInt8 = 0
     private static let sessionSelector = NSSelectorFromString("session")
+    private static let metricsSelector = NSSelectorFromString("_incompleteCurrentTaskTransactionMetrics")
 
     static func capture(of task: AnyObject) -> TaskCapture? {
         objc_getAssociatedObject(task, &captureKey) as? TaskCapture
@@ -313,17 +339,29 @@ enum Hooks {
             let data = own(connection, "_didReceiveData:"),
             let finish = own(connection, "_didFinishWithError:")
         else { return false }
-        hookResume(resume)
+        MethodHook.before(resume) { object in
+            if let task = object as? URLSessionTask { started(task) }
+        }
         let task: (AnyObject) -> TaskCapture? = {
             object_getIvar($0, taskIvar).flatMap { capture(of: $0 as AnyObject) }
         }
-        hook(response) { (connection: AnyObject, response: AnyObject?) in
-            if let response = response as? URLResponse { task(connection)?.didReceive(response) }
+        typealias Response = @convention(c) (AnyObject, Selector, AnyObject?, Bool) -> Void
+        MethodHook.replace(response, arguments: 2, Response.self) { original, selector in
+            let block: @convention(block) (AnyObject, AnyObject?, Bool) -> Void = { connection, response, sniff in
+                if let response = response as? URLResponse,
+                    let owner = object_getIvar(connection, taskIvar).map({ $0 as AnyObject }),
+                    let capture = capture(of: owner)
+                {
+                    capture.didReceive(response, sentHeaders: capture.mock == nil && !capture.held ? sent(owner) : nil)
+                }
+                original(connection, selector, response, sniff)
+            }
+            return block
         }
-        hookObject(data, reentrant: false) { connection, data in
+        MethodHook.before(data, reentrant: false) { connection, data in
             if let data = data as? NSData { task(connection)?.didReceive(data) }
         }
-        hookObject(finish) { connection, error in
+        MethodHook.before(finish) { connection, error in
             task(connection)?.didFinish(error as? NSError)
         }
         let session: AnyClass? = NSClassFromString("NSURLSession")
@@ -345,9 +383,18 @@ enum Hooks {
         }
         if !WebSocketHooks.install() {
             Logger(subsystem: "AppMonitor", category: "capture").error(
-                "WebSocket capture is off: this OS lacks the hooks of ADR-0045")
+                "WebSocket capture is off: this OS lacks the hooks of ADR-0045 and ADR-0190")
         }
         return true
+    }
+
+    /// The headers the task's current request went out with, CFNetwork's own included (ADR-0189).
+    private static func sent(_ task: AnyObject) -> [AnyHashable: Any]? {
+        guard task.responds(to: metricsSelector),
+            let metrics = task.perform(metricsSelector)?.takeUnretainedValue() as? URLSessionTaskTransactionMetrics,
+            let headers = metrics.request.allHTTPHeaderFields, !headers.isEmpty
+        else { return nil }
+        return headers
     }
 
     /// The method `cls` itself defines, never an inherited one: replacing that would hook the superclass.
@@ -358,17 +405,6 @@ enum Hooks {
         defer { free(methods) }
         let selector = NSSelectorFromString(name)
         return (0..<Int(count)).map { methods[$0] }.first { method_getName($0) == selector }
-    }
-
-    private static func hookResume(_ method: Method) {
-        typealias Original = @convention(c) (AnyObject, Selector) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject) -> Void = { object in
-            if let task = object as? URLSessionTask { started(task) }
-            original(object, selector)
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 
     /// The first resume of an HTTP or WebSocket task while the monitor runs; stream tasks and tasks `sdk/ktor`
@@ -402,7 +438,8 @@ enum Hooks {
         objc_setAssociatedObject(task, &captureKey, capture, .OBJC_ASSOCIATION_RETAIN)
         BackgroundHooks.started(task, capture)
         sink.keepForReplay(
-            capture.id, Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
+            capture.id, bodyBytes: Replay.bodyBytes(request: task.originalRequest, upload: upload?.body),
+            Replay.replayer(of: task, id: capture.id, request: task.originalRequest, upload: upload?.body))
         if requestHold != nil { return }  // HoldProtocol sends it once the hold ends (ADR-0123 C.1)
         emit(sink, "RequestStarted") {
             try requestStarted(
@@ -411,86 +448,53 @@ enum Hooks {
         }
     }
 
-    private static func hook(_ method: Method, _ body: @escaping (AnyObject, AnyObject?) -> Void) {
-        typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, Bool) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject, AnyObject?, Bool) -> Void = { object, argument, flag in
-            body(object, argument)
-            original(object, selector, argument, flag)
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
-    }
-
-    /// `reentrant` false: a call the original makes to itself on the same thread is not seen again; CFNetwork
-    /// hands `_didReceiveData:` the same data twice that way.
-    private static func hookObject(
-        _ method: Method,
-        reentrant: Bool = true,
-        _ body: @escaping (AnyObject, AnyObject?) -> Void
-    ) {
-        typealias Original = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let key = "appmonitor.\(NSStringFromSelector(selector))"
-        let block: @convention(block) (AnyObject, AnyObject?) -> Void = { object, argument in
-            let thread = Thread.current.threadDictionary
-            if reentrant || thread[key] == nil { body(object, argument) }
-            if reentrant { return original(object, selector, argument) }
-            let outer = thread[key] == nil
-            if outer { thread[key] = true }
-            original(object, selector, argument)
-            if outer { thread[key] = nil }
-        }
-        method_setImplementation(method, imp_implementationWithBlock(block))
-    }
-
     /// Upload constructors: the body (second argument) is kept on the returned task for `started`.
     private static func hookUpload(_ method: Method) {
-        let selector = method_getName(method)
-        let implementation = method_getImplementation(method)
         let keep: (AnyObject?, AnyObject?) -> Void = { task, body in
             guard let task else { return }
             let upload: UploadBody? =
                 if let data = body as? Data { .data(data) } else if let file = body as? URL { .file(file) } else { nil }
             if let upload { objc_setAssociatedObject(task, &uploadKey, UploadBox(upload), .OBJC_ASSOCIATION_RETAIN) }
         }
-        let block: Any
-        switch method_getNumberOfArguments(method) {
-        case 4:
+        switch method_getNumberOfArguments(method) - 2 {
+        case 2:
             typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body) in
+            MethodHook.replace(method, arguments: 2, Original.self) { original, selector in
+                let block: @convention(block) (AnyObject, AnyObject?, AnyObject?) -> AnyObject? = {
+                    object, request, body in
                     let task = original(object, selector, request, body)
                     keep(task, body)
                     return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?) -> AnyObject?
-        case 5:
+                }
+                return block
+            }
+        case 3:
             typealias Original = @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body, handler) in
+            MethodHook.replace(method, arguments: 3, Original.self) { original, selector in
+                let block: @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?) -> AnyObject? = {
+                    object, request, body, handler in
                     let task = original(object, selector, request, body, handler)
                     keep(task, body)
                     return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
-        case 6:
+                }
+                return block
+            }
+        case 4:
             typealias Original =
-                @convention(c) (
-                    AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?, AnyObject?
-                ) -> AnyObject?
-            let original = unsafeBitCast(implementation, to: Original.self)
-            block =
-                { (object, request, body, delegate, handler) in
-                    let task = original(object, selector, request, body, delegate, handler)
-                    keep(task, body)
-                    return task
-                } as @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
+                @convention(c) (AnyObject, Selector, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject?
+            MethodHook.replace(method, arguments: 4, Original.self) { original, selector in
+                let block:
+                    @convention(block) (AnyObject, AnyObject?, AnyObject?, AnyObject?, AnyObject?) -> AnyObject? = {
+                        object, request, body, delegate, handler in
+                        let task = original(object, selector, request, body, delegate, handler)
+                        keep(task, body)
+                        return task
+                    }
+                return block
+            }
         default:
             return
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }
 
@@ -499,4 +503,3 @@ final class UploadBox: @unchecked Sendable {
     let body: UploadBody
     init(_ body: UploadBody) { self.body = body }
 }
-#endif

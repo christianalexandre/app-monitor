@@ -26,8 +26,8 @@ Castle, ADR-0105); the switch, status and commands in
 - `make server ARGS="--proxy <dir>"` runs it headless on a free port with
   its CA in `<dir>`, printing `Proxy on port N, CA in …` and each
   exchange as a `[proxy]` line; origins are verified against the JVM's
-  trust store, which `SERVER_OPTS=-Djavax.net.ssl.trustStore=…` replaces
-  (ADR-0109). `make e2e-ios` drives the iOS sample's gRPC-Core call
+  trust store, which `HEADLESS_SERVER_OPTS=-Djavax.net.ssl.trustStore=…` replaces
+  (ADR-0109). `make e2e-ios-grpc` drives the iOS sample's gRPC-Core call
   through it.
 
 ### The CA
@@ -40,10 +40,13 @@ Castle, ADR-0105); the switch, status and commands in
 - Missing, unreadable, or ending within a day → a new one: EC P-256,
   basic constraints CA, key usage `keyCertSign` and `cRLSign`, valid
   365 days, subject `App Monitor proxy CA <date>`.
-- A leaf per host, made on first use and kept in memory until the CA is
-  dropped: EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
+- A leaf per host, made on first use and kept in memory until a day
+  before it expires, then made again; one the CA's last day caps is kept
+  to its end, since a new one would end no later, and past the CA's end a
+  host keeps the leaf it has, which clients refuse until the switch off and on
+  or "Reset CA" makes a new CA (`ProxyServerTest`): EC P-256, the host as DNS or IP SAN, `serverAuth`, 30 days
   and never past the CA. Its TLS context offers ALPN `h2`, then
-  `http/1.1`.
+  `http/1.1`, or none for an origin without `h2` (ADR-0195).
 - "Reset proxy CA" and "Clear all data" delete both files; a running
   proxy restarts with a new CA, and the settings remind to relaunch the
   apps started with the old one, which keep it in memory.
@@ -52,16 +55,37 @@ Castle, ADR-0105); the switch, status and commands in
 
 `ClientHandler`, one per accepted connection, on Netty's event loop:
 
+0. **`CONNECT` to a pass-through host** (ADR-0194): the list the
+   settings keep under `proxy.passThrough` (`ProxyController`, read at
+   each `CONNECT`, no restart), an entry equal to the host or `*.domain`
+   for the names under `domain` (`passesThrough`). The client is not
+   read while the proxy connects to `host:port`; refused or timed out →
+   `502` with the reason and a closed connection; accepted → `200`, the
+   codec comes off and bytes are relayed as they are, both ways, paced
+   as after a `101`. Nothing is stored (`ProxyPassThroughTest`).
 1. **`CONNECT host:port`** → `200 Connection Established`, the HTTP codec
-   comes off, and `OptionalSslHandler` looks at the first bytes: TLS →
-   the handshake with the leaf for `host`, plain → HTTP as is. Then
+   comes off, and `TunnelTls` looks at the first bytes. Plain → HTTP as
+   is. TLS → `OriginAlpn` first asks the origin what it negotiates, with
+   one handshake of its own offering `h2` and `http/1.1`, kept per host
+   and port while the proxy runs; then the handshake with the leaf for
+   `host`, offering ALPN `h2` and `http/1.1`, or none when the origin
+   chose no `h2`, so that client stays on HTTP/1.1 (ADR-0195). No answer
+   in 3 s, a refused connection or a refused handshake counts as `h2`
+   and is not kept. Then
    `PrefaceDetector` reads up to 24 bytes: the HTTP/2 preface hands the
    tunnel to `Http2Session` (next section), anything else stays on the
    HTTP/1.1 steps below (ADR-0106 B.1). A failed
    handshake (the client refused the leaf: pinning, or the CA not
    trusted) is stored as a failed `CONNECT https://host:port` exchange,
    error `TLS handshake with the client failed: …`, and the connection
-   closes (ADR-0101 E.1).
+   closes (ADR-0101 E.1). A client that checks the leaf after its handshake
+   (curl 8.23 with OpenSSL) succeeds in it and closes: a tunnel closed
+   before its first request is stored the same way, error `The client closed
+   the tunnel after the TLS handshake, before any request: …`. One closed
+   before any TLS byte or whole request stores `The client closed the tunnel
+   before any TLS or request`. A leaf that cannot be made (a scoped IPv6
+   host, `fe80::1%en0`, has no certificate name) stores `Could not make a
+   certificate for …` and closes the connection (`ProxyServerTest`).
 2. **A request** inside a tunnel goes to the tunnel's host; outside one
    it needs an absolute `http://` or `https://` URL, else `400` and
    nothing is stored. The URI becomes origin-form, `Proxy-Connection`
@@ -73,14 +97,31 @@ Castle, ADR-0105); the switch, status and commands in
    not aggregated; each body keeps at most `Protocol.MAX_BODY_BYTES` for
    the store, with its full size. After a request's last part the client
    is not read again until its response ends, so a pipelined request
-   waits in a queue.
+   waits in a queue. A response that ends before its request does (an
+   upload refused at its headers) is stored; the rest of the request's
+   body is read and dropped, and the upstream connection is closed, not
+   reused (`ProxyFlowTest`).
+   **Backpressure** (ADR-0191): a side is not read while the other's write
+   buffer is past its high mark (64 KiB), and is read again when it drains,
+   after a `101` too (`ProxyFlowTest`).
 5. **Failures**: connect refused or timed out (10 s), the origin's TLS
    refused, a write failing, or the origin closing mid-response → the
    exchange is stored failed with the reason; the client gets `502`
    with it as text when no response started, else its connection closes.
    The client closing first stores `The client closed the connection`.
 6. **`101`**: the exchange is stored with status 101, both codecs come
-   off and bytes are relayed as they are (DEBT-0077).
+   off and bytes are relayed as they are. When its `Upgrade` is
+   `websocket`, `WebSocketCapture` reads the bytes each way as they are
+   relayed, without changing them (ADR-0193): each message, fragments
+   joined, client masks removed, `permessage-deflate` inflated (a message
+   ending in a `BFINAL=1` block, RFC 7692 7.2.3.4, restarts the inflater
+   with the last 32 KiB it produced, which later messages may refer to), is one
+   `WebSocketFrame` with its opcode, at most `Protocol.MAX_BODY_BYTES`
+   and its full size; each ping, pong and close frame is one too. The
+   connection closing with no close frame either way stores
+   `The WebSocket's connection closed without a close frame`. A frame it
+   cannot parse stops the capture of that direction, not the relay
+   (`ProxyWebSocketTest`).
 7. A `1xx` other than 101 is forwarded and not stored. A response that
    is not keep-alive, or a request that was not, closes the client after
    the last part.
@@ -97,10 +138,14 @@ Castle, ADR-0105); the switch, status and commands in
    tunnel had TLS (verified as in HTTP/1.1), prior knowledge when it was
    plain; server push off. Each stream opens a twin on it.
 3. **Relay**: headers, data, trailers and resets cross both ways as they
-   arrive, as new frames; a `1xx` is passed on and not stored.
+   arrive, as new frames; a `1xx` is passed on and not stored. A stream is
+   not read while its twin is not writable, and the other way round, so
+   a slow side's flow control window reaches the other peer, stream by
+   stream (ADR-0191, `ProxyFlowTest`).
 4. **Failures**: the upstream connection refused or timed out, its TLS
-   refused, an origin without `h2` (`<host>:<port> does not offer
-   HTTP/2`, DEBT-0079) or a stream that cannot open → the exchange is
+   refused, an origin no longer offering `h2` since it was asked or too
+   slow to answer (`<host>:<port> does not offer HTTP/2`; kept, so the
+   next tunnel goes over HTTP/1.1, ADR-0195) or a stream that cannot open → the exchange is
    stored failed and the client stream gets `502` with the reason as
    text when it has no response yet, else a `RST_STREAM`. Either side's
    reset is passed on and stored as the failure; the client closing the
@@ -126,9 +171,16 @@ SDK sends (ADR-0105 C.1): `RequestStarted` once the request is in full,
 or when it fails first, with the time the request began; then
 `ResponseReceived` or `RequestFailed`. Headers are stored as the client
 and the origin sent them, without HTTP/2's pseudo-headers (`:method`,
-`:path`, `:status` are already the method, URL and status). Events wait in an unbounded channel between the
+`:path`, `:status` are already the method, URL and status). Events wait in a channel between the
 event loop and the store's queue, so the relay never blocks on the
-store. Stopping the proxy writes what is left, then the session's end.
+store; past 64 MiB of payloads waiting (`MAX_PENDING_BYTES`, as the
+store's queue) a new event is dropped and counted in `dropped`, and
+stopping the proxy logs the count when it is not zero, as the store logs
+its full-queue waits (`ProxyRecordingTest`). A `RequestFailed` passes the
+bound. An exchange one of whose events was dropped is cut (ADR-0191): a
+dropped `RequestStarted` leaves nothing of it; any later one ends it with
+`RequestFailed` `The proxy dropped part of this exchange: the store fell
+behind`, and nothing after (`ProxyRecordingTest`). Stopping the proxy writes what is left, then the session's end.
 
 ### Lifecycle
 
@@ -140,15 +192,16 @@ store. Stopping the proxy writes what is left, then the session's end.
 | `stop()` | nothing (`ProxyLifecycleTest`: stop before start) | closes the listener, then every client and upstream connection, waits up to 2 s for the event loops; the port is free after (`ProxyLifecycleTest`: open connections, frees the port) | nothing (`ProxyLifecycleTest`: stop twice) |
 | a client connects | refused | served (`ProxyServerTest`) | refused |
 
-`ProxyController`, the settings' switch:
+`ProxyController`, the settings' switch, over `ServiceSwitch` (`desktop/app`, `store/ServiceSwitch.kt`, shared with the MCP server, SDD 10):
 
 | Call | Off | Running | Port taken / failed | Closed |
 | --- | --- | --- | --- | --- |
 | `start()` (launch) | reads `proxy.enabled` (missing = off) and starts when on | nothing | nothing | nothing |
 | `setEnabled(true)` | stores it, loads or makes the CA, starts; `PortTaken` or `Failed` as a status (`ProxyWiringTest`) | nothing | tries again | stays off (`ProxyWiringTest`) |
 | `setEnabled(false)` | stores it | stops, ends the session (`ProxyWiringTest`) | `Off` | stays off |
+| two `setEnabled` at once | the last switch wins: each call stores and applies, under the lock, the switch as it is then, not its own argument (`ServiceSwitchTest`) | same | same | same |
 | `resetCa()` | deletes the CA | stops, deletes, starts with a new CA and session (`ProxyWiringTest`) | deletes | deletes |
-| `afterClearAll()` | as `resetCa()`, the switch written back when on (`ProxyWiringTest`) | same | same | same |
+| `afterClearAll()` | as `resetCa()`, the switch written back when on, the pass-through list when not empty (`ProxyWiringTest`) | same | same | same |
 | `close()` | `Closed` | stops, then `Closed` | `Closed` | nothing |
 
 The app closes the MCP server, then the proxy, then the device server,
@@ -160,13 +213,12 @@ the proxy's 2 s.
 - Loopback only: physical devices cannot use it (ADR-0101 A.1).
 - On a simulator only gRPC-Core follows the launch command; a client
   that reads only the keychain is not served (ADR-0108).
-- An HTTP/2 client reaching an HTTP/1.1-only origin gets `502`
-  (DEBT-0079).
-- No backpressure: a stream's frames and an HTTP/1.1 response are
-  relayed as fast as they come, buffered in memory while the other side
-  is slower.
-- Nothing after a `101` is captured (DEBT-0077); no pass-through list for
-  pinned hosts (DEBT-0078).
+- A client speaking only `h2` to an HTTP/1.1-only origin gets `502`
+  (ADR-0195, `Http2ProxyTest`).
+- Only a WebSocket is read after a `101`, over HTTP/1.1: other upgrades
+  and RFC 8441 WebSockets over HTTP/2 are relayed with no frames
+  (ADR-0193).
+- A pass-through host's traffic is not recorded at all (ADR-0194).
 - One request at a time per HTTP/1.1 client connection; HTTP/2 streams
   run side by side.
 - Bodies are stored as sent: a compressed body keeps its

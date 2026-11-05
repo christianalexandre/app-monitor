@@ -41,9 +41,22 @@ the app's threads, behind an `NSLock`.
 Answers go through the same selection rule as `DesktopSelector` (ADR-0024):
 first desktop answered with an IPv4 address kept for the round, names
 compared case-insensitively, TXT `path` waited for up to 500 ms, then
-`/v1/ws`. A browser in `.waiting` with `kDNSServiceErr_PolicyDenied`, or
-`.failed`, logs one line per client naming `NSLocalNetworkUsageDescription`
-and `NSBonjourServices`, and counts as found nothing.
+`/v1/ws`; with a pinned desktop only an answer whose TXT `id` is that id
+(SDD 04, *Pinned desktop*, ADR-0168), the first other one logged once per
+client. The pin is `FileDesktopPin` in
+`Device.swift`, the same file as `sdk/core`'s; `handleAck` checks it as
+`sdk/core` does, a manual `host` excepted; pinning excludes it from backup, as
+the device id. A browser in `.waiting` or `.failed` with
+`kDNSServiceErr_PolicyDenied` logs one line per client pointing at
+*Settings, Privacy & Security, Local Network* (iOS 16 fails a denied browse,
+later versions wait on it); one failed otherwise logs one naming
+`NSLocalNetworkUsageDescription` and `NSBonjourServices`. Either counts as
+found nothing. These lines and the connect failure's are `Logger` errors
+(subsystem `AppMonitor`, `sdkLog`), `.public` so Console and the device's
+syslog show them without Xcode (ADR-0173). On a device without
+`host`, the client also reads `Bundle.main.infoDictionary` when it starts
+and logs once the keys of [Info.plist keys](#infoplist-keys) it lacks
+(ADR-0162).
 
 `NWBrowser` gives a name and a TXT record, no address. `BonjourBrowser`
 opens one IPv4-only `NWConnection` to each new name's `.service` endpoint,
@@ -62,16 +75,30 @@ first one written (ADR-0078).
 
 On a device both the TCP connection and `NWBrowser` need
 `NSLocalNetworkUsageDescription` and `NSBonjourServices` containing
-`_appmonitor._tcp` (ADR-0036 E). `sdk/ios/scripts/add_local_network_keys.sh`,
-run by an app's Run Script phase after its other phases, adds them to the
-built `Info.plist` when the configuration name contains `Debug`, the same
-configurations that compile the SDK (ADR-0048), and leaves other builds
-untouched (ADR-0049). It adds the usage text only when absent
-(`APPMONITOR_LOCAL_NETWORK_USAGE` overrides the default) and appends the
-service only when missing. With `ENABLE_USER_SCRIPT_SANDBOXING`, the phase
-declares the script and `$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)` as inputs,
-and that path plus `$(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp`
-as outputs; `sdk/ios/TestHost/project.yml` is the reference.
+`_appmonitor._tcp` (ADR-0036 E). The app's last Run Script phase, pasted
+from the README, adds them to the built `Info.plist` (ADR-0155). It reads
+build settings only: a configuration whose `EXCLUDED_SOURCE_FILE_NAMES`
+matches `AppMonitor.o`, the name Xcode compares, is left as is. Any other links the SDK and
+fails the build when `SWIFT_OPTIMIZATION_LEVEL` is not `-Onone`, unless
+`APPMONITOR_ALLOW_OPTIMIZED = YES`; otherwise it gets the keys. It adds the
+usage text only when absent (`APPMONITOR_LOCAL_NETWORK_USAGE` overrides
+the default) and appends the service only when missing. The README block
+is `sdk/ios/scripts/add_local_network_keys.sh` line for line
+(`scripts/test_add_local_network_keys.sh` checks it). With
+`ENABLE_USER_SCRIPT_SANDBOXING`, the phase declares
+`$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)` as input, and that path plus
+`$(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp` as outputs;
+`sdk/ios/TestHost/project.yml` is the reference. Without the `Info.plist`
+among its outputs a sandboxed phase cannot write it (`deny file-write-data`).
+With it, an app whose own phase also edits the built `Info.plist`, as the
+field-test app did, fails with "Multiple commands produce" or, when that
+phase declares the `Info.plist` as its only output, "invalid task … with
+mutable output but no other virtual output node". That phase builds once
+it declares an output of its own beside the `Info.plist` (a stamp), with
+sandboxing on or off, and both phases' keys land in the plist; with
+sandboxing off, this phase's stamp alone is enough too. Measured
+2026-10-29, Xcode 26.6, outside `/tmp`, which the sandbox lets any phase
+write.
 
 ### Resources and their owners
 
@@ -114,14 +141,17 @@ released once the last handler has run.
 SDD 04's, unchanged: any thread, never blocks beyond the lock, 4096
 envelopes and 8 MiB, oldest dropped, envelopes over
 `Protocol.MAX_FRAME_BYTES` dropped before entering, at most once, memory
-only.
+only. The same `DeliveryReport` (ADR-0166), written by `pump()` ahead of
+the next frame, and at once for an oversized drop on an idle session, which
+wakes it; a frame counts as written once handed to
+`NWConnection.send`.
 
 ## Limits
 
-- Everything in SDD 04's limits applies, DEBT-0020, DEBT-0023 and DEBT-0024
-  included.
+- Everything in SDD 04's limits applies, the pinned desktop's included.
 - A suspended app runs no timers: a connection the OS dropped meanwhile is
   noticed when the app resumes, by `.failed` or the pong deadline.
 - Local network privacy exists only on a device (TN3179, ADR-0036): the
-  `PolicyDenied` and `.waiting` paths are proven in M2.13, not in
-  `swift test`.
+  `PolicyDenied` and `.waiting` paths are proven in M2.13, the `.failed`
+  one on an iPhone 8 with iOS 16.7 in the H4 field test; `swift test`
+  checks only how each state is read (`browseFailure`).

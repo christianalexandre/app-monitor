@@ -24,18 +24,21 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The proxy of ADR-0101 on `127.0.0.1` only (A.1): plain HTTP and `CONNECT` with TLS interception, each exchange sent to
- * [record] as `PROXY` events. Single use; lifecycle in SDD 11.
+ * The proxy of ADR-0101 on `127.0.0.1` only (A.1), single use: plain HTTP and `CONNECT` with TLS interception, sent to
+ * [record] as `PROXY` events; a `CONNECT` to a host [passThrough] lists, read at each one, is tunnelled (ADR-0194).
  */
 class ProxyServer(
     private val ca: ProxyCa,
-    private val record: (Envelope) -> Unit,
+    private val record: (Envelope) -> Boolean,
     private val port: Int = DEFAULT_PORT,
     upstreamTrust: TrustManagerFactory? = null,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val passThrough: () -> Collection<String> = { emptyList() },
 ) {
-    private val upstreamTls: SslContext = upstreamContext(upstreamTrust, alpn = null)
-    private val upstreamHttp2Tls: SslContext = upstreamContext(upstreamTrust, alpn = ApplicationProtocolNames.HTTP_2)
+    private val upstreamTls: SslContext = upstreamContext(upstreamTrust)
+    private val upstreamHttp2Tls: SslContext = upstreamContext(upstreamTrust, ApplicationProtocolNames.HTTP_2)
+    private val originAlpn =
+        OriginAlpn(upstreamContext(upstreamTrust, ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1))
     private val lock = Any()
     private var group: EventLoopGroup? = null
     private var channel: Channel? = null
@@ -62,7 +65,9 @@ class ProxyServer(
                                 override fun initChannel(ch: SocketChannel) {
                                     clients.add(ch)
                                     ch.pipeline().addLast(CODEC, HttpServerCodec())
-                                    ch.pipeline().addLast(ClientHandler(ca, upstreamTls, upstreamHttp2Tls, record, clock))
+                                    ch.pipeline().addLast(
+                                        ClientHandler(ca, upstreamTls, upstreamHttp2Tls, originAlpn, record, clock, passThrough),
+                                    )
                                 }
                             },
                         ).bind(InetSocketAddress(HOST, port))
@@ -102,10 +107,10 @@ class ProxyServer(
     }
 }
 
-/** Verifies origins against [trust] (the JVM's when null) with hostname checks; [alpn] is the one protocol offered. */
+/** Verifies origins against [trust] (the JVM's when null) with hostname checks; [alpn] are the protocols offered. */
 private fun upstreamContext(
     trust: TrustManagerFactory?,
-    alpn: String?,
+    vararg alpn: String,
 ): SslContext {
     val builder =
         SslContextBuilder
@@ -113,13 +118,13 @@ private fun upstreamContext(
             .sslProvider(SslProvider.JDK)
             .trustManager(trust)
             .endpointIdentificationAlgorithm("HTTPS")
-    if (alpn != null) {
+    if (alpn.isNotEmpty()) {
         builder.applicationProtocolConfig(
             ApplicationProtocolConfig(
                 ApplicationProtocolConfig.Protocol.ALPN,
                 ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
                 ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                alpn,
+                *alpn,
             ),
         )
     }

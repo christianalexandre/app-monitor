@@ -4,6 +4,7 @@ import appmonitor.desktop.domain.AnsweredDevice
 import appmonitor.desktop.domain.AnsweredDeviceRepository
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.McpRepository
+import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
@@ -47,6 +48,22 @@ class SettingsViewModelTest {
             assertNull(viewModel.state.value.mcp, "no MCP server, no section")
             assertNull(viewModel.state.value.proxy)
             assertNull(viewModel.state.value.theme)
+        }
+
+    @Test
+    fun `the pass-through text is stored as its hosts and shown back`() =
+        runTest {
+            val proxy = FakeProxy()
+            val viewModel = SettingsViewModel(retention, proxy = proxy)
+
+            viewModel.setPassThrough(" Pinned.example.com,*.bank.test\n\npinned.example.com ")
+
+            assertEquals(listOf("pinned.example.com", "*.bank.test"), proxy.passThrough.value)
+            assertEquals(
+                listOf("pinned.example.com", "*.bank.test"),
+                viewModel.state.value.proxy
+                    ?.passThrough,
+            )
         }
 
     @Test
@@ -170,5 +187,22 @@ private class FakeMcp : McpRepository {
 
     override suspend fun regenerate() {
         token.value = "t2"
+    }
+}
+
+private class FakeProxy : ProxyRepository {
+    override val status = MutableStateFlow<ServiceStatus>(ServiceStatus.Off)
+    override val enabled = MutableStateFlow(true)
+    override val port = 47476
+    override val host = "127.0.0.1"
+    override val caFile = "/data/proxy-ca.pem"
+    override val passThrough = MutableStateFlow(emptyList<String>())
+
+    override suspend fun setEnabled(on: Boolean) = Unit
+
+    override suspend fun resetCa() = Unit
+
+    override suspend fun setPassThrough(hosts: List<String>) {
+        passThrough.value = hosts
     }
 }

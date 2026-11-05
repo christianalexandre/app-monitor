@@ -10,6 +10,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.ChannelOption
+import io.netty.channel.EventLoop
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.handler.codec.http.DefaultFullHttpResponse
@@ -25,7 +26,6 @@ import io.netty.handler.codec.http.HttpServerCodec
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.handler.codec.http.HttpVersion
 import io.netty.handler.codec.http.LastHttpContent
-import io.netty.handler.ssl.OptionalSslHandler
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.util.ReferenceCountUtil
@@ -54,12 +54,15 @@ internal class ClientHandler(
     private val ca: ProxyCa,
     private val upstreamTls: SslContext,
     private val upstreamHttp2Tls: SslContext,
-    private val record: (Envelope) -> Unit,
+    private val originAlpn: OriginAlpn,
+    private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
+    private val passThrough: () -> Collection<String>,
 ) : ChannelInboundHandlerAdapter() {
     private lateinit var client: ChannelHandlerContext
     private var tunnel: Target? = null
     private var connectCapture: Capture? = null
+    private var tunnelIsTls = false
     private var skipContent = false
     private var upstream: Channel? = null
     private var upstreamTarget: Target? = null
@@ -70,12 +73,19 @@ internal class ClientHandler(
     private val queued = ArrayDeque<Any>()
     private var exchange: Exchange? = null
     private var raw = false
+    private var webSocket: WebSocketCapture? = null
+
+    // The client is read while neither holds: [held] from a request's last part to its response's end (one exchange
+    // at a time), [upstreamFull] while the upstream's write buffer is past its high mark (backpressure).
+    private var held = false
+    private var upstreamFull = false
 
     private class Exchange(
         val capture: Capture,
         val keepAlive: Boolean,
     ) {
         var responded = false
+        var requestEnded = false
         var informational = false
         var status = 0
         var response: HttpResponse? = null
@@ -107,6 +117,7 @@ internal class ClientHandler(
     }
 
     private fun request(msg: HttpRequest) {
+        connectCapture = null
         if (msg.decoderResult().isFailure) {
             ReferenceCountUtil.release(msg)
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: unreadable request", close = true)
@@ -143,13 +154,15 @@ internal class ClientHandler(
         }
         current.capture.requestContent(msg.content())
         if (msg is LastHttpContent) {
+            current.requestEnded = true
             current.capture.requestDone()
-            client.channel().config().isAutoRead = false
+            held = true
+            readClient()
         }
         forward(msg)
     }
 
-    // ADR-0101 E.1: every host is intercepted; a client refusing the leaf is a failed CONNECT exchange.
+    // ADR-0101 E.1: a host not listed (ADR-0194) is intercepted; a client refusing the leaf is a failed CONNECT exchange.
     private fun connect(msg: HttpRequest) {
         val target = connectTarget(msg.uri())
         skipContent = true
@@ -158,15 +171,71 @@ internal class ClientHandler(
             return reply(HttpResponseStatus.BAD_REQUEST, "App Monitor proxy: CONNECT needs host:port", close = true)
         }
         tunnel = target
-        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, headersOf(msg.headers()), record, clock)
         ReferenceCountUtil.release(msg)
+        if (passesThrough(target.host, passThrough())) return passThroughTunnel(target)
+        connectCapture = Capture("CONNECT", target.copy(tls = true).origin, headersOf(msg.headers()), record, clock)
         val established = DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus(200, "Connection Established"))
         client.writeAndFlush(established)
         val pipeline = client.pipeline()
         pipeline.remove(ProxyServer.CODEC)
-        pipeline.addBefore(client.name(), "tls", OptionalSslHandler(ca.serverContext(target.host)))
+        pipeline.addBefore(
+            client.name(),
+            "tunnel-tls",
+            TunnelTls(
+                ask = { then ->
+                    tunnelIsTls = true
+                    originAlpn.ask(target.host, target.port, client.channel().eventLoop() as EventLoop, then)
+                },
+                leaf = { http2 -> ca.serverContext(target.host, alpn = http2) },
+                failed = { cause ->
+                    connectCapture?.failed("Could not make a certificate for ${target.host}: ${cause.message ?: cause}")
+                    connectCapture = null
+                    client.close()
+                },
+            ),
+        )
         pipeline.addBefore(client.name(), "preface", PrefaceDetector(::http2))
         pipeline.addBefore(client.name(), ProxyServer.CODEC, HttpServerCodec())
+    }
+
+    // ADR-0194: bytes relayed as they are, nothing stored; `200` only once the target accepted the connection.
+    private fun passThroughTunnel(target: Target) {
+        held = true
+        readClient()
+        connecting = true
+        upstreamTarget = target
+        val future =
+            Bootstrap()
+                .group(client.channel().eventLoop())
+                .channel(NioSocketChannel::class.java)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MS)
+                .handler(UpstreamHandler())
+                .connect(target.host, target.port)
+        upstream = future.channel()
+        future.addListener(
+            ChannelFutureListener { done ->
+                connecting = false
+                if (!done.isSuccess) {
+                    upstream = null
+                    val reason = done.cause().message ?: done.cause().toString()
+                    reply(
+                        HttpResponseStatus.BAD_GATEWAY,
+                        "App Monitor proxy: could not connect to ${target.host}:${target.port}: $reason",
+                        true,
+                    )
+                    return@ChannelFutureListener
+                }
+                if (!client.channel().isActive) {
+                    done.channel().close()
+                    return@ChannelFutureListener
+                }
+                client.writeAndFlush(DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus(200, "Connection Established")))
+                raw = true
+                client.pipeline().remove(ProxyServer.CODEC)
+                held = false
+                readClient()
+            },
+        )
     }
 
     // ADR-0106: a tunnel that opens with the HTTP/2 preface is relayed stream by stream from here on.
@@ -174,7 +243,7 @@ internal class ClientHandler(
         val target = tunnel ?: return
         connectCapture = null
         client.pipeline().remove(ProxyServer.CODEC)
-        Http2Session(target, upstreamHttp2Tls, record, clock).install(client.pipeline(), client.name())
+        Http2Session(target, upstreamHttp2Tls, originAlpn, record, clock).install(client.pipeline(), client.name())
     }
 
     override fun userEventTriggered(
@@ -182,12 +251,11 @@ internal class ClientHandler(
         evt: Any,
     ) {
         if (evt is SslHandshakeCompletionEvent) {
-            val capture = connectCapture
-            connectCapture = null
             if (evt.isSuccess) {
                 tunnel = tunnel?.copy(tls = true)
             } else {
-                capture?.failed("TLS handshake with the client failed: ${evt.cause().message ?: evt.cause()}")
+                connectCapture?.failed("TLS handshake with the client failed: ${evt.cause().message ?: evt.cause()}")
+                connectCapture = null
                 ctx.close()
             }
         }
@@ -196,6 +264,7 @@ internal class ClientHandler(
 
     private fun openUpstream(target: Target) {
         connecting = true
+        upstreamFull = false
         upstreamTarget = target
         val handler = UpstreamHandler()
         val future =
@@ -241,6 +310,30 @@ internal class ClientHandler(
                 if (!done.isSuccess) fail("Could not write to ${upstreamTarget?.host}: ${done.cause().message}")
             },
         )
+        checkUpstreamFull(open)
+    }
+
+    private fun checkUpstreamFull(open: Channel) {
+        if (open.isWritable) return
+        upstreamFull = true
+        readClient()
+    }
+
+    private fun readClient() {
+        client.channel().config().isAutoRead = !held && !upstreamFull
+    }
+
+    /** Closes the upstream connection; the client is read again if only that one held it. */
+    private fun dropUpstream() {
+        upstream?.close()
+        upstream = null
+        upstreamFull = false
+        readClient()
+    }
+
+    override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+        if (ctx.channel().isWritable) upstream?.config()?.isAutoRead = true
+        super.channelWritabilityChanged(ctx)
     }
 
     /** Ends the exchange in flight as failed: a `502` when the client has no response yet, else a closed connection. */
@@ -248,8 +341,7 @@ internal class ClientHandler(
         val current = exchange ?: return
         if (current.capture.ended) return
         current.capture.failed(error)
-        upstream?.close()
-        upstream = null
+        dropUpstream()
         if (current.responded) {
             client.close()
         } else {
@@ -277,19 +369,24 @@ internal class ClientHandler(
             client.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE)
             return
         }
-        client.channel().config().isAutoRead = true
+        if (!current.requestEnded) {
+            // Answered before the request's end: the rest of its body is read and dropped, the upstream is not reused.
+            skipContent = true
+            dropUpstream()
+        }
+        held = false
+        readClient()
         while (queued.isNotEmpty() && !(exchange != null && queued.first() is HttpRequest)) dispatch(queued.removeFirst())
-        client.read()
     }
 
-    // A 101 hands both sides over to raw bytes; what crosses after it is not captured (DEBT-0077).
+    // A 101 hands both sides over to raw bytes, a WebSocket's frames read as they cross (ADR-0193).
     private fun upgrade(upstreamContext: ChannelHandlerContext) {
         raw = true
         client.pipeline().remove(ProxyServer.CODEC)
         upstreamContext.pipeline().remove(ProxyServer.CODEC)
-        client.channel().config().isAutoRead = true
+        held = false
+        readClient()
         while (queued.isNotEmpty()) relay(queued.removeFirst(), upstream)
-        client.read()
     }
 
     private fun relay(
@@ -300,13 +397,34 @@ internal class ClientHandler(
             ReferenceCountUtil.release(msg)
             return
         }
+        webSocket?.let { if (to == upstream) it.client(msg) else it.origin(msg) }
         to.writeAndFlush(msg)
+        if (to == upstream) checkUpstreamFull(to) else holdUpstreamIfClientFull()
+    }
+
+    private fun holdUpstreamIfClientFull() {
+        if (!client.channel().isWritable) upstream?.config()?.isAutoRead = false
     }
 
     override fun channelInactive(ctx: ChannelHandlerContext) {
-        // A client leaving a tunnel before its handshake ends sends no TLS byte, so no handshake event ends the CONNECT.
-        connectCapture?.failed("TLS handshake with the client failed: the client closed the connection")
+        // A client leaving before any TLS byte fires no handshake event; one checking the leaf after its handshake sees success.
+        connectCapture?.failed(
+            when {
+                tunnel?.tls == true -> {
+                    "The client closed the tunnel after the TLS handshake, before any request: it may have refused the certificate"
+                }
+
+                tunnelIsTls -> {
+                    "TLS handshake with the client failed: the client closed the connection"
+                }
+
+                else -> {
+                    NO_REQUEST
+                }
+            },
+        )
         connectCapture = null
+        webSocket?.ended()
         exchange?.capture?.failed("The client closed the connection")
         exchange = null
         upstream?.close()
@@ -345,6 +463,7 @@ internal class ClientHandler(
             if (msg is HttpContent && !current.informational) current.body.add(msg.content())
             val last = msg is LastHttpContent
             client.writeAndFlush(msg)
+            holdUpstreamIfClientFull()
             when {
                 current.informational -> {
                     if (last) current.informational = false
@@ -352,6 +471,7 @@ internal class ClientHandler(
 
                 last && current.status == 101 -> {
                     current.capture.responded(101, headersOf(current.response!!.headers()), current.body)
+                    webSocket = WebSocketCapture.of(current.capture, current.response!!)
                     exchange = null
                     upgrade(ctx)
                 }
@@ -373,6 +493,14 @@ internal class ClientHandler(
             super.userEventTriggered(ctx, evt)
         }
 
+        override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+            if (ctx.channel() == upstream && ctx.channel().isWritable) {
+                upstreamFull = false
+                readClient()
+            }
+            super.channelWritabilityChanged(ctx)
+        }
+
         override fun channelInactive(ctx: ChannelHandlerContext) {
             if (raw) {
                 client.close()
@@ -380,6 +508,8 @@ internal class ClientHandler(
             }
             if (upstream != ctx.channel()) return
             upstream = null
+            upstreamFull = false
+            readClient()
             if (exchange != null) fail("${upstreamTarget?.host} closed the connection before the response ended")
         }
 
@@ -394,6 +524,9 @@ internal class ClientHandler(
     }
 
     companion object {
+        /** The error of a tunnel the client closed before it held TLS or a whole request. */
+        const val NO_REQUEST = "The client closed the tunnel before any TLS or request"
+
         private const val CONNECT_TIMEOUT_MS = 10_000
 
         private fun releaseAll(messages: ArrayDeque<Any>) {

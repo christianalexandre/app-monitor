@@ -32,7 +32,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestLocalNetwork()
         intent.getStringExtra(EXTRA_HOST)?.let { host ->
             (application as SampleApplication).applyLaunchExtras(host, intent.getIntExtra(EXTRA_PORT, AppMonitorOptions().port))
         }

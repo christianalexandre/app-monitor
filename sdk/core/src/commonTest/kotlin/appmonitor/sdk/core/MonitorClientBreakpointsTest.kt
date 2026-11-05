@@ -12,6 +12,7 @@ import appmonitor.v1.Header
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
 import appmonitor.v1.RequestStarted
+import appmonitor.v1.ResponseReceived
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.async
@@ -20,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -114,6 +116,33 @@ class MonitorClientBreakpointsTest {
         }
 
     @Test
+    fun aHitLargerThanAFrameGoesOnUnchangedAtOnce() =
+        runBlocking {
+            val desktop = Desktop()
+            val client = client(desktop)
+            desktop.down.send(rules(rule(1, "/a")))
+            client.awaitBreakpoint("/a", 1)
+            val body = ByteArray(Protocol.MAX_BODY_BYTES.toInt()).toByteString()
+            val hit =
+                hit("req-1", response).copy(
+                    request = RequestStarted(request_id = "req-1", method = "GET", body = body),
+                    response = ResponseReceived(request_id = "req-1", status_code = 200, body = body),
+                )
+
+            assertSame(BreakpointOutcome.UNCHANGED, withTimeout(5.seconds) { client.hold(hit) })
+        }
+
+    @Test
+    fun aHitDroppedBeforeItIsWrittenGoesOnUnchangedAtOnce() =
+        runBlocking {
+            val breakpoints = Breakpoints().apply { replace(listOf(rule(1, "/a"))) }
+
+            val outcome = withTimeout(5.seconds) { breakpoints.hold(hit("req-1", request)) { _, dropped -> dropped() } }
+
+            assertSame(BreakpointOutcome.UNCHANGED, outcome)
+        }
+
+    @Test
     fun theSessionsEndLetsEveryHeldCallGoOnAndClearsTheRules() =
         runBlocking {
             val desktop = Desktop()
@@ -142,11 +171,12 @@ class MonitorClientBreakpointsTest {
                 ),
             )
 
-        val headers = resumed.headers(listOf("Accept" to "*/*", "Authorization" to "real", "X-Old" to "a", "Accept" to "b"))
+        val masking = Masking(AppMonitorOptions())
+        val headers = resumed.headers(listOf("Accept" to "*/*", "Authorization" to "real", "X-Old" to "a", "Accept" to "b"), masking)
 
         assertEquals(listOf("Authorization" to "real", "accept" to "text/plain", "Accept" to "text/html", "X-New" to "1"), headers)
         assertTrue(resumed.changesHeaders)
-        assertEquals(listOf("A" to "1"), BreakpointOutcome.Resume(null).headers(listOf("A" to "1")))
+        assertEquals(listOf("A" to "1"), BreakpointOutcome.Resume(null).headers(listOf("A" to "1"), masking))
     }
 
     private suspend fun MonitorClient.awaitBreakpoint(
@@ -206,7 +236,7 @@ class MonitorClientBreakpointsTest {
 
     private suspend fun client(desktop: Desktop): MonitorClient {
         val port = desktop.start()
-        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, { true }, {})
+        val client = MonitorClient({ hello }, { Endpoint(LOOPBACK, port) }, config, {})
         cleanup += { client.stopAndJoin() }
         client.start()
         return client

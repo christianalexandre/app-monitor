@@ -1,10 +1,10 @@
 ---
 id: DEBT-0015
 title: The 5 s stop bound may cut a slow mDNS close
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: A "Server stop timed out" status or a shutdown hook timeout seen on a real desktop
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0015 — The 5 s stop bound may cut a slow mDNS close
@@ -31,4 +31,6 @@ desktop.
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.1 (ADR-0174). Measuring found the trigger already met on the
+development machine: 3014 ms and 2016 ms closing two addresses in turn, the whole
+`STOP_TIMEOUT`. They close at once now, within 3.5 s, and `make server` stopped in 3.06 s.

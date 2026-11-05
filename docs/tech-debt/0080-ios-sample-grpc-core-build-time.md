@@ -1,10 +1,10 @@
 ---
 id: DEBT-0080
 title: The iOS sample builds gRPC-Core cold in every gate job that builds it
-status: Open
+status: Paid
 date: 2026-10-25
 trigger: A release gate run where `samples-ios` or `e2e-ios` in `release-gate.yml` times out or takes more than 35 minutes
-paid_date:
+paid_date: 2026-10-30
 ---
 
 # DEBT-0080 — The iOS sample builds gRPC-Core cold in every gate job that builds it
@@ -39,4 +39,11 @@ the same run.
 
 ## How it was paid
 
-> Filled when closing.
+`ci/release-gate-cache` (PLAN-0015 H5.1, ADR-0163) took gRPC-Core out of
+the sample's main spec: `make ios-sample` and `make e2e-ios` build no C++
+(`make e2e-ios` 28 s from an empty derived data directory on this Mac), and
+`samples/ios/grpc.yml` adds it for `make e2e-ios-grpc`, the one release
+gate job that builds it, timeout 50 min. No derived data cache: the
+repository's Actions caches are past their 10 GB limit with Gradle entries
+written on each push to `dev`, so a cache only gate runs read would be
+evicted first. The job gets one if a gate run shows it past its timeout.

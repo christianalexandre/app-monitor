@@ -1,6 +1,7 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -10,12 +11,11 @@ import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
-import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
-import io.ktor.server.websocket.webSocket
+import io.ktor.server.websocket.webSocketRaw
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
-import io.ktor.websocket.close
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -33,6 +33,7 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.net.BindException
 import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -58,7 +59,7 @@ class AppMonitorServer internal constructor(
     constructor(
         config: ServerConfig = ServerConfig(),
         approval: DeviceApproval = DeviceApproval.ApproveAll,
-    ) : this(config, approval = approval, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port) })
+    ) : this(config, approval = approval, startAdvertiser = { name, port -> MdnsAdvertiser.start(name, port, config.desktopId) })
 
     private val newSessions = Channel<DeviceSession>(Channel.UNLIMITED)
 
@@ -76,7 +77,9 @@ class AppMonitorServer internal constructor(
     @Volatile private var stopped = false
 
     // From a valid Hello to the close; disconnect removes an entry so its handshake is never published.
-    private val connections = ConcurrentHashMap<DefaultWebSocketServerSession, Hello>()
+    private val connections = ConcurrentHashMap<DeviceConnection, Hello>()
+
+    private val lostLedger = LostLedger()
 
     /** Every handshaken session, once, in connection order. Meant for a single collector. */
     val sessions: Flow<DeviceSession> = newSessions.receiveAsFlow()
@@ -84,7 +87,10 @@ class AppMonitorServer internal constructor(
     /** Addresses the mDNS service is published on; empty when not advertising. */
     val advertisedAddresses: List<InetAddress> get() = advertiser?.addresses.orEmpty()
 
-    /** Starts listening and advertising; returns the bound port. On failure, cancellation or [stop], the port and mDNS are released. */
+    /** Why a device may not find this server over mDNS, or null; the server listens either way (ADR-0174). */
+    val advertisingProblem: String? get() = advertiser?.problem
+
+    /** Starts listening and advertising; returns the bound port, throws [BindException] when it is taken. On failure, cancellation or [stop], the port and mDNS are released. */
     suspend fun start(): Int {
         val startup = CompletableDeferred<Throwable?>()
         synchronized(lock) {
@@ -98,17 +104,26 @@ class AppMonitorServer internal constructor(
         try {
             val engine =
                 createEngine {
-                    install(WebSockets) {
-                        maxFrameSize = Protocol.MAX_FRAME_BYTES
-                        pingPeriodMillis = pingPeriod.inWholeMilliseconds
-                        timeoutMillis = pingTimeout.inWholeMilliseconds
-                    }
+                    install(WebSockets) { maxFrameSize = Protocol.MAX_FRAME_BYTES }
                     routing {
-                        webSocket(Protocol.WEBSOCKET_PATH) { serve() }
+                        webSocketRaw(Protocol.WEBSOCKET_PATH, negotiateExtensions = false) {
+                            val connection = DeviceConnection(this, call.request.local.remoteAddress, pingPeriod, pingTimeout, CLOSE_GRACE)
+                            connection.start()
+                            try {
+                                connection.serve()
+                            } finally {
+                                connection.finish()
+                            }
+                        }
                     }
                 }
             server = engine
-            startEngine(engine)
+            try {
+                startEngine(engine)
+            } catch (e: CancellationException) {
+                // Ktor's CIO reports a taken port as a cancellation caused by the BindException.
+                throw generateSequence<Throwable>(e) { it.cause }.firstOrNull { it is BindException } ?: e
+            }
             val port =
                 engine.engine
                     .resolvedConnectors()
@@ -195,19 +210,19 @@ class AppMonitorServer internal constructor(
         }
     }
 
-    private suspend fun DefaultWebSocketServerSession.serve() {
+    private suspend fun DeviceConnection.serve() {
         val first = withTimeoutOrNull(handshakeTimeout) { incoming.receiveCatching() }
         if (first == null) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "No Hello within $handshakeTimeout"))
             return
         }
         val hello = (first.getOrNull() as? Frame.Binary)?.decodeEnvelope()?.toHello()
         if (hello == null) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "First frame must be a Hello envelope"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "First frame must be a Hello envelope"))
             return
         }
         if (hello.protocol_version != Protocol.VERSION) {
-            close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
+            closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Unsupported protocol version ${hello.protocol_version}"))
             return
         }
         connections[this] = hello
@@ -218,10 +233,10 @@ class AppMonitorServer internal constructor(
         }
     }
 
-    private suspend fun DefaultWebSocketServerSession.handshaken(hello: Hello) {
+    private suspend fun DeviceConnection.handshaken(hello: Hello) {
         val approved = awaitApproval(hello) ?: return
         if (!approved) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
+            closeAndDrain(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Rejected on the desktop"))
             return
         }
         val session =
@@ -229,7 +244,7 @@ class AppMonitorServer internal constructor(
                 id = UUID.randomUUID().toString(),
                 hello = hello,
                 channels = hello.channels.filter { it in SUPPORTED_CHANNELS },
-                peerAddress = call.request.local.remoteAddress,
+                peerAddress = peerAddress,
             )
         // Under the lock stop and disconnect take: a handshake racing either is published or gets no HelloAck.
         val publication =
@@ -243,12 +258,12 @@ class AppMonitorServer internal constructor(
         // Returning before disconnect's close is sent lets Ktor close with 1000.
         when (publication) {
             Publication.FORGOTTEN -> {
-                close(FORGOTTEN)
+                closeAndDrain(FORGOTTEN)
                 return
             }
 
             Publication.STOPPED -> {
-                close(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
+                closeAndDrain(CloseReason(CloseReason.Codes.GOING_AWAY, "Server stopped"))
                 return
             }
 
@@ -257,37 +272,52 @@ class AppMonitorServer internal constructor(
             }
         }
         var writer: Job? = null
+        var received = 0L
+        lostLedger.opened(session.id) { lost -> session.drops.value?.let { session.report(it.copy(lost = lost)) } }
         try {
             send(Frame.Binary(true, helloAck(session).encode()))
             writer = launch { for (envelope in session.outgoing) send(Frame.Binary(true, envelope.encode())) }
             for (frame in incoming) {
+                received++
                 val envelope = (frame as? Frame.Binary)?.decodeEnvelope()
                 if (envelope == null) {
-                    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
+                    closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Frames must be binary envelopes"))
                     break
                 }
                 val violation = envelope.violation(session.channels)
                 if (violation != null) {
-                    close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
+                    closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, violation))
                     break
+                }
+                envelope.toDeliveryReport()?.let { report ->
+                    lostLedger.reported(session.id, report.previous_session_id, report.previous_session_written) { lost ->
+                        session.report(Drops(report.evicted, report.oversized, lost))
+                    }
                 }
                 session.deliver(envelope)
             }
         } finally {
+            lostLedger.closed(session.id, received)
             session.close()
             writer?.cancel()
         }
     }
 
+    // Closing TCP with the device's frames unread resets it, and the device may lose this close.
+    private suspend fun DeviceConnection.closeAndDrain(reason: CloseReason) {
+        close(reason)
+        for (frame in incoming) Unit
+    }
+
     // No timeout: the user may take minutes. The device leaving, or sending before HelloAck, withdraws the request.
-    private suspend fun DefaultWebSocketServerSession.awaitApproval(hello: Hello): Boolean? =
+    private suspend fun DeviceConnection.awaitApproval(hello: Hello): Boolean? =
         coroutineScope {
             val decision = async { approval.approve(hello) }
             select {
                 decision.onAwait { it }
                 incoming.onReceiveCatching { frame ->
                     decision.cancel()
-                    if (frame.isSuccess) close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Envelope before HelloAck"))
+                    if (frame.isSuccess) closeAndDrain(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Envelope before HelloAck"))
                     null
                 }
             }
@@ -297,7 +327,7 @@ class AppMonitorServer internal constructor(
         Envelope(
             channel = Protocol.CHANNEL_CORE,
             type = "HelloAck",
-            payload = HelloAck(Protocol.VERSION, session.id, session.channels).encodeByteString(),
+            payload = HelloAck(Protocol.VERSION, session.id, session.channels, config.desktopId.orEmpty()).encodeByteString(),
             timestamp_ms = System.currentTimeMillis(),
         )
 
@@ -305,6 +335,7 @@ class AppMonitorServer internal constructor(
 
     private companion object {
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
+        val CLOSE_GRACE = 1.seconds
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
     }
 }
@@ -320,6 +351,15 @@ private fun Envelope.toHello(): Hello? {
     if (channel != Protocol.CHANNEL_CORE || type != "Hello") return null
     return try {
         Hello.ADAPTER.decode(payload)
+    } catch (_: IOException) {
+        null
+    }
+}
+
+private fun Envelope.toDeliveryReport(): DeliveryReport? {
+    if (channel != Protocol.CHANNEL_CORE || type != "DeliveryReport") return null
+    return try {
+        DeliveryReport.ADAPTER.decode(payload)
     } catch (_: IOException) {
         null
     }

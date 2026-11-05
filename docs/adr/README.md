@@ -32,7 +32,7 @@ Rules:
 | [0012](0012-pr-ci-workflow.md) | PR CI runs make check on ubuntu with the open-source Gradle cache | Accepted |
 | [0013](0013-loop-scripts-bash-tests.md) | Loop scripts are tested by a plain bash test in make check | Accepted |
 | [0014](0014-loop-watchdog-polls-a-marker.md) | Loop watchdog polls a done marker instead of trapping TERM | Accepted |
-| [0015](0015-loop-timeout-by-exit-status.md) | Loop reports a timeout only when the watchdog's TERM killed the session | Accepted |
+| [0015](0015-loop-timeout-by-exit-status.md) | Loop reports a timeout only when the watchdog's TERM killed the session | Superseded by [0196](0196-loop-watchdog-ends-the-sessions-whole-tree.md) |
 | [0016](0016-bounded-milestone-review.md) | Milestone review is incremental, keeps only correctness findings and stops after three rounds | Superseded by [0094](0094-faster-loop.md) |
 | [0017](0017-android-sdk-public-api.md) | Android SDK public API and minSdk | Accepted |
 | [0018](0018-capture-masking-and-device-approval.md) | What the Android SDK captures and masks, and device approval | Accepted |
@@ -56,7 +56,7 @@ Rules:
 | [0036](0036-ios-capture-masking-and-plist-keys.md) | What the iOS SDK captures and masks, and the Info.plist keys it needs | Accepted |
 | [0037](0037-where-swift-tests-run.md) | Where the Swift tests run | Accepted |
 | [0038](0038-capture-layer-field.md) | Exchanges carry the capture layer that produced them | Accepted |
-| [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Accepted |
+| [0039](0039-swift-package-layout-and-codegen.md) | Swift package layout, protobuf code generation and Swift gates | Superseded by [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) |
 | [0040](0040-swift-transport-network-framework.md) | Swift transport on Network.framework, confined to one serial queue | Accepted |
 | [0041](0041-connection-refused-ends-connecting.md) | A refused connection ends connecting, other waits do not | Accepted |
 | [0042](0042-bonjour-address-by-tcp-probe.md) | A Bonjour result's address comes from a TCP probe to its service | Accepted |
@@ -65,8 +65,8 @@ Rules:
 | [0045](0045-urlsession-websocket-capture.md) | URLSession WebSocket tasks are captured by hooks on the task's own methods | Accepted |
 | [0046](0046-background-session-capture-by-hooks.md) | Background URLSession capture hooks the session's callbacks from nsurlsessiond | Accepted |
 | [0047](0047-ios-simulator-tests-hosted-by-xcodegen-app.md) | iOS simulator tests run in an XcodeGen test host app | Accepted |
-| [0048](0048-ios-release-stubs-and-api-dump.md) | iOS release stubs under #if DEBUG, checked against a committed interface dump | Accepted |
-| [0049](0049-local-network-keys-script.md) | Local network keys added to the built Info.plist by a Run Script phase | Accepted |
+| [0048](0048-ios-release-stubs-and-api-dump.md) | iOS release stubs under #if DEBUG, checked against a committed interface dump | Superseded by [0155](0155-ios-sdk-left-out-of-release-builds-by-the-app.md) |
+| [0049](0049-local-network-keys-script.md) | Local network keys added to the built Info.plist by a Run Script phase | Superseded by [0155](0155-ios-sdk-left-out-of-release-builds-by-the-app.md) |
 | [0050](0050-ios-sample-app.md) | iOS sample app from an XcodeGen spec, checked by a symbol scan of its release build | Accepted |
 | [0051](0051-debt-trigger-check-by-backticked-names.md) | Open DEBT triggers are matched against changed files by their backticked names | Superseded by [0061](0061-debt-check-fails-on-unresolved-base.md) |
 | [0052](0052-release-gate-runners-and-cost.md) | Release gate jobs, runners and minutes per run | Accepted |
@@ -78,7 +78,7 @@ Rules:
 | [0058](0058-sdk-publication-dry-run.md) | SDK publication dry-run with maven-publish, a protocol artifact and a path SwiftPM consumer | Accepted |
 | [0059](0059-no-trailer-check-on-release-prs.md) | The attribution trailer check runs on PRs to dev only | Superseded by [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) |
 | [0060](0060-trailer-check-skipped-only-for-dev-to-main.md) | The attribution trailer check is skipped only on dev → main PRs | Accepted |
-| [0061](0061-debt-check-fails-on-unresolved-base.md) | The DEBT trigger check fails when its base does not resolve | Accepted |
+| [0061](0061-debt-check-fails-on-unresolved-base.md) | The DEBT trigger check fails when its base does not resolve | Superseded by [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) |
 | [0062](0062-kmp-sdk-public-api.md) | KMP SDK public API, artifacts, no-op and iOS targets | Accepted |
 | [0063](0063-ktor-capture-masking-and-ios-keys.md) | What the Ktor plugin captures and masks, and the keys a KMP iOS app needs | Accepted |
 | [0064](0064-ktor-swift-dedupe-by-correlation-header.md) | How the Ktor plugin and the Swift SDK avoid capturing one exchange twice | Accepted |
@@ -110,7 +110,7 @@ Rules:
 | [0090](0090-who-can-call-the-mcp-server.md) | Who can call the MCP server, on which port, and whether it is on by default | Accepted |
 | [0091](0091-which-mcp-clients-and-setup-docs.md) | Which MCP clients the desktop serves, and what the setup docs cover | Accepted |
 | [0092](0092-mcp-server-platform-primitives.md) | MCP server on the Kotlin MCP SDK 0.15.0, stateless Streamable HTTP on Ktor CIO | Accepted |
-| [0093](0093-gradle-plugin-for-the-release-swap.md) | A Gradle plugin swaps the SDK for its no-ops in release builds | Accepted |
+| [0093](0093-gradle-plugin-for-the-release-swap.md) | A Gradle plugin swaps the SDK for its no-ops in release builds | Superseded by [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) |
 | [0094](0094-faster-loop.md) | The loop reviews a milestone once, merges on auto, plans fewer tasks and stops less | Accepted |
 | [0095](0095-what-an-issue-keeps-and-who-writes-it.md) | What an issue keeps, how long, and who may write it | Accepted |
 | [0096](0096-issue-rows-and-their-writers.md) | Issue rows, their writers' order, and what retention trims | Accepted |
@@ -149,7 +149,7 @@ Rules:
 | [0129](0129-ktor-marks-its-captures-beside-the-okhttp-sdk.md) | The Ktor plugin marks its captures beside the OkHttp SDK, and the interceptor skips and strips the mark | Accepted |
 | [0130](0130-a-held-ios-task-asks-the-apps-delegate.md) | A held iOS task asks the app's delegate | Accepted |
 | [0131](0131-background-tasks-resumed-before-start-are-adopted.md) | Background tasks the resume hook never saw are adopted at their first callback | Accepted |
-| [0132](0132-cleartext-allowed-by-a-debug-source-set-config.md) | Cleartext to the desktop is allowed by a debug source set config, not debug-overrides | Accepted |
+| [0132](0132-cleartext-allowed-by-a-debug-source-set-config.md) | Cleartext to the desktop is allowed by a debug source set config, not debug-overrides | Superseded by [0156](0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md) |
 | [0133](0133-desktop-clean-architecture-and-design-system.md) | The desktop app is split into a design system, core layers and feature modules | Accepted |
 | [0134](0134-the-design-system-wraps-material-and-is-checked-by-a-script.md) | The design system wraps Compose Material and is checked by a script | Accepted |
 | [0135](0135-desktop-domain-models-mirror-the-store-and-keep-protocol-messages.md) | Desktop domain models mirror the store's and keep the protocol's messages | Accepted |
@@ -172,3 +172,48 @@ Rules:
 | [0152](0152-a-search-inside-the-request-and-code-blocks-for-its-texts.md) | A search inside the request, header rows, and code blocks with JSON colors | Accepted |
 | [0153](0153-field-test-polish-of-the-traffic-window.md) | Field test polish of the traffic window, the panes kept across launches | Accepted |
 | [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |
+| [0155](0155-ios-sdk-left-out-of-release-builds-by-the-app.md) | The iOS SDK is left out of release builds by the app, guarded by a Run Script pasted from the README | Accepted |
+| [0156](0156-android-sdk-asks-for-its-permission-and-ignores-the-cleartext-policy.md) | The Android SDK asks for its local network permission and no longer stops on the cleartext policy | Accepted |
+| [0157](0157-the-gradle-plugin-adds-the-sdk-and-fails-a-release-that-keeps-it.md) | The Gradle plugin adds the SDK, swaps it for the no-ops outside debug, and fails a release that keeps it | Superseded by [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) |
+| [0158](0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md) | A KMP app on iOS is captured by the Swift SDK alone | Accepted |
+| [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
+| [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |
+| [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) | KMP release binaries link the no-ops at their link task, and dynamic features hold no SDK | Accepted |
+| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Accepted |
+| [0163](0163-grpc-core-leaves-the-ios-end-to-end-for-a-gate-job-of-its-own.md) | gRPC-Core leaves the iOS sample and end to end for a release gate job of its own | Accepted |
+| [0164](0164-one-lan-address-filter-in-desktop-server.md) | One LAN address filter, in `desktop/server`, without tunnels | Accepted |
+| [0165](0165-hello-carries-the-app-name-the-options-set.md) | Hello carries the app name the options set, and the desktop shows it before the app id | Accepted |
+| [0166](0166-the-device-reports-what-it-dropped-in-a-delivery-report.md) | The device reports what it dropped in a DeliveryReport, the desktop counts what it lost | Accepted |
+| [0167](0167-the-desktop-reads-device-frames-over-a-raw-websocket.md) | The desktop reads device frames over a raw WebSocket session and answers the close after them | Accepted |
+| [0168](0168-a-device-pins-the-first-desktop-that-approved-it.md) | A device pins the first desktop that approved it | Accepted |
+| [0169](0169-release-builds-keep-their-guarantees.md) | The no-op check reads constructors from the classes, the plugin rewrites OkHttp for its own SDK version, and the SDK compiles to Kotlin 2.3 | Accepted |
+| [0170](0170-the-ios-sdk-suite-runs-on-the-simulator.md) | The iOS SDK's package suite runs on the simulator too, on the iOS SIM_OS picks | Accepted |
+| [0171](0171-the-ios-floor-the-sdk-declares.md) | The iOS floor the SDK declares, against the runtimes it can be tested on | Accepted |
+| [0172](0172-a-lost-count-waits-for-the-previous-session-to-close.md) | A session's lost count waits for its previous session to close | Accepted |
+| [0173](0173-the-sdks-log-lines-are-public.md) | The SDKs' log lines are readable outside a debugger | Accepted |
+| [0174](0174-mdns-failure-does-not-stop-the-server.md) | An mDNS failure does not stop the server | Accepted |
+| [0175](0175-a-lock-file-holds-the-data-directory.md) | A lock file holds the data directory | Accepted |
+| [0176](0176-the-headless-server-is-a-tool-module.md) | The headless server is a tool module | Accepted |
+| [0177](0177-text-search-and-failed-only-read-compact-indexes.md) | Text search and "failed only" read compact indexes | Accepted |
+| [0178](0178-the-macos-title-bar-follows-a-picked-theme-through-jna.md) | The macOS title bar follows a picked theme through JNA | Accepted |
+| [0179](0179-a-write-committed-as-the-store-closes-is-answered-saved.md) | A write committed as the store closes is answered saved | Accepted |
+| [0180](0180-up-and-down-move-a-rule-in-its-apps-order.md) | "Up" and "Down" move a rule in its app's order | Accepted |
+| [0181](0181-one-kotlin-masking-in-sdk-core.md) | One Kotlin masking in sdk/core, each library resolving its own Location | Accepted |
+| [0182](0182-one-call-capture-flow-in-sdk-core.md) | One capture flow in sdk/core, inline so a call may block or suspend | Accepted |
+| [0183](0183-a-ktor-engine-known-by-its-config.md) | A Ktor engine is known by its config, so a wrapper of OkHttp's is marked too | Accepted |
+| [0184](0184-the-monitors-connect-has-one-timeout-its-own.md) | The monitor's connect has one timeout, its own, not CIO's | Accepted |
+| [0185](0185-what-an-edit-left-masked-goes-out-as-the-devices-own.md) | What an edit left masked goes out as the device's own | Accepted |
+| [0186](0186-an-ios-replay-catches-the-sessions-raise.md) | An iOS replay catches the session's raise in Objective-C | Accepted |
+| [0187](0187-one-method-hook-for-the-ios-capture.md) | One method hook for the iOS capture | Accepted |
+| [0188](0188-a-held-call-in-the-ios-end-to-end.md) | A held call in the iOS end to end | Accepted |
+| [0189](0189-ios-headers-sent-read-from-the-transaction-metrics.md) | iOS headers sent are read from the transaction metrics at the response | Accepted |
+| [0190](0190-ios-websocket-ends-read-at-the-tasks-finish.md) | An iOS WebSocket's end is read where the task finishes | Accepted |
+| [0191](0191-the-proxy-relays-at-the-slower-sides-pace.md) | The proxy relays at the slower side's pace and cuts an exchange it dropped an event of | Accepted |
+| [0192](0192-a-reused-socket-number-ends-its-old-connection.md) | A reused socket number ends its old connection at the next connect | Accepted |
+| [0193](0193-the-proxy-reads-a-websockets-frames-as-they-cross.md) | The proxy reads a WebSocket's frames as they cross, inflating permessage-deflate | Accepted |
+| [0194](0194-the-proxys-pass-through-list.md) | The proxy's pass-through list, matched at each CONNECT and relayed as raw bytes | Accepted |
+| [0195](0195-a-tunnels-leaf-offers-what-its-origin-does.md) | A tunnel's leaf offers what its origin does, asked before the client's handshake | Accepted |
+| [0196](0196-loop-watchdog-ends-the-sessions-whole-tree.md) | The loop's watchdog ends the session's whole process tree, and its kill is the timeout | Accepted |
+| [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |
+| [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) | A DEBT trigger path that exists from the root matches only there | Accepted |
+| [0199](0199-a-gzip-body-opens-in-the-detail-before-its-formats.md) | A gzip body opens in the detail before its formats, bounded | Accepted |

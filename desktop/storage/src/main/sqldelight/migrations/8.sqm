@@ -1,0 +1,3 @@
+ALTER TABLE sessions ADD COLUMN drops_evicted INTEGER;
+ALTER TABLE sessions ADD COLUMN drops_oversized INTEGER;
+ALTER TABLE sessions ADD COLUMN drops_lost INTEGER;

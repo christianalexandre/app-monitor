@@ -1,41 +1,47 @@
 ---
 id: DEBT-0098
-title: A client refusing the proxy's certificate is not recorded on Windows
-status: Open # Open | Paid | Dropped
+title: A client refusing the proxy's certificate not confirmed recorded on Windows
+status: Paid
 date: 2026-10-26
-trigger: Someone runs the proxy on Windows, or the next PR that changes how `ClientHandler.kt` handles the client's TLS handshake
-paid_date:
+trigger: The release gate's Windows job runs `ProxyServerTest`, no longer skipped there
+paid_date: 2026-11-04
 ---
 
-# DEBT-0098 — A client refusing the proxy's certificate is not recorded on Windows
+# DEBT-0098 — A client refusing the proxy's certificate not confirmed recorded on Windows
 
 ## What is missing
 
 `ProxyServerTest`'s "a client refusing the proxy certificate is a failed
-exchange, not a hang" passes on macOS and Ubuntu and fails on the release
-gate's `windows-latest` (#295's runs, the last 40427800077). There curl
-(MSYS2's native 8.23, OpenSSL 3.6) reaches the proxy, gets its leaf and
-refuses it — `curl: (60) … self-signed certificate in certificate chain` —
-and exits; the proxy stores nothing at all for the CONNECT, not even an
-open exchange. A client that closes before any TLS byte is recorded on
-Windows (the test beside it passes there), so the CONNECT capture does
-start and end on a close.
+exchange, not a hang" failed on the release gate's `windows-latest` (#295's
+runs, the last 40427800077), with curl 8.23 on OpenSSL 3.6 refusing the leaf
+with `curl: (60)` and nothing stored for the CONNECT, and was skipped there.
 
-Not confirmed: either Windows drops the client's TLS alert with the reset
-that follows it, and the proxy takes the handshake as done (the CONNECT
-capture is let go on a successful handshake, and an empty tunnel records
-nothing), or the server side's handshake completes before the alert.
+The same failure hit `ubuntu-latest` on 2026-11-03 (runs 41664133951 and
+41665849998) and was reproduced on macOS with Homebrew's curl 8.23 on OpenSSL
+4.1, same `curl: (60) SSL certificate OpenSSL verify result` line: the proxy saw
+a **successful** handshake, then a close, and let the CONNECT capture go on the
+success. macOS's own curl 8.7 (SecureTransport) refuses during the handshake.
+A tunnel closed before its first request now ends the CONNECT as failed, and the
+test runs on Windows again.
 
-The test is skipped on Windows (`assumeFalse`, naming this DEBT); curl does
-not hang, the gap is only that the refusal is not shown on Windows.
+What is left: no Windows machine ran it. The same curl version and the same
+outcome point at this cause, nothing there proves it.
 
 ## Why it was accepted
 
-Confirming the cause needs a Windows machine to trace the handshake; the
-gate is the only one. The proxy is a debug tool run by a developer, the
-miss shows nothing wrong, and every other proxy test passes on Windows.
+The loop has no Windows machine and does not dispatch the release gate; its
+Windows job is the check, and H6.5's Accept already names it.
 
 ## Trigger
 
-Someone runs the proxy on Windows, or the next PR that changes how
-`ClientHandler.kt` handles the client's TLS handshake.
+The release gate's Windows job runs `ProxyServerTest`, no longer skipped there.
+
+Not fired by PLAN-0016 H6.5: the gate has not run since (its last run is
+2026-10-31, before the test ran on Windows again), and the loop does not dispatch
+it. The next `dev` to `main` PR runs it.
+
+## How it was paid
+
+The release gate's `desktop (windows-latest)` job, on PR #379 (run 41866461707), ran
+`:desktop:proxy:test` and passed, with no skip left in `ProxyServerTest`. So the cause found on
+Homebrew's curl 8.23 holds there too.

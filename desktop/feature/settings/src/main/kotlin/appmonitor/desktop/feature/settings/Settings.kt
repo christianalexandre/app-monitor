@@ -33,17 +33,19 @@ import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
+import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.domain.passThroughHosts
 import appmonitor.desktop.ui.formatDateTime
 import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
 /**
- * What the window shows when the store did not open: no server runs behind it (SDD 09). [onClearAll] deletes the files
+ * What the window shows when the store did not open: no server runs behind it. [onClearAll] deletes the files
  * after a confirmation and returns what to tell the developer.
  */
 @Composable
@@ -79,6 +81,20 @@ fun StorageUnavailable(
                         TextButton("Clear all data", onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL))
                     }
                 }
+            }
+        }
+    }
+}
+
+/** What the window shows when another desktop holds [directory]: nothing to clear, it is that one's data (ADR-0175). */
+@Composable
+fun DataDirectoryInUse(directory: String) {
+    AppMonitorTheme(isSystemInDarkTheme()) {
+        AppSurface {
+            Column(Modifier.padding(Spacing.xxl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("App Monitor is already open on this data", role = TextRole.Title)
+                Text(directory, role = TextRole.Code)
+                Text("Quit the other one, or start this one with another APPMONITOR_DATA_DIR.", role = TextRole.Caption)
             }
         }
     }
@@ -149,7 +165,7 @@ fun Settings(
         }
         state.proxy?.let { proxy ->
             Divider()
-            ProxySection(proxy, viewModel::setProxyEnabled, viewModel::resetProxyCa)
+            ProxySection(proxy, viewModel::setProxyEnabled, viewModel::resetProxyCa, viewModel::setPassThrough)
         }
         Divider()
         Text("Devices", role = TextRole.Heading)
@@ -241,6 +257,7 @@ private fun ProxySection(
     proxy: ProxySettings,
     onEnabled: (Boolean) -> Unit,
     onResetCa: () -> Unit,
+    onPassThrough: (String) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
     val port = (proxy.status as? ServiceStatus.Running)?.port ?: proxy.port
@@ -271,7 +288,35 @@ private fun ProxySection(
             "After a reset, relaunch the apps started with the old CA.",
             role = TextRole.Caption,
         )
+        PassThrough(proxy.passThrough, onPassThrough)
     }
+}
+
+// ADR-0194: the list applies to the next CONNECT; tunnels already open keep what they were.
+@Composable
+private fun PassThrough(
+    stored: List<String>,
+    onSave: (String) -> Unit,
+) {
+    var text by remember(stored) { mutableStateOf(stored.joinToString("\n")) }
+    TextField(
+        text,
+        { text = it },
+        Modifier.fillMaxWidth().testTag(PROXY_PASS_THROUGH),
+        label = "Pass through untouched",
+        placeholder = "pinned.example.com\n*.bank.example",
+    )
+    Text(
+        "One host per line, *.domain for the names under it: their tunnels are not recorded, and apps see the real certificates.",
+        role = TextRole.Caption,
+    )
+    TextButton(
+        "Save hosts",
+        onClick = { onSave(text) },
+        Modifier.testTag(PROXY_PASS_THROUGH_SAVE),
+        enabled =
+            passThroughHosts(text) != stored,
+    )
 }
 
 private fun proxyStateOf(
@@ -329,5 +374,9 @@ const val PROXY_SWITCH = "proxy-switch"
 const val PROXY_STATUS = "proxy-status"
 
 const val PROXY_RESET_CA = "proxy-reset-ca"
+
+const val PROXY_PASS_THROUGH = "proxy-pass-through"
+
+const val PROXY_PASS_THROUGH_SAVE = "proxy-pass-through-save"
 
 const val MCP_STATUS = "mcp-status"

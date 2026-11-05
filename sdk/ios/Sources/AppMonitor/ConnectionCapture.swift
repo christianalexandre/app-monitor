@@ -1,4 +1,3 @@
-#if DEBUG
 internal import AppMonitorConnections
 import Foundation
 import os
@@ -150,4 +149,3 @@ private struct Peer {
         self.address = String(decoding: text.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 }
-#endif

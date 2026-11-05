@@ -1,10 +1,10 @@
 ---
 id: DEBT-0007
 title: mDNS failure on one interface stops the whole server
-status: Open # Open | Paid | Dropped
+status: Paid
 date: 2026-10-22
 trigger: A desktop reports "Server failed" because of one interface, or M1 SDKs connect by explicit host
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0007 — mDNS failure on one interface stops the whole server
@@ -34,4 +34,7 @@ mDNS useful.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0016 H6.1 (ADR-0174). An address that fails is skipped, the server
+listens whatever happens to mDNS, and `advertisingProblem` reaches the window's
+status and the headless output, none-at-all included. A failure listing the
+interfaces, and an `Error`, still fail `start`.

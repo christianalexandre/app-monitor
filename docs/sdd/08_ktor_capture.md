@@ -29,12 +29,17 @@ app ── HttpClient { install(AppMonitorKtor) }
   `Monitoring` and shown in its `RequestStarted`; the Swift SDK skips a task
   carrying it, so a Darwin call is captured once (SDD 07, ADR-0064,
   ADR-0071). A hop not captured has it removed. On the JVM and Android it is
-  set only when `appmonitor-okhttp` is on the classpath:
-  `AppMonitorInterceptor` sends a marked request on without the header and
-  captures nothing of it, so a Ktor call on the OkHttp engine is captured
-  once and the server does not see the mark; on another engine it reaches
-  the server (ADR-0129).
-- **Masking** is the rule of SDD 05, member for member, pinned by
+  set only when `appmonitor-okhttp` is on the classpath and the client runs
+  on Ktor's OkHttp engine, or a wrapper answering with its config
+  (`passesAnotherCapture`, ADR-0183): `AppMonitorInterceptor`
+  sends a marked request on without the header and captures nothing of it,
+  so the call is captured once and the server never sees the mark. Another
+  engine never reaches the interceptor, so it sends nothing marked
+  (ADR-0129, ADR-0157). The engine is known by class (`config is OkHttpConfig`,
+  `ktor-client-okhttp` compile-only), so R8 renaming it in a minified debug
+  build changes nothing; `consumer-rules.pro` lets R8 shrink an app without
+  that engine. A wrapper with a config of its own is captured twice.
+- **Masking** is the rule of SDD 05, the same `sdk/core` class (ADR-0181), pinned by
   `protocol/fixtures/masking.json` on the three targets: default and
   `maskedHeaders` → `██`, `maskedQueryParameters` in the query and a
   `name=value&…` fragment, URL user info, `Location` and
@@ -48,7 +53,7 @@ app ── HttpClient { install(AppMonitorKtor) }
 | Event | Sent when | Body |
 | --- | --- | --- |
 | `RequestStarted` | Before the engine, once the headers are final and a request breakpoint let it go | `setBody` of a string, bytes or a serialized object (`ByteArrayContent`), cut at `maxBodyBytes`. A stream (`ChannelWriterContent`, `ReadChannelContent`, multipart, upload progress): not read, empty with `body_truncated` and its length when known. No body: empty, no size. The content's `Content-Type` is added to the headers when absent. |
-| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, read with `readRawBytes()` and cut. A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
+| `ResponseReceived` | When the engine returns and the receive pipeline has run | The body `SaveBody` kept for the app, its first `maxBodyBytes` read from `rawContent` and the rest counted, not kept (`SavedBodyCaptureTest` on the JVM counts the bytes allocated). A streamed response (`prepareGet(…).execute { }`), or a saved body whose read throws anything but a cancellation: not read, empty with `body_truncated` and `Content-Length`. `101`: no body. |
 | `RequestFailed` | The engine or the receive pipeline throws, or the saved body's read is cancelled | `error` is the exception's `toString()`; the exception reaches the app unchanged. |
 
 ### A mocked call
@@ -59,7 +64,7 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 - `RequestStarted` as above, cookies and the capture header included,
   with `mock_rule_id`.
 - After `delay_ms`, a rule's response becomes an `HttpClientCall` built
-  as the engine builds one (DEBT-0083), its context the engine's
+  as the engine builds one, its context the engine's
   dispatcher and a new `Job`; it is set as the pipeline's subject and
   `finish()` skips `Engine` and `Receive`. `ResponseReceived` is sent
   with the whole body. A failure throws a `kotlinx.io.IOException` with
@@ -67,6 +72,8 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 - `Send` hooks outside the pipeline still see the call: `expectSuccess`
   throws on a mocked `503`. Plugins on the receive pipeline (`SaveBody`,
   response observers) do not run; the body can be read once.
+- WebSocket upgrades (`ws`, `wss`) are never mocked, as in SDD 05: the
+  lookup is skipped for them (`WebSocketCaptureTest`).
 - Tests: `MockAnswerTest` against `MockEngine` on the JVM, the Android
   host and the simulator (engine never called, streamed read,
   `expectSuccess`, failure, unmatched call untouched).
@@ -75,26 +82,31 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 
 When `MonitorBridge.breakpointFor` returns a rule (SDD 04, ADR-0118,
 ADR-0123), the `Monitoring` interceptor suspends in
-`MonitorBridge.hold` (`Breakpoints.kt`):
+`MonitorBridge.hold` (`Breakpoints.kt`). What each outcome does is `sdk/core`'s
+`CallCapture`, the same as OkHttp's (ADR-0182):
 
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
-| Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back (`Content-Type` into the body, the content's own headers left to it), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
-| Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`, DEBT-0083) set as the pipeline's subject: the replacement body, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
+| Request | Once the headers are final, before the mock lookup and the engine | The hop's request, masked, as a `RequestStarted` | The resume's method and URL set on the builder, its headers applied to the captured list and put back, a `██` left in an edited URL or header group going out as the device's own (ADR-0185) (`Content-Type`, and the headers the content itself carries, to a wrapper over the body, so a stream's edit goes out too), a replaced body sent as `ByteArrayContent`; `RequestStarted` is sent once, for the request as resumed, and the mock lookup runs on it |
+| Response | After the engine and the receive pipeline, or a mock's answer (not for `101` or a WebSocket) | The request as sent and the response, its body as captured | With a changed status, header or body, a new call (`builtCall`) set as the pipeline's subject: the replacement body, the original's channel then cancelled if it was streamed, else the saved one, else the streamed channel. `ResponseReceived` is sent for it |
 
 - An abort, or an edit Ktor refuses ("Breakpoint edit refused: …": a
-  URL that is not absolute, a method that does not parse), sends
+  URL that is not absolute, a method that does not parse, a header it
+  rejects at the response stage), sends
   `RequestStarted` when not yet sent, then `RequestFailed`, and throws a
   `kotlinx.io.IOException`. A cancellation during the wait is captured
-  as `RequestFailed` and rethrown.
+  the same way and rethrown, a held response cancelled.
 - No answer within the hit's timeout, or the session's end: the call
   goes on unchanged.
 - A replaced response is read once, as a mocked one: the receive
   pipeline already ran on the original.
 - Tests: `BreakpointTest` against `MockEngine` on the JVM, the Android
   host and the simulator (a request edited with the masked header kept,
-  aborted, a refused edit, a response edited, a status alone changed, a
-  mocked response held).
+  aborted, a refused edit, a stream's own headers and type edited, a
+  response edited, a status alone changed, a replaced stream let go, a
+  mocked response held, a call cancelled while held); `EditedContentEnginesTest` on
+  the JVM against CIO and OkHttp's wire. The outcomes themselves:
+  `CallCaptureTest` in `sdk/core`, on all three targets.
 
 ### A call sent again
 
@@ -158,4 +170,3 @@ event never throws into the app's call: a failure drops that event.
 - On Darwin, Ktor may end a session by cancellation before the peer's close
   reaches it; the app's `incoming` then fails and no received close is
   recorded, plugin installed or not (ADR-0070).
-- Two Kotlin implementations of the masking rule exist (DEBT-0055).

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0068
 title: Non-correctness findings of the third M5 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
-trigger: "The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`"
-paid_date:
+trigger: The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or how `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt` writes to storage
+paid_date: 2026-11-03
 ---
 
 # DEBT-0068 — Non-correctness findings of the third M5 milestone review
@@ -46,7 +46,11 @@ M5.R9 and M5.R10 fix the two races that do change them.
 
 ## Trigger
 
-The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`.
+The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or how `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt` writes to storage.
+
+Re-triggered by PLAN-0015 H5.4 (2026-10-31): it touched `AppMonitorServer.kt` only to send the desktop id in `HelloAck` and the TXT record, nothing on the storage path the findings are about.
+
+Before: The first PR that changes `Ingest.retryLost`, `Storage.close` or `Storage.whileOpen`, or touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/AppMonitorServer.kt`.
 
 Fired by PLAN-0007 M6.3, whose `Storage` change is read-only (its new
 reads go through the existing read guard) and whose `Ingest` change is one
@@ -67,6 +71,47 @@ outgoing queue after `HelloAck` in `AppMonitorServer`'s handshake: it
 paid the `published` item there (a `Publication` enum). `retryLost`,
 health, `close` and `whileOpen` are untouched.
 
+Fired by the PR that closes the write queue when its writer ends with an
+`Error` (#313, an external review's T5), which changes `writeBatch`'s catch. "A retry clears another
+batch's error" is not paid. `aLostDisconnectRetriedByALoneFlushClearsTheError`
+pins that a retry written alone clears the error, and keeping another
+batch's error needs to know which lost item each error came from, which
+the health does not keep. Kept as is.
+
+Fired by PLAN-0015 H5.2d (`fix/server-close-before-hanging-up`),
+which changes only how `AppMonitorServer` closes a connection (its close
+written, the device's read back): `retryLost`, health, `close`,
+`whileOpen` and the handshake's outcomes are untouched. Kept as is.
+
+Fired by PLAN-0015 H5.3b (`feat/delivery-report`), which counts the frames
+`AppMonitorServer` reads per session and turns a `DeliveryReport` into
+`DeviceSession.drops` (ADR-0166): `retryLost`, health, `close`,
+`whileOpen` and the handshake's outcomes are untouched. Kept as is.
+
+Fired by PLAN-0015 H5.3 (`fix/server-owns-websocket-close`), which moves
+`AppMonitorServer`'s route to a raw session read by `DeviceConnection`
+(ADR-0167): `retryLost`, health, `close`, `whileOpen` and the handshake's
+outcomes are untouched. Kept as is.
+
+Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
+bounds `close`'s wait for the retention coroutine by its timeout: `close`'s
+lost count, `retryLost`, health and `whileOpen` are untouched. Kept as is.
+
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2a (`fix/store-write-path-debts`).
+
+- **A failed retry leaves no error:** paid. `retryLost` returns the error, and it
+  stays in `health` while the retry fails, even past later written batches
+  (`aDisconnectThatAlwaysFailsDoesNotBlockLaterBatches`, which pinned the old
+  behaviour).
+- **`close`'s lost count:** paid, disconnects still waiting are in it.
+- **`whileOpen`:** paid, a cancellation while the store is not closing is
+  rethrown (`aCancellationInsideAPassIsNotReadAsClosing`).
+- **Rollback copied:** paid with DEBT-0067.
+- **Dropped, a retry clears another batch's error:** telling them apart needs
+  each error tied to its lost item, for a status line, and
+  `aLostDisconnectRetriedByALoneFlushClearsTheError` pins the rule.
+- **Dropped, one closing guard:** every driver call already goes through `read`
+  or `whileOpen`, and each answers its own default when closing. A guard on the
+  driver could only throw, so each method would map it back to that default.

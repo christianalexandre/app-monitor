@@ -25,8 +25,68 @@ class DiscoveryTest {
             val discover =
                 discovery(AppMonitorOptions(host = "192.168.1.20", port = 4000), { browser }, fallbackHost = EMULATOR_HOST, config)
 
-            assertEquals(Endpoint("192.168.1.20", 4000), discover())
+            assertEquals(Endpoint("192.168.1.20", 4000, checksPin = false), discover())
             assertEquals(0, browser.browses)
+        }
+
+    @Test
+    fun aPinnedDeviceSkipsOtherDesktops() =
+        runTest {
+            val browser =
+                FakeBrowser {
+                    it(answer("Colleague", "192.168.1.30", "/v1/ws", id = "theirs"))
+                    it(answer("Mine", "192.168.1.20", "/v1/ws", id = "mine"))
+                }
+            val discover = discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config, log = {}, pinned = { "mine" })
+
+            assertEquals(Endpoint("192.168.1.20", Protocol.DEFAULT_PORT, "/v1/ws"), discover())
+        }
+
+    @Test
+    fun aRefusedDesktopIsLoggedOncePerClientAcrossRounds() =
+        runTest {
+            val logs = mutableListOf<String>()
+            val browser =
+                FakeBrowser {
+                    it(answer("Colleague", "192.168.1.30", "/v1/ws", id = "theirs"))
+                    it(answer("Old", "192.168.1.40", "/v1/ws"))
+                }
+            val discover =
+                discovery(AppMonitorOptions(), { browser }, fallbackHost = EMULATOR_HOST, config, log = { logs += it }, pinned = { "mine" })
+
+            assertEquals(Endpoint(EMULATOR_HOST), discover())
+            assertEquals(Endpoint(EMULATOR_HOST), discover())
+            assertEquals(2, browser.browses)
+            assertTrue(logs.single().contains("192.168.1.30:${Protocol.DEFAULT_PORT}"), logs.toString())
+            assertTrue(logs.single().contains("AppMonitorOptions.host"), logs.toString())
+        }
+
+    @Test
+    fun thePinnedDesktopIsFoundAfterARefusedOne() =
+        runTest {
+            val logs = mutableListOf<String>()
+            val browser =
+                FakeBrowser {
+                    it(answer("Colleague", "192.168.1.30", "/v1/ws", id = "theirs"))
+                    it(answer("Mine", "192.168.1.20", "/v1/ws", id = "mine"))
+                }
+            val discover =
+                discovery(AppMonitorOptions(), { browser }, fallbackHost = null, config, log = { logs += it }, pinned = { "mine" })
+
+            assertEquals(Endpoint("192.168.1.20", Protocol.DEFAULT_PORT, "/v1/ws"), discover())
+            assertEquals(1, logs.size)
+        }
+
+    @Test
+    fun nothingIsRefusedWithoutAPinOrBeforeATxtRecord() =
+        runTest {
+            val logs = mutableListOf<String>()
+            val unpinned = FakeBrowser { it(answer("Any", "192.168.1.30", "/v1/ws", id = "theirs")) }
+            discovery(AppMonitorOptions(), { unpinned }, fallbackHost = null, config, log = { logs += it })()
+            val noTxt = FakeBrowser { it(answer("Any", "192.168.1.30", path = null)) }
+            discovery(AppMonitorOptions(), { noTxt }, fallbackHost = EMULATOR_HOST, config, log = { logs += it }, pinned = { "mine" })()
+
+            assertTrue(logs.isEmpty(), logs.toString())
         }
 
     @Test
@@ -132,7 +192,8 @@ class DiscoveryTest {
         name: String,
         host: String,
         path: String?,
-    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path)
+        id: String? = null,
+    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path, id)
 
     /** Answers with [onBrowse] when browsing starts, or later through [answer]. */
     private class FakeBrowser(

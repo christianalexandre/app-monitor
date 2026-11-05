@@ -99,4 +99,14 @@ check "file under a named directory" has "sdk/no-op/build.gradle.kts"
 check "file by full path" has "DEBT-0005 Fake 0005: gradle/libs.versions.toml"
 check "each DEBT on one line" test "$(grep -c '^DEBT-0003 ' "$tmp/out")" -eq 1
 
+echo "test-debt-check: a path from the root matches only there"
+git -C "$tmp/repo" add -A
+git -C "$tmp/repo" commit -qm paths
+debt 0008 Open 'The next PR that touches `sdk/core`'
+mkdir -p "$tmp/repo/sdk/core-no-op/src/appmonitor/sdk/core"
+touch "$tmp/repo/sdk/core-no-op/src/appmonitor/sdk/core/AppMonitor.kt"
+(cd "$tmp/repo" && "$here/debt_check.sh" dev) >"$tmp/out"
+check "same segments in another module's package" not_line "^DEBT-0008 .*sdk/core-no-op"
+check "still fires on the module itself" has "DEBT-0008 Fake 0008: sdk/core/src/Client.kt"
+
 ((failures == 0)) && echo "test-debt-check: ok" || { echo "test-debt-check: $failures failed" >&2; exit 1; }

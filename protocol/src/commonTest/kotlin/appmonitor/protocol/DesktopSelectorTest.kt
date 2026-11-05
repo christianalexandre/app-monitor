@@ -62,6 +62,46 @@ class DesktopSelectorTest {
     }
 
     @Test
+    fun aPinnedSelectorSkipsOtherIdsAndAnswersWithoutTxt() {
+        val selector = DesktopSelector(pinnedId = "pinned")
+
+        assertNull(selector.offer(answer("Colleague", host = "10.0.0.2", path = "/v1/ws", id = "other")))
+        assertNull(selector.offer(answer("Old", host = "10.0.0.3", path = "/v1/ws")))
+        assertNull(selector.offer(answer("Mine", host = "10.0.0.1", path = null)))
+        assertFalse(selector.hasCandidate)
+        assertNull(selector.settle())
+        assertEquals("10.0.0.1", selector.offer(answer("Mine", host = "10.0.0.1", path = "/v1/ws", id = "pinned"))?.host)
+    }
+
+    @Test
+    fun onlyAnAnswerWhoseTxtShowsAnotherDesktopIsRefused() {
+        val selector = DesktopSelector(pinnedId = "pinned")
+
+        assertTrue(selector.refuses(answer("Colleague", path = "/v1/ws", id = "other")))
+        assertTrue(selector.refuses(answer("Old", path = "/v1/ws")))
+        assertFalse(selector.refuses(answer("Unknown yet", path = null)))
+        assertFalse(selector.refuses(answer("Mine", path = "/v1/ws", id = "pinned")))
+        assertFalse(DesktopSelector().refuses(answer("Any", path = "/v1/ws", id = "other")))
+    }
+
+    @Test
+    fun aPinnedDesktopKeepsItsIdOnALaterAnswerWithoutTxt() {
+        val selector = DesktopSelector(pinnedId = "pinned")
+
+        selector.offer(answer("Mine", host = "10.0.0.1", path = "/v1/ws", id = "pinned"))
+
+        assertEquals(
+            answer("Mine", host = "10.0.0.2", path = "/v1/ws", id = "pinned"),
+            selector.offer(answer("Mine", host = "10.0.0.2", path = null)),
+        )
+    }
+
+    @Test
+    fun anUnpinnedSelectorKeepsTheIdItSaw() {
+        assertEquals("first", DesktopSelector().offer(answer("AppMonitor", path = "/v1/ws", id = "first"))?.id)
+    }
+
+    @Test
     fun nothingKeptSettlesOnNull() {
         assertNull(DesktopSelector().settle())
     }
@@ -70,5 +110,6 @@ class DesktopSelectorTest {
         name: String,
         host: String = "10.0.0.1",
         path: String?,
-    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path)
+        id: String? = null,
+    ) = DesktopAnswer(name, host, Protocol.DEFAULT_PORT, path, id)
 }

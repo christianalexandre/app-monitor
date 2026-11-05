@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Tests of swift_api_check.sh (ADR-0048) on copies of the iOS SDK and gRPC
-# adapter sources under build/: unchanged sources pass; a public member on one
-# side, or a file outside `#if DEBUG`, fails. macOS with swift only, run by
-# make swift.
+# Tests of swift_api_check.sh (ADR-0048, ADR-0155) on copies of the iOS SDK and
+# gRPC adapter sources under build/: unchanged sources pass; a new public member
+# fails. macOS with swift only, run by make swift.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,27 +31,13 @@ fresh_copy
 expect pass "unchanged sources"
 
 fresh_copy
-printf '\n#if DEBUG\nextension AppMonitor {\n    public static func debugOnly() {}\n}\n#endif\n' \
-  >> "$work/src/AppMonitor.swift"
-expect fail "public member in the debug build only"
+printf '\nextension AppMonitor {\n    public static func added() {}\n}\n' >> "$work/src/AppMonitor.swift"
+expect fail "new public member"
 
 fresh_copy
-printf '\n#if !DEBUG\nextension AppMonitor {\n    public static func releaseOnly() {}\n}\n#endif\n' \
-  >> "$work/src/AppMonitor.swift"
-expect fail "public member in the release build only"
-
-fresh_copy
-printf 'let leaked = 1\n' > "$work/src/Leaked.swift"
-expect fail "source outside #if DEBUG"
-
-fresh_copy
-printf '\n#if DEBUG\nextension AppMonitorGRPCInterceptor {\n    public func debugOnly() {}\n}\n#endif\n' \
+printf '\nextension AppMonitorGRPCInterceptor {\n    public func added() {}\n}\n' \
   >> "$work/grpc/AppMonitorGRPCInterceptor.swift"
-expect fail "gRPC adapter public member in the debug build only"
-
-fresh_copy
-printf 'let leaked = 1\n' > "$work/grpc/Leaked.swift"
-expect fail "gRPC adapter source outside #if DEBUG"
+expect fail "gRPC adapter new public member"
 
 rm -rf "$work"
 [[ $fails -eq 0 ]] || exit 1

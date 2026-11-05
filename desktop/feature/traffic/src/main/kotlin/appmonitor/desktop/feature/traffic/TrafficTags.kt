@@ -81,6 +81,8 @@ const val SAVE_RUN_NAME = "save-run-name"
 
 const val DISCONNECT = "disconnect-"
 
+const val DROPS = "drops-"
+
 const val RECONNECT = "reconnect-"
 
 const val FILTERS = "filters"

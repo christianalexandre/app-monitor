@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 let sdkVersion = "0.1.0-dev"
@@ -17,11 +16,42 @@ func deviceID(file: URL) -> String {
     if let stored = storedDeviceID(file: file) { return stored }
     let id = UUID().uuidString.lowercased()
     publish(id, to: file)
+    excludeFromBackup(file)
+    return storedDeviceID(file: file) ?? id
+}
+
+private func excludeFromBackup(_ file: URL) {
     var values = URLResourceValues()
     values.isExcludedFromBackup = true
     var excluded = file
     try? excluded.setResourceValues(values)
-    return storedDeviceID(file: file) ?? id
+}
+
+/// The desktop a device trusts once one approved it (ADR-0168); `pinned()` nil until then.
+protocol DesktopPin: Sendable {
+    func pinned() -> String?
+    /// Pins `desktopID` unless another is already; returns the one pinned.
+    func pin(_ desktopID: String) -> String
+}
+
+/// `DesktopPin` kept in `file`, beside the device id and shared with `sdk/core` on iOS, out of backups with
+/// it: a restore would pin a new phone's id to the old desktop.
+struct FileDesktopPin: DesktopPin {
+    let file: URL
+
+    func pinned() -> String? { storedDeviceID(file: file) }
+
+    func pin(_ desktopID: String) -> String {
+        if let stored = storedDeviceID(file: file) { return stored }
+        publish(desktopID, to: file)
+        excludeFromBackup(file)
+        return storedDeviceID(file: file) ?? desktopID
+    }
+}
+
+/// Where the pin lives: beside the device id (ADR-0168).
+func defaultDesktopPinFile() -> URL {
+    defaultDeviceIDFile().deletingLastPathComponent().appendingPathComponent("appmonitor-desktop-id")
 }
 
 /// Hard links `id`, written whole beside `file`, to it: the first writer wins, `sdk/core`'s
@@ -62,8 +92,10 @@ func deviceName(environment: [String: String] = ProcessInfo.processInfo.environm
     return withUnsafeBytes(of: &system.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
 }
 
-/// `Hello` for this install (ADR-0036 D); reads or creates the device id file.
-func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .main) -> Appmonitor_V1_Hello {
+/// `Hello` for this install (ADR-0036 D); reads or creates the device id file; `appName` from the options.
+func appleHello(
+    deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .main, appName: String? = nil
+) -> Appmonitor_V1_Hello {
     let os = ProcessInfo.processInfo.operatingSystemVersion
     var hello = Appmonitor_V1_Hello()
     hello.protocolVersion = ProtocolConstants.version
@@ -83,6 +115,6 @@ func appleHello(deviceIDFile: URL = defaultDeviceIDFile(), bundle: Bundle = .mai
         ProtocolConstants.channelCore, ProtocolConstants.channelNetwork, ProtocolConstants.channelInteraction,
     ]
     hello.sdkName = sdkName
+    hello.appName = appName ?? ""
     return hello
 }
-#endif

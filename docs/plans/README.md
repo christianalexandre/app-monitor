@@ -19,7 +19,9 @@ record of how the milestone was actually built once it is done.
   plan is **immutable** — it is the historical record. Follow-up work goes in
   the next plan.
 - **Next plan**: written from the roadmap below in a `docs/` PR, before any
-  code of that milestone. The roadmap row then links to it.
+  code of that milestone. The roadmap row then links to it. A plan the
+  owner wrote ahead is `Draft` and its roadmap section links to it: it is
+  activated as written, not rewritten.
 - **Size**: four to six tasks. No standalone "design on paper" or "docs
   sync" task: a design lands with the first task that needs it, and every
   PR keeps the docs it touches current (ADR-0094).
@@ -49,19 +51,22 @@ record of how the milestone was actually built once it is done.
 | [0011](0011-field-test-hardening.md) | H1 | Hardening before the field test | Done |
 | [0012](0012-desktop-architecture.md) | H2 | Desktop clean architecture and design system | Done |
 | [0013](0013-desktop-finesse.md) | H3 | Desktop finesse — live traffic, recordings, themes and layout | Done |
+| [0014](0014-plug-and-play-setup.md) | H4 | Plug and play setup | Done |
+| [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
+| [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
+| [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
-### Hold — field test before M10
+### Hold — the owner's go before M10
 
-The owner runs the SDKs in a real app (not only the samples), fixes what
-breaks and improves the desktop's interface together with the agent
-before anything is published. The loop does not plan past this section:
-reaching it is **stop: waiting for the owner**, who removes it when the
-field test is done.
+The owner ran the SDKs in a real app (2026-10-30), which asked for
+[PLAN-0014](0014-plug-and-play-setup.md) (H4), then H5 and H6. The loop
+does not plan past this section: reaching it is **stop: waiting for the
+owner**, who removes it when the backlog is ready to publish.
 
 ### M10 — Distribution
 
@@ -71,6 +76,14 @@ Central, SwiftPM tags, docs site, README with GIFs. The Gradle plugin that
 swaps the SDK for its no-ops in release builds, published with the SDK
 (ADR-0093); its TestKit consumer then resolves the published
 `appmonitor-okhttp` too, the module names of ADR-0126 A.1.
+
+### Later — readable bodies
+
+A body the window cannot read today (owner, 2026-10-30, after Firebase's
+`batchlog` in the field test): a gzip `Content-Encoding` opens since
+[PLAN-0017](0017-cleanup-and-gzip-bodies.md); next protobuf decoded without
+a schema (field numbers and values), later with `.proto` files the developer
+adds. Product scope: the owner picks when.
 
 ### Later — more debug channels
 

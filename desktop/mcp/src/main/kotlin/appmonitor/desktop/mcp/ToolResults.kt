@@ -1,6 +1,7 @@
 package appmonitor.desktop.mcp
 
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.domain.TrafficQueryRepository
 import appmonitor.v1.Header
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
@@ -22,10 +23,36 @@ internal const val DATA_NOTE =
 
 internal const val CLOSING = "App Monitor is closing"
 
-/** A tool's answer to a bad argument, an unknown id or a closing store: one sentence (SDD 10). */
+/** A tool's answer to a bad argument, an unknown id or a closing store: one sentence. */
 internal class ToolError(
     message: String,
 ) : Exception(message)
+
+/** [call]'s answer; a closing store reads as empty, so neither its refusal nor, unless [answerStands], its answer is kept. */
+internal inline fun <T> TrafficQueryRepository.closingChecked(
+    answerStands: Boolean = false,
+    call: () -> T,
+): T {
+    val answer =
+        try {
+            call()
+        } catch (e: ToolError) {
+            throw if (isClosing) ToolError(CLOSING) else e
+        }
+    if (isClosing && !answerStands) throw ToolError(CLOSING)
+    return answer
+}
+
+/** A write committed as the store closed: nothing can be read back, its [id] is what is known (ADR-0179). */
+internal fun savedWhileClosing(
+    field: String,
+    id: Long,
+    created: Boolean? = null,
+) = buildJsonObject {
+    created?.let { put("created", it) }
+    put(field, buildJsonObject { put("id", id) })
+    put("note", "$CLOSING: saved, read it after the restart")
+}
 
 internal fun errorResult(message: String) = CallToolResult(content = listOf(TextContent(message)), isError = true)
 

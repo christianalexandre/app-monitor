@@ -1,13 +1,20 @@
-#if DEBUG
 import Foundation
 
-/// One encoded envelope waiting to be written, with its channel for the `HelloAck` filter.
+/// One encoded envelope waiting to be written, with its channel for the `HelloAck` filter; `onDropped` when
+/// never written.
 struct BufferedFrame: Sendable {
     let channel: String
     let bytes: Data
+    let onDropped: (@Sendable () -> Void)?
+
+    init(channel: String, bytes: Data, onDropped: (@Sendable () -> Void)? = nil) {
+        self.channel = channel
+        self.bytes = bytes
+        self.onDropped = onDropped
+    }
 }
 
-/// Offline ring buffer (SDD 04, SDD 06): `offer` never blocks beyond the lock and drops the
+/// Offline ring buffer: `offer` never blocks beyond the lock and drops the
 /// oldest frame once `maxCount` or `maxBytes` is reached; `poll` serves a single consumer.
 final class EventBuffer: @unchecked Sendable {
     static let maxCount = 4096
@@ -28,23 +35,27 @@ final class EventBuffer: @unchecked Sendable {
         self.maxBytes = maxBytes
     }
 
-    /// Frames dropped to make room, for tests until DEBT-0023 reports them.
+    /// Frames dropped to make room since this buffer was made (ADR-0166).
     var dropped: Int { lock.withLock { droppedCount } }
 
     var count: Int { lock.withLock { frames.count - head } }
 
     func offer(_ frame: BufferedFrame) {
-        let wake: (@Sendable () -> Void)? = lock.withLock {
-            guard !closed else { return nil }
+        let (wake, evicted): ((@Sendable () -> Void)?, [BufferedFrame]) = lock.withLock {
+            guard !closed else { return (nil, [frame]) }
             frames.append(frame)
             bytes += frame.bytes.count
+            var evicted: [BufferedFrame] = []
             while frames.count - head > maxCount || bytes > maxBytes {
-                bytes -= removeFirst().bytes.count
+                let first = removeFirst()
+                bytes -= first.bytes.count
                 droppedCount += 1
+                evicted.append(first)
             }
             defer { onAvailable = nil }
-            return onAvailable
+            return (onAvailable, evicted)
         }
+        for frame in evicted { frame.onDropped?() }
         wake?()
     }
 
@@ -61,15 +72,28 @@ final class EventBuffer: @unchecked Sendable {
         }
     }
 
+    /// Runs a waiting `onAvailable` without a frame, for a count that grew outside the buffer (ADR-0166).
+    func wake() {
+        let wake: (@Sendable () -> Void)? = lock.withLock {
+            defer { onAvailable = nil }
+            return onAvailable
+        }
+        wake?()
+    }
+
     /// Discards every frame; later offers are dropped.
     func close() {
-        lock.withLock {
-            closed = true
-            frames = []
-            head = 0
-            bytes = 0
-            onAvailable = nil
+        let discarded = lock.withLock {
+            defer {
+                closed = true
+                frames = []
+                head = 0
+                bytes = 0
+                onAvailable = nil
+            }
+            return frames[head...]
         }
+        for frame in discarded { frame.onDropped?() }
     }
 
     private func removeFirst() -> BufferedFrame {
@@ -85,4 +109,3 @@ final class EventBuffer: @unchecked Sendable {
         return frame
     }
 }
-#endif

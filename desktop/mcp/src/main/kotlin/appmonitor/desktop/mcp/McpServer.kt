@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The MCP server, read-only but `save_issue`, `create_mock` and `replay_request` (left to [replays]), over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (SDD 10, ADR-0092). Single use:
+ * The MCP server, read-only but `save_issue`, `create_mock` and `replay_request` (left to [replays]), over stateless Streamable HTTP on `127.0.0.1:<port>/mcp` (ADR-0092). Single use:
  * [start] once, [stop] any number of times.
  */
 class McpServer internal constructor(
@@ -66,10 +66,10 @@ class McpServer internal constructor(
             textTool(ToCurl.NAME, ToCurl.description, ToCurl.inputSchema) { ToCurl.call(repositories.queries, it) }
             tool(ListIssues.NAME, ListIssues.description, ListIssues.inputSchema) { ListIssues.call(repositories.issues, it) }
             result(SaveIssue.NAME, SaveIssue.description, SaveIssue.inputSchema, WRITES) {
-                jsonResult(SaveIssue.call(repositories.issues, it, health), health())
+                jsonResult(SaveIssue.call(repositories.issues, it, health) { repositories.queries.isClosing }, health())
             }
             result(CreateMock.NAME, CreateMock.description, CreateMock.inputSchema, WRITES) {
-                jsonResult(CreateMock.call(repositories.mocks, it, health), health())
+                jsonResult(CreateMock.call(repositories.mocks, it, health) { repositories.queries.isClosing }, health())
             }
             result(AskReplay.NAME, AskReplay.description, AskReplay.inputSchema, REPLAYS) {
                 jsonResult(AskReplay.call(repositories.queries, replays, it), health())
@@ -149,11 +149,11 @@ class McpServer internal constructor(
             toolAnnotations = annotations,
         ) { request ->
             beforeTool()
-            // A closing store reads as empty and refuses writes: checked after the call, whatever it answered.
+            // A retry after the restart would store a committed write twice (ADR-0179).
             try {
-                call(request.arguments).takeUnless { repositories.queries.isClosing } ?: errorResult(CLOSING)
+                repositories.queries.closingChecked(answerStands = annotations.readOnlyHint != true) { call(request.arguments) }
             } catch (e: ToolError) {
-                errorResult(if (repositories.queries.isClosing) CLOSING else e.message!!)
+                errorResult(e.message!!)
             }
         }
     }

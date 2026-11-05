@@ -1,10 +1,10 @@
 ---
 id: DEBT-0093
 title: Findings of the H3 milestone review that normal use does not hit
-status: Open
+status: Paid
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/LiveTraffic.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Ingest.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt`, `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Storage.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
-paid_date:
+trigger: "The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/Recorder.kt` or `desktop/server/src/main/kotlin/appmonitor/desktop/server/DeviceApproval.kt`"
+paid_date: 2026-11-03
 ---
 
 # DEBT-0093 — Findings of the H3 milestone review that normal use does not hit
@@ -58,6 +58,18 @@ The next PR that touches one of the files named in the frontmatter.
 That PR fixes the items about the file it touches, or says why it does
 not.
 
+`LiveTraffic.kt` fired in the PR that bounds the desktop's frames
+(#312, an external review's T4).
+"Observers rescan" is paid: an envelope off the `network` channel bumps
+only the sessions' counter, which `observeSessions` alone follows
+(`LiveTrafficTest.anEnvelopeOffTheNetworkChannelLeavesTheExchangesAlone`,
+which failed before). "In-flight exchange trimmed" is not. That PR keeps a
+WebSocket's frames within a quarter of `MAX_BYTES`, so its own frames no
+longer evict it. But 10 000 other exchanges still do, and keeping it
+needs an open-socket state `LiveTraffic` does not have: a `101` sets
+`endedAtMs` like any response. `LiveTraffic.kt` stays in the trigger for
+that item.
+
 `TrafficViewModel.kt` paid in the field test polish PR
 (`feat/desktop-polish`, ADR-0153), which touches it for the panes' layout
 and the copy note: the detail combines the sessions, so a request picked
@@ -69,6 +81,37 @@ nor counted as failures ("Clear empties…", "Save with only stored…",
 "Save stores the marked live requests…"); `TrafficState`'s KDoc is four
 lines. The file leaves the trigger.
 
+Fired by PLAN-0015 H5.2g (`fix/storage-close-bounds-retention`), which
+changes two lines of `Storage.close`: `clearAll`'s comment block is
+untouched. Kept as is.
+
+Fired by PLAN-0015 H5.3c (`feat/drops-in-devices-pane`), which adds a
+session's drops to all four storage files. `Storage.clearAll`'s KDoc is
+four lines now: `Storage.kt` leaves the trigger. The rest is kept: that
+PR adds a column to `Ingest`'s `Save` of a new session, not its skip of
+an exchange saved before, which needs to know what of a copy changed
+since; it adds `dropped` beside `Recorder`'s request map, which needs the
+exchange's end to forget it; the trimmed WebSocket stays as #312 left it.
+
+Fired by PLAN-0016 H6.2b (`refactor/search-live-one-decoding`), on `Ingest.kt`
+and `LiveTraffic.kt`, which both leave the trigger. "Saved while pending" is
+paid: Save applies a saved exchange's request and outcome again, not its frames
+(`SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt`). Frames that arrive
+after the first Save stay out of Saved: telling them from the first ones needs
+ids the copy does not carry. "In-flight exchange trimmed" is dropped: it needs
+10 000 other exchanges during one socket, leaves a row without a URL whose frames
+still show, and keeping it needs an open-socket state for that case alone.
+`Recorder.kt` and `DeviceApproval.kt` wait for H6.2's next slice.
+
 ## How it was paid
 
-> Filled when closing.
+Closed by PLAN-0016 H6.2e (`fix/closing-checks-review-findings`). `DeviceApprovals`' KDoc is three lines.
+
+**Dropped, `Recorder`'s request map.** Its entries go with the session. No event says an
+exchange ended across the capture layers: a WebSocket has frames after its `ResponseReceived`
+(`AppMonitorWebSocketFactory.kt`, `WebSocketCapture.swift`), so forgetting an id would need a
+rule on the status (101, frames follow) that no test pins across the four layers, and a wrong
+one drops what follows from the recording: wrong data, to save an estimated 150 bytes a request
+(an entry, a 36-character id, a `Long`; estimated, not measured), 15 MB per 100 000 requests in
+one session, freed when it ends. The id reused after
+Stop does not happen: `network.proto` has `request_id` unique per device.

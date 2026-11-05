@@ -1,4 +1,3 @@
-#if DEBUG
 /// Retry delays doubling from `initial` to `max`, each with ±`jitter` (ADR-0022). Not thread-safe.
 struct Backoff {
     private let initial: Double
@@ -36,4 +35,3 @@ struct Backoff {
         next = max
     }
 }
-#endif

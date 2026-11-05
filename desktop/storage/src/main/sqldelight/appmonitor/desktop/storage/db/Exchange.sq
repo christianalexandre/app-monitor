@@ -21,7 +21,10 @@ CREATE TABLE exchanges (
   UNIQUE (session_ref, request_id)
 );
 
-CREATE INDEX exchanges_session_ref_id ON exchanges(session_ref, id);
+-- ADR-0177: `url` in the index, so a text search reads the rows it matches only.
+CREATE INDEX exchanges_session_ref_id_url ON exchanges(session_ref, id, url);
+CREATE INDEX exchanges_id_url ON exchanges(id, url);
+CREATE INDEX exchanges_failed ON exchanges(id, session_ref) WHERE failed = 1;
 CREATE INDEX exchanges_host ON exchanges(host);
 CREATE INDEX exchanges_status_code ON exchanges(status_code);
 CREATE INDEX exchanges_method ON exchanges(method);
@@ -47,6 +50,13 @@ WHERE id = :id;
 
 responded:
 UPDATE exchanges SET status_code = :statusCode, grpc_status = :grpcStatus, ended_at_ms = :atMs, response_meta = :meta WHERE id = :id;
+
+requestMeta:
+SELECT request_meta FROM exchanges WHERE id = :id;
+
+-- ADR-0189: the headers a request went out with, known at its response.
+requestSent:
+UPDATE exchanges SET request_meta = :meta WHERE id = :id;
 
 failed:
 UPDATE exchanges SET failed = 1, error = :error, ended_at_ms = :atMs WHERE id = :id;

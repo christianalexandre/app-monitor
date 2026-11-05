@@ -165,6 +165,11 @@ class IssuesTest {
 
                 storage.deleteIssue(id)
                 assertEquals(IssueWrite.UnknownIssue, storage.updateIssue(id, IssueChange(title = "B")), "deleted meanwhile")
+                assertEquals(
+                    IssueWrite.UnknownIssue,
+                    storage.updateIssue(id, IssueChange(exchangeIds = listOf(r1 + 1))),
+                    "the issue is what is gone, whatever else the edit names",
+                )
                 assertEquals(0, dir.queryLong("SELECT count(*) FROM issue_exchanges"))
                 storage.close(5.seconds)
             }
@@ -223,6 +228,10 @@ class IssuesTest {
                     it.execute("DROP TABLE breakpoint_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("ALTER TABLE runs DROP COLUMN saved")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 1")
                 }
             }
@@ -232,7 +241,7 @@ class IssuesTest {
                 assertIs<IssueWrite.Saved>(storage.createIssue("A", "", emptyList(), listOf(idOf(storage, "r1")), IssueSource.WINDOW))
                 storage.close(5.seconds)
             }
-            assertEquals(8, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     private suspend fun exchanges(

@@ -18,12 +18,14 @@ dependencies {
     implementation(project(":desktop:storage"))
     implementation(project(":desktop:ui"))
     implementation(compose.desktop.currentOs)
+    implementation(libs.jna)
     implementation(libs.koin.compose.viewmodel)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(project(":tools:fake-client"))
     testImplementation(libs.ktor.client.cio)
     testImplementation(testFixtures(project(":desktop:mcp")))
@@ -32,6 +34,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
+        jvmArgs += "-Dappmonitor.version=${providers.gradleProperty("VERSION_NAME").get()}"
 
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
@@ -64,6 +67,7 @@ tasks.test {
 
 tasks.test {
     exclude("**/LiveDeviceScreenshots*")
+    exclude("**/TitleBarScreenshots*")
 }
 
 // Needs a device running the sample (ADR-0031).
@@ -83,4 +87,19 @@ tasks.register<Test>("liveScreenshots") {
     listOf("liveName", "liveExchanges", "liveTimeoutMs", "liveAdvertise", "liveDataDir").forEach { key ->
         providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
     }
+}
+
+// ADR-0178: opens a real window on macOS.
+tasks.register<Test>("titleBarScreenshots") {
+    description = "Picks Dark and Light in a real window and writes what AppKit draws of its title bar."
+    group = "verification"
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter.includeTestsMatching("appmonitor.desktop.app.TitleBarScreenshots")
+    outputs.upToDateWhen { false }
+    systemProperty("titleBarScreenshotDir", rootProject.file("docs/screenshots").absolutePath)
 }

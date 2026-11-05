@@ -36,6 +36,17 @@ class DeviceIdTest {
     }
 
     @Test
+    fun theFirstDesktopPinnedStays() {
+        val pin = FileDesktopPin(Path(dir, DESKTOP_PIN_FILE_NAME))
+        val first = Uuid.random().toString()
+
+        assertEquals(null, pin.pinned())
+        assertEquals(first, pin.pin(first))
+        assertEquals(first, pin.pin(Uuid.random().toString()))
+        assertEquals(first, FileDesktopPin(Path(dir, DESKTOP_PIN_FILE_NAME)).pinned())
+    }
+
+    @Test
     fun aCorruptFileIsReplaced() {
         SystemFileSystem.createDirectories(dir)
         val file = Path(dir, "appmonitor-device-id")
@@ -93,6 +104,60 @@ class DeviceIdTest {
         assertNotEquals("not a uuid", id)
         assertEquals(id, SystemFileSystem.source(file).buffered().use { it.readString() })
     }
+
+    @Test
+    fun aWriterThatLinksTakesNoLock() {
+        val file = Path(dir, "appmonitor-device-id")
+        val links = mutableListOf<Path>()
+
+        val id =
+            deviceId(file) { existing, target ->
+                links += target
+                SystemFileSystem.atomicMove(existing, target)
+                true
+            }
+
+        assertEquals(listOf(file), links)
+        assertEquals(id, stored(file))
+        assertEquals(listOf("appmonitor-device-id"), SystemFileSystem.list(dir).map { it.name })
+    }
+
+    @Test
+    fun aWriterThatLosesTheLinkKeepsTheWinnersIdWithoutALock() {
+        val file = Path(dir, "appmonitor-device-id")
+        val winner = Uuid.random().toString()
+
+        val id =
+            deviceId(file) { _, target ->
+                SystemFileSystem.sink(target).buffered().use { it.writeString(winner) }
+                false
+            }
+
+        assertEquals(winner, id)
+        assertEquals(listOf("appmonitor-device-id"), SystemFileSystem.list(dir).map { it.name })
+    }
+
+    // ADR-0080: what a linking writer left before the lock is re-read under it.
+    @Test
+    fun aLockingWriterKeepsTheIdALinkingWriterLeft() {
+        val file = Path(dir, "appmonitor-device-id")
+        val linked = Uuid.random().toString()
+
+        val id =
+            deviceId(file) { _, target ->
+                SystemFileSystem.sink(target).buffered().use { it.writeString(linked) }
+                null
+            }
+
+        assertEquals(linked, id)
+        assertEquals(linked, stored(file))
+        assertEquals(
+            setOf("appmonitor-device-id", "appmonitor-device-id.lock"),
+            SystemFileSystem.list(dir).map { it.name }.toSet(),
+        )
+    }
+
+    private fun stored(file: Path): String = SystemFileSystem.source(file).buffered().use { it.readString() }
 
     private fun deleteRecursively(path: Path) {
         if (!SystemFileSystem.exists(path)) return

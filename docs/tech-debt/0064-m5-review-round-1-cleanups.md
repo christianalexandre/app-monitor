@@ -1,10 +1,10 @@
 ---
 id: DEBT-0064
 title: Non-correctness findings of the first M5 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
 trigger: "The first PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/WriteQueue.kt`, changes `Storage.applyRetention`, or changes how `Ingest` applies a `Received` item or adds a `lastId` query"
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0064 — Non-correctness findings of the first M5 milestone review
@@ -94,6 +94,25 @@ Fired by PLAN-0010 M9.7 (`feat/breakpoint-channel`), which adds the
 queued breakpoint items, for M9.2's reason. One more copy for the
 mappings item; the rest untouched.
 
+Fired by the PR that closes the write queue when its writer ends with an
+`Error` (#313, an external review's T5). Its `WriteQueue.kt` item, the long comment, was already
+paid; the rest names `Ingest`, `applyRetention` and the `.sq` files,
+which it does not touch. Kept as is.
+
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0016 H6.2a (`fix/store-write-path-debts`).
+
+- **Re-reads:** one `touch` per session per batch, the batch's last time
+  (`aSessionKeepsItsLastEnvelopeTimeOfABatch`). Half paid on purpose: a commit
+  holding an envelope still re-runs the session list, once per commit, because
+  `last_envelope_at_ms` did change and the list shows it.
+- **Size pass:** up to 50 sessions per transaction, measured after each inside
+  it. 4,574 sessions of 20 KiB, a scratch run on the owner's MacBook Pro: 14.0 s
+  before, 3.2 s after, ending on the same 9,318,400 bytes. Plain chunks measured
+  only between transactions took 0.7 s but stopped short of the target by a
+  chunk, which on sessions of many MiB deletes far more than the bound asks.
+- **`lastId`:** one query, `Inserted.sq`.
+- **Dropped, `Storage.exchange()`'s mapping:** the one field-by-field copy of a
+  generated row. `byId` also reads the metas, so a shared mapper would need a
+  second query outside its read.

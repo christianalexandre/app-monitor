@@ -1,10 +1,10 @@
 ---
 id: DEBT-0065
 title: Settings UI test timed out once on CI
-status: Open
+status: Dropped
 date: 2026-10-24
 trigger: "A test of `AppMonitorAppTest` (`desktop/app/src/test/kotlin/appmonitor/desktop/app/AppMonitorAppTest.kt`) fails on CI again"
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0065 — Settings UI test timed out once on CI
@@ -60,4 +60,27 @@ also waits for each menu item before clicking it. The first timeout, at
 
 ## How it was paid
 
-> Filled when closing.
+Dropped by PLAN-0015 H5.2: the one sample left could not be reproduced,
+and the path it timed out on is no longer the test's. In #187's run the
+`Pixel` session was stored and read back through `Storage.observeSessions`;
+since #277 the window opens on the live list, and the test puts the
+session in `LiveTraffic`, in memory. No `AppMonitorAppTest` failure at that
+wait was seen on CI after #187.
+
+Both paths were repeated on the owner's MacBook Pro (10 cores) with a
+scratch test, not committed, under twenty `yes` processes:
+
+- the current test, called 50 times in one JVM: 50 of 50 green, the
+  slowest run 0.9 s;
+- the test as #187 ran it (session stored, a named run picked, `Pixel`
+  read through the store's `Flow`, then the two retention choices): 50 of
+  50 green, the slowest 1.1 s;
+- each of the two in a fresh JVM limited to two processors
+  (`-XX:ActiveProcessorCount=2`, a GitHub runner's count), ten times: 20 of
+  20 green, the slowest 3.3 s, cold start included, against the 10 s
+  `TIMEOUT_MS`.
+
+Command: `./gradlew :desktop:app:test --tests '*RepeatSettingsTest*'
+--rerun`. Raising the timeout without a sample would hide a missed
+emission; a new `AppMonitorAppTest` timeout on CI opens a new DEBT with its
+test report.

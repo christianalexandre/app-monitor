@@ -4,14 +4,15 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.Channel
 
-/** One encoded envelope waiting to be written, with its channel for the `HelloAck` filter. */
+/** One encoded envelope waiting to be written, with its channel for the `HelloAck` filter; [onDropped] when never written. */
 internal class BufferedFrame(
     val channel: String,
     val bytes: ByteArray,
+    val onDropped: (() -> Unit)? = null,
 )
 
 /**
- * Offline ring buffer (SDD 04): [offer] never blocks and drops the oldest frame once
+ * Offline ring buffer: [offer] never blocks and drops the oldest frame once
  * [maxCount] or [maxBytes] is reached; [take] serves a single consumer.
  */
 internal class EventBuffer(
@@ -23,7 +24,7 @@ internal class EventBuffer(
     private var bytes = 0L
     private val available = Channel<Unit>(Channel.CONFLATED)
 
-    /** Frames dropped to make room, for tests until DEBT-0023 reports them. */
+    /** Frames dropped to make room since this buffer was made (ADR-0166). */
     val dropped: Long get() = synchronized(lock) { droppedCount }
 
     private var droppedCount = 0L
@@ -31,30 +32,42 @@ internal class EventBuffer(
     val size: Int get() = synchronized(lock) { frames.size }
 
     fun offer(frame: BufferedFrame) {
-        synchronized(lock) {
-            frames.addLast(frame)
-            bytes += frame.bytes.size
-            while (frames.size > maxCount || bytes > maxBytes) {
-                bytes -= frames.removeFirst().bytes.size
-                droppedCount++
+        val evicted =
+            synchronized(lock) {
+                frames.addLast(frame)
+                bytes += frame.bytes.size
+                buildList {
+                    while (frames.size > maxCount || bytes > maxBytes) {
+                        add(frames.removeFirst().also { bytes -= it.bytes.size })
+                        droppedCount++
+                    }
+                }
             }
-        }
+        evicted.forEach { it.onDropped?.invoke() }
         available.trySend(Unit)
     }
 
-    /** The oldest frame, removed; suspends while the buffer is empty. */
-    suspend fun take(): BufferedFrame {
-        while (true) {
-            poll()?.let { return it }
-            available.receive()
-        }
+    /** Ends a waiting [take] with null, for a count that grew without a frame (ADR-0166). */
+    fun wake() {
+        available.trySend(Unit)
+    }
+
+    /** The oldest frame, removed; suspends while the buffer is empty, null when woken without one. */
+    suspend fun take(): BufferedFrame? {
+        poll()?.let { return it }
+        available.receive()
+        return poll()
     }
 
     fun clear() {
-        synchronized(lock) {
-            frames.clear()
-            bytes = 0
-        }
+        val cleared =
+            synchronized(lock) {
+                frames.toList().also {
+                    frames.clear()
+                    bytes = 0
+                }
+            }
+        cleared.forEach { it.onDropped?.invoke() }
     }
 
     private fun poll(): BufferedFrame? =

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0026
 title: The ABI dump can miss a public no-arg secondary constructor
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: The Kotlin version in `gradle/libs.versions.toml` changes, or a public SDK class gets a non-public primary constructor
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0026 — The ABI dump can miss a public no-arg secondary constructor
@@ -32,4 +32,11 @@ non-public primary constructor beside a public no-arg one.
 
 ## How it was paid
 
-> Filled when closing.
+Re-checked with Kotlin 2.4.21 on 2026-10-31: the dumper still writes
+`public final class Probe {}` for an internal primary beside a public
+`constructor()`. `ConstructorMatchTest` in `sdk/no-op` now reads every
+dumped class's public and protected constructors from the module's JVM
+classes, through their Kotlin metadata, and compares the no-op's with
+the real module's. A crafted `Probe` with the no-op missing `constructor()`
+failed it while `ApiMatchTest` passed (ADR-0169). The Android and klib
+targets share the common source of each class, so the JVM covers them.

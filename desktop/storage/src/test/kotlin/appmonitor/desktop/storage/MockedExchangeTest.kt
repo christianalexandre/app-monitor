@@ -77,6 +77,10 @@ class MockedExchangeTest {
                     it.execute("DROP TABLE breakpoint_rules")
                     it.execute("ALTER TABLE exchanges DROP COLUMN replay_of")
                     it.execute("ALTER TABLE runs DROP COLUMN saved")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_evicted")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_oversized")
+                    it.execute("ALTER TABLE sessions DROP COLUMN drops_lost")
+                    it.undoVersionNine()
                     it.execute("PRAGMA user_version = 4")
                 }
             }
@@ -88,7 +92,7 @@ class MockedExchangeTest {
                 assertEquals(7L, storage.searchExchanges(ExchangeFilter()).single().mockRuleId)
                 storage.close(5.seconds)
             }
-            assertEquals(8, dir.queryLong("PRAGMA user_version"))
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
         }
 
     private companion object {

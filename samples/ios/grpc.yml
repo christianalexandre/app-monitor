@@ -1,0 +1,18 @@
+# The sample with its gRPC-Core call, built by `make e2e-ios-grpc` only (ADR-0163).
+include: [project.yml]
+name: SampleGrpc
+packages:
+  gRPC:
+    url: https://github.com/grpc/grpc-ios
+    exactVersion: 1.84.0
+targets:
+  Sample:
+    dependencies:
+      - package: gRPC
+        product: gRPC-Core
+    settings:
+      base:
+        SWIFT_OBJC_BRIDGING_HEADER: Sample/Sample-Bridging-Header.h
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) SAMPLE_GRPC

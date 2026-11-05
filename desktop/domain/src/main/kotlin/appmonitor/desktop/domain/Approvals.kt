@@ -3,6 +3,9 @@ package appmonitor.desktop.domain
 import appmonitor.v1.Hello
 import kotlinx.coroutines.flow.Flow
 
+/** What the desktop calls the app: `Hello.app_name`, else its `app_id` (ADR-0165). */
+val Hello.appLabel: String get() = app_name.ifEmpty { app_id }
+
 /** One app on one device waiting for the developer's answer; [hello] is the first one that asked (ADR-0083). */
 data class PendingApproval(
     val deviceId: String,

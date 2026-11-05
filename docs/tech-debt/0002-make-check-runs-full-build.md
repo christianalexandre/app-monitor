@@ -1,10 +1,10 @@
 ---
 id: DEBT-0002
 title: make check runs the full Gradle build
-status: Open
+status: Dropped
 date: 2026-10-21
 trigger: make check takes more than 3 minutes on a warm cache, or an end to end target (`e2e_android.sh`, M3.7's iOS one) joins `make check`
-paid_date:
+paid_date: 2026-11-04
 ---
 
 # DEBT-0002 — make check runs the full Gradle build
@@ -42,4 +42,8 @@ the event that would slow it: an end to end target added to it.
 
 ## How it was paid
 
-> Filled when closing.
+Dropped by PLAN-0016 H6.6a, with the number. `make check` on a warm Gradle cache, this
+branch, an Apple Silicon Mac: 45 s, against the 3 minutes of the trigger (cold, the `check`
+job of PR #367 took 3 min 51 s in CI). The split this item asked for already exists:
+ADR-0076 moved the simulator tests and the sample apps out into `make check-full`, and no
+end to end target is in `make check`. Splitting the JVM tests further would save seconds.

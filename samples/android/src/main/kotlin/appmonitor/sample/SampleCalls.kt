@@ -1,6 +1,5 @@
 package appmonitor.sample
 
-import appmonitor.sdk.okhttp.AppMonitorWebSocketFactory
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,7 +27,6 @@ class SampleCalls(
             .Builder()
             .callTimeout(10, TimeUnit.SECONDS)
             .build()
-    private val webSockets = AppMonitorWebSocketFactory(client)
 
     fun getJson(): String = call(Request.Builder().url("$http/json").build())
 
@@ -54,7 +52,7 @@ class SampleCalls(
 
     suspend fun webSocketEcho(): String =
         suspendCoroutine { continuation ->
-            webSockets.newWebSocket(
+            client.newWebSocket(
                 Request.Builder().url(echo).build(),
                 EchoListener("hello from the sample") { continuation.resume(it) },
             )

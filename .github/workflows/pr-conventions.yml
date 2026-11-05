@@ -29,10 +29,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch --no-tags --depth=100 origin "$BASE_SHA" "$HEAD_SHA"
-          if git log --format=%B "$BASE_SHA..$HEAD_SHA" | grep -iE '^co-authored-by:|generated with'; then
-            echo "::error::Commits must not carry attribution trailers (guidelines 03)."
-            exit 1
-          fi
+          scripts/trailer_check.sh "$BASE_SHA" "$HEAD_SHA"
 
   docs:
     runs-on: ubuntu-latest

@@ -20,8 +20,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
- * Items for one writer on [dispatcher], [maxBatch] at a time, bounded by [maxBytes] (SDD 09): a failed batch's
- * [counted] items go to [health], [retry] returns how many it wrote after all, [written] sees each batch, [dropped] what [close] left.
+ * Items for one writer on [dispatcher], [maxBatch] at a time, bounded by [maxBytes]: a failed batch's
+ * [counted] items go to [health], [retry] says how many it wrote after all, [written] sees each batch, [dropped] what the writer left.
  */
 internal class WriteQueue<T>(
     private val maxBytes: Long,
@@ -30,7 +30,7 @@ internal class WriteQueue<T>(
     private val sizeOf: (T) -> Long,
     private val counted: (T) -> Boolean,
     private val write: (List<T>) -> Unit,
-    private val retry: () -> Int = { 0 },
+    private val retry: () -> Retried = { Retried(0) },
     private val written: (List<T>) -> Unit = {},
     private val dropped: (List<T>) -> Unit = {},
 ) {
@@ -60,10 +60,13 @@ internal class WriteQueue<T>(
         return admission.withLock {
             queuedBytes.value.let { if (it != 0L && it + size > maxBytes) fullWaits++ }
             queuedBytes.first { it == 0L || it + size <= maxBytes }
-            if (items.trySend(item).isFailure) return@withLock false
+            // Before the send: once sent, the writer may settle the item, or end and zero the bytes, ahead of this line.
             if (counted(item)) pending.incrementAndGet()
             queuedBytes.update { it + size }.also { highWaterBytes = maxOf(highWaterBytes, queuedBytes.value) }
-            true
+            if (items.trySend(item).isSuccess) return@withLock true
+            if (counted(item)) pending.decrementAndGet()
+            queuedBytes.update { it - size }
+            false
         }
     }
 
@@ -73,7 +76,7 @@ internal class WriteQueue<T>(
      */
     suspend fun close(timeout: Duration): Long {
         items.close()
-        if (withTimeoutOrNull(timeout) { writer.join() } != null) return 0
+        if (withTimeoutOrNull(timeout) { writer.join() } != null) return pending.get()
         writer.cancel()
         val lost = pending.get()
         // Wakes an enqueue waiting for room, which then sees the channel closed.
@@ -94,8 +97,15 @@ internal class WriteQueue<T>(
                 writeBatch(items.receiveCatching().getOrNull() ?: break)
             }
         } finally {
+            // A writer ended by an Error leaves no one to read: later enqueues must return false, not wait.
+            items.close()
+            queuedBytes.value = 0
             val left = generateSequence { items.tryReceive().getOrNull() }.toList()
-            if (left.isNotEmpty()) dropped(left)
+            if (left.isNotEmpty()) {
+                val count = left.count(counted)
+                if (count > 0) mutableHealth.update { it.copy(notSaved = it.notSaved + count) }
+                dropped(left)
+            }
         }
     }
 
@@ -103,23 +113,35 @@ internal class WriteQueue<T>(
         val batch = mutableListOf(first)
         while (batch.size < maxBatch) batch += items.tryReceive().getOrNull() ?: break
         val count = batch.count(counted)
-        val recovered = retry()
-        if (recovered > 0) mutableHealth.update { StorageHealth(notSaved = it.notSaved - recovered) }
+        val retried = retry()
+        if (retried.written > 0 || retried.error != null) {
+            mutableHealth.update { StorageHealth(it.notSaved - retried.written, retried.error?.toString()) }
+        }
+        var fatal: Throwable? = null
         try {
             write(batch)
-            if (count > 0) mutableHealth.update { it.copy(lastError = null) }
+            if (count > 0 && retried.error == null) mutableHealth.update { it.copy(lastError = null) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             mutableHealth.update { StorageHealth(notSaved = it.notSaved + count, lastError = e.toString()) }
+            if (e !is Exception) fatal = e
         }
         pending.addAndGet(-count.toLong())
         queuedBytes.update { bytes -> bytes - batch.sumOf(sizeOf) }
         written(batch)
+        // An Error ends the writer only once its batch is settled: a flush barrier in it waits otherwise.
+        fatal?.let { throw it }
     }
 }
 
-/** Items lost to failed writes since the store opened; [lastError] is cleared by the next batch or retry written. */
+/** What a retry wrote, and why the last item still lost stayed so. */
+internal data class Retried(
+    val written: Int,
+    val error: Throwable? = null,
+)
+
+/** Items lost to failed writes since the store opened; [lastError] lasts until a batch or a retry is written and no retry fails. */
 data class StorageHealth(
     val notSaved: Long = 0,
     val lastError: String? = null,

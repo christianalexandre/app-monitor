@@ -4,6 +4,7 @@ import org.gradle.api.artifacts.result.ResolvedDependencyResult
 
 plugins {
     id("appmonitor.android-app")
+    id("io.github.christianalexandre.appmonitor")
 }
 
 android {
@@ -22,16 +23,6 @@ android {
 dependencies {
     implementation(project(":samples:kmp:shared"))
     implementation(libs.androidx.activity.compose)
-    debugImplementation(project(":sdk:core"))
-    releaseImplementation(project(":sdk:core-no-op"))
-}
-
-// ADR-0062 D.1: `shared` has one Android variant, so the release app swaps the SDK it links for the no-ops.
-configurations.matching { it.name.startsWith("release") }.configureEach {
-    resolutionStrategy.dependencySubstitution {
-        substitute(project(":sdk:ktor")).using(project(":sdk:ktor-no-op"))
-        substitute(project(":sdk:core")).using(project(":sdk:core-no-op"))
-    }
 }
 
 fun projectPaths(root: ResolvedComponentResult): Set<String> {

@@ -4,7 +4,7 @@ import Testing
 
 @testable import AppMonitor
 
-// SDD 06's discovery and ADR-0024's cases with fake browsers; bounds shortened, real time.
+// Discovery and ADR-0024's cases with fake browsers; bounds shortened, real time.
 struct DiscoveryTests {
     static let config = DiscoveryConfig(mdnsBeforeSimulatorHost: 0.3, txtGrace: 0.2)
 
@@ -21,8 +21,8 @@ struct DiscoveryTests {
     static func run(_ discover: @escaping Discover, for seconds: Double) async -> Round {
         let queue = DispatchQueue(label: "test.discovery")
         let round = Round()
-        let started = Date()
-        let cancel = queue.sync { discover(queue) { round.record($0, at: Date().timeIntervalSince(started)) } }
+        let started = DispatchTime.now()
+        let cancel = queue.sync { discover(queue) { round.record($0, at: elapsed(since: started)) } }
         try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
         queue.sync { cancel() }
         return round
@@ -42,8 +42,60 @@ struct DiscoveryTests {
             log: { _ in }
         )
         let round = await Self.run(discover, for: 0.1)
-        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20", port: 4000)])
+        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20", port: 4000, checksPin: false)])
         #expect(browser.browses == 0)
+    }
+
+    @Test func aRefusedDesktopIsLoggedOncePerClientAcrossRounds() async {
+        let logs = Logs()
+        let browser = FakeBrowser { send in
+            send(DesktopAnswer(name: "Colleague", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+            send(DesktopAnswer(name: "Old", host: "192.168.1.40", path: "/v1/ws"))
+        }
+        let discover = discovery(
+            AppMonitorOptions(), mdns: browser, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append, pinned: { "mine" })
+        let first = await Self.run(discover, for: 0.1)
+        let second = await Self.run(discover, for: 0.1)
+        #expect(first.reports.isEmpty)
+        #expect(second.reports.isEmpty)
+        #expect(browser.browses == 2)
+        #expect(logs.lines.count == 1)
+        #expect(logs.lines.first?.contains("192.168.1.30:\(ProtocolConstants.defaultPort)") == true)
+        #expect(logs.lines.first?.contains("AppMonitorOptions.host") == true)
+    }
+
+    @Test func thePinnedDesktopIsFoundAfterARefusedOne() async {
+        let logs = Logs()
+        let browser = FakeBrowser { send in
+            send(DesktopAnswer(name: "Colleague", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+            send(DesktopAnswer(name: "Mine", host: "192.168.1.20", path: "/v1/ws", id: "mine"))
+        }
+        let discover = discovery(
+            AppMonitorOptions(), mdns: browser, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append, pinned: { "mine" })
+        let round = await Self.run(discover, for: 0.1)
+        #expect(round.reports.map(\.endpoint) == [Endpoint(host: "192.168.1.20")])
+        #expect(logs.lines.count == 1)
+    }
+
+    @Test func nothingIsRefusedWithoutAPinOrBeforeATxtRecord() async {
+        let logs = Logs()
+        let unpinned = FakeBrowser { send in
+            send(DesktopAnswer(name: "Any", host: "192.168.1.30", path: "/v1/ws", id: "theirs"))
+        }
+        _ = await Self.run(
+            discovery(
+                AppMonitorOptions(), mdns: unpinned, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+                log: logs.append),
+            for: 0.05)
+        let noTxt = FakeBrowser { $0(Self.answer("Any", "192.168.1.30", path: nil)) }
+        _ = await Self.run(
+            discovery(
+                AppMonitorOptions(), mdns: noTxt, onSimulator: false, infoPlist: Self.keys, config: Self.config,
+                log: logs.append, pinned: { "mine" }),
+            for: 0.05)
+        #expect(logs.lines.isEmpty)
     }
 
     @Test func mdnsComesBeforeTheSimulatorHost() async {
@@ -83,12 +135,20 @@ struct DiscoveryTests {
         #expect(logs.lines.first?.contains("NSBonjourServices") == true)
     }
 
+    static var keys: [String: Any] {
+        [
+            "NSLocalNetworkUsageDescription": "Debug traffic to the desktop",
+            "NSBonjourServices": ["_other._tcp", "_appmonitor._tcp"],
+        ]
+    }
+
     @Test func aFailingBrowserIsLoggedOncePerClient() async {
         let logs = Logs()
         let discover = discovery(
             AppMonitorOptions(),
             mdns: FakeBrowser(failure: "failed"),
             onSimulator: false,
+            infoPlist: Self.keys,
             config: Self.config,
             log: logs.append
         )
@@ -97,6 +157,55 @@ struct DiscoveryTests {
         #expect(first.reports.map(\.endpoint) == [nil])
         #expect(second.reports.map(\.endpoint) == [nil])
         #expect(logs.lines.count == 1)
+    }
+
+    @Test func aDeniedLocalNetworkPointsToTheSettings() async {
+        let logs = Logs()
+        let discover = discovery(
+            AppMonitorOptions(),
+            mdns: FakeBrowser(failure: localNetworkDenied),
+            onSimulator: false,
+            infoPlist: Self.keys,
+            config: Self.config,
+            log: logs.append
+        )
+        _ = await Self.run(discover, for: 0.1)
+        #expect(logs.lines.count == 1)
+        #expect(logs.lines.first?.contains("Settings, Privacy & Security, Local Network") == true)
+    }
+
+    @Test func aDeviceWithoutTheKeysLogsThemOncePerClient() async {
+        let logs = Logs()
+        let discover = discovery(
+            AppMonitorOptions(),
+            mdns: FakeBrowser(),
+            onSimulator: false,
+            infoPlist: ["NSBonjourServices": ["_other._tcp"]],
+            config: Self.config,
+            log: logs.append
+        )
+        _ = await Self.run(discover, for: 0.1)
+        _ = await Self.run(discover, for: 0.1)
+        #expect(
+            logs.lines == [
+                "Info.plist lacks NSLocalNetworkUsageDescription and NSBonjourServices (_appmonitor._tcp), so no "
+                    + "desktop can be found: add the README's Run Script (Installation, iOS) as the app target's "
+                    + "last build phase"
+            ])
+    }
+
+    @Test func theKeysAreNotCheckedOnTheSimulatorOrWithAHost() async {
+        let logs = Logs()
+        _ = discovery(
+            AppMonitorOptions(), mdns: FakeBrowser(), onSimulator: true, infoPlist: nil, config: Self.config,
+            log: logs.append)
+        _ = discovery(
+            AppMonitorOptions(host: "192.168.1.20"), mdns: FakeBrowser(), onSimulator: false, infoPlist: nil,
+            config: Self.config, log: logs.append)
+        _ = discovery(
+            AppMonitorOptions(), mdns: FakeBrowser(), onSimulator: false, infoPlist: Self.keys, config: Self.config,
+            log: logs.append)
+        #expect(logs.lines.isEmpty)
     }
 
     @Test func aDeviceWaitsForMdnsUntilTheClientCancels() async {
@@ -158,8 +267,8 @@ struct DiscoveryTests {
 
 /// `DesktopSelectorTest` of the `protocol` module, case for case.
 struct DesktopSelectorTests {
-    static func answer(_ name: String, host: String = "10.0.0.1", path: String?) -> DesktopAnswer {
-        DesktopAnswer(name: name, host: host, path: path)
+    static func answer(_ name: String, host: String = "10.0.0.1", path: String?, id: String? = nil) -> DesktopAnswer {
+        DesktopAnswer(name: name, host: host, path: path, id: id)
     }
 
     @Test func answerWithTxtIsChosenAtOnce() {
@@ -194,6 +303,38 @@ struct DesktopSelectorTests {
         #expect(selector.offer(Self.answer("FIRST", host: "10.0.0.1", path: "/v1/ws"))?.host == "10.0.0.1")
     }
 
+    @Test func aPinnedSelectorSkipsOtherIdsAndAnswersWithoutTxt() {
+        var selector = DesktopSelector(pinnedID: "pinned")
+        #expect(selector.offer(Self.answer("Colleague", host: "10.0.0.2", path: "/v1/ws", id: "other")) == nil)
+        #expect(selector.offer(Self.answer("Old", host: "10.0.0.3", path: "/v1/ws")) == nil)
+        #expect(selector.offer(Self.answer("Mine", host: "10.0.0.1", path: nil)) == nil)
+        #expect(!selector.hasCandidate)
+        #expect(selector.settle() == nil)
+        #expect(selector.offer(Self.answer("Mine", host: "10.0.0.1", path: "/v1/ws", id: "pinned"))?.host == "10.0.0.1")
+    }
+
+    @Test func onlyAnAnswerWhoseTxtShowsAnotherDesktopIsRefused() {
+        let selector = DesktopSelector(pinnedID: "pinned")
+        #expect(selector.refuses(Self.answer("Colleague", path: "/v1/ws", id: "other")))
+        #expect(selector.refuses(Self.answer("Old", path: "/v1/ws")))
+        #expect(!selector.refuses(Self.answer("Unknown yet", path: nil)))
+        #expect(!selector.refuses(Self.answer("Mine", path: "/v1/ws", id: "pinned")))
+        #expect(!DesktopSelector().refuses(Self.answer("Any", path: "/v1/ws", id: "other")))
+    }
+
+    @Test func aPinnedDesktopKeepsItsIdOnALaterAnswerWithoutTxt() {
+        var selector = DesktopSelector(pinnedID: "pinned")
+        _ = selector.offer(Self.answer("Mine", host: "10.0.0.1", path: "/v1/ws", id: "pinned"))
+        #expect(
+            selector.offer(Self.answer("Mine", host: "10.0.0.2", path: nil))
+                == Self.answer("Mine", host: "10.0.0.2", path: "/v1/ws", id: "pinned"))
+    }
+
+    @Test func anUnpinnedSelectorKeepsTheIdItSaw() {
+        var selector = DesktopSelector()
+        #expect(selector.offer(Self.answer("AppMonitor", path: "/v1/ws", id: "first"))?.id == "first")
+    }
+
     @Test func nothingKeptSettlesOnNil() {
         #expect(DesktopSelector().settle() == nil)
     }
@@ -201,6 +342,15 @@ struct DesktopSelectorTests {
 
 // The real browser against a service this process advertises; needs a multicast-capable interface.
 struct BonjourBrowserTests {
+    @Test func aDeniedBrowseIsTheDenialWhetherItWaitsOrFails() {
+        let denied = NWError.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))
+        #expect(browseFailure(.waiting(denied)) == localNetworkDenied)
+        #expect(browseFailure(.failed(denied)) == localNetworkDenied)
+        #expect(browseFailure(.failed(.dns(DNSServiceErrorType(kDNSServiceErr_Unknown)))) != localNetworkDenied)
+        #expect(browseFailure(.waiting(.dns(DNSServiceErrorType(kDNSServiceErr_Unknown)))) == nil)
+        #expect(browseFailure(.ready) == nil)
+    }
+
     @Test func findsAnAdvertisedDesktopWithItsPathAndIPv4Address() async throws {
         let queue = DispatchQueue(label: "test.bonjour")
         let name = "AppMonitor test \(UUID().uuidString.prefix(8))"

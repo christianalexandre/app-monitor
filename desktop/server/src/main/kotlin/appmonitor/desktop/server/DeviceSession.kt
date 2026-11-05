@@ -5,6 +5,9 @@ import appmonitor.v1.Hello
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
@@ -25,6 +28,11 @@ class DeviceSession internal constructor(
 
     private val outbox = Channel<Envelope>(Channel.UNLIMITED)
 
+    private val mutableDrops = MutableStateFlow<Drops?>(null)
+
+    /** What the device dropped since its SDK started, from its latest `DeliveryReport`; null before one (ADR-0166). */
+    val drops: StateFlow<Drops?> = mutableDrops.asStateFlow()
+
     internal val outgoing: ReceiveChannel<Envelope> get() = outbox
 
     /**
@@ -33,11 +41,25 @@ class DeviceSession internal constructor(
      */
     fun send(envelope: Envelope): Boolean = envelope.channel in channels && outbox.trySend(envelope).isSuccess
 
-    // Suspends when the collector lags, which stops reading the socket (ADR-0009).
+    // Suspends when the collector lags; the socket is still read meanwhile (ADR-0167).
     internal suspend fun deliver(envelope: Envelope) = buffer.send(envelope)
+
+    internal fun report(drops: Drops) {
+        mutableDrops.value = drops
+    }
 
     internal fun close() {
         buffer.close()
         outbox.close()
     }
 }
+
+/**
+ * Envelopes a device's SDK dropped since it started: full buffer, too large, or written and never read here,
+ * [lost] null while a previous session is open here, or when one is not known here (ADR-0166, ADR-0172).
+ */
+data class Drops(
+    val evicted: Long,
+    val oversized: Long,
+    val lost: Long?,
+)

@@ -1,10 +1,10 @@
 ---
 id: DEBT-0005
 title: LAN interface filter duplicated in server and fake client
-status: Open
+status: Paid
 date: 2026-10-21
 trigger: The first change to either filter, or a JVM client of sdk/core needs mDNS
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0005 — LAN interface filter duplicated in server and fake client
@@ -34,4 +34,9 @@ The first change to either filter, or a JVM client of `sdk/core` needs mDNS
 
 ## How it was paid
 
-> Filled when closing.
+Paid by PLAN-0015 H5.2f (`fix/lan-filter-drops-tunnels`, ADR-0164). The
+filter is `LanAddresses` in `desktop/server`: the advertiser, the fake
+client's discovery and `desktop/mcp`'s `bindsLoopbackOnly` call it, and
+`LanAddressesTest` checks it drops a tunnel's flags. The fake client's
+copy had drifted already: it kept point-to-point interfaces, which the
+advertiser dropped since #109.

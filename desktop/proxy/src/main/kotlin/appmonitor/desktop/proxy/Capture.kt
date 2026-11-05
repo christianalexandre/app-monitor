@@ -21,7 +21,7 @@ internal class BodyCapture {
 
     fun add(content: ByteBuf) {
         val readable = content.readableBytes()
-        val room = (Protocol.MAX_BODY_BYTES - kept.size).toInt().coerceIn(0, readable)
+        val room = room(readable)
         if (room > 0) {
             val bytes = ByteArray(room)
             content.getBytes(content.readerIndex(), bytes)
@@ -30,27 +30,38 @@ internal class BodyCapture {
         size += readable
     }
 
+    fun add(
+        bytes: ByteArray,
+        count: Int = bytes.size,
+    ) {
+        kept.write(bytes, 0, room(count))
+        size += count
+    }
+
+    private fun room(count: Int) = (Protocol.MAX_BODY_BYTES - kept.size).toInt().coerceIn(0, count)
+
     val truncated: Boolean get() = kept.size < size
 
     fun bytes() = kept.snapshot()
 }
 
 /**
- * One exchange the proxy relays, written as the events an SDK sends (ADR-0101): [RequestStarted] once the request is
- * complete or fails, then [ResponseReceived] or [RequestFailed]; a gRPC message in between as a [WebSocketFrame].
- * Event loop only; each event goes to [record] once.
+ * One exchange the proxy relays, as an SDK's events (ADR-0101). Event loop only; each event goes to [record] once. One
+ * [record] dropped cuts it: nothing more is sent, and a kept [RequestStarted] ends with a [RequestFailed] with [CUT].
  */
 internal class Capture(
     private val method: String,
     private val url: String,
     private val headers: List<Header>,
-    private val record: (Envelope) -> Unit,
+    private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
 ) {
     private val requestId = UUID.randomUUID().toString()
     private val startedAtMs = clock()
     private val requestBody = BodyCapture()
     private var started = false
+    private var cut = false
+    private var open = false
     var ended = false
         private set
 
@@ -96,18 +107,29 @@ internal class Capture(
         )
     }
 
-    /** One gRPC message, after [requestDone] and before the end; [message] keeps what [BodyCapture] keeps. */
+    /** Frames and one [failed] are taken after [responded], until [failed] or [closed]: a WebSocket's (ADR-0193). */
+    fun keepOpen() {
+        open = true
+    }
+
+    /** The WebSocket ended with a close frame: nothing more is sent. */
+    fun closed() {
+        open = false
+    }
+
+    /** One gRPC message before the end, or a WebSocket frame; [message] keeps what [BodyCapture] keeps. */
     fun frame(
         sent: Boolean,
         message: BodyCapture,
+        opcode: WebSocketFrame.Opcode = WebSocketFrame.Opcode.OPCODE_BINARY,
     ) {
-        if (ended) return
+        if (ended && !open) return
         requestDone()
         emit(
             WebSocketFrame(
                 request_id = requestId,
                 direction = if (sent) WebSocketFrame.Direction.DIRECTION_SENT else WebSocketFrame.Direction.DIRECTION_RECEIVED,
-                opcode = WebSocketFrame.Opcode.OPCODE_BINARY,
+                opcode = opcode,
                 payload = message.bytes(),
                 payload_truncated = message.truncated,
                 payload_size = message.size,
@@ -117,7 +139,8 @@ internal class Capture(
     }
 
     fun failed(error: String) {
-        if (ended) return
+        if (ended && !open) return
+        open = false
         requestDone()
         ended = true
         emit(RequestFailed(request_id = requestId, error = error), clock())
@@ -126,14 +149,30 @@ internal class Capture(
     private fun emit(
         message: Message<*, *>,
         atMs: Long,
-    ) = record(
-        Envelope(
+    ) {
+        if (cut || record(envelope(message, atMs))) return
+        cut = true
+        if (message !is RequestStarted &&
+            message !is RequestFailed
+        ) {
+            record(envelope(RequestFailed(request_id = requestId, error = CUT), clock()))
+        }
+    }
+
+    companion object {
+        /** The error of an exchange [ProxyRecording] dropped an event of. */
+        const val CUT = "The proxy dropped part of this exchange: the store fell behind"
+
+        private fun envelope(
+            message: Message<*, *>,
+            atMs: Long,
+        ) = Envelope(
             channel = Protocol.CHANNEL_NETWORK,
             type = message::class.simpleName!!,
             payload = message.encodeByteString(),
             timestamp_ms = atMs,
-        ),
-    )
+        )
+    }
 }
 
 /** Headers as stored, in order. */

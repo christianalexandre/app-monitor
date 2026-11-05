@@ -1,5 +1,6 @@
 package appmonitor.desktop.storage
 
+import appmonitor.v1.Header
 import appmonitor.v1.RequestFailed
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -8,9 +9,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
+import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
 
@@ -180,10 +183,16 @@ class SearchTest {
                     ExchangeFilter(method = "POST") to "exchanges_method",
                     ExchangeFilter(statusClasses = setOf(StatusClass.CLIENT_ERROR)) to "exchanges_status_code",
                     ExchangeFilter(hosts = setOf("cdn.example.org")) to "exchanges_host",
-                    ExchangeFilter(sessionId = session.id) to "exchanges_session_ref_id",
-                    ExchangeFilter(runId = second) to "exchanges_session_ref_id",
-                    ExchangeFilter(deviceId = "iphone") to "exchanges_session_ref_id",
-                    ExchangeFilter(appId = "other") to "exchanges_session_ref_id",
+                    ExchangeFilter(sessionId = session.id) to "exchanges_session_ref_id_url",
+                    ExchangeFilter(runId = second) to "exchanges_session_ref_id_url",
+                    ExchangeFilter(deviceId = "iphone") to "exchanges_session_ref_id_url",
+                    ExchangeFilter(appId = "other") to "exchanges_session_ref_id_url",
+                    ExchangeFilter(text = "example") to "exchanges_id_url",
+                    ExchangeFilter(method = "GET", text = "example") to "exchanges_id_url",
+                    ExchangeFilter(sessionId = session.id, text = "example") to "exchanges_session_ref_id_url",
+                    ExchangeFilter(runId = second, text = "example") to "exchanges_session_ref_id_url",
+                    ExchangeFilter(failedOnly = true) to "exchanges_failed",
+                    ExchangeFilter(runId = second, failedOnly = true, text = "example") to "exchanges_failed",
                 )
             cases.forEach { (filter, index) ->
                 val plan = storage.searchPlan(filter)
@@ -191,19 +200,54 @@ class SearchTest {
             }
         }
 
-    // DEBT-0063: text and "failed only" walk the exchanges in id order; this measures the worst case, no match.
     @Test
-    fun unindexedFiltersOverManyExchangesInBoundedTime() =
+    fun aVersionNineFileIsMigratedWithItsRowsIndexed() =
+        withDataDir { dir ->
+            Storage.open(dir).let { storage ->
+                runBlocking {
+                    storage.connected("s1", hello(), null)
+                    storage.received("s1", envelope(request("ok", "GET", "https://api.example.com/ok")))
+                    storage.received("s1", envelope(request("bad", "GET", "https://api.example.com/bad")))
+                    storage.received("s1", envelope(RequestFailed(request_id = "bad", error = "timeout")))
+                    storage.close(5.seconds)
+                }
+            }
+            DriverManager.getConnection("jdbc:sqlite:${dir.resolve(Storage.FILE_NAME)}").use { connection ->
+                connection.createStatement().use {
+                    it.undoVersionNine()
+                    it.execute("PRAGMA user_version = 9")
+                }
+            }
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                assertEquals(listOf("bad"), storage.searchExchanges(ExchangeFilter(failedOnly = true)).map { it.requestId })
+                assertEquals(listOf("ok"), storage.searchExchanges(ExchangeFilter(text = "/ok")).map { it.requestId })
+                storage.close(5.seconds)
+            }
+            assertEquals(10, dir.queryLong("PRAGMA user_version"))
+        }
+
+    // ADR-0177: the rows carry real headers, or the walk this guards against costs nothing and the bound says nothing.
+    @Test
+    fun textAndFailedOverManyExchangesInBoundedTime() =
         withDataDir { dir ->
             val storage = Storage.open(dir)
             runBlocking {
                 storage.connected("s1", hello(), null)
-                repeat(MANY) { storage.received("s1", envelope(request("r$it", "GET", "https://api.example.com/items/$it?page=2"))) }
+                val headers = List(30) { Header("x-header-name-$it", "v".repeat(60)) }
+                repeat(MANY) {
+                    val url = "https://api.example.com/v2/users/profile/items/$it?page=2&token=abcdefghijklmnopqrstuvwxyz"
+                    storage.received("s1", envelope(request("r$it", "GET", url).copy(headers = headers)))
+                    storage.received("s1", envelope(ResponseReceived(request_id = "r$it", status_code = 200, headers = headers)))
+                }
                 storage.flush()
+                val run = storage.runId
                 val text = measureTime { assertEquals(emptyList(), storage.searchExchanges(ExchangeFilter(text = "no-such-path"))) }
                 val failed = measureTime { assertEquals(emptyList(), storage.searchExchanges(ExchangeFilter(failedOnly = true))) }
-                println("Search over $MANY exchanges, no match: text $text, failed only $failed")
-                assertTrue(text < 2.seconds && failed < 2.seconds, "text $text, failed $failed")
+                val inRun =
+                    measureTime { assertEquals(emptyList(), storage.searchExchanges(ExchangeFilter(runId = run, text = "no-such-path"))) }
+                println("Search over $MANY exchanges, no match: text $text, failed only $failed, text in a run $inRun")
+                assertTrue(text < 500.milliseconds && failed < 500.milliseconds && inRun < 500.milliseconds, "$text, $failed, $inRun")
                 storage.close(5.seconds)
             }
         }

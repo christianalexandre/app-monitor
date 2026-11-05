@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import Network
 
@@ -16,6 +15,20 @@ struct BonjourBrowser: MdnsBrowser {
     }
 }
 
+/// What a browser state reports as a failure, nil for none. iOS 16 fails a denied browse, later
+/// versions wait on it: both are the denial.
+func browseFailure(_ state: NWBrowser.State) -> String? {
+    switch state {
+    case .waiting(.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))),
+        .failed(.dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied))):
+        localNetworkDenied
+    case .failed(let error):
+        "\(error)"
+    default:
+        nil
+    }
+}
+
 /// One browse, confined to `queue`. Names are keyed lowercased (RFC 4343).
 private final class BonjourSession: @unchecked Sendable {
     private struct Address {
@@ -30,6 +43,7 @@ private final class BonjourSession: @unchecked Sendable {
     private var probes: [String: NWConnection] = [:]
     private var addresses: [String: Address] = [:]
     private var paths: [String: String] = [:]
+    private var ids: [String: String] = [:]
 
     init(
         queue: DispatchQueue,
@@ -49,13 +63,7 @@ private final class BonjourSession: @unchecked Sendable {
         self.browser = browser
         browser.stateUpdateHandler = { [weak self, weak browser] state in
             guard let self, let browser, browser === self.browser else { return }
-            switch state {
-            case .failed(let error),
-                .waiting(let error) where error == .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
-                self.onFailure("\(error)")
-            default:
-                break
-            }
+            if let failure = browseFailure(state) { self.onFailure(failure) }
         }
         browser.browseResultsChangedHandler = { [weak self, weak browser] _, changes in
             guard let self, let browser, browser === self.browser else { return }
@@ -82,9 +90,10 @@ private final class BonjourSession: @unchecked Sendable {
         let key = name.lowercased()
         if case .bonjour(let txt) = result.metadata, let path = txt[ProtocolConstants.mdnsTxtPath] {
             paths[key] = path
+            ids[key] = txt[ProtocolConstants.mdnsTxtID]
         }
         if let address = addresses[key] {
-            onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: paths[key]))
+            onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: paths[key], id: ids[key]))
         } else if probes[key] == nil {
             probe(result.endpoint, name: name, key: key)
         }
@@ -104,7 +113,9 @@ private final class BonjourSession: @unchecked Sendable {
                 guard case .hostPort(.ipv4(let ip), let port)? = probe.currentPath?.remoteEndpoint else { return }
                 let address = Address(host: ip.rawValue.map(String.init).joined(separator: "."), port: port.rawValue)
                 self.addresses[key] = address
-                self.onAnswer(DesktopAnswer(name: name, host: address.host, port: address.port, path: self.paths[key]))
+                self.onAnswer(
+                    DesktopAnswer(
+                        name: name, host: address.host, port: address.port, path: self.paths[key], id: self.ids[key]))
             case .failed:
                 probe.cancel()
                 self.probes[key] = nil
@@ -115,4 +126,3 @@ private final class BonjourSession: @unchecked Sendable {
         probe.start(queue: queue)
     }
 }
-#endif

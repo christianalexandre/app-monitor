@@ -7,15 +7,18 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.v1.BreakpointHit
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage
 import appmonitor.v1.RequestStarted
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -37,6 +40,15 @@ class BreakpointsViewModelTest {
 
     @AfterTest
     fun reset() = Dispatchers.resetMain()
+
+    @Test
+    fun `moves a breakpoint through the repository`() =
+        runTest {
+            val viewModel = BreakpointsViewModel(repository, null)
+            viewModel.move(1, RuleMove.UP)
+            viewModel.move(2, RuleMove.DOWN)
+            assertEquals(listOf(1L to RuleMove.UP, 2L to RuleMove.DOWN), repository.moved)
+        }
 
     @Test
     fun `turns a breakpoint off, saves and deletes`() =
@@ -65,6 +77,21 @@ class BreakpointsViewModelTest {
                     .map { it.name },
             )
             assertEquals(60_000L, viewModel.maxTimeoutMs)
+        }
+
+    @Test
+    fun `a held call shows before the breakpoints query answers`() =
+        runTest {
+            val silent =
+                object : BreakpointRepository by repository {
+                    override fun observeBreakpoints(): Flow<List<Breakpoint>> = flow { awaitCancellation() }
+                }
+            val viewModel = BreakpointsViewModel(silent, heldCalls)
+            val call = held("r1")
+
+            heldCalls.held.value = listOf(call)
+
+            assertEquals(listOf(call), viewModel.state.value.held)
         }
 
     @Test
@@ -109,6 +136,7 @@ private fun held(requestId: String) =
 
 private class FakeBreakpoints : BreakpointRepository {
     val breakpoints = MutableStateFlow<List<Breakpoint>>(emptyList())
+    val moved = mutableListOf<Pair<Long, RuleMove>>()
 
     override val maxTimeoutMs = 60_000L
 
@@ -141,6 +169,13 @@ private class FakeBreakpoints : BreakpointRepository {
             }
         }
         return BreakpointWrite.Saved(id)
+    }
+
+    override suspend fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        moved += id to move
     }
 
     override suspend fun delete(id: Long) {

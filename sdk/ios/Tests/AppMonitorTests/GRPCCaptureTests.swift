@@ -1,3 +1,5 @@
+#if os(macOS)
+
 import AppMonitorGRPC
 import Foundation
 import GRPCCore
@@ -86,9 +88,9 @@ extension ProcessWideHooks {
             }
         }
 
-        func events() throws -> [(type: String, message: any SwiftProtobuf.Message)] {
+        func events() throws -> [(type: String, message: any ProtoMessage)] {
             try sink.all.map { envelope in
-                let message: any SwiftProtobuf.Message =
+                let message: any ProtoMessage =
                     switch envelope.type {
                     case "RequestStarted": try Appmonitor_V1_RequestStarted(serializedBytes: envelope.payload)
                     case "ResponseReceived": try Appmonitor_V1_ResponseReceived(serializedBytes: envelope.payload)
@@ -214,3 +216,5 @@ extension ProcessWideHooks {
         }
     }
 }
+
+#endif

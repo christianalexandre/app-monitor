@@ -16,12 +16,13 @@ What a machine needs to build and test the whole repository.
 | Claude Code CLI | logged in | `make loop` |
 
 No `protoc` is needed: Wire generates Kotlin without it (ADR-0001), and
-`make swift-proto` builds `protoc` and `protoc-gen-swift` from the pinned
-swift-protobuf for `sdk/ios` (ADR-0039). `make check` is the fast suite
+`make swift-proto` writes `sdk/ios`'s types with `scripts/swift_proto_gen.py`,
+`python3` only (ADR-0160). `make check` is the fast suite
 (ADR-0076): docs, lint, script tests, `./gradlew build` without the sample
 apps, and the host Swift gates (`make swift`) only on macOS with `swift` on
 the `PATH`; elsewhere it prints `swift: SKIPPED` (ADR-0037). The slow
-suites are separate targets: `make swift-sim` (simulator tests) and
+suites are separate targets: `make swift-sim` (simulator tests: the
+package's suite, then the hosted ones, on the iOS `SIM_OS` picks, ADR-0170) and
 `make samples` (`android-samples`, `ios-sample`, `kmp-sample`);
 `make check-full` runs `make check` plus both. The simulator targets need
 XcodeGen and an iPhone simulator; without them they print
@@ -43,8 +44,8 @@ Module scripts apply one convention plugin from `build-logic/`:
 | --- | --- | --- |
 | `appmonitor.lint` | every module (applied by the others) | Spotless + ktlint on `src/**/*.kt` and `*.gradle.kts` |
 | `appmonitor.kotlin-jvm` | JVM-only modules (desktop, tools) | Kotlin JVM, toolchain 21, JUnit Platform |
-| `appmonitor.kmp-library` | shared KMP code (protocol) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007) |
-| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/android-okhttp`, `sdk/okhttp-no-op`; through `kmp-sdk-ios`, the others) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on) (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0072) |
+| `appmonitor.kmp-library` | shared KMP code (protocol) | targets `jvm`, `android` (host tests on), `iosArm64`, `iosSimulatorArm64`; module sets `namespace` (ADR-0007); language and API version 2.3, as `appmonitor.kmp-sdk` (ADR-0169) |
+| `appmonitor.kmp-sdk` | Android/KMP SDK modules (`sdk/android-okhttp`, `sdk/okhttp-no-op`; through `kmp-sdk-ios`, the others) | `explicitApi()`; targets `jvm`, `android` (`minSdk` 24, host tests on) (ADR-0023); ABI dumps checked by `checkKotlinAbi` (ADR-0072); language and API version 2.3, `kotlin-stdlib` 2.3.21 in the POMs, `kotlin.uuid` opted in, so an app on Kotlin 2.2 compiles against it (ADR-0169) |
 | `appmonitor.kmp-sdk-ios` | SDK modules a KMP app links on iOS (`sdk/core`, `sdk/ktor`, `sdk/core-no-op`, `sdk/ktor-no-op`) | `appmonitor.kmp-sdk` plus `iosArm64`, `iosSimulatorArm64` (ADR-0062 E.1, ADR-0067); the klib dump `api/<module>.klib.api` |
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
@@ -112,12 +113,20 @@ runs every button in turn, on first launch only. The script then waits up to
 `E2E_TIMEOUT` seconds (120) for each call's `RequestStarted`, its response or
 failure, and the WebSocket's sent, received and close frames, and prints one
 `ok` or `missing` line per call, and fails when a request went anywhere but
-the target or an expected request was captured twice (ADR-0075). Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
+the target or an expected request was captured twice (ADR-0075). Then it
+rotates the emulator there and back, asserting no new session, and kills the
+process from the background and reopens the task, asserting one new session
+and no call run again (about 15 s). The server runs with `--advertise false`,
+since an emulator finds an advertised one by mDNS, without the extras. Server log, target log and logcat in `build/e2e-android/`. A sample button added or renamed needs its line in the
 script's expected list.
 
 ### The iOS sample against a desktop
 
-`make ios-sample` builds `samples/ios` into `build/ios-sample/`. With
+`make ios-sample` builds `samples/ios` into `build/ios-sample/`, from
+`samples/ios/project.yml`, without gRPC-Core; `samples/ios/grpc.yml`
+includes that spec and adds gRPC-Core and its button in Debug
+(`SampleGrpc.xcodeproj`, `SAMPLE_GRPC`), built by `make e2e-ios-grpc` into
+`build/ios-sample-grpc/` (ADR-0163). With
 `make server` or `make desktop` running, install the Debug app on a booted
 simulator and launch it with `-runAll YES`, which runs every button in turn;
 the simulator finds the desktop on its host's loopback:
@@ -130,7 +139,7 @@ xcrun simctl launch booted dev.appmonitor.sample -runAll YES
 For the screenshots, run
 `./gradlew :desktop:app:liveScreenshots -PliveName=simulator -PliveExchanges=8`
 in the background instead of the server (the eight `URLSession` buttons, one
-exchange each; the ninth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
+exchange each; the gRPC build's ninth, `gRPC-Core unary`, is not captured by the SDK), wait for "waiting for a device", then install and launch as above.
 Calls made before the approval wait in the SDK's buffer, so `-runAll` can
 start before the click. `-host H -port N` pin the SDK to that desktop, as
 `make e2e-ios` does.
@@ -138,34 +147,48 @@ start before the click. `-host H -port N` pin the SDK to that desktop, as
 ### The iOS sample end to end, scripted
 
 `make e2e-ios` (ADR-0057) needs macOS with Xcode and XcodeGen; the
-internet only for the first build (gRPC-Core's makes it about four
-minutes cold, ADR-0109). It uses the booted iPhone simulator, or boots the first available
+internet only for the first build. It uses the booted iPhone simulator, or boots the first available
 one (`SIM_DEVICE="iPhone 17"` picks by name), builds the sample's Debug app
-for it (Release and its SDK name scan are `make ios-sample`'s, in
+without gRPC-Core for it (Release and its SDK name scan are `make ios-sample`'s, in
 `make samples`; ADR-0075) and the `installDist` of the server and of
-`tools/e2e-target`, starts the target with its TLS gRPC origin
-(`--grpc-trust`) and the server with its proxy (`--proxy`, trusting that
-origin), all on free ports, and launches the Debug app through the proxy
-(ADR-0108, ADR-0109):
+`tools/e2e-target`, starts both on free ports, and launches the Debug app:
 
 ```sh
-SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
-  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=<repo>/build/e2e-ios/proxy/proxy-ca.pem \
-  xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
-  -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
+xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -runAll YES
 ```
 
 The server gets `--mocks build/e2e-ios/mocks.json`, one rule (id 1) for
 `GET 127.0.0.1/status/418` that answers 200 `mocked`, as on Android; the
 sample's `418, or a mock` button calls that path (ADR-0117). With
 `--replay /json` it asks the device to send the sample's first call again,
-through the app's `URLSession` (ADR-0124).
+through the app's `URLSession` (ADR-0124). With
+`--breakpoints build/e2e-ios/breakpoints.json`, one rule (id 2) holding
+`PUT 127.0.0.1/put` at both stages for 10 minutes, it resumes the
+sample's upload twice, the response with status `299` (ADR-0188).
 It then waits up to `E2E_TIMEOUT` seconds (120) for the eight calls as
 `make e2e-android` does (the upload's `PUT`, the background download and
-the mocked call, asserted `mock 1`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`),
-and for the gRPC-Core call in the `[proxy]` session: `POST
-https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`, its request and
-response messages, its response.
+the mocked call, asserted `mock 1`, the upload asserted held at both
+stages, resumed, and captured `299`, and `GET /json`'s replay, asserted `replay`, included; the WebSocket's URL is logged as `http://127.0.0.1:<target port>/ws`).
+From an empty `build/ios-sample/` it took 28 s on an M-series Mac.
+
+`make e2e-ios-grpc` (`scripts/e2e_ios.sh --grpc`, ADR-0163) does the same
+with the gRPC build of the sample (gRPC-Core's C++ makes it about four
+minutes cold here, ADR-0109), logs in `build/e2e-ios-grpc/`: it starts the
+target with its TLS gRPC origin (`--grpc-trust`) and the server with its
+proxy (`--proxy`, trusting that origin), and launches the app through the
+proxy (ADR-0108):
+
+```sh
+SIMCTL_CHILD_grpc_proxy=http://127.0.0.1:<proxy port> \
+  SIMCTL_CHILD_GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=<repo>/build/e2e-ios-grpc/proxy/proxy-ca.pem \
+  xcrun simctl launch <udid> dev.appmonitor.sample -host 127.0.0.1 -port <port> \
+  -target http://127.0.0.1:<target port> -grpcTarget 127.0.0.1:<grpc port> -runAll YES
+```
+
+It asserts the eight calls above and the gRPC-Core call in the `[proxy]`
+session: `POST https://127.0.0.1:<grpc port>/grpcbin.GRPCBin/DummyUnary`,
+its request and response messages, its response.
 Server log, target log, the sample's simulator log and `build.log` in `build/e2e-ios/`. The three
 end to end scripts source `scripts/e2e_lib.sh` (device pick, server and target, assertions),
 whose assertions `scripts/test_e2e_lib.sh` tests on a crafted log in `make scripts-test`.
@@ -191,9 +214,9 @@ xcrun simctl launch booted dev.appmonitor.kmpsample -host 127.0.0.1 -runAll YES
 `--es target URL` on Android and `-target URL` on iOS point the calls at
 `tools/e2e-target`, as for the other samples. The five calls (GET, POST,
 404, timeout, WebSocket echo) go through Ktor
-(OkHttp on Android, Darwin on iOS). On iOS the Swift SDK runs too: the
-desktop shows two sessions of one app, and each exchange once, on the
-Kotlin one (ADR-0064).
+(OkHttp on Android, Darwin on iOS). On iOS only the Swift SDK runs: the
+desktop shows one session of the app, the Swift SDK's, with each exchange
+once (ADR-0158).
 
 ### The KMP sample end to end, scripted
 
@@ -204,12 +227,11 @@ builds only the sample's debug app (Release and the SDK name scan stay in
 `make kmp-sample`, as for `make e2e-ios`), starts the server and `tools/e2e-target` on free ports
 and launches the sample with `host`, `port`, `target` and `runAll`, as
 `make e2e-android` and `make e2e-ios` do. It asserts the five calls; the
-WebSocket's URL is logged as `ws://<host>:<target port>/ws`, Ktor's own.
-"Captured once" compares URLs with `ws` as `http` and `wss` as `https`,
-since the Swift SDK logs a socket's upgrade under the HTTP scheme. On iOS it
+WebSocket's URL is logged as `ws://<host>:<target port>/ws` on Android,
+Ktor's own, and `http://…` on iOS, as `URLSession` reports it. "Captured
+once" compares URLs with `ws` as `http` and `wss` as `https`. On iOS it
 also fails unless `dev.appmonitor.kmpsample` opened a session with
-`sdk_name` `swift` and one with `kotlin` (ADR-0077), so "captured once"
-means the Swift SDK skipped Ktor's requests (ADR-0064, ADR-0071).
+`sdk_name` `swift` and none with `kotlin` (ADR-0077, ADR-0158).
 Logs in `build/e2e-kmp-android/` and `build/e2e-kmp-ios/` (`build.log`
 holds the iOS build).
 
@@ -294,7 +316,7 @@ name, description, URL, license, developer or SCM, or when a no-op POM
 depends on an `appmonitor-*` artifact that is not a no-op (ADR-0072). On macOS it then builds
 `build/spm-consumer`, a throwaway executable that adds the root
 `Package.swift` by path, in debug and release, and prints the binary size
-and `SwiftProtobuf` symbol count (DEBT-0040). ≈35 s cold. Nothing is
+and `SwiftProtobuf` symbol count, 0 for the `AppMonitor` product (ADR-0160). ≈35 s cold. Nothing is
 uploaded anywhere: Central and tags are M10.
 
 ## CI
@@ -330,7 +352,7 @@ reports are uploaded on failure. The `samples` job, on macOS, installs
 XcodeGen and runs `make android-samples kmp-sample` (the Android sample's
 `build`, the Gradle plugin's TestKit tests, the KMP sample in debug and
 release with its SDK name scans); `samples-ios`, beside it, runs `make
-ios-sample` (the iOS sample in debug and release, gRPC-Core built cold);
+ios-sample` (the iOS sample in debug and release, without gRPC-Core, ADR-0163);
 their logs are uploaded on failure (ADR-0076, ADR-0154). The `e2e-android` job, on ubuntu,
 enables KVM, builds the debug APK and the `installDist` of the server and
 of `tools/e2e-target`, then
@@ -341,7 +363,9 @@ The `e2e-ios` job, on macOS, installs XcodeGen and runs `make e2e-ios`,
 which boots the runner's first available iPhone simulator; the sample
 reaches the server on `127.0.0.1`, so the runner's missing local network
 access (DEBT-0046) does not apply. `build/e2e-ios/` (server, simulator
-and build logs) is uploaded on failure.
+and build logs) is uploaded on failure. The `e2e-ios-grpc` job is the
+same with `make e2e-ios-grpc`, the only gate job that builds gRPC-Core,
+timeout 50 min, `build/e2e-ios-grpc/` uploaded on failure (ADR-0163).
 The `e2e-kmp-android` job, on ubuntu, is `e2e-android`'s with the KMP
 sample's debug APK and `make e2e-kmp-android`; the `e2e-kmp-ios` job, on
 macOS, is `e2e-ios`'s with `make e2e-kmp-ios` (ADR-0065 C.1). Their

@@ -33,7 +33,7 @@ fun interface ReplayAsks {
     }
 }
 
-/** `replay_request` (SDD 10, ADR-0121 C.1): answers at once; nothing reaches the device before the developer's click (ADR-0005). */
+/** `replay_request` (ADR-0121 C.1): answers at once; nothing reaches the device before the developer's click (ADR-0005). */
 internal object AskReplay {
     const val NAME = "replay_request"
 

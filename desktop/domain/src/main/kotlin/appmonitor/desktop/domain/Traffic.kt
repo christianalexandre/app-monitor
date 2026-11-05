@@ -6,7 +6,7 @@ import appmonitor.v1.Hello
 import appmonitor.v1.WebSocketFrame
 import okio.ByteString
 
-/** One stored run: a recording between Record and Stop, or "Saved" (SDD 09). [name] is null until the developer names it. */
+/** One stored run: a recording between Record and Stop, or "Saved". [name] is null until the developer names it. */
 data class Run(
     val id: Long,
     val name: String?,
@@ -26,7 +26,19 @@ data class Session(
     val connectedAtMs: Long,
     val disconnectedAtMs: Long?,
     val lastEnvelopeAtMs: Long?,
+    /** What the app's SDK reported dropping; null before its first report, or from an SDK that sends none (ADR-0166). */
+    val drops: Drops? = null,
 )
+
+/** Events an SDK dropped since it started: its buffer full, too large to send, or sent and never read; [lost] null when unknown. */
+data class Drops(
+    val evicted: Long,
+    val oversized: Long,
+    val lost: Long?,
+) {
+    /** True when any count is above zero; an unknown [lost] alone is not. */
+    val any: Boolean get() = evicted > 0 || oversized > 0 || (lost ?: 0) > 0
+}
 
 /** One request as lists and filters show it; no body, no headers. */
 data class Exchange(
@@ -57,7 +69,7 @@ data class Exchange(
 }
 
 /**
- * What the exchange list is narrowed to (SDD 09); every null, false or empty field matches all. [statusClasses] and [hosts]
+ * What the exchange list is narrowed to; every null, false or empty field matches all. [statusClasses] and [hosts]
  * keep the rows of any one of them.
  */
 data class ExchangeFilter(
@@ -125,6 +137,8 @@ data class HttpExchange(
     val endedAtMs: Long? = null,
     val frames: List<CapturedFrame> = emptyList(),
     val frameCount: Long = 0,
+    /** Frames the source still holds, the oldest of [frameCount] cut from the live list. */
+    val framesKept: Long = frameCount,
     val captureLayer: CaptureLayer = CaptureLayer.CAPTURE_LAYER_UNSPECIFIED,
     val connection: ConnectionBytes? = null,
     val mockRuleId: Long? = null,

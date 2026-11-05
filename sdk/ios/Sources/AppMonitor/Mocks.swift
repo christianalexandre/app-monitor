@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -67,6 +66,15 @@ final class MockProtocol: URLProtocol, @unchecked Sendable {
     // Confined to the loading thread: URLSession calls startLoading and stopLoading on it.
     private var timer: Timer?
 
+    // iOS 16 answers `URLProtocol.task` with "unrecognized selector": the task given here is the one read.
+    private var appTask: URLSessionTask?
+
+    @objc convenience init(task: URLSessionTask, cachedResponse: CachedURLResponse?, client: URLProtocolClient?) {
+        let request = task.currentRequest ?? task.originalRequest ?? URLRequest(url: URL(fileURLWithPath: "/"))
+        self.init(request: request, cachedResponse: cachedResponse, client: client)
+        appTask = task
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { false }
 
     override class func canInit(with task: URLSessionTask) -> Bool {
@@ -76,7 +84,7 @@ final class MockProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
-        guard let task, let rule = Hooks.capture(of: task)?.mock else {
+        guard let task = appTask, let rule = Hooks.capture(of: task)?.mock else {
             return client?.urlProtocol(self, didFailWithError: URLError(.unknown)) ?? ()
         }
         guard rule.delayMs > 0 else { return answer(rule) }
@@ -134,17 +142,18 @@ enum MockHooks {
             return false
         }
         typealias Original = @convention(c) (AnyObject, Selector) -> NSArray?
-        let original = unsafeBitCast(method_getImplementation(method), to: Original.self)
-        let selector = method_getName(method)
-        let block: @convention(block) (AnyObject) -> NSArray? = { object in
-            let classes = original(object, selector)
-            guard (object as? URLSessionConfiguration)?.identifier == nil else { return classes }
-            let others = (classes as? [AnyClass] ?? []).filter { $0 != HoldProtocol.self && $0 != MockProtocol.self }
-            return ([HoldProtocol.self, MockProtocol.self] + others) as NSArray
+        MethodHook.replace(method, arguments: 0, Original.self) { original, selector in
+            let block: @convention(block) (AnyObject) -> NSArray? = { object in
+                let classes = original(object, selector)
+                guard (object as? URLSessionConfiguration)?.identifier == nil else { return classes }
+                let others = (classes as? [AnyClass] ?? []).filter {
+                    $0 != HoldProtocol.self && $0 != MockProtocol.self
+                }
+                return ([HoldProtocol.self, MockProtocol.self] + others) as NSArray
+            }
+            return block
         }
-        method_setImplementation(method, imp_implementationWithBlock(block))
         installed = true
         return true
     }
 }
-#endif

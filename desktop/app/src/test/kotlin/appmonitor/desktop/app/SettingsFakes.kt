@@ -46,7 +46,7 @@ internal class FakeMcp(
     override suspend fun regenerate() = Unit
 }
 
-/** A proxy that stays in [status]; [switched] and [resets] record the settings' calls. */
+/** A proxy that stays in [status]; [switched], [resets] and [passThrough] record the settings' calls. */
 internal class FakeProxy(
     status: ServiceStatus,
     override val port: Int,
@@ -57,9 +57,14 @@ internal class FakeProxy(
     override val status: StateFlow<ServiceStatus> = MutableStateFlow(status)
     override val enabled = MutableStateFlow(true)
     override val host = "127.0.0.1"
+    override val passThrough = MutableStateFlow(emptyList<String>())
 
     override suspend fun setEnabled(on: Boolean) {
         switched += on
+    }
+
+    override suspend fun setPassThrough(hosts: List<String>) {
+        passThrough.value = hosts
     }
 
     override suspend fun resetCa() {

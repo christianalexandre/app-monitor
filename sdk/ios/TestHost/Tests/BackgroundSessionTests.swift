@@ -27,7 +27,7 @@ final class Sink: CaptureSink, @unchecked Sendable {
     /// What `keepForReplay` got; a background task is never sent again (ADR-0124 C.1).
     let replays = RecentRequests()
 
-    func keepForReplay(_ requestID: String, _ replay: @escaping @Sendable () -> String?) {
+    func keepForReplay(_ requestID: String, bodyBytes: Int64, _ replay: @escaping @Sendable () -> String?) {
         replays.keep(requestID, replay)
     }
 
@@ -42,7 +42,7 @@ final class Sink: CaptureSink, @unchecked Sendable {
     func hold(_ hit: Appmonitor_V1_BreakpointHit, _ done: @escaping @Sendable (BreakpointOutcome) -> Void)
         -> @Sendable () -> Void
     {
-        breakpoints.hold(hit, send: { send(interactionEnvelope("BreakpointHit", $0)) }, done: done)
+        breakpoints.hold(hit, send: { hit, _ in send(interactionEnvelope("BreakpointHit", hit)) }, done: done)
     }
 
     func started() throws -> Appmonitor_V1_RequestStarted {
@@ -112,6 +112,10 @@ final class AppDelegate: NSObject, URLSessionDownloadDelegate, URLSessionDataDel
         record(error == nil ? "didComplete" : "didCompleteWithError")
         lock.withLock { finished }?.resume()
     }
+
+    func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+        BackgroundSessionTests.ending.leave()
+    }
 }
 
 // The hooks are process-wide: one test at a time owns `URLSessionCapture.sink`.
@@ -121,13 +125,18 @@ final class BackgroundSessionTests {
     let delegate = AppDelegate()
     let session: URLSession
 
+    // A session started while the last one's being cleaned up: nsurlsessiond fails its file upload with -1.
+    static let ending = DispatchGroup()
+
     init() async throws {
+        await withCheckedContinuation { done in Self.ending.notify(queue: .global()) { done.resume() } }
         try await server.start()
         let configuration = URLSessionConfiguration.background(withIdentifier: "test.\(UUID().uuidString)")
         session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
     }
 
     deinit {
+        Self.ending.enter()
         session.invalidateAndCancel()
         URLSessionCapture.sink = monitor
         server.stop()

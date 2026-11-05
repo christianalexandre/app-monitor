@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 import ObjectiveC
 
@@ -59,10 +58,11 @@ final class Breakpoints: @unchecked Sendable {
     }
 
     /// Sends `hit` by `send`, then calls `done` once: with the resume, the abort, or unchanged after the hit's
-    /// timeout or outside a session. The returned closure drops the hold without calling `done`.
+    /// timeout, outside a session, or once `send` reports the hit dropped before it was written. The returned
+    /// closure drops the hold without calling `done`.
     func hold(
         _ hit: Appmonitor_V1_BreakpointHit,
-        send: (Appmonitor_V1_BreakpointHit) -> Void,
+        send: (Appmonitor_V1_BreakpointHit, _ dropped: @escaping @Sendable () -> Void) -> Void,
         done: @escaping @Sendable (BreakpointOutcome) -> Void
     ) -> @Sendable () -> Void {
         let key = Key(id: hit.request.requestID, stage: hit.stage)
@@ -77,7 +77,7 @@ final class Breakpoints: @unchecked Sendable {
             done(.unchanged)
             return {}
         }
-        send(hit)
+        send(hit) { [weak self] in self?.take(key, waiter)?.done(.unchanged) }
         DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(Int(clamping: hit.timeoutMs))) {
             [weak self] in
             self?.take(key, waiter)?.done(.unchanged)
@@ -105,10 +105,11 @@ final class Breakpoints: @unchecked Sendable {
 }
 
 extension Appmonitor_V1_BreakpointResume {
-    /// `headers` with `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1).
-    func applied(to headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
+    /// `headers` with `set_headers` and `removed_headers` applied, names ignoring case (ADR-0118 C.1, ADR-0185).
+    func applied(to headers: [(name: String, value: String)], masking: Masking) -> [(name: String, value: String)] {
         let replaced = Set(setHeaders.map { $0.name.lowercased() } + removedHeaders.map { $0.lowercased() })
-        return headers.filter { !replaced.contains($0.name.lowercased()) } + setHeaders.map { ($0.name, $0.value) }
+        return headers.filter { !replaced.contains($0.name.lowercased()) }
+            + masking.restoredHeaders(setHeaders, own: headers)
     }
 
     var changesHeaders: Bool { !setHeaders.isEmpty || !removedHeaders.isEmpty }
@@ -127,8 +128,6 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private var loop: CFRunLoop?
     private var capture: TaskCapture?
     private var stopped = false
-    private var startSent = false
-    private var heldStart: Appmonitor_V1_RequestStarted?
     private var release: (@Sendable () -> Void)?
     private var timer: Timer?
     private var inner: URLSessionTask?
@@ -137,6 +136,23 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private var response: URLResponse?
     private var body = Data()
     private var buffering = false
+    // Set once the body passed the capture limit: the rest goes to `spill` and the task's end waits for the hold.
+    private var heldEarly = false
+    private var ended: Error?? = nil
+    private var spill: SpillStore?
+    private var spillError: Error?
+
+    /// What holds a body past the capture limit; tests swap it.
+    nonisolated(unsafe) static var makeSpill: () -> SpillStore? = { Spill() }
+
+    // iOS 16 answers `URLProtocol.task` with "unrecognized selector": the task given here is the one read.
+    private var appTask: URLSessionTask?
+
+    @objc convenience init(task: URLSessionTask, cachedResponse: CachedURLResponse?, client: URLProtocolClient?) {
+        let request = task.currentRequest ?? task.originalRequest ?? URLRequest(url: URL(fileURLWithPath: "/"))
+        self.init(request: request, cachedResponse: cachedResponse, client: client)
+        appTask = task
+    }
 
     override class func canInit(with request: URLRequest) -> Bool { false }
 
@@ -148,13 +164,13 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     override func startLoading() {
         loop = CFRunLoopGetCurrent()
-        guard let task, let capture = Hooks.capture(of: task) else { return fail(URLError(.unknown)) }
+        guard let task = appTask, let capture = Hooks.capture(of: task) else { return fail(URLError(.unknown)) }
         self.capture = capture
         let upload = Hooks.upload(of: task)
         let request = capture.heldRequest ?? self.request
         guard let rule = capture.requestHold else { return send(request, upload, mock: capture.mock) }
         let started = startedEvent(request, upload, mock: nil)
-        heldStart = started
+        capture.holdStart(started)
         var hit = Appmonitor_V1_BreakpointHit()
         hit.ruleID = rule.id
         hit.stage = .request
@@ -185,9 +201,10 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         release = nil
         timer?.invalidate()
         timer = nil
+        spill = nil
         inner?.cancel()
         inner = nil
-        if let heldStart { emitStart(heldStart) }
+        capture?.sendStart()
     }
 
     // MARK: - The request
@@ -195,7 +212,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private func startedEvent(_ request: URLRequest, _ upload: UploadBody?, mock: Appmonitor_V1_MockRule?)
         -> Appmonitor_V1_RequestStarted
     {
-        guard let capture, let task else { return Appmonitor_V1_RequestStarted() }
+        guard let capture, let task = appTask else { return Appmonitor_V1_RequestStarted() }
         return requestStartedEvent(
             request, id: capture.id, masking: capture.masking, limit: capture.limit, upload: upload, mock: mock,
             replayOf: Replay.original(of: task))
@@ -203,22 +220,21 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     /// `RequestStarted` deferred by the request hold, sent once, before the task can end (ADR-0123 C.1).
     private func emitStart(_ started: Appmonitor_V1_RequestStarted, mock: Appmonitor_V1_MockRule? = nil) {
-        guard !startSent, let capture else { return }
-        startSent = true
-        heldStart = nil
         var started = started
         if let mock { started.mockRuleID = mock.id }
-        emit(capture.sink, "RequestStarted") { try started.serializedBytes() }
+        capture?.sendStart(started)
     }
 
     /// `request` with the resume's fields; throws for an edit `URLSession` cannot send (ADR-0123 D.1).
     private func edit(_ request: URLRequest, _ upload: UploadBody?, _ changes: Appmonitor_V1_BreakpointResume?)
         throws -> (URLRequest, UploadBody?)
     {
-        guard let changes else { return (request, upload) }
+        guard let changes, let masking = capture?.masking else { return (request, upload) }
         var edited = request
         if changes.hasURL {
-            guard let url = URL(string: changes.url), let scheme = url.scheme?.lowercased(),
+            // The reason reaches the desktop: the URL as it came, never the restored one (ADR-0185).
+            let restored = masking.restoredURL(changes.url, own: request.url?.absoluteString ?? "")
+            guard let url = URL(string: restored), let scheme = url.scheme?.lowercased(),
                 scheme == "http" || scheme == "https", url.host != nil
             else { throw refused("not an http or https URL: \(changes.url)") }
             edited.url = url
@@ -229,7 +245,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         }
         if changes.changesHeaders {
             edited.allHTTPHeaderFields = headerFields(
-                changes.applied(to: sortedHeaders(request.allHTTPHeaderFields ?? [:])))
+                changes.applied(to: sortedHeaders(request.allHTTPHeaderFields ?? [:]), masking: masking))
         }
         guard changes.hasBody else { return (edited, upload) }
         edited.httpBodyStream = nil
@@ -247,7 +263,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
             capture.sink.breakpoint(method: request.httpMethod ?? "GET", url: url.absoluteString, stage: .response)
             != nil
         if let mock { return answer(mock, url) }
-        let configuration = task.flatMap(Hooks.session(of:))?.configuration ?? .default
+        let configuration = appTask.flatMap(Hooks.session(of:))?.configuration ?? .default
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         let task: URLSessionTask =
             switch upload {
@@ -273,7 +289,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     private func reply(_ rule: Appmonitor_V1_MockRule, _ url: URL) {
         timer = nil
         switch MockProtocol.answer(rule, url) {
-        case .success(let (response, data)): received(response, data)
+        case .success(let (response, data)): received(response, data, whole: true)
         case .failure(let error): fail(error)
         }
     }
@@ -295,7 +311,23 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         onLoop { [self] in
             guard !stopped else { return }
-            if buffering { body.append(data) } else { client?.urlProtocol(self, didLoad: data) }
+            guard buffering else {
+                client?.urlProtocol(self, didLoad: data)
+                return
+            }
+            if heldEarly {
+                if let spill { write(data, to: spill) } else { body.append(data) }
+                return
+            }
+            body.append(data)
+            guard let capture, body.count > capture.limit, let response else { return }
+            heldEarly = true
+            spill = Self.makeSpill()
+            if let spill {
+                write(body.suffix(from: body.startIndex + capture.limit), to: spill)
+                body = body.prefix(capture.limit)
+            }
+            received(response, body, whole: false)
         }
     }
 
@@ -303,9 +335,13 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         onLoop { [self] in
             guard !stopped else { return }
             inner = nil
+            if heldEarly {
+                ended = .some(error)
+                return
+            }
             if let error { return fail(error) }
             guard buffering, let response else { return finish() }
-            received(response, body)
+            received(response, body, whole: true)
         }
     }
 
@@ -375,7 +411,7 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
         otherwise: @escaping @Sendable () -> Void,
         ask: @escaping (URLSession, URLSessionTask, URLSessionTaskDelegate?) -> Bool
     ) {
-        guard let outer = task, let app = Hooks.session(of: outer), app.delegate != nil || outer.delegate != nil
+        guard let outer = appTask, let app = Hooks.session(of: outer), app.delegate != nil || outer.delegate != nil
         else { return otherwise() }
         let call = Asked { if !ask(app, outer, app.delegate as? URLSessionTaskDelegate) { otherwise() } }
         app.delegateQueue.addOperation { call.run() }
@@ -383,40 +419,82 @@ final class HoldProtocol: URLProtocol, URLSessionDataDelegate, @unchecked Sendab
 
     // MARK: - The response
 
-    /// The whole response, held first when a breakpoint matches the request as sent.
-    private func received(_ response: URLResponse, _ data: Data) {
+    /// The response, held first when a breakpoint matches the request as sent; not `whole` once its body
+    /// passed the capture limit, the rest then read after the hold unless the resume replaces the body.
+    private func received(_ response: URLResponse, _ data: Data, whole: Bool) {
         guard let capture, let sent, let http = response as? HTTPURLResponse,
             let rule = capture.sink.breakpoint(
                 method: sent.httpMethod ?? "GET", url: sent.url?.absoluteString ?? "", stage: .response)
-        else { return deliver(response, data) }
+        else { return deliver(response, data, whole: whole) }
         var hit = Appmonitor_V1_BreakpointHit()
         hit.ruleID = rule.id
         hit.stage = .response
         hit.request = startedEvent(sent, sentBody, mock: nil)
         hit.response = responseReceivedEvent(http, data, id: capture.id, masking: capture.masking, limit: capture.limit)
+        if !whole {
+            hit.response.bodyTruncated = true
+            if http.expectedContentLength >= 0 {
+                hit.response.bodySize = http.expectedContentLength
+            } else {
+                hit.response.clearBodySize()
+            }
+        }
         hit.timeoutMs = rule.timeoutMs
         hold(hit) { [self] outcome in
             switch outcome {
-            case .abort(let message): fail(connectionLost(message))
-            case .resume(nil): deliver(response, data)
+            case .abort(let message):
+                inner?.cancel()
+                spill = nil
+                fail(connectionLost(message))
+            case .resume(nil): deliver(response, whole ? data : body, whole: whole)
             case .resume(let changes?):
                 let status = changes.hasStatusCode ? Int(changes.statusCode) : http.statusCode
-                let fields = changes.applied(to: sortedHeaders(http.allHeaderFields))
+                let fields = changes.applied(to: sortedHeaders(http.allHeaderFields), masking: capture.masking)
                 let edited = HTTPURLResponse(
                     url: http.url ?? sent.url!, statusCode: status, httpVersion: "HTTP/1.1",
                     headerFields: headerFields(fields))!
-                deliver(edited, changes.hasBody ? changes.body : data)
+                if changes.hasBody {
+                    inner?.cancel()
+                    spill = nil
+                }
+                deliver(edited, changes.hasBody ? changes.body : whole ? data : body, whole: whole || changes.hasBody)
             }
         }
     }
 
-    private func deliver(_ response: URLResponse, _ data: Data) {
+    /// Hands `response` and `data` to the task; not `whole`, what was spilled follows, then the rest as it comes.
+    private func deliver(_ response: URLResponse, _ data: Data, whole: Bool = true) {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
-        finish()
+        if whole { return finish() }
+        if let spill {
+            self.spill = nil
+            do {
+                if let spillError { throw spillError }
+                try spill.readAll { client?.urlProtocol(self, didLoad: $0) }
+            } catch {
+                inner?.cancel()
+                inner = nil
+                return fail(error)
+            }
+        }
+        buffering = false
+        heldEarly = false
+        body = Data()
+        switch ended {
+        case .some(.some(let error)): fail(error)
+        case .some(.none): finish()
+        case .none: break
+        }
     }
 
     // MARK: - Helpers
+
+    /// The first failed write is kept: the body would reach the app with a gap.
+    private func write(_ data: Data, to spill: SpillStore) {
+        guard spillError == nil else { return }
+        do { try spill.write(data) } catch { spillError = error }
+    }
 
     private func hold(_ hit: Appmonitor_V1_BreakpointHit, _ go: @escaping (BreakpointOutcome) -> Void) {
         guard let capture else { return }
@@ -484,4 +562,45 @@ func responseReceivedEvent(_ response: HTTPURLResponse, _ data: Data, id: String
     event.bodySize = Int64(data.count)
     return event
 }
-#endif
+
+/// Where a held response's body past the capture limit waits; a write or read that throws fails the task.
+protocol SpillStore: AnyObject {
+    func write(_ data: Data) throws
+    /// Every byte written, in order, in chunks.
+    func readAll(_ chunk: (Data) -> Void) throws
+}
+
+/// A `SpillStore` in a temporary file deleted with this object.
+final class Spill: SpillStore {
+    private let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "appmonitor-held-\(UUID().uuidString)")
+    private let handle: FileHandle
+    private var written = 0
+
+    init?() {
+        guard FileManager.default.createFile(atPath: url.path, contents: nil),
+            let handle = try? FileHandle(forUpdating: url)
+        else { return nil }
+        self.handle = handle
+    }
+
+    deinit {
+        try? handle.close()
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    func write(_ data: Data) throws {
+        try handle.write(contentsOf: data)
+        written += data.count
+    }
+
+    func readAll(_ chunk: (Data) -> Void) throws {
+        try handle.seek(toOffset: 0)
+        var read = 0
+        while let data = try handle.read(upToCount: 1 << 20), !data.isEmpty {
+            read += data.count
+            chunk(data)
+        }
+        guard read == written else { throw URLError(.cannotOpenFile) }
+    }
+}

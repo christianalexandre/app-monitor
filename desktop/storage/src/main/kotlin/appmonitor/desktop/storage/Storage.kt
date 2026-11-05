@@ -26,7 +26,6 @@ import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -60,15 +59,15 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
 /**
- * The desktop's SQLite store (SDD 09). Writes go through one queue to one writer thread;
- * reads run on [Dispatchers.IO], each in its own transaction. Once [close] starts, reads return nothing and observed
- * queries end.
+ * The desktop's SQLite store. Writes go through one queue to one writer thread; reads run on [Dispatchers.IO], each in
+ * its own transaction. Once [close] starts, reads return nothing and observed queries end.
  */
 class Storage private constructor(
     /** The database file. */
     val file: Path,
     /** The run this launch opened (ADR-0084), [LiveTraffic.NO_RUN] when none; [clearAll] deletes it, [currentRun] follows. */
     val runId: Long,
+    internal val directoryLock: AutoCloseable,
     private val driver: JdbcSqliteDriver,
     private val database: AppMonitorDatabase,
     private val clock: () -> Long,
@@ -144,6 +143,9 @@ class Storage private constructor(
         }
     }
 
+    // Writer thread. Set by each prune, cleared by a pass that ends: a superseded pass leaves its cleanup to the next one.
+    private var cleanupDue = true
+
     // ADR-0082 D.1: at open, then every interval; close cancels it.
     private val retentionJob: Job? =
         retentionInterval?.let { interval ->
@@ -178,6 +180,13 @@ class Storage private constructor(
         envelope: Envelope,
     ) {
         queue.enqueue(StorageItem.Received(sessionId, envelope, clock()))
+    }
+
+    override suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) {
+        queue.enqueue(StorageItem.Dropped(sessionId, drops))
     }
 
     override suspend fun disconnected(sessionId: String) {
@@ -336,6 +345,14 @@ class Storage private constructor(
         queue.enqueue(StorageItem.DeleteMock(id))
     }
 
+    /** Queues swapping rule [id] with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun moveMock(
+        id: Long,
+        move: RuleMove,
+    ) {
+        queue.enqueue(StorageItem.MoveMock(id, move, clock()))
+    }
+
     /** Queues a breakpoint for [appId], last in its match order and on (ADR-0118). */
     suspend fun createBreakpoint(
         appId: String,
@@ -362,6 +379,14 @@ class Storage private constructor(
         return item.done.await()
     }
 
+    /** Queues swapping breakpoint [id] with its neighbour in its app's match order; nothing at either end (ADR-0180). */
+    suspend fun moveBreakpoint(
+        id: Long,
+        move: RuleMove,
+    ) {
+        queue.enqueue(StorageItem.MoveBreakpoint(id, move, clock()))
+    }
+
     /** Queues deleting breakpoint [id]. */
     suspend fun deleteBreakpoint(id: Long) {
         queue.enqueue(StorageItem.DeleteBreakpoint(id))
@@ -374,7 +399,7 @@ class Storage private constructor(
         applyRetention()
     }
 
-    /** The stored value of a `settings` key other than retention's (SDD 09); null when unset or the store is closing. */
+    /** The stored value of a `settings` key other than retention's; null when unset or the store is closing. */
     suspend fun setting(key: String): String? = read(null) { settingQueries.valueOf(key).executeAsOneOrNull() }
 
     /** Queues writing a `settings` key; [clearAll] deletes it with the rest. */
@@ -387,8 +412,7 @@ class Storage private constructor(
 
     /**
      * Deletes ended sessions outside named runs, oldest first, past the age bound, then down to 90 % of the size bound
-     * (ADR-0082), on the writer thread between batches; failures go to [retentionStatus]. Closing: the last status.
-     * A session holding an issue's exchange keeps it and its row, and loses the rest (ADR-0095 B.1).
+     * (ADR-0082, ADR-0095 B.1), between batches on the writer thread; failures in [retentionStatus]. Closing: its last.
      */
     suspend fun applyRetention(): RetentionStatus =
         whileOpen {
@@ -404,7 +428,7 @@ class Storage private constructor(
                     settings.maxAgeDays?.let { days ->
                         val before = now - days.days.inWholeMilliseconds
                         while (true) {
-                            val sessions = database.sessionQueries.prunable(before, AGE_CHUNK).executeAsList()
+                            val sessions = database.sessionQueries.prunable(before, PRUNE_CHUNK).executeAsList()
                             if (sessions.isEmpty()) break
                             database.transaction { sessions.forEach(::prune) }
                             deleted += sessions.count { !it.kept }
@@ -417,19 +441,21 @@ class Storage private constructor(
                     if (liveBytes() > settings.maxBytes) {
                         val target = settings.maxBytes / 10 * 9
                         while (liveBytes() > target) {
-                            val session = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
-                            database.transaction { prune(session) }
-                            if (!session.kept) deleted++
+                            val pruned = pruneDownTo(target)
+                            if (pruned.isEmpty()) break
+                            deleted += pruned.count { !it.kept }
                             afterRetentionChunk()
                             yield()
                             if (superseded()) return@whileOpen mutableRetentionStatus.value
                         }
                         database.runQueries.deleteEmptyBefore(Long.MAX_VALUE)
                     }
-                    // Also after nothing deleted: a superseded pass leaves its cleanup to the next one.
-                    database.transaction {
-                        database.deviceQueries.deleteUnused()
-                        database.appQueries.deleteUnused()
+                    if (cleanupDue) {
+                        database.transaction {
+                            database.deviceQueries.deleteUnused()
+                            database.appQueries.deleteUnused()
+                        }
+                        cleanupDue = false
                     }
                     releaseFreePages()
                     RetentionStatus(fileBytes(), liveBytes() > settings.maxBytes, now, deleted)
@@ -443,7 +469,20 @@ class Storage private constructor(
             status
         } ?: mutableRetentionStatus.value
 
+    // Measured per session, inside the transaction: a chunk must not delete past the target.
+    private fun pruneDownTo(target: Long): List<Prunable> =
+        database.transactionWithResult {
+            buildList {
+                while (size < PRUNE_CHUNK && liveBytes() > target) {
+                    val session = database.sessionQueries.prunable(Long.MAX_VALUE, 1).executeAsOneOrNull() ?: break
+                    prune(session)
+                    add(session)
+                }
+            }
+        }
+
     private fun prune(session: Prunable) {
+        cleanupDue = true
         if (session.kept) {
             database.exchangeQueries.deleteUnlinkedOfSession(session.id)
             database.rawEnvelopeQueries.deleteOfSession(session.id)
@@ -453,17 +492,16 @@ class Storage private constructor(
     }
 
     /**
-     * Deletes everything, issues and settings included, rewrites the file and opens a new run when [open] did (ADR-0088).
-     * Ends the recording. Connected sessions are forgotten: close them first. Failures go to [retentionStatus]; nothing is
-     * done once the store is closing.
+     * Deletes everything, issues and settings but [keepSettings] included, rewrites the file, opens a new run when [open] did and
+     * ends the recording (ADR-0088). Connected sessions are forgotten: close them first. Failures go to [retentionStatus].
      */
-    suspend fun clearAll() {
+    suspend fun clearAll(keepSettings: Set<String> = emptySet()) {
         flush()
         whileOpen {
             clears++
             val error =
                 try {
-                    ingest.clear(clock())
+                    ingest.clear(clock(), keepSettings)
                     driver.execute(null, "VACUUM", 0)
                     null
                 } catch (e: Exception) {
@@ -493,15 +531,17 @@ class Storage private constructor(
     private fun fileBytes(): Long = (pragma("page_count") ?: 0) * (pragma("page_size") ?: 0)
 
     /**
-     * Ends the run, writes what is queued for up to [timeout] and returns how many items were lost (SDD 09); a batch
-     * still being written keeps the file open until it ends.
+     * Ends the run, writes what is queued for up to [timeout] and returns how many items were lost, disconnects still
+     * waiting for a retry included; a batch still being written keeps the file open until it ends.
      */
     suspend fun close(timeout: Duration): Long {
         val start = TimeSource.Monotonic.markNow()
         closing.value = true
-        retentionJob?.cancelAndJoin()
-        withTimeoutOrNull(timeout) { queue.enqueue(StorageItem.EndRun(clock())) }
-        val lost = queue.close(timeout - start.elapsedNow())
+        // A pass queued on the writer behind a long batch ends only when the writer reaches it.
+        retentionJob?.cancel()
+        withTimeoutOrNull(timeout) { retentionJob?.join() }
+        withTimeoutOrNull(timeout - start.elapsedNow()) { queue.enqueue(StorageItem.EndRun(clock())) }
+        val lost = queue.close(timeout - start.elapsedNow()) + ingest.lostDisconnectCount
         if (lost > 0) System.err.println("Storage closed with $lost items not saved")
         if (queue.fullWaits > 0) System.err.println("Storage queue was full ${queue.fullWaits} times: sessions waited for the disk")
         // On the writer thread, behind what is queued there: no call runs on a closed driver.
@@ -517,6 +557,7 @@ class Storage private constructor(
             writerDispatcher.close()
         }
         withTimeoutOrNull(timeout - start.elapsedNow()) { driverClosed.await() }
+        directoryLock.close()
         return lost
     }
 
@@ -526,6 +567,7 @@ class Storage private constructor(
             withContext(writerDispatcher) { if (closing.value) null else block() }
         } catch (e: CancellationException) {
             currentCoroutineContext().ensureActive()
+            if (!closing.value) throw e
             null
         }
 
@@ -641,7 +683,7 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): List<StoredExchange> = read(emptyList()) { exchangeSearch(driver, filter, afterId, limit).executeAsList() }
 
-    /** [searchExchanges] with the stored size of each exchange's bodies (`endpoint_stats`, SDD 10). */
+    /** [searchExchanges] with the stored size of each exchange's bodies (`endpoint_stats`). */
     suspend fun searchExchangeSizes(
         filter: ExchangeFilter,
         afterId: Long = 0,
@@ -799,12 +841,12 @@ class Storage private constructor(
         internal const val MAX_BATCH = 500
         internal const val WRITER_THREAD = "appmonitor-storage"
         val RETENTION_INTERVAL = 10.minutes
-        internal const val AGE_CHUNK = 50L
+        internal const val PRUNE_CHUNK = 50L
         private const val VACUUM_CHUNK = 1_000L
 
         /**
-         * Opens or creates `appmonitor.db` in [directory] and opens a new run unless not [startRun] (SDD 09, ADR-0142).
-         * Blocking; throws [NewerDatabaseException] for a file a newer App Monitor wrote, untouched.
+         * Opens or creates `appmonitor.db` in [directory], and a new run if [startRun] (ADR-0142). Blocking; throws
+         * [NewerDatabaseException], the file untouched, and [DataDirectoryInUseException] (ADR-0175).
          */
         fun open(
             directory: Path,
@@ -822,10 +864,12 @@ class Storage private constructor(
             beforeCommit: (List<StorageItem>) -> Unit,
         ): Storage {
             val file = createOwnerOnly(directory)
-            val url = "jdbc:sqlite:$file"
-            prepare(url)
-            val driver = JdbcSqliteDriver(url, connectionProperties())
+            val directoryLock = DataDirectoryLock.acquire(directory)
+            var driver: JdbcSqliteDriver? = null
             try {
+                val url = "jdbc:sqlite:$file"
+                prepare(url)
+                driver = JdbcSqliteDriver(url, connectionProperties())
                 val database = AppMonitorDatabase(driver)
                 val runId =
                     database.transactionWithResult {
@@ -841,14 +885,26 @@ class Storage private constructor(
                         database.runQueries.closeOpen()
                         if (startRun) {
                             database.runQueries.insert(clock())
-                            database.runQueries.lastId().executeAsOne()
+                            database.insertedQueries.lastId().executeAsOne()
                         } else {
                             LiveTraffic.NO_RUN
                         }
                     }
-                return Storage(file, runId, driver, database, clock, maxQueueBytes, retentionInterval, afterRetentionChunk, beforeCommit)
+                return Storage(
+                    file,
+                    runId,
+                    directoryLock,
+                    driver,
+                    database,
+                    clock,
+                    maxQueueBytes,
+                    retentionInterval,
+                    afterRetentionChunk,
+                    beforeCommit,
+                )
             } catch (e: Throwable) {
-                driver.close()
+                driver?.close()
+                directoryLock.close()
                 throw e
             }
         }
@@ -917,6 +973,7 @@ private fun Sessions.toStored() =
         connectedAtMs = connected_at_ms,
         disconnectedAtMs = disconnected_at_ms,
         lastEnvelopeAtMs = last_envelope_at_ms,
+        drops = storedDrops(drops_evicted, drops_oversized, drops_lost),
     )
 
 private fun OfRun.toStored() =
@@ -929,7 +986,14 @@ private fun OfRun.toStored() =
         connectedAtMs = connected_at_ms,
         disconnectedAtMs = disconnected_at_ms,
         lastEnvelopeAtMs = last_envelope_at_ms,
+        drops = storedDrops(drops_evicted, drops_oversized, drops_lost),
     )
+
+private fun storedDrops(
+    evicted: Long?,
+    oversized: Long?,
+    lost: Long?,
+) = if (evicted == null || oversized == null) null else StoredDrops(evicted, oversized, lost)
 
 /** `appmonitor.db` was written by a newer App Monitor; nothing was written to it. */
 class NewerDatabaseException(
@@ -1002,7 +1066,19 @@ data class StoredSession(
     val connectedAtMs: Long,
     val disconnectedAtMs: Long?,
     val lastEnvelopeAtMs: Long?,
+    /** Its latest `DeliveryReport`'s counts; null before one, or from an SDK that sends none (ADR-0166). */
+    val drops: StoredDrops? = null,
 )
+
+/** What a device's SDK dropped since it started: full buffer, too large, written and not read; [lost] null when unknown (ADR-0166). */
+data class StoredDrops(
+    val evicted: Long,
+    val oversized: Long,
+    val lost: Long?,
+) {
+    /** True when any count is above zero; an unknown [lost] alone is not. */
+    val any: Boolean get() = evicted > 0 || oversized > 0 || (lost ?: 0) > 0
+}
 
 /** The columns lists and filters read; no body, no headers. */
 data class StoredExchange(
@@ -1069,9 +1145,8 @@ data class StoredExchange(
 }
 
 /**
- * [request] and [response] are the events as received, bodies restored; null until that event is stored.
- * [mockRuleName] is null when the exchange was not mocked or its rule is no longer stored; [replayOfId] when it is
- * not a replay or its original is no longer stored.
+ * [request] and [response] are the events as received, bodies restored, null until stored. [mockRuleName] is null when
+ * not mocked or its rule is no longer stored; [replayOfId] when not a replay or its original is no longer stored.
  */
 data class ExchangeDetail(
     val exchange: StoredExchange,
@@ -1079,6 +1154,8 @@ data class ExchangeDetail(
     val response: ResponseReceived?,
     val mockRuleName: String? = null,
     val replayOfId: Long? = null,
+    /** Frames the source still holds; null when it holds all of `frame_count` (the store). */
+    val framesKept: Long? = null,
 ) {
     /** The bytes a connection moved, null for any other layer; each count null until it closed (ADR-0103). */
     val connectionBytes: ConnectionBytes?

@@ -2,6 +2,8 @@ package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.MASK
 import appmonitor.v1.BreakpointResume
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage
@@ -11,17 +13,28 @@ import appmonitor.v1.MockRule
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import okio.ByteString.Companion.encodeUtf8
@@ -29,6 +42,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -91,7 +105,7 @@ class BreakpointTest {
             assertEquals("Bearer real", out.headers[HttpHeaders.Authorization])
             assertEquals("yes", out.headers["X-Edited"])
             assertNull(out.headers["X-Drop"])
-            assertEquals("edited", (out.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
+            assertEquals("edited", out.body.toByteArray().decodeToString())
             val started = sink.started()
             assertEquals(hit.request!!.request_id, started.request_id)
             assertEquals("https://api.example.com/items/2", started.url)
@@ -110,6 +124,83 @@ class BreakpointTest {
             assertTrue(sent.isEmpty())
             sink.started()
             assertContains(sink.failed().error, "stopped here")
+        }
+
+    @Test
+    fun whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() =
+        runTest {
+            val sink =
+                RecordingSink(
+                    options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                    breakpoints = listOf(rule("/items", request = true)),
+                ) { hit ->
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = hit.request!!.request_id,
+                            stage = request,
+                            url = hit.request!!.url.replace("id=1", "id=2"),
+                            set_headers = listOf(Header("Cookie", MASK), Header("Cookie", "new")),
+                        ),
+                    )
+                }
+
+            client(sink)
+                .get("https://api.example.com/items?token=real&id=1") {
+                    header("Cookie", "a=1")
+                    header("Cookie", "b=2")
+                }.bodyAsText()
+
+            assertEquals(
+                "https://api.example.com/items?token=$MASK&id=1",
+                sink.hits
+                    .single()
+                    .request!!
+                    .url,
+            )
+            val out = sent.single()
+            assertEquals("https://api.example.com/items?token=real&id=2", out.url.toString())
+            assertEquals(listOf("a=1", "new"), out.headers.getAll("Cookie"))
+            assertEquals("https://api.example.com/items?token=$MASK&id=2", sink.started().url)
+        }
+
+    @Test
+    fun anEditedUrlReplacesTheQueryFragmentAndUserInfo() =
+        runTest {
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = request,
+                            url = "https://api.example.com/items?b=2",
+                        ),
+                    )
+                }
+
+            client(sink).get("https://user@api.example.com/items?a=1#top").bodyAsText()
+
+            assertEquals("https://api.example.com/items?b=2", sent.single().url.toString())
+        }
+
+    @Test
+    fun aRefusedEditDoesNotTellTheDesktopWhatItRestored() =
+        runTest {
+            val sink =
+                RecordingSink(
+                    options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                    breakpoints = listOf(rule("/items", request = true)),
+                ) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(request_id = it.request!!.request_id, stage = request, url = "https://h:port/?token=$MASK"),
+                    )
+                }
+
+            val error = assertFailsWith<IOException> { client(sink).get("https://api.example.com/items?token=real") }
+
+            assertContains(error.message!!, "not a URL")
+            assertFalse("real" in error.message!!)
+            sink.started()
+            assertFalse("real" in sink.failed().error)
         }
 
     @Test
@@ -160,6 +251,27 @@ class BreakpointTest {
         }
 
     @Test
+    fun aResponseHeaderKtorRefusesFailsTheCallWithItsReason() =
+        runTest {
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", response = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = response,
+                            set_headers = listOf(Header("X Foo", "1")),
+                        ),
+                    )
+                }
+
+            val error = assertFailsWith<IOException> { client(sink).get("https://api.example.com/items") }
+
+            assertContains(error.message!!, "Breakpoint edit refused: ")
+            sink.started()
+            assertContains(sink.failed().error, "Breakpoint edit refused: ")
+        }
+
+    @Test
     fun aResponseWithOnlyItsStatusChangedKeepsItsBody() =
         runTest {
             val sink =
@@ -200,5 +312,107 @@ class BreakpointTest {
             )
             assertEquals(9L, sink.started().mock_rule_id)
             assertEquals(404, sink.received().status_code)
+        }
+
+    @Test
+    fun aStreamedBodyTakesTheEditOfItsOwnHeadersAndType() =
+        runTest {
+            val body =
+                object : OutgoingContent.WriteChannelContent() {
+                    override val contentType = ContentType.Text.Plain
+                    override val headers = headersOf("X-Own", "kept")
+
+                    override suspend fun writeTo(channel: ByteWriteChannel) = channel.writeStringUtf8("streamed")
+                }
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(
+                            request_id = it.request!!.request_id,
+                            stage = request,
+                            set_headers = listOf(Header("X-Own", "edited"), Header("Content-Type", "application/json")),
+                        ),
+                    )
+                }
+
+            client(sink).post("https://api.example.com/items") { setBody(body) }.bodyAsText()
+
+            val out = sent.single()
+            assertEquals("application/json", out.body.contentType.toString())
+            assertEquals("edited", out.body.headers["X-Own"])
+            assertEquals("streamed", out.body.toByteArray().decodeToString())
+            val started = sink.started()
+            assertEquals(listOf("edited"), started.headers.filter { it.name == "X-Own" }.map { it.value_ })
+            assertEquals(listOf("application/json"), started.headers.filter { it.name == "Content-Type" }.map { it.value_ })
+        }
+
+    @Test
+    fun anEditedBodyKeepsTheHeadersItsContentCarried() =
+        runTest {
+            val carrying =
+                object : OutgoingContent.ByteArrayContent() {
+                    override val contentType = ContentType.Text.Plain
+                    override val headers = headersOf("X-Own", "kept")
+
+                    override fun bytes() = "original".encodeToByteArray()
+                }
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    BreakpointOutcome.Resume(
+                        BreakpointResume(request_id = it.request!!.request_id, stage = request, body = "edited".encodeUtf8()),
+                    )
+                }
+
+            client(sink).post("https://api.example.com/items") { setBody(carrying) }.bodyAsText()
+
+            val out = sent.single()
+            assertEquals("edited", out.body.toByteArray().decodeToString())
+            assertEquals(6L, out.body.contentLength)
+            assertEquals("kept", out.body.headers["X-Own"])
+            assertEquals(
+                "text/plain",
+                out.body.contentType
+                    ?.withoutParameters()
+                    .toString(),
+            )
+        }
+
+    @Test
+    fun aReplacedStreamedBodyLetsItsOriginalGo() =
+        runTest {
+            val original = ByteChannel(autoFlush = true)
+            val streaming =
+                HttpClient(
+                    MockEngine { respond(original, HttpStatusCode.OK) },
+                ) { install(appMonitorKtor(replacingSink(), marksCaptured = false)) }
+
+            val read = streaming.prepareGet("https://api.example.com/items").execute { it.bodyAsText() }
+
+            assertEquals("edited", read)
+            assertTrue(original.isClosedForWrite, "the engine's writer sees the body is not wanted")
+        }
+
+    private fun replacingSink() =
+        RecordingSink(breakpoints = listOf(rule("/items", response = true))) {
+            BreakpointOutcome.Resume(BreakpointResume(request_id = it.request!!.request_id, stage = response, body = "edited".encodeUtf8()))
+        }
+
+    @Test
+    fun aHeldCallTheAppCancelsFails() =
+        runTest {
+            val held = CompletableDeferred<Unit>()
+            val sink =
+                RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
+                    held.complete(Unit)
+                    awaitCancellation()
+                }
+
+            val call = launch(Dispatchers.Default) { client(sink).get("https://api.example.com/items") }
+            held.await()
+            call.cancelAndJoin()
+
+            assertTrue(sent.isEmpty())
+            val started = sink.started()
+            assertEquals(started.request_id, sink.failed().request_id)
         }
 }

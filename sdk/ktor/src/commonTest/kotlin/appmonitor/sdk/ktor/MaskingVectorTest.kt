@@ -1,6 +1,7 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.Masking
 import appmonitor.v1.Header
 import io.ktor.http.URLBuilder
 import kotlinx.serialization.json.Json
@@ -12,18 +13,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 // The same vector is read by sdk/ios MaskingTests and sdk/android-okhttp (ADR-0036 A).
 class MaskingVectorTest {
-    private val cases: List<JsonObject> =
-        Json
-            .parseToJsonElement(MASKING_VECTOR)
-            .jsonObject
-            .getValue("cases")
-            .jsonArray
-            .map { it.jsonObject }
+    private val vector = Json.parseToJsonElement(MASKING_VECTOR).jsonObject
+    private val cases: List<JsonObject> = vector.getValue("cases").jsonArray.map { it.jsonObject }
+    private val restores: List<JsonObject> = vector.getValue("restores").jsonArray.map { it.jsonObject }
 
     @Test
     fun everyCaseMasksAsTheVectorSays() {
@@ -47,29 +43,21 @@ class MaskingVectorTest {
     }
 
     @Test
-    fun relativeReferencesResolveByRfc3986() {
-        val base = "https://a.example/b/c/d;p?q"
-        // RFC 3986 5.4.1 and 5.4.2.
-        for ((reference, resolved) in listOf(
-            "g" to "https://a.example/b/c/g",
-            "./g" to "https://a.example/b/c/g",
-            "g/" to "https://a.example/b/c/g/",
-            "/g" to "https://a.example/g",
-            "//g" to "https://g",
-            "?y" to "https://a.example/b/c/d;p?y",
-            "g?y" to "https://a.example/b/c/g?y",
-            "#s" to "https://a.example/b/c/d;p?q#s",
-            "" to "https://a.example/b/c/d;p?q",
-            ".." to "https://a.example/b/",
-            "../../../g" to "https://a.example/g",
-            "/./g" to "https://a.example/g",
-            "g/../h" to "https://a.example/b/c/h",
-        )) {
-            assertEquals(resolved, resolve(base, reference), reference)
+    fun everyRestoreGoesBackAsTheVectorSays() {
+        assertTrue(restores.isNotEmpty())
+        for (case in restores) {
+            val name = case.string("name")
+            val masking =
+                Masking(
+                    AppMonitorOptions(
+                        maskedHeaders = case.strings("maskedHeaders"),
+                        maskedQueryParameters = case.strings("maskedQueryParameters"),
+                        masking = case["masking"]?.jsonPrimitive?.boolean ?: true,
+                    ),
+                )
+            assertEquals(case.string("restoredUrl"), masking.restoredUrl(case.string("editedUrl"), case.string("url")), name)
+            assertEquals(case.pairs("restoredHeaders"), masking.restoredHeaders(case.headers("editedHeaders"), case.pairs("headers")), name)
         }
-        assertNull(resolve(base, "http://h/x"))
-        assertNull(resolve(base, "//user:pw@h:p/x"))
-        assertNull(resolve(base, "//h:70000/x"))
     }
 
     private fun JsonObject.string(key: String) = getValue(key).jsonPrimitive.content

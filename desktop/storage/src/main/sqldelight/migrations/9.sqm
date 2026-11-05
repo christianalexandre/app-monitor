@@ -1,0 +1,4 @@
+DROP INDEX exchanges_session_ref_id;
+CREATE INDEX exchanges_session_ref_id_url ON exchanges(session_ref, id, url);
+CREATE INDEX exchanges_id_url ON exchanges(id, url);
+CREATE INDEX exchanges_failed ON exchanges(id, session_ref) WHERE failed = 1;

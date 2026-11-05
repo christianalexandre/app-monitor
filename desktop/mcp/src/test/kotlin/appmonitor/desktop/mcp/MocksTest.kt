@@ -1,5 +1,6 @@
 package appmonitor.desktop.mcp
 
+import appmonitor.desktop.domain.MockRepository
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
 import appmonitor.v1.Header
@@ -18,6 +19,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.seconds
+import appmonitor.desktop.domain.MockSource as DomainMockSource
+import appmonitor.desktop.domain.MockWrite as DomainMockWrite
 
 class MocksTest {
     @Test
@@ -134,6 +137,40 @@ class MocksTest {
             }
             assertEquals(emptyList(), running.storage.mocks())
         }
+
+    @Test
+    fun aRuleCommittedAsTheStoreClosesIsAnsweredSaved() {
+        var committed: DomainMockWrite? = null
+        withServer(wrap = { storage, repositories ->
+            val base = repositories.mocks
+            val closing =
+                object : MockRepository by base {
+                    override suspend fun create(
+                        appId: String,
+                        name: String,
+                        rule: MockRule,
+                        source: DomainMockSource,
+                    ) = base.create(appId, name, rule, source).also {
+                        committed = it
+                        storage.close(5.seconds)
+                    }
+                }
+            McpRepositories(repositories.runs, repositories.queries, repositories.benchmarks, repositories.issues, closing)
+        }) { running ->
+            val result =
+                running.client {
+                    it.callTool(CreateMock.NAME, mapOf("app_id" to APP, "name" to "n", "host" to "h", "path" to "/", "status_code" to 200))
+                }
+
+            assertEquals(false, result.isError ?: false, result.text)
+            assertEquals(
+                assertIs<DomainMockWrite.Saved>(committed).id,
+                result.json["mock"]!!
+                    .jsonObject["id"]!!
+                    .jsonPrimitive.long,
+            )
+        }
+    }
 
     @Test
     fun aCreateWhileTheStoreClosesIsAnError() =

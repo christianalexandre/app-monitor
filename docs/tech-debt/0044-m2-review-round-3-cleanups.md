@@ -1,10 +1,10 @@
 ---
 id: DEBT-0044
 title: Non-correctness findings of the third M2 milestone review
-status: Open
+status: Paid
 date: 2026-10-23
 trigger: The next PR that changes the masking in `Masking.swift` or `sdk/android-okhttp/src/commonMain/kotlin/appmonitor/sdk/okhttp/Capture.kt` (the `Masking` class), or `protocol/fixtures/masking.json`
-paid_date:
+paid_date: 2026-11-03
 ---
 
 # DEBT-0044 — Non-correctness findings of the third M2 milestone review
@@ -47,4 +47,12 @@ whose masking is DEBT-0055.
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Paid by PLAN-0015 H5.6, which changed the masking in `Masking.swift`. The
+vector gained an `@` in the path, a value with no path, and a scheme with
+every character it may hold; each SDK passes them, so the two `userInfo`
+cannot drift on those. The one rule is written once in SDD 05.
+
+Left: `not a url?code=1` is not in the vector, because parsers disagree on
+it and no output is common: Foundation below iOS 17 refuses it, later ones
+and OkHttp resolve it. `code` is masked in each, which `URLSessionCaptureTests`
+pins for iOS. The two parsers stay hand-written.

@@ -80,6 +80,27 @@ class IngestTest {
         }
 
     @Test
+    fun theHeadersARequestWentOutWithReplaceItsStartedOnes() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir)
+            val sent = listOf(Header("Accept", "application/json"), Header("User-Agent", "Sample/1 CFNetwork"))
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                storage.received("s1", envelope(started("r1", body = "{}".encodeUtf8())))
+                storage.received("s1", envelope(ResponseReceived(request_id = "r1", status_code = 200, request_headers = sent)))
+                storage.received("s1", envelope(started("r2")))
+                storage.received("s1", envelope(ResponseReceived(request_id = "r2", status_code = 200)))
+                storage.flush()
+
+                val (first, second) = storage.exchangesOfRun(storage.runId).map { storage.exchange(it.id)!! }
+                assertEquals(started("r1", body = "{}".encodeUtf8()).copy(headers = sent), first.request)
+                assertEquals(emptyList(), first.response!!.request_headers)
+                assertEquals(started("r2"), second.request, "none sent: the started headers kept")
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun eventBeforeStartCreatesExchange() =
         withDataDir { dir ->
             val storage = Storage.open(dir)

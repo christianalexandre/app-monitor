@@ -1,6 +1,7 @@
 package appmonitor.desktop.server
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.HelloAck
@@ -15,10 +16,13 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.ByteString.Companion.toByteString
@@ -30,6 +34,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AppMonitorServerTest {
@@ -50,6 +55,15 @@ class AppMonitorServerTest {
 
             withTimeout(TIMEOUT_MS) {
                 val session = async { server!!.sessions.first() }
+                // Collected meanwhile: the server answers the client's close once it delivered what came before.
+                val received =
+                    async {
+                        session
+                            .await()
+                            .envelopes
+                            .take(100)
+                            .toList()
+                    }
                 val ack =
                     connect(port) {
                         send(Frame.Binary(true, hello.encode()))
@@ -63,12 +77,13 @@ class AppMonitorServerTest {
                 val helloAck = HelloAck.ADAPTER.decode(ack.payload)
                 assertEquals(Protocol.VERSION, helloAck.protocol_version)
                 assertEquals(listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK), helloAck.channels)
+                assertEquals("", helloAck.desktop_id)
 
                 val device = session.await()
                 assertEquals(helloAck.session_id, device.id)
                 assertEquals("device-0001", device.hello.device_id)
                 assertEquals("127.0.0.1", device.peerAddress)
-                assertEquals(sent, device.envelopes.take(100).toList())
+                assertEquals(sent, received.await())
             }
         }
 
@@ -131,11 +146,28 @@ class AppMonitorServerTest {
             assertEquals(CloseReason.Codes.PROTOCOL_ERROR.code, reason?.code)
         }
 
+    // ADR-0168: the id a device pins.
+    @Test
+    fun `the HelloAck carries the desktop id`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false, desktopId = DESKTOP_ID))
+            val ack =
+                withTimeout(TIMEOUT_MS) {
+                    connect(port) {
+                        send(Frame.Binary(true, hello.encode()))
+                        receiveEnvelope()
+                    }
+                }
+
+            assertEquals(DESKTOP_ID, HelloAck.ADAPTER.decode(ack.payload).desktop_id)
+        }
+
     @Test
     fun `advertised service resolves over mdns`() =
         runBlocking {
-            val port = start(ServerConfig(host = "0.0.0.0", port = 0, serviceName = SERVICE_NAME))
-            val address = server!!.advertisedAddresses.firstOrNull()
+            val port = start(ServerConfig(host = "0.0.0.0", port = 0, serviceName = SERVICE_NAME, desktopId = DESKTOP_ID))
+            // A link-local interface (a phone on USB) can come first, and JmDNS resolves nothing on it.
+            val address = server!!.advertisedAddresses.let { all -> all.firstOrNull { !it.isLinkLocalAddress } ?: all.firstOrNull() }
             assertNotNull(address, "No multicast-capable LAN address to advertise on")
 
             // A distinct host name: sharing the advertiser's makes the two JmDNS instances conflict.
@@ -143,7 +175,9 @@ class AppMonitorServerTest {
                 val info = withTimeout(TIMEOUT_MS) { browser.resolve(SERVICE_NAME) }
                 assertEquals(port, info.port)
                 assertEquals(Protocol.WEBSOCKET_PATH, info.getPropertyString("path"))
+                assertEquals(DESKTOP_ID, info.getPropertyString(Protocol.MDNS_TXT_ID))
                 assertTrue(info.inetAddresses.isNotEmpty())
+                assertTrue(info.server.startsWith("appmonitor-"), info.server)
             }
         }
 
@@ -165,6 +199,87 @@ class AppMonitorServerTest {
         return resolved.await()
     }
 
+    // ADR-0166: frames a session's device wrote that this desktop never read are lost, summed over the SDK's sessions.
+    @Test
+    fun `a delivery report counts what the previous session wrote and was never read as lost`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+            withTimeout(TIMEOUT_MS) {
+                val first = session(port, report(), requestStarted("req-1"), requestStarted("req-2"))
+                assertEquals(Drops(0, 0, 0), first.drops.value)
+
+                val second = session(port, report(evicted = 4, oversized = 1, previous = first.id, written = 5))
+                assertEquals(Drops(4, 1, 2), second.drops.value)
+
+                val third = session(port, report(evicted = 4, oversized = 1, previous = second.id, written = 1))
+                assertEquals(Drops(4, 1, 2), third.drops.value)
+
+                assertNull(session(port, report(previous = "another-desktop", written = 1)).drops.value?.lost)
+                assertNull(session(port, requestStarted("req-3")).drops.value)
+            }
+        }
+
+    // ADR-0172: a device back within seconds finds its old socket still open here.
+    @Test
+    fun `a reconnect's lost count settles when its previous session closes`() =
+        runBlocking {
+            val port = start(ServerConfig(host = "127.0.0.1", port = 0, advertise = false))
+            withTimeout(TIMEOUT_MS) {
+                val leave = CompletableDeferred<Unit>()
+                val first = openSession(port, leave, report(), requestStarted("req-1"))
+                first.first.drops.first { it != null }
+                first.first.envelopes
+                    .take(2)
+                    .toList()
+
+                val second =
+                    openSession(port, CompletableDeferred(), report(evicted = 4, oversized = 1, previous = first.first.id, written = 5))
+                assertEquals(Drops(4, 1, null), second.first.drops.first { it != null })
+
+                leave.complete(Unit)
+                assertEquals(Drops(4, 1, 3), second.first.drops.first { it?.lost != null })
+                second.second.cancel()
+            }
+        }
+
+    // A session left open until [leave]: the desktop has it once this returns, and the job holds its socket.
+    private suspend fun CoroutineScope.openSession(
+        port: Int,
+        leave: CompletableDeferred<Unit>,
+        vararg frames: Envelope,
+    ): Pair<DeviceSession, Job> {
+        val published = async { server!!.sessions.first() }
+        val socket =
+            launch {
+                connect(port) {
+                    send(Frame.Binary(true, hello.encode()))
+                    receiveEnvelope()
+                    frames.forEach { send(Frame.Binary(true, it.encode())) }
+                    leave.await()
+                }
+            }
+        return published.await() to socket
+    }
+
+    // One whole session: Hello, then [frames] read by the desktop, then a normal close; returns once the desktop ended it.
+    private suspend fun CoroutineScope.session(
+        port: Int,
+        vararg frames: Envelope,
+    ): DeviceSession {
+        val published = async { server!!.sessions.first() }
+        connect(port) {
+            send(Frame.Binary(true, hello.encode()))
+            receiveEnvelope()
+            frames.forEach { send(Frame.Binary(true, it.encode())) }
+            published
+                .await()
+                .envelopes
+                .take(frames.size)
+                .toList()
+        }
+        return published.await().also { it.envelopes.toList() }
+    }
+
     private suspend fun start(config: ServerConfig): Int = AppMonitorServer(config).also { server = it }.start()
 
     private suspend fun <T> connect(
@@ -183,6 +298,7 @@ class AppMonitorServerTest {
 
     private companion object {
         const val TIMEOUT_MS = 10_000L
+        const val DESKTOP_ID = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
         val SERVICE_NAME = "AppMonitor test ${ProcessHandle.current().pid()}"
 
         val hello =
@@ -196,6 +312,17 @@ class AppMonitorServerTest {
                     channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, "unknown"),
                 ).encode(),
             )
+
+        fun report(
+            evicted: Long = 0,
+            oversized: Long = 0,
+            previous: String = "",
+            written: Long = 0,
+        ) = envelope(
+            Protocol.CHANNEL_CORE,
+            "DeliveryReport",
+            DeliveryReport(evicted, oversized, previous, written).encode(),
+        )
 
         fun requestStarted(id: String) =
             envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", RequestStarted(request_id = id, method = "GET").encode())

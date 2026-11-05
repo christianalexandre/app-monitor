@@ -59,6 +59,7 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
+import appmonitor.desktop.domain.appLabel
 import appmonitor.desktop.domain.durationOf
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.statusOf
@@ -91,7 +92,7 @@ data class TrafficLinks(
     val onMock: (HttpExchange) -> Unit = {},
 )
 
-/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog (SDD 09). */
+/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog. */
 @Composable
 fun TrafficScreen(
     links: TrafficLinks,
@@ -346,7 +347,7 @@ private fun DeviceList(
                     Modifier.fillMaxWidth().selectableItem(session.id == state.session?.id) { onSelect(session.id) }.padding(Spacing.lg),
                 ) {
                     Text(hello.device_name, role = TextRole.BodyStrong)
-                    Text("${hello.app_id} ${hello.app_version}", role = TextRole.Caption)
+                    Text("${hello.appLabel} ${hello.app_version}", role = TextRole.Caption)
                     val refused = state.refuses(session)
                     Text(
                         "${hello.os_version} · ${when {
@@ -356,6 +357,9 @@ private fun DeviceList(
                         }}",
                         role = TextRole.Caption,
                     )
+                    session.drops?.takeIf { it.any }?.let { drops ->
+                        Text(dropsLabel(drops), Modifier.testTag(DROPS + session.id), error = true, role = TextRole.Caption)
+                    }
                     if (state.canDisconnect && state.runs.shownRunId == null && !refused && session.disconnectedAtMs == null) {
                         TextButton("Disconnect", onClick = { viewModel.disconnect(session) }, Modifier.testTag(DISCONNECT + session.id))
                     }
@@ -368,7 +372,7 @@ private fun DeviceList(
                 Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(device.hello.device_name, role = TextRole.BodyStrong)
-                        Text(device.appId, role = TextRole.Caption)
+                        Text(device.hello.appLabel, role = TextRole.Caption)
                     }
                     TextButton(
                         "Reconnect",

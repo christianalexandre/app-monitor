@@ -2,7 +2,7 @@ package appmonitor.desktop.domain
 
 import java.io.File
 
-/** Method, lower-cased host and the URL's path without scheme, query or fragment (SDD 09). */
+/** Method, lower-cased host and the URL's path without scheme, query or fragment. */
 data class Endpoint(
     val method: String?,
     val host: String?,
@@ -47,7 +47,7 @@ data class EndpointChange(
     val run: EndpointStats,
 )
 
-/** Two runs compared per endpoint, as `diff_runs` does (SDD 09). */
+/** Two runs compared per endpoint, as `diff_runs` does. */
 data class EndpointDiff(
     val added: List<EndpointStats>,
     val gone: List<EndpointStats>,
@@ -85,7 +85,7 @@ const val MIN_MOVE_MS = 10L
 /** See [MIN_MOVE_MS]. */
 const val MIN_MOVE_PERCENT = 20L
 
-/** Per endpoint numbers of the stored exchanges, as `endpoint_stats` and `diff_runs` read them (SDD 10). */
+/** Per endpoint numbers of the stored exchanges, as `endpoint_stats` and `diff_runs` read them. */
 interface BenchmarkRepository {
     /** The exchanges [filter] matches, at most [maxExchanges] of them, grouped per endpoint. */
     suspend fun endpoints(
@@ -124,7 +124,7 @@ sealed interface HarWrite {
     ) : HarWrite
 }
 
-/** `export_har`'s log of what a filter matches, written to a file the developer picked (SDD 10). */
+/** `export_har`'s log of what a filter matches, written to a file the developer picked. */
 interface HarRepository {
     suspend fun write(
         filter: ExchangeFilter,

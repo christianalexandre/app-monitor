@@ -1,10 +1,10 @@
 ---
 id: DEBT-0081
 title: Non-correctness findings of the M8 milestone review
-status: Open
+status: Paid
 date: 2026-10-25
-trigger: "The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`, `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt` or `sdk/ios/Sources/AppMonitorConnections/connections.c`"
-paid_date:
+trigger: "The next PR that touches `sdk/ios/Sources/AppMonitorConnections/connections.c` or the two `statusOf` in `desktop/app/src/main/kotlin/appmonitor/desktop/app/App.kt`"
+paid_date: 2026-11-04
 ---
 
 # DEBT-0081 — Non-correctness findings of the M8 milestone review
@@ -59,12 +59,9 @@ normal debug session, and the plan closes without a seventh task.
 
 ## Trigger
 
-The next PR that touches `desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/ClientHandler.kt`,
-`desktop/proxy/src/main/kotlin/appmonitor/desktop/proxy/Http2Relay.kt`,
-`desktop/app/src/main/kotlin/appmonitor/desktop/app/store/ProxyController.kt`,
-`sdk/ios/Sources/AppMonitorConnections/connections.c`,
-`sdk/ios/Sources/AppMonitor/ConnectionCapture.swift` or
-`scripts/e2e_ios.sh`: that PR pays the item of the file it touches.
+The next PR that touches `sdk/ios/Sources/AppMonitorConnections/connections.c`
+or the two `statusOf` in `desktop/app/src/main/kotlin/appmonitor/desktop/app/App.kt`:
+that PR pays the item of the file it touches. PLAN-0016 H6.5 pays both.
 
 ## How it was paid
 
@@ -97,3 +94,17 @@ Windows gate did). Its two items here, the early answer and the relay's
 backpressure, change how requests and responses flow and are not mixed
 into a release gate fix: for `ClientHandler.kt` the trigger becomes the
 next PR that changes `responseEnded`, `content` or `forward`.
+
+`ClientHandler.kt` and `Http2Relay.kt` paid in `fix/proxy-flow-and-cut-exchanges`
+(ADR-0191): a response ending before its request reads and drops the rest of
+the body and closes the upstream connection; each side is read only while the
+other takes its writes, per stream over HTTP/2 (`ProxyFlowTest`, its three tests
+failing on the earlier code). Open: `connections.c` and the two `statusOf`.
+
+`connections.c` and the two `statusOf` paid in `fix/reused-socket-and-one-status`,
+the last items: a `connect` on a counted number whose socket has another local port
+ends the old exchange first (ADR-0192,
+`aSocketClosedOutsideCloseEndsWhenItsNumberConnectsAgain`, failing on the earlier
+code); the two `statusOf`, by then in `desktop/ui`'s `Text.kt` and
+`RequestDetail.kt`, share one rule there (`TextTest`'s "a row and its detail show
+the same status").

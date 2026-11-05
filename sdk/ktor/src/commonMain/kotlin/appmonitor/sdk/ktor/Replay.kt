@@ -1,5 +1,6 @@
 package appmonitor.sdk.ktor
 
+import appmonitor.sdk.core.CallCapture
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.request
@@ -15,6 +16,9 @@ internal val APP_REQUEST: AttributeKey<HttpRequestBuilder> = AttributeKey("AppMo
 /** On a replay's builder: the request id it sends again, for `RequestStarted.replay_of`. */
 internal val REPLAY_OF: AttributeKey<String> = AttributeKey("AppMonitorReplayOf")
 
+private fun OutgoingContent.sentOnlyOnce(): Boolean =
+    this is OutgoingContent.ReadChannelContent || (this is OutgoingContent.ContentWrapper && delegate().sentOnlyOnce())
+
 /**
  * ADR-0122 C.1: [app] sent again through [client], every plugin run as for the app's own call, its response read
  * so it is captured whole; null once launched, else the reason the desktop shows.
@@ -27,7 +31,7 @@ internal fun replay(
 ): String? {
     if (app == null) return "The app no longer keeps this request"
     if (app.url.protocol.isWebsocket()) return "A WebSocket is not opened again"
-    if (content is OutgoingContent.ReadChannelContent) return "Its body could be sent only once"
+    if (content.sentOnlyOnce()) return CallCapture.SENT_ONCE
     if (!client.coroutineContext.isActive) return "The app closed its HTTP client"
     val builder = HttpRequestBuilder().takeFrom(app).apply { attributes.put(REPLAY_OF, id) }
     client.launch {

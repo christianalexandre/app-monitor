@@ -82,15 +82,16 @@ ADR-0090 C.1).
   token":
   `claude mcp add --transport http app-monitor http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`
   (`claudeMcpAdd` in `ui/App.kt`).
-- `McpController` (`desktop/app`, `store/McpController.kt`) owns the
-  switch: `start()` reads `mcp.enabled` and starts when on, unless a
-  `setEnabled` came first, which wins; `start`'s check and write of the
-  switch and `setEnabled`'s write share one lock, so a `setEnabled` that
-  lands as `start` writes is never overwritten; `setEnabled`
-  writes it and starts or stops; each start builds a new `McpServer`
-  (single use). A failed start is its `status` (`PortTaken`, `Failed`),
-  never a throw. `close()` stops for good; a later `setEnabled(true)`
-  does nothing.
+- `McpController` (`desktop/app`, `store/McpController.kt`) gives
+  `ServiceSwitch` (`store/ServiceSwitch.kt`, shared with the proxy, SDD 11) its
+  start and stop. `start()` reads `mcp.enabled` and starts when on, unless a
+  `setEnabled` came first, which wins. `setEnabled` stores the switch and starts
+  or stops under one lock, with the value as it is then, so the last call to take
+  the lock stores what it applies. Each start builds a new `McpServer` (single
+  use), with the version the build passes as `-Dappmonitor.version`
+  (`VERSION_NAME`; `dev` without it). A failed start is its `status`
+  (`PortTaken`, `Failed`), never a throw. `close()` stops for good; a later
+  `setEnabled(true)` does nothing.
 
 ### Order in the app
 
@@ -116,10 +117,13 @@ ADR-0090 C.1).
   tool or malformed JSON-RPC is the SDK's JSON-RPC error.
 - **Store closing.** `Storage`'s reads return an empty list or null once it
   closes (SDD 09), which would read as "nothing stored", and refuse
-  writes. The shared wrapper every tool goes through checks
-  `TrafficQueryRepository.isClosing` (the store's) **after** the tool returns or fails, and answers the
-  error "App Monitor is closing" instead of either, so an unknown-id error
-  made of an empty read is never what a closing store says.
+  writes. `closingChecked` (`ToolResults.kt`), which the shared wrapper and
+  the window's `Exports` both go through, checks
+  `TrafficQueryRepository.isClosing` (the store's) **after** the call returns or fails, and answers
+  "App Monitor is closing" instead of a refusal or a read's answer, so an unknown-id error
+  made of an empty read is never what a closing store says. A write's answer stands
+  (ADR-0179): one committed as the store closes is answered saved, with its id and a
+  `note` when it cannot be read back, since a retry after the restart would store it twice.
 - **Lost writes.** When `TrafficQueryRepository.health` (the store's) counts unsaved events, the result
   carries `"warnings": ["N events were not saved: <error>"]` (`export_har`:
   `log._warnings`, as HAR 1.2 allows only `_` custom fields; `to_curl`: a
@@ -233,8 +237,11 @@ Details the table leaves out:
   `data`: text, else base64), payloads under the same `bodies` rule. More
   HTTP matches than `max_entries` → `log.comment` says so. Connections
   (ADR-0104) are left out, do not count against `max_entries`, and
-  `log.comment` counts them. Output past 32 MiB of
-  text (counted entry by entry) is refused with "narrow the filter or use
+  `log.comment` counts those before the last entry (all of them when
+  nothing was cut). The rows are read 200 at a time, at most 10 000
+  (`MAX_SCANNED`); past that `log.comment` says the export stopped. Output past 32 MiB of
+  text (counted entry by entry, and a WebSocket's frames page by page, so
+  the read stops at the page that passes it) is refused with "narrow the filter or use
   bodies: none". `full` is for a developer who saves the file: Claude Code
   writes a result over 50 000 characters to a file (ADR-0089). Code:
   `ExportHar.kt`; `ExportHar.log`, past the arguments, is what the
@@ -273,7 +280,7 @@ Details the table leaves out:
   (ADR-0143). The call waits for its batch, then reads the issue back. Errors: an exchange not
   stored when the write reaches the writer, "no exchange with id 4, 7",
   nothing written; a deleted or unknown issue, "no issue with id N"; a
-  closing store, "App Monitor is closing"; a lost batch, "the issue was not
+  closing store, "App Monitor is closing", unless the write was committed (ADR-0179); a lost batch, "the issue was not
   saved: <error>", and later calls carry the lost write in `warnings`.
   No tool deletes an issue or changes traffic. Code: `Issues.kt`.
 - **Mock rules** (`create_mock`, ADR-0110, ADR-0114): the rule goes last
@@ -310,13 +317,13 @@ writes) and a hook run before each tool (a call held in flight).
 | Call class ↓ / state → | Store open | Store closing or closed | Store with lost writes | Server starting | Server running | Server stopping | Port taken |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Tool call | answers from the store: `McpServerTest.clientListsRunsOverHttp` | error "App Monitor is closing", never an empty success: `LifecycleTest.toolCallWhileTheStoreClosesIsAnError` | answers with `warnings`: `LifecycleTest.lostWritesAreAWarning` | connection refused until `start` returns: `LifecycleTest.startReturnsOnceBound` | as "store open" | a call in flight completes within the grace: `LifecycleTest.callInFlightCompletesDuringStop`; a new connection is refused: `LifecycleTest.noConnectionAfterStop` | no server: `LifecycleTest.portTakenFailsStartWithBindException` |
-| Write (`save_issue`) | queued on the writer, answered once committed, the issue then in `observeIssues`, which the window shows: `IssuesTest.aClientSavesEditsAndListsAnIssueThatTheAppsStoreShows`; an edit in the window between two MCP writes kept: `IssuesTest.anEditInTheWindowMeanwhileIsKept` | error "App Monitor is closing", nothing written: `IssuesTest.aSaveWhileTheStoreClosesIsAnError` | the write's own batch lost: error "the issue was not saved: <error>", nothing written, a warning after: `IssuesTest.aLostWriteIsAnErrorThatSaysWhy` | as tool call | as "store open" | as tool call | as tool call |
+| Write (`save_issue`) | queued on the writer, answered once committed, the issue then in `observeIssues`, which the window shows: `IssuesTest.aClientSavesEditsAndListsAnIssueThatTheAppsStoreShows`; an edit in the window between two MCP writes kept: `IssuesTest.anEditInTheWindowMeanwhileIsKept` | error "App Monitor is closing", nothing written: `IssuesTest.aSaveWhileTheStoreClosesIsAnError`; committed just before, answered saved: `IssuesTest.aSaveCommittedAsTheStoreClosesIsAnsweredSaved` | the write's own batch lost: error "the issue was not saved: <error>", nothing written, a warning after: `IssuesTest.aLostWriteIsAnErrorThatSaysWhy` | as tool call | as "store open" | as tool call | as tool call |
 | Protocol call (`initialize`, `tools/list`, `GET`, `DELETE`) | `initialize`, `tools/list` answered, `GET`/`DELETE` `405`: `McpServerTest.statelessEndpoint` | `tools/list` still answered (no read): `LifecycleTest.toolsListNeedsNoStore` | as "store open" | as above | as "store open" | as tool call | as tool call |
 | Refused request | foreign `Origin` or `Host` `403`, missing or wrong token `401`, before the SDK: `AccessTest` (`foreignOriginIsRefused`, `foreignHostIsRefused`, `wrongPortInHostIsRefused`, `missingTokenIsRefused`, `wrongTokenIsRefused`) | same | same | — | same | — | — |
 | Token change | "Regenerate" or "Clear all data": the old token gets `401`, the new one passes, no restart: `AccessTest.regeneratedTokenTakesEffectAtOnce` | — | — | — | same | — | — |
 | Start | binds `127.0.0.1` only: `LifecycleTest.bindsLoopbackOnly`; port from `APPMONITOR_MCP_PORT`: `McpPortTest` | not started after a failed open: `desktop/app` `McpWiringTest.noServerWithoutStorage` | starts | — | `start` twice fails: `LifecycleTest.startTwiceFails` | — | `BindException`, the app shows a status and keeps the device server: `desktop/app` `McpWiringTest.portTakenIsAStatus`, `AppMonitorAppTest` "a taken MCP port shows a status…" (`mcp-port-taken.png`) |
 | Stop | `stop` returns within `STOP_TIMEOUT`, port free again: `LifecycleTest.stopFreesThePort` | the app stops MCP before closing the store: `desktop/app` `McpWiringTest.stopsBeforeTheStoreCloses` | as open | stop during start leaves nothing bound: `LifecycleTest.stopDuringStart` | as open | second `stop` returns at once: `LifecycleTest.stopTwice` | `stop` after a failed start returns: `LifecycleTest.stopAfterFailedStart` |
-| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops`; kept off by "Clear all data": `McpWiringTest.clearAllRegeneratesTheTokenAndKeepsTheSwitch`; turned off while `start` reads it, stays off: `McpWiringTest.switchTurnedOffDuringStartsReadStaysOff`; turned off as `start` writes it, ends off (2,000 rounds against two threads): `McpWiringTest.switchTurnedOffAsStartWritesItEndsOff` | — | — | — | — | — | — |
+| Switch | off → stopped, on → started, kept across launches: `desktop/app` `McpWiringTest.switchStartsAndStops`; kept off by "Clear all data": `McpWiringTest.clearAllRegeneratesTheTokenAndKeepsTheSwitch`; turned off while `start` reads it, stays off, while the server starts, ends off, and two switches at once: `ServiceSwitchTest` | — | — | — | — | — | — |
 
 ### Tests per tool
 
@@ -327,10 +334,10 @@ writes) and a hook run before each tool (a call held in flight).
 | `get_request` | `GetRequestTest`: headers and bodies as stored, a body past the cap with `body_offset` reading the rest, a body cut by the device, a binary body as base64, a UTF-8 slice cut mid-character, frames by page and by byte budget, unknown id, a mocked exchange's rule id and name | M6.4 |
 | `endpoint_stats` | `EndpointStatsTest`: a crafted run with known numbers, schemes, host case, query and fragment grouped, an exchange in flight, filter and `limit`, the read cap and `truncated`, closing store, a known p99 (`knownP99`, the run `desktop/app`'s `BenchmarksUiTest` also shows); `SearchTest.sizesAreTheStoredBodyBytesUnderAFilter` and `EndpointsTest` (nearest rank) in `desktop/storage` | M6.5, M7.4 |
 | `diff_runs` | `DiffRunsTest` on two crafted runs: added, gone, changed past the threshold, unchanged under it (20 % and 10 ms each), a filter on both runs, `limit`, a run against itself, a duration known on one side only, the read cap, unknown run, missing arguments, closing store (the runs read empty, answered as closing, not unknown); `desktop/app`'s `RunDiffUiTest` shows the same two runs | M6.6, M7.5 |
-| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal, closing store, lost writes in `log._warnings` | M6.7, M6.R4 |
+| `export_har` | `ExportHarTest`: every HAR 1.2 required field, a failed and an in-flight exchange, base64 and cut bodies under each `bodies` mode, frames, filter and `max_entries`, the 32 MiB refusal (frames read no further than the page past it, the size checked after every frame), connections counted inside the exported span, the scan's bound, closing store, lost writes in `log._warnings`; the window's `Exports` refused while the store closes, its refusal naming no `bodies` | M6.7, M6.R4 |
 | Connections in every tool | `ConnectionToolsTest`, the `CONNECTION` fixtures: `search_requests` row without status, `get_request`'s `connection`, `to_curl` refused, `endpoint_stats` bytes per port, `diff_runs` added, `export_har` leaving them out | M8.4 |
 | gRPC status in the tools | `GrpcStatusToolsTest`, a failed call from the adapter's and the proxy's headers: `search_requests`' `grpc_status`, `endpoint_stats` and `diff_runs` error rate | M8.7 |
-| `create_mock` | `MocksTest`: a rule over HTTP stored pending, sent to no device until confirmed; a failure with any method, a base64 body; every argument error, nothing written; closing store | M9.3 |
+| `create_mock` | `MocksTest`: a rule over HTTP stored pending, sent to no device until confirmed; a failure with any method, a base64 body; every argument error, nothing written; closing store; a rule committed as it closes answered saved | M9.3 |
 | `replay_request`, `replay`, `replay_of` | `ReplayTest`: the asked replay handed over with its session and answered `waiting`; connection, WebSocket, proxy and unknown id refused, nothing asked; each answer of the window as its error; no `ReplayAsks`; rows of `search_requests` and `get_request` linking a replay to its original, null once it is gone; `desktop/app`'s `ReplayTest` sends it to a stand-in device only once confirmed | M9.13 |
 | `list_issues`, `save_issue` | `IssuesTest`: create, edit and list over HTTP, the issue in the app's `observeIssues`; status and tag filters, paging; a window edit meanwhile kept; unknown exchanges and issue refused, nothing written; every argument error; closing store; a lost write (a second connection holding SQLite's write lock); only `save_issue`, `create_mock` and `replay_request` annotated as writing, `replay_request` destructive and open world | M7.3 |
 | `to_curl` | `ToCurlTest`: the command run by `sh` and curl against a local server receives the stored method, URL, headers and body; quotes, `$` and backticks escaped; empty and repeated headers; framing headers left to curl, a `Content-Length: 0` kept without a body, once, however written; binary body and NUL; `HEAD`, with a stored body; a body cut by the device; lost writes; unknown id, closing store | M6.7, M6.R3, M6.R6 |
@@ -345,5 +352,3 @@ writes) and a hook run before each tool (a call held in flight).
 - `replay_request` does not tell the agent that the developer refused the
   replay or that the device sent `ReplayRefused`: no replay row shows up
   (ADR-0121). A waiting replay is lost at quit and when its session ends.
-- Text search and "failed only" walk the exchanges (DEBT-0063,
-  re-triggered at M6.4).

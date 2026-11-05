@@ -8,6 +8,7 @@ import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.ConnectionBytes
 import appmonitor.desktop.domain.DeviceComparison
 import appmonitor.desktop.domain.DeviceEndpoint
+import appmonitor.desktop.domain.Drops
 import appmonitor.desktop.domain.Durations
 import appmonitor.desktop.domain.Endpoint
 import appmonitor.desktop.domain.EndpointChange
@@ -30,6 +31,7 @@ import appmonitor.desktop.domain.MockSource
 import appmonitor.desktop.domain.MockWrite
 import appmonitor.desktop.domain.Retention
 import appmonitor.desktop.domain.RetentionState
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.desktop.domain.Run
 import appmonitor.desktop.domain.RunDevice
 import appmonitor.desktop.domain.RunSummary
@@ -68,6 +70,7 @@ import appmonitor.desktop.storage.IssueWrite as StoredIssueWrite
 import appmonitor.desktop.storage.MockChange as StoredMockChange
 import appmonitor.desktop.storage.MockSource as StoredMockSource
 import appmonitor.desktop.storage.MockWrite as StoredMockWrite
+import appmonitor.desktop.storage.RuleMove as StoredRuleMove
 import appmonitor.desktop.storage.RunSummary as StoredRunSummary
 import appmonitor.desktop.storage.SessionSummary as StoredSessionSummary
 import appmonitor.desktop.storage.StatusClass as StoredStatusClass
@@ -75,7 +78,17 @@ import appmonitor.desktop.storage.StatusClass as StoredStatusClass
 internal fun StoredRun.toDomain(): Run = Run(id, name, startedAtMs, endedAtMs, saved)
 
 internal fun StoredSession.toDomain(): Session =
-    Session(id, runId, serverSessionId, hello, peerAddress, connectedAtMs, disconnectedAtMs, lastEnvelopeAtMs)
+    Session(
+        id,
+        runId,
+        serverSessionId,
+        hello,
+        peerAddress,
+        connectedAtMs,
+        disconnectedAtMs,
+        lastEnvelopeAtMs,
+        drops?.let { Drops(it.evicted, it.oversized, it.lost) },
+    )
 
 internal fun StoredExchange.toDomain(): Exchange =
     Exchange(
@@ -132,6 +145,7 @@ internal fun ExchangeDetail.toDomain(frames: List<StoredFrame>): HttpExchange {
         endedAtMs = row.endedAtMs,
         frames = frames.map { it.toDomain() },
         frameCount = row.frameCount,
+        framesKept = framesKept ?: row.frameCount,
         captureLayer = row.captureLayer,
         connection = connectionBytes?.let { ConnectionBytes(it.sent, it.received) },
         mockRuleId = row.mockRuleId,
@@ -178,6 +192,8 @@ internal fun StoredMock.toDomain(): Mock =
 internal fun StoredMockSource.toDomain(): MockSource = MockSource.valueOf(name)
 
 internal fun MockSource.toStored(): StoredMockSource = StoredMockSource.valueOf(name)
+
+internal fun RuleMove.toStored(): StoredRuleMove = StoredRuleMove.valueOf(name)
 
 internal fun MockChange.toStored(): StoredMockChange = StoredMockChange(name, enabled, rule)
 

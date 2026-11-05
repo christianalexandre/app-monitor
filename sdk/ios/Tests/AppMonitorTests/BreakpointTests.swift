@@ -1,5 +1,4 @@
 import Foundation
-import SwiftProtobuf
 import Testing
 
 @testable import AppMonitor
@@ -76,7 +75,7 @@ struct BreakpointsTests {
         let outcomes = Outcomes()
         var sent = 0
 
-        _ = Breakpoints().hold(breakpointHit("a", .request), send: { _ in sent += 1 }, done: outcomes.record)
+        _ = Breakpoints().hold(breakpointHit("a", .request), send: { _, _ in sent += 1 }, done: outcomes.record)
 
         #expect(sent == 0)
         guard case .resume(nil) = outcomes.all.first else {
@@ -89,7 +88,7 @@ struct BreakpointsTests {
         let set = Breakpoints()
         set.replace([])
         let outcomes = Outcomes()
-        _ = set.hold(breakpointHit("a", .request), send: { _ in }, done: outcomes.record)
+        _ = set.hold(breakpointHit("a", .request), send: { _, _ in }, done: outcomes.record)
         var changed = resume("a", .request)
         changed.method = "PUT"
 
@@ -110,8 +109,8 @@ struct BreakpointsTests {
         set.replace([])
         let timedOut = Outcomes()
         let ended = Outcomes()
-        _ = set.hold(breakpointHit("a", .request, timeoutMs: 50), send: { _ in }, done: timedOut.record)
-        _ = set.hold(breakpointHit("b", .response), send: { _ in }, done: ended.record)
+        _ = set.hold(breakpointHit("a", .request, timeoutMs: 50), send: { _, _ in }, done: timedOut.record)
+        _ = set.hold(breakpointHit("b", .response), send: { _, _ in }, done: ended.record)
 
         #expect(await eventually { timedOut.all.count == 1 })
         #expect(ended.all.isEmpty)
@@ -124,11 +123,23 @@ struct BreakpointsTests {
         #expect(set.match(method: "GET", url: "http://127.0.0.1/a", stage: .request) == nil)
     }
 
+    @Test func aHitDroppedBeforeItIsWrittenGoesOnUnchangedAtOnce() {
+        let set = Breakpoints()
+        set.replace([])
+        let outcomes = Outcomes()
+        _ = set.hold(breakpointHit("a", .request), send: { _, dropped in dropped() }, done: outcomes.record)
+
+        guard outcomes.all.count == 1, case .resume(nil) = outcomes.all.first else {
+            Issue.record("\(outcomes.all)")
+            return
+        }
+    }
+
     @Test func aReleasedHoldIsNeverAnswered() {
         let set = Breakpoints()
         set.replace([])
         let outcomes = Outcomes()
-        let release = set.hold(breakpointHit("a", .request), send: { _ in }, done: outcomes.record)
+        let release = set.hold(breakpointHit("a", .request), send: { _, _ in }, done: outcomes.record)
 
         release()
         set.resume(resume("a", .request))
@@ -142,7 +153,8 @@ struct BreakpointsTests {
         changes.setHeaders = [header("x-one", "new")]
         changes.removedHeaders = ["X-TWO"]
 
-        let headers = changes.applied(to: [("X-One", "old"), ("x-two", "gone"), ("Accept", "*/*")])
+        let headers = changes.applied(
+            to: [("X-One", "old"), ("x-two", "gone"), ("Accept", "*/*")], masking: Masking(AppMonitorOptions()))
 
         #expect(headers.map(\.name) == ["Accept", "x-one"])
         #expect(headers.map(\.value) == ["*/*", "new"])
@@ -151,7 +163,7 @@ struct BreakpointsTests {
 
 @Suite(.serialized)
 struct MonitorClientBreakpointsTests {
-    static func envelope(_ type: String, _ message: some SwiftProtobuf.Message) -> Appmonitor_V1_Envelope {
+    static func envelope(_ type: String, _ message: some ProtoMessage) -> Appmonitor_V1_Envelope {
         interactionEnvelope(type, message)
     }
 
@@ -173,7 +185,8 @@ struct MonitorClientBreakpointsTests {
             })
         let resumed = Outcomes()
         _ = client.breakpoints.hold(
-            breakpointHit("a", .request), send: { client.send(interactionEnvelope("BreakpointHit", $0)) },
+            breakpointHit("a", .request),
+            send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) },
             done: resumed.record)
         #expect(await eventually { desktop.events.contains { $0.type == "BreakpointHit" } })
         var changed = resume("a", .request)
@@ -187,11 +200,41 @@ struct MonitorClientBreakpointsTests {
         #expect(changes.url == "http://127.0.0.1/b")
 
         let ended = Outcomes()
-        _ = client.breakpoints.hold(breakpointHit("b", .response), send: { _ in }, done: ended.record)
+        _ = client.breakpoints.hold(breakpointHit("b", .response), send: { _, _ in }, done: ended.record)
         desktop.stop()
 
         #expect(await eventually { ended.all.count == 1 })
         #expect(client.breakpoints.match(method: "GET", url: "http://127.0.0.1/a", stage: .request) == nil)
+    }
+
+    @Test func aHitLargerThanAFrameGoesOnUnchangedAtOnce() async throws {
+        let desktop = TestDesktop(
+            mode: .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelInteraction]))
+        try await desktop.start()
+        let client = MonitorClientTests.client(manualDiscovery(desktop.endpoint))
+        client.start()
+        defer { client.stop() }
+        #expect(await eventually { client.state == .connected })
+        var rules = Appmonitor_V1_BreakpointRules()
+        rules.rules = [breakpointRule(4, path: "/a", response: true)]
+        desktop.push(Self.envelope("BreakpointRules", rules))
+        #expect(
+            await eventually {
+                client.breakpoints.match(method: "GET", url: "http://127.0.0.1/a", stage: .response) != nil
+            })
+        var hit = breakpointHit("a", .response, timeoutMs: 60_000)
+        hit.request.body = Data(count: ProtocolConstants.maxBodyBytes)
+        hit.response.body = Data(count: ProtocolConstants.maxBodyBytes)
+
+        let outcomes = Outcomes()
+        _ = client.breakpoints.hold(
+            hit, send: { client.send(interactionEnvelope("BreakpointHit", $0), onDropped: $1) }, done: outcomes.record)
+
+        #expect(await eventually { outcomes.all.count == 1 })
+        guard case .resume(nil) = outcomes.all.first else {
+            Issue.record("\(outcomes.all)")
+            return
+        }
     }
 }
 
@@ -238,6 +281,44 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         #expect(try sink.all.filter { $0.type == "RequestStarted" }.count == 1)
     }
 
+    @Test func whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() async throws {
+        holding(breakpointRule(3, path: "/ok", request: true))
+        sink.options = AppMonitorOptions(maskedQueryParameters: ["token"])
+        var request = URLRequest(url: server.url("/ok?token=real&id=1"))
+        request.setValue("a=1", forHTTPHeaderField: "Cookie")
+
+        let answer = Task { try await URLSession.shared.data(for: request) }
+        let hit = try await sink.hit(.request)
+        #expect(hit.request.url.hasSuffix("?token=██&id=1"))
+        var changes = resume(hit.request.requestID, .request)
+        changes.url = hit.request.url.replacingOccurrences(of: "id=1", with: "id=2")
+        changes.setHeaders = [header("Cookie", "██")]
+        sink.breakpoints.resume(changes)
+
+        _ = try await answer.value
+        let sent = try #require(server.received.first)
+        #expect(sent.path == "/ok?token=real&id=2")
+        #expect(sent.headers["cookie"] == "a=1")
+        let (started, _) = try await sink.exchange(server.url("/ok").absoluteString + "?token=██&id=2")
+        #expect(started.requestID == hit.request.requestID)
+    }
+
+    @Test func aRefusedEditDoesNotTellTheDesktopWhatItRestored() async throws {
+        holding(breakpointRule(3, path: "/ok", request: true))
+        sink.options = AppMonitorOptions(maskedQueryParameters: ["token"])
+        let url = server.url("/ok?token=real")
+
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.request)
+        var changes = resume(hit.request.requestID, .request)
+        changes.url = "ftp://h.example/?token=██"
+        sink.breakpoints.resume(changes)
+
+        let error = await #expect(throws: URLError.self) { try await answer.value }
+        #expect(error?.localizedDescription.contains("real") == false)
+        #expect(server.received.isEmpty)
+    }
+
     @Test func aHeldResponseReachesTheAppEditedAndIsCapturedAsRead() async throws {
         holding(breakpointRule(5, path: "/ok", response: true))
 
@@ -262,6 +343,93 @@ extension ProcessWideHooks.URLSessionCaptureTests {
         let event = try received(end)
         #expect(event.statusCode == 418)
         #expect(event.body == Data("teapot".utf8))
+    }
+
+    @Test func aHeldResponseIsHeldAtTheBodyLimitNotItsEnd() async throws {
+        holding(breakpointRule(15, path: "/partial/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let task = URLSession.shared.dataTask(with: server.url("/partial/200000"))
+        task.resume()
+        defer { task.cancel() }
+        let hit = try await sink.hit(.response)
+
+        #expect(hit.response.body == Data(repeating: UInt8(ascii: "a"), count: 1000))
+        #expect(hit.response.bodyTruncated)
+        #expect(hit.response.bodySize == 400_000)
+    }
+
+    @Test func aCompressedResponseHeldAtTheLimitHasNoSize() async throws {
+        holding(breakpointRule(15, path: "/gzip-partial", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let task = URLSession.shared.dataTask(with: server.url("/gzip-partial"))
+        task.resume()
+        defer { task.cancel() }
+        let hit = try await sink.hit(.response)
+
+        #expect(hit.response.body.count == 1000)
+        #expect(hit.response.bodyTruncated)
+        #expect(!hit.response.hasBodySize)
+    }
+
+    @Test func aResponseHeldAtTheLimitReachesTheAppWhole() async throws {
+        holding(breakpointRule(16, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        var changes = resume(hit.request.requestID, .response)
+        changes.setHeaders = [header("X-Held", "yes")]
+        sink.breakpoints.resume(changes)
+
+        let (data, response) = try await answer.value
+        #expect(data == Data(repeating: UInt8(ascii: "a"), count: 3_000_000))
+        #expect((response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Held") == "yes")
+    }
+
+    @Test func aResponseHeldAtTheLimitIsStillReadToItsEnd() async throws {
+        holding(breakpointRule(18, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/20000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        // A connection left unread while held can be closed by the server as idle.
+        #expect(await eventually(timeout: 2) { server.sent.contains("/big/20000000") })
+        sink.breakpoints.resume(resume(hit.request.requestID, .response))
+
+        #expect(try await answer.value.0 == Data(repeating: UInt8(ascii: "a"), count: 20_000_000))
+    }
+
+    @Test(arguments: [true, false])
+    func aSpillThatFailsFailsTheTaskInsteadOfAGap(failsOnWrite: Bool) async throws {
+        holding(breakpointRule(19, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+        HoldProtocol.makeSpill = { FailingSpill(failsOnWrite: failsOnWrite) }
+        defer { HoldProtocol.makeSpill = { Spill() } }
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        sink.breakpoints.resume(resume(hit.request.requestID, .response))
+
+        #expect(await answer.result.failure != nil)
+    }
+
+    @Test func aResponseHeldAtTheLimitTakesTheEditedBody() async throws {
+        holding(breakpointRule(17, path: "/big/*", response: true))
+        sink.options = AppMonitorOptions(maxBodyBytes: 1000)
+
+        let url = server.url("/big/3000000")
+        let answer = Task { try await URLSession.shared.data(from: url) }
+        let hit = try await sink.hit(.response)
+        var changes = resume(hit.request.requestID, .response)
+        changes.body = Data("short".utf8)
+        sink.breakpoints.resume(changes)
+
+        #expect(try await answer.value.0 == Data("short".utf8))
     }
 
     @Test func anAbortedRequestFailsWithItsMessageAndIsNeverSent() async throws {
@@ -545,5 +713,20 @@ final class AskingDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             finished = true
             failure = error
         }
+    }
+}
+
+/// A spill whose write or read throws, as a full disk would.
+final class FailingSpill: SpillStore {
+    private let failsOnWrite: Bool
+
+    init(failsOnWrite: Bool) { self.failsOnWrite = failsOnWrite }
+
+    func write(_ data: Data) throws {
+        if failsOnWrite { throw CocoaError(.fileWriteOutOfSpace) }
+    }
+
+    func readAll(_ chunk: (Data) -> Void) throws {
+        throw CocoaError(.fileReadUnknown)
     }
 }

@@ -1,7 +1,10 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.CaptureSink
 import appmonitor.v1.CaptureLayer
+import appmonitor.v1.MockResponse
+import appmonitor.v1.MockRule
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
 import appmonitor.v1.WebSocketFrame
@@ -107,6 +110,18 @@ abstract class WebSocketCaptureTest(
             } else {
                 assertEquals(conversation + closing, frames)
             }
+        }
+
+    @Test
+    fun anUpgradeIsNeverMocked() =
+        runBlocking {
+            val rule = MockRule(id = 3, path = "/*", response = MockResponse(status_code = 503))
+            val sink = ConcurrentSink(mock = rule)
+            val received = client(sink).converse(server().port)
+
+            assertEquals("hello", (received[0] as Frame.Text).readText())
+            assertNull(RequestStarted.ADAPTER.decode(sink.next("RequestStarted").payload).mock_rule_id)
+            assertEquals(101, ResponseReceived.ADAPTER.decode(sink.next("ResponseReceived").payload).status_code)
         }
 
     @Test

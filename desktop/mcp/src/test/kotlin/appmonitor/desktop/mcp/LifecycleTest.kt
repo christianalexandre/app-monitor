@@ -2,6 +2,7 @@ package appmonitor.desktop.mcp
 
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.domain.StoreHealth
+import appmonitor.desktop.server.LanAddresses
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -11,10 +12,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.BindException
 import java.net.ConnectException
-import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import kotlin.test.Test
@@ -122,15 +121,10 @@ class LifecycleTest {
     @Test
     fun bindsLoopbackOnly() =
         withServer { running ->
-            val other =
-                NetworkInterface
-                    .networkInterfaces()
-                    .toList()
-                    .filter { it.isUp && !it.isLoopback }
-                    .flatMap { it.inetAddresses.toList() }
-                    .firstOrNull { it is Inet4Address }
+            // A tunnel's own address times out instead of refusing (ADR-0164).
+            val other = LanAddresses.current().firstOrNull()
             if (other == null) {
-                println("bindsLoopbackOnly: no non-loopback IPv4 address, only the loopback half checked")
+                println("bindsLoopbackOnly: no LAN IPv4 address, only the loopback half checked")
             } else {
                 assertFailsWith<ConnectException>("$other") {
                     Socket().use { it.connect(InetSocketAddress(other, running.port), 2_000) }

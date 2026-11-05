@@ -2,6 +2,8 @@ package appmonitor.sdk.okhttp
 
 import appmonitor.sdk.core.AppMonitorOptions
 import appmonitor.sdk.core.BreakpointOutcome
+import appmonitor.sdk.core.CaptureSink
+import appmonitor.sdk.core.MASK
 import appmonitor.v1.BreakpointResume
 import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointStage
@@ -24,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -123,6 +126,65 @@ class BreakpointTest {
     }
 
     @Test
+    fun whatAnEditLeftMaskedGoesOutAsTheDevicesOwn() {
+        val sink =
+            RecordingSink(
+                options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                breakpoints = listOf(rule("/items", request = true)),
+            ) { hit ->
+                val edited = hit.request!!.url.replace("id=1", "id=2")
+                BreakpointOutcome.Resume(
+                    BreakpointResume(
+                        request_id = hit.request!!.request_id,
+                        stage = request,
+                        url = edited,
+                        set_headers = listOf(Header("Cookie", MASK), Header("Cookie", "new")),
+                    ),
+                )
+            }
+        server.enqueue(reply("ok"))
+        val call =
+            Request
+                .Builder()
+                .url(server.url("/items?token=real&id=1"))
+                .addHeader("Cookie", "a=1")
+                .addHeader("Cookie", "b=2")
+                .build()
+
+        client(sink).newCall(call).execute().use { assertEquals("ok", it.body.string()) }
+
+        val hit = sink.hits.poll(5, TimeUnit.SECONDS)!!
+        assertTrue(hit.request!!.url.endsWith("?token=$MASK&id=1"))
+        val sent = server.takeRequest()
+        assertEquals("token=real&id=2", sent.url.encodedQuery)
+        assertEquals(listOf("a=1", "new"), sent.headers.values("Cookie"))
+        assertTrue(sink.started().url.endsWith("?token=$MASK&id=2"))
+    }
+
+    @Test
+    fun aRefusedEditDoesNotTellTheDesktopWhatItRestored() {
+        val sink =
+            RecordingSink(
+                options = AppMonitorOptions(maskedQueryParameters = setOf("token")),
+                breakpoints = listOf(rule("/items", request = true)),
+            ) {
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = it.request!!.request_id, stage = request, url = "not a url?token=$MASK"),
+                )
+            }
+
+        val error =
+            assertFailsWith<IOException> {
+                client(sink).newCall(Request.Builder().url(server.url("/items?token=real")).build()).execute()
+            }
+
+        assertContains(error.message!!, "not a URL")
+        assertFalse("real" in error.message!!)
+        sink.started()
+        assertFalse("real" in sink.failed().error)
+    }
+
+    @Test
     fun aBadEditFailsTheCallWithItsReason() {
         val sink =
             RecordingSink(breakpoints = listOf(rule("/items", request = true))) {
@@ -135,6 +197,26 @@ class BreakpointTest {
         assertEquals(0, server.requestCount)
         sink.started()
         sink.failed()
+    }
+
+    @Test
+    fun aHeaderOkHttpRefusesFailsTheCallWithItsReason() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", request = true))) { hit ->
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = hit.request!!.request_id, stage = request, set_headers = listOf(Header("", "x"))),
+                )
+            }
+
+        val error =
+            assertFailsWith<IOException> {
+                client(sink).newCall(Request.Builder().url(server.url("/items")).build()).execute()
+            }
+
+        assertContains(error.message!!, "Breakpoint edit refused: ")
+        sink.started()
+        assertContains(sink.failed().error, "Breakpoint edit refused: ")
+        assertEquals(0, server.requestCount)
     }
 
     @Test
@@ -214,6 +296,46 @@ class BreakpointTest {
         val received = sink.received()
         assertEquals(503, received.status_code)
         assertEquals("edited", received.body.utf8())
+    }
+
+    @Test
+    fun aResponseHeaderOkHttpRefusesFailsTheCallWithItsReason() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", response = true))) { hit ->
+                BreakpointOutcome.Resume(
+                    BreakpointResume(request_id = hit.request!!.request_id, stage = response, set_headers = listOf(Header("X Foo", "1"))),
+                )
+            }
+        server.enqueue(reply("original"))
+
+        val error =
+            assertFailsWith<IOException> {
+                client(sink).newCall(Request.Builder().url(server.url("/items")).build()).execute()
+            }
+
+        assertContains(error.message!!, "Breakpoint edit refused: ")
+        sink.started()
+        assertContains(sink.failed().error, "Breakpoint edit refused: ")
+    }
+
+    @Test
+    fun aResponseWithOnlyItsStatusChangedKeepsItsBody() {
+        val sink =
+            RecordingSink(breakpoints = listOf(rule("/items", response = true))) { hit ->
+                BreakpointOutcome.Resume(BreakpointResume(request_id = hit.request!!.request_id, stage = response, status_code = 201))
+            }
+        server.enqueue(reply("original"))
+
+        val (code, body, header) =
+            client(sink).newCall(Request.Builder().url(server.url("/items")).build()).execute().use {
+                Triple(it.code, it.body.string(), it.header("X-Server"))
+            }
+
+        assertEquals(201, code)
+        assertEquals("original", body)
+        assertEquals("1", header)
+        sink.started()
+        assertEquals(201, sink.received().status_code)
     }
 
     @Test

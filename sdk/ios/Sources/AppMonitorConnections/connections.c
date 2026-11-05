@@ -1,4 +1,3 @@
-#if APPMONITOR_DEBUG
 #include "AppMonitorConnections.h"
 #include "rebind.h"
 
@@ -17,6 +16,7 @@
 static _Atomic bool counted[MAX_FDS];
 static _Atomic int64_t sent[MAX_FDS];
 static _Atomic int64_t received[MAX_FDS];
+static _Atomic uint32_t local_port[MAX_FDS];
 
 static appmonitor_connected_fn on_connected;
 static appmonitor_closing_fn on_closing;
@@ -57,7 +57,39 @@ static bool is_stream(int fd) {
   return getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &length) == 0 && type == SOCK_STREAM;
 }
 
+// The socket's own port, or 0 before it has one; a socket reusing a counted number starts at 0.
+static uint32_t port_of(int fd) {
+  struct sockaddr_storage local;
+  socklen_t length = sizeof local;
+  if (getsockname(fd, (struct sockaddr *)&local, &length) != 0) return 0;
+  if (local.ss_family == AF_INET) return ((struct sockaddr_in *)&local)->sin_port;
+  if (local.ss_family == AF_INET6) return ((struct sockaddr_in6 *)&local)->sin6_port;
+  return 0;
+}
+
+// Ends a counted socket's exchange once; `open` reads its error from the socket, still the counted one.
+static void end(int fd, bool open) {
+  if (!atomic_exchange(&counted[fd], false)) return;
+  int saved = errno;
+  int64_t out = atomic_load(&sent[fd]);
+  int64_t in = atomic_load(&received[fd]);
+  int error = 0;
+  if (open) {
+    socklen_t length = sizeof error;
+    getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length);
+    struct sockaddr_storage peer;
+    socklen_t peer_length = sizeof peer;
+    if (error == 0 && out == 0 && in == 0 && getpeername(fd, (struct sockaddr *)&peer, &peer_length) != 0) {
+      error = errno;
+    }
+  }
+  on_closing(fd, out, in, error);
+  errno = saved;
+}
+
 static int wrapped_connect(int fd, const struct sockaddr *address, socklen_t length) {
+  // A counted number on another port was closed outside `close` (dup2, a system image): ADR-0192.
+  if (is_counted(fd) && port_of(fd) != atomic_load(&local_port[fd])) end(fd, false);
   int64_t started = now_ms();
   int result = real_connect(fd, address, length);
   int error = result == 0 ? 0 : errno;
@@ -66,6 +98,7 @@ static int wrapped_connect(int fd, const struct sockaddr *address, socklen_t len
       (address->sa_family == AF_INET || address->sa_family == AF_INET6) && is_stream(fd)) {
     atomic_store(&sent[fd], 0);
     atomic_store(&received[fd], 0);
+    atomic_store(&local_port[fd], port_of(fd));
     atomic_store(&counted[fd], on_connected(fd, address, length, started, error));
   }
   if (result != 0) errno = error;
@@ -73,21 +106,7 @@ static int wrapped_connect(int fd, const struct sockaddr *address, socklen_t len
 }
 
 static int wrapped_close(int fd) {
-  if (fd >= 0 && fd < MAX_FDS && atomic_exchange(&counted[fd], false)) {
-    int saved = errno;
-    int64_t out = atomic_load(&sent[fd]);
-    int64_t in = atomic_load(&received[fd]);
-    int error = 0;
-    socklen_t length = sizeof error;
-    getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length);
-    struct sockaddr_storage peer;
-    socklen_t peer_length = sizeof peer;
-    if (error == 0 && out == 0 && in == 0 && getpeername(fd, (struct sockaddr *)&peer, &peer_length) != 0) {
-      error = errno;
-    }
-    on_closing(fd, out, in, error);
-    errno = saved;
-  }
+  if (fd >= 0 && fd < MAX_FDS) end(fd, true);
   return real_close(fd);
 }
 
@@ -184,4 +203,3 @@ bool appmonitor_connections_install(
   _dyld_register_func_for_add_image(rebind_image);
   return true;
 }
-#endif

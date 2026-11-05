@@ -20,11 +20,16 @@ targets:
         UILaunchScreen: {}
         CADisableMinimumFrameDurationOnPhone: true
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: dev.appmonitor.kmpsample
-      SWIFT_VERSION: "6.0"
-      ENABLE_USER_SCRIPT_SANDBOXING: NO
-      FRAMEWORK_SEARCH_PATHS: $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
-      OTHER_LDFLAGS: [-framework, Shared]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.appmonitor.kmpsample
+        SWIFT_VERSION: "6.0"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        FRAMEWORK_SEARCH_PATHS: $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+        OTHER_LDFLAGS: [-framework, Shared]
+      configs:
+        # ADR-0155: no SDK code in a release build.
+        Release:
+          EXCLUDED_SOURCE_FILE_NAMES: AppMonitor*
     preBuildScripts:
       - name: Kotlin framework
         script: 'cd "$SRCROOT/../../.." && ./gradlew :samples:kmp:shared:embedAndSignAppleFrameworkForXcode'

@@ -1,6 +1,5 @@
 import Foundation
 import Network
-import SwiftProtobuf
 
 @testable import AppMonitor
 
@@ -21,6 +20,7 @@ final class TestDesktop: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "test.desktop")
     private let mode: Mode
+    private let desktopID: String
     private var listener: NWListener?
     private var connections: [NWConnection] = []
     private var received: [Appmonitor_V1_Envelope] = []
@@ -29,15 +29,26 @@ final class TestDesktop: @unchecked Sendable {
 
     private(set) var port: UInt16 = 0
 
-    init(mode: Mode = .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork])) {
+    init(
+        mode: Mode = .ack(channels: [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]),
+        desktopID: String = ""
+    ) {
         self.mode = mode
+        self.desktopID = desktopID
     }
 
     var endpoint: Endpoint { Endpoint(host: "127.0.0.1", port: port) }
 
     var envelopes: [Appmonitor_V1_Envelope] { queue.sync { received } }
 
-    var events: [Appmonitor_V1_Envelope] { envelopes.filter { $0.type != "Hello" } }
+    /// What the SDK captured: neither `Hello` nor its own `DeliveryReport` (ADR-0166).
+    var events: [Appmonitor_V1_Envelope] { envelopes.filter { $0.type != "Hello" && $0.type != "DeliveryReport" } }
+
+    var reports: [Appmonitor_V1_DeliveryReport] {
+        envelopes.filter { $0.type == "DeliveryReport" }.compactMap {
+            try? Appmonitor_V1_DeliveryReport(serializedBytes: $0.payload)
+        }
+    }
 
     var closes: [NWProtocolWebSocket.CloseCode] { queue.sync { closeCodes } }
 
@@ -45,6 +56,19 @@ final class TestDesktop: @unchecked Sendable {
 
     /// Starts listening on `port`, or on a free one when 0.
     func start(port: UInt16 = 0) async throws {
+        guard port == 0 else { return try await listen(on: port) }
+        // In the ephemeral range a client's source port can land on this one: connect then waits on EADDRINUSE.
+        for _ in 0..<10 {
+            do {
+                return try await listen(on: UInt16.random(in: 20_000..<40_000))
+            } catch NWError.posix(.EADDRINUSE) {
+                continue
+            }
+        }
+        try await listen(on: UInt16.random(in: 20_000..<40_000))
+    }
+
+    private func listen(on port: UInt16) async throws {
         let parameters: NWParameters
         if case .noUpgrade = mode {
             parameters = .tcp
@@ -64,7 +88,9 @@ final class TestDesktop: @unchecked Sendable {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready: once.run { continuation.resume(returning: listener.port?.rawValue ?? 0) }
-                case .failed(let error): once.run { continuation.resume(throwing: error) }
+                case .failed(let error):
+                    listener.cancel()
+                    once.run { continuation.resume(throwing: error) }
                 default: break
                 }
             }
@@ -106,13 +132,15 @@ final class TestDesktop: @unchecked Sendable {
 
     private func receive(_ connection: NWConnection) {
         connection.receiveMessage { [weak self] data, context, _, error in
-            guard let self, error == nil else { return }
+            guard let self else { return }
             let metadata =
                 context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
+            // The peer's close can come with the socket's error: read it first, as `MonitorClient` does.
             if let metadata, metadata.opcode == .close {
                 self.closeCodes.append(metadata.closeCode)
                 return
             }
+            guard error == nil else { return }
             if metadata?.opcode == .binary, let data, let envelope = try? Appmonitor_V1_Envelope(serializedBytes: data)
             {
                 self.received.append(envelope)
@@ -136,6 +164,7 @@ final class TestDesktop: @unchecked Sendable {
         ack.protocolVersion = ProtocolConstants.version
         ack.sessionID = UUID().uuidString
         ack.channels = channels
+        ack.desktopID = desktopID
         var envelope = Appmonitor_V1_Envelope()
         envelope.channel = ProtocolConstants.channelCore
         envelope.type = "HelloAck"
@@ -174,8 +203,14 @@ final class Once: @unchecked Sendable {
     }
 }
 
-/// Polls `condition` every 10 ms until it holds or `timeout` seconds pass.
-func eventually(timeout: Double = 5, _ condition: () -> Bool) async -> Bool {
+/// Seconds since `start`, on the clock dispatch timers run on; `Date` drifts against it and a timer reads early.
+func elapsed(since start: DispatchTime) -> Double {
+    Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
+}
+
+/// Polls `condition` every 10 ms until it holds or `timeout` seconds pass. A passing test never waits
+/// the bound, and a hosted runner's simulator stalled past 5 s.
+func eventually(timeout: Double = 30, _ condition: () -> Bool) async -> Bool {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         if condition() { return true }

@@ -1,9 +1,9 @@
 ---
 id: ADR-0049
 title: Local network keys added to the built Info.plist by a Run Script phase
-status: Accepted
+status: Superseded
 date: 2026-10-23
-superseded_by:
+superseded_by: ADR-0155
 ---
 
 # ADR-0049 — Local network keys added to the built Info.plist by a Run Script phase

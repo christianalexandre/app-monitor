@@ -10,7 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-/** `list_runs` (SDD 10): recordings and "Saved" newest first, with their sessions and exchange counts. */
+/** `list_runs`: recordings and "Saved" newest first, with their sessions and exchange counts. */
 internal object ListRuns {
     const val NAME = "list_runs"
     private const val MAX_LIMIT = 100L

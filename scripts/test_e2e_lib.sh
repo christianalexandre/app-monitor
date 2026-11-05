@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `foreign_urls`) on a crafted
-# server log; needs no device.
+# Tests the assertions of e2e_lib.sh (`missing`, `repeated`, `sessions`, `unnamed`, `dropping`,
+# `foreign_urls`) on a crafted server log; needs no device.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cd "$here/.."
@@ -34,6 +34,15 @@ cat >"$server_log" <<LOG
 [s1] network/RequestStarted r GET $t/status/404 replay_of n
 [s1] network/ResponseReceived r 404, 0 bytes
 [s1] network/RequestStarted q GET $t/post replay_of p
+[s1] interaction/BreakpointHit h BREAKPOINT_STAGE_REQUEST rule 2
+[s1] resumed h BREAKPOINT_STAGE_REQUEST
+[s1] network/RequestStarted h PUT $t/put
+[s1] interaction/BreakpointHit h BREAKPOINT_STAGE_RESPONSE rule 2
+[s1] resumed h BREAKPOINT_STAGE_RESPONSE status 299
+[s1] network/ResponseReceived h 299, 12 bytes
+[s1] interaction/BreakpointHit u BREAKPOINT_STAGE_REQUEST rule 3
+[s1] network/RequestStarted u PATCH $t/patch
+[s1] network/ResponseReceived u 200, 0 bytes
 LOG
 
 check "nothing missing" "" "$(missing dev.app "GET $t/json ResponseReceived")"
@@ -48,6 +57,13 @@ check "sent again, its replay not counted twice" "" "$(missing dev.app "GET $t/s
   repeated "GET $t/status/404 ResponseReceived replay"
 )"
 check "not sent again" "GET $t/status/418: not sent again" "$(missing dev.app "GET $t/status/418 ResponseReceived replay")"
+check "held at both stages, resumed, its status" "" \
+  "$(missing dev.app "PUT $t/put ResponseReceived held:request held:response status:299")"
+check "held but not resumed, not held, another status" "PATCH $t/patch: request not resumed
+PATCH $t/patch: no response held
+PATCH $t/patch: response not resumed
+PATCH $t/patch: no status 299 for u" \
+  "$(missing dev.app "PATCH $t/patch ResponseReceived held:request held:response status:299")"
 check "missing request and device" "no device connected with app id other.app
 POST $t/post: no RequestStarted" "$(missing other.app "POST $t/post ResponseReceived")"
 check "captured twice" "GET $t/json: 2 RequestStarted" "$(repeated "GET $t/json ResponseReceived
@@ -76,6 +92,20 @@ check "a session per SDK, empty app version" "1 1" "$(
 check "an app id in the device name is not the app's" "1" "$(
   echo "[s6] connected: other.app (PLATFORM_ANDROID) third.app 1.0 kotlin" >>"$server_log"
   sessions other.app kotlin
+)"
+check "sessions without the app name" "[s3]
+[s5]" "$(
+  printf '%s\n' "[s1] app name: My App" "[s3] app name: My" "[s4] app name: Other" >>"$server_log"
+  echo "$(unnamed dev.app "My App")"
+  unnamed other.app "Other"
+)"
+check "sessions that dropped or did not report" "[s3]
+[s4]
+[s5]" "$(
+  printf '%s\n' "[s1] drops: evicted 1, oversized 0, lost 0" "[s1] drops: evicted 0, oversized 0, lost 0" \
+    "[s3] drops: evicted 0, oversized 0, lost unknown" "[s4] drops: evicted 2, oversized 0, lost 0" >>"$server_log"
+  dropping dev.app
+  dropping other.app
 )"
 check "the proxy's exchanges are not off the target" "GET https://httpbin.org/json
 GET wss://h/ws

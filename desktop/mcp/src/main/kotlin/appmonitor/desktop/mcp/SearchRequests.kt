@@ -8,7 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-/** `search_requests` (SDD 10): the exchanges a filter matches, oldest first, without headers or bodies (ADR-0089 B.1). */
+/** `search_requests`: the exchanges a filter matches, oldest first, without headers or bodies (ADR-0089 B.1). */
 internal object SearchRequests {
     const val NAME = "search_requests"
     private const val MAX_LIMIT = 200L

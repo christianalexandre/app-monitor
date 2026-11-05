@@ -21,9 +21,6 @@ insert:
 INSERT INTO frames(exchange_ref, at_ms, direction, opcode, payload_truncated, payload_size, stored_size)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
-lastId:
-SELECT last_insert_rowid();
-
 putPayload:
 INSERT INTO frame_payloads(frame_ref, codec, data) VALUES (?, ?, ?);
 

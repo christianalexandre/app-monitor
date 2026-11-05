@@ -155,4 +155,61 @@ class RecorderTest {
                 storage.close(5.seconds)
             }
         }
+
+    @Test
+    fun eachSessionKeepsItsLatestDropsLiveRecordedAndSaved() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                val live = LiveTraffic()
+                val recorder = Recorder(live, storage)
+                recorder.connected("s1", hello(), null)
+                recorder.received("s1", envelope(started("before")))
+                val first = StoredDrops(evicted = 3, oversized = 1, lost = null)
+                recorder.dropped("s1", first)
+                assertEquals(first, live.sessions().single().drops)
+
+                // Reported before the recording: the run's row gets them when it is written.
+                val run = assertNotNull(storage.record())
+                recorder.received("s1", envelope(started("a")))
+                storage.flush()
+                assertEquals(first, storage.sessions(run).single().drops)
+
+                val latest = StoredDrops(evicted = 5, oversized = 1, lost = 2)
+                recorder.dropped("s1", latest)
+                storage.flush()
+                assertEquals(latest, storage.sessions(run).single().drops)
+                assertEquals(latest, live.sessions().single().drops)
+
+                storage.stop()
+                storage.save(live.copies(live.searchExchanges(ExchangeFilter()).map { it.id }))
+                val saved = storage.runs().single { it.saved }
+                assertEquals(latest, storage.sessions(saved.id).single().drops)
+                storage.close(5.seconds)
+            }
+            val reopened = Storage.open(dir, startRun = false)
+            runBlocking {
+                val run = reopened.runs().single { !it.saved }
+                assertEquals(StoredDrops(5, 1, 2), reopened.sessions(run.id).single().drops, "kept across a restart")
+                reopened.close(5.seconds)
+            }
+        }
+
+    @Test
+    fun aSessionWithoutAReportHasNoDrops() =
+        withDataDir { dir ->
+            val storage = Storage.open(dir, startRun = false)
+            runBlocking {
+                val live = LiveTraffic()
+                val recorder = Recorder(live, storage)
+                recorder.connected("s1", hello(), null)
+                val run = assertNotNull(storage.record())
+                recorder.received("s1", envelope(started("a")))
+                storage.flush()
+
+                assertNull(live.sessions().single().drops)
+                assertNull(storage.sessions(run).single().drops)
+                storage.close(5.seconds)
+            }
+        }
 }

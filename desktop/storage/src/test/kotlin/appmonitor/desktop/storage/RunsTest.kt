@@ -109,8 +109,12 @@ class RunsTest {
             runBlocking {
                 assertFalse(reopened.isClosing)
                 assertEquals("b", reopened.setting("mcp.token"), "kept across a restart")
-                reopened.clearAll()
+                reopened.setSetting("desktop.id", "kept")
+                reopened.clearAll(keepSettings = setOf("desktop.id"))
                 assertNull(reopened.setting("mcp.token"), "clearAll deletes it")
+                assertEquals("kept", reopened.setting("desktop.id"), "what it was told to keep stays")
+                reopened.clearAll()
+                assertNull(reopened.setting("desktop.id"), "kept only when named")
                 reopened.close(5.seconds)
             }
         }

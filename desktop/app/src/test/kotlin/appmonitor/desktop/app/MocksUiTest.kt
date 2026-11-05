@@ -1,6 +1,8 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +14,8 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.mocks.CONFIRM_MOCK
 import appmonitor.desktop.feature.mocks.MOCK_BODY
 import appmonitor.desktop.feature.mocks.MOCK_STATUS
+import appmonitor.desktop.feature.mocks.MOVE_MOCK_DOWN
+import appmonitor.desktop.feature.mocks.MOVE_MOCK_UP
 import appmonitor.desktop.feature.mocks.SAVE_MOCK
 import appmonitor.desktop.feature.traffic.MOCKS
 import appmonitor.desktop.feature.traffic.MOCK_THIS
@@ -172,6 +176,38 @@ class MocksUiTest {
                 onNodeWithTag(CONFIRM_MOCK + agent).performClick()
                 awaitText("Mocks")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.mocks() }.none { it.pending } }
+            }
+        }
+
+    @Test
+    fun `a rule moves up and down in its app's order, not past either end`() =
+        withStorage { storage ->
+            val rule = MockRule(host = "api.example.com", path = "/v1/items", response = MockResponse(status_code = 503))
+            val (wider, narrower, other) =
+                runBlocking {
+                    listOf("app" to "wider", "app" to "narrower", "other" to "elsewhere").map { (app, name) ->
+                        assertIs<MockWrite.Saved>(storage.createMock(app, name, rule, MockSource.WINDOW)).id
+                    }
+                }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
+                onNodeWithTag(MOCKS).performClick()
+                awaitText("narrower")
+                onNodeWithTag(MOVE_MOCK_UP + wider).assertIsNotEnabled()
+                onNodeWithTag(MOVE_MOCK_DOWN + narrower).assertIsNotEnabled()
+                onNodeWithTag(MOVE_MOCK_UP + other).assertIsNotEnabled()
+                onNodeWithTag(MOVE_MOCK_DOWN + other).assertIsNotEnabled()
+
+                onNodeWithTag(MOVE_MOCK_UP + narrower).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.mocks() }.map { it.id } == listOf(narrower, wider, other) }
+                waitUntil(timeoutMillis = TIMEOUT_MS) {
+                    onNodeWithTag(MOVE_MOCK_UP + narrower).runCatching { assertIsNotEnabled() }.isSuccess
+                }
+                onNodeWithTag(MOVE_MOCK_DOWN + narrower).assertIsEnabled()
+
+                onNodeWithTag(MOVE_MOCK_DOWN + narrower).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.mocks() }.map { it.id } == listOf(wider, narrower, other) }
             }
         }
 

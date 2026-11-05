@@ -1,5 +1,6 @@
 package appmonitor.sdk.okhttp
 
+import appmonitor.sdk.core.CaptureSink
 import appmonitor.v1.Header
 import appmonitor.v1.MockFailure
 import appmonitor.v1.MockResponse
@@ -87,6 +88,23 @@ class MockAnswerTest {
         val failed = sink.failed()
         assertEquals(started.request_id, failed.request_id)
         assertContains(failed.error, "mocked reset")
+    }
+
+    @Test
+    fun aCallCancelledDuringTheDelayFailsAtOnce() {
+        val sink = RecordingSink(mocks = listOf(MockRule(id = 9, path = "/slow", delay_ms = 10_000, failure = MockFailure("late"))))
+        val call = client(sink).newCall(Request.Builder().url(server.url("/slow")).build())
+        val startedAt = System.nanoTime()
+        Thread {
+            Thread.sleep(200)
+            call.cancel()
+        }.start()
+
+        val error = assertFailsWith<IOException> { call.execute() }
+
+        assertTrue(System.nanoTime() - startedAt < 2_000_000_000, "the cancel waited for the delay")
+        assertEquals("Canceled", error.message)
+        assertEquals(sink.started().request_id, sink.failed().request_id)
     }
 
     @Test

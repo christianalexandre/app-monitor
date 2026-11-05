@@ -1,10 +1,10 @@
 ---
 id: DEBT-0032
 title: The fake client's "desktop closes with an error" test failed once in CI
-status: Open # Open | Paid | Dropped
+status: Paid # Open | Paid | Dropped
 date: 2026-10-23
 trigger: The second CI failure of `MainTest > a desktop that closes the session with an error exits 1`, or any failure of it on a developer machine
-paid_date:
+paid_date: 2026-10-30
 ---
 
 # DEBT-0032 — The fake client's "desktop closes with an error" test failed once in CI
@@ -32,4 +32,5 @@ machine. Then: print the assertion message in CI (upload
 
 ## How it was paid
 
-> Filled when closing. What the solution taught, and what is left of it.
+Same cause and fix as DEBT-0056, which records the evidence: `MainTest`
+uses the same test desktop (`ackThenClose`) as `HandshakeFailureTest`.

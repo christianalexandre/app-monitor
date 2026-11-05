@@ -28,7 +28,7 @@ interface RetentionRepository {
     suspend fun setRetention(retention: Retention)
 }
 
-/** The store's `settings` keys other than retention's (SDD 09). */
+/** The store's `settings` keys other than retention's. */
 interface SettingRepository {
     /** Null when unset or the store is closing. */
     suspend fun setting(key: String): String?
@@ -64,7 +64,7 @@ interface AnsweredDeviceRepository {
     suspend fun forgetAll()
 }
 
-/** What the settings show about a local server the window starts: the MCP server or the proxy (SDD 10, SDD 11). */
+/** What the settings show about a local server the window starts: the MCP server or the proxy. */
 sealed interface ServiceStatus {
     data object Off : ServiceStatus
 
@@ -119,7 +119,21 @@ interface ProxyRepository {
 
     /** Deletes the CA; a running proxy restarts with a new one. */
     suspend fun resetCa()
+
+    /** Hosts tunnelled untouched, nothing stored (ADR-0194): a name, or `*.domain` for the names under it. */
+    val passThrough: StateFlow<List<String>>
+
+    /** Persists [hosts] as [passThroughHosts] reads them; the next `CONNECT` uses them, no restart. */
+    suspend fun setPassThrough(hosts: List<String>)
 }
+
+/** The entries of [text]: split on spaces, commas and new lines, lower case, each once, in order. */
+fun passThroughHosts(text: String): List<String> =
+    text
+        .split(',', ' ', '\t', '\n', '\r')
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+        .distinct()
 
 /** Which theme the window paints; [System] follows the OS. */
 enum class ThemeMode {

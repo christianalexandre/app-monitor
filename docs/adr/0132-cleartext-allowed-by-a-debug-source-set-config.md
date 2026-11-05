@@ -1,9 +1,9 @@
 ---
 id: ADR-0132
 title: Cleartext to the desktop is allowed by a debug source set config, not debug-overrides
-status: Accepted # Proposed | Accepted | Superseded | Rejected
+status: Superseded
 date: 2026-10-25
-superseded_by:
+superseded_by: ADR-0156
 ---
 
 # ADR-0132 — Cleartext to the desktop is allowed by a debug source set config, not debug-overrides

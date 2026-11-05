@@ -20,7 +20,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   engine, goes on with the header removed and nothing captured, whether
   the monitor runs or not (SDD 08, ADR-0129). Tests:
   `AppMonitorInterceptorTest`, and `OkHttpEngineDedupeTest` in `sdk/ktor`.
-- **Masking**, on the device before the envelope is built:
+- **Masking**, on the device before the envelope is built, by `sdk/core`'s
+  `Masking` on the URL as `HttpUrl` prints it, a masked URL's other fields kept
+  (ADR-0181):
   `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` plus
   `maskedHeaders` keep their name and get the value `██`;
   `maskedQueryParameters` do the same in the URL's query and in a
@@ -30,7 +32,13 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
   resolved against the request URL and get the same URL rule; a value with
   another scheme (`com.example.app:/oauth?code=…`) gets it by RFC 3986
   generic syntax, only the masked spans changed (ADR-0044), and so is a
-  value `HttpUrl` does not resolve, with or without a scheme. Names compare
+  value `HttpUrl` does not resolve, with or without a scheme. Resolving is
+  `HttpUrl.resolve`, what OkHttp follows, so `https:\\\\user:pw@h\\x` is masked too. That syntax,
+  the same in every SDK and pinned by `protocol/fixtures/masking.json`: an
+  optional scheme, a letter then letters, digits, `+`, `.` or `-` up to the
+  first `:`; a query after the first `?`, a fragment after the first `#`;
+  an authority only after `//`, up to the next `/`, its user info up to the
+  last `@` there, the user name and password split at the first `:`. Names compare
   case-insensitively, as in OkHttp's `HttpLoggingInterceptor`. Bodies are
   never masked (DEBT-0019).
   `masking = false` skips every rule above and sends each value as OkHttp
@@ -44,8 +52,9 @@ app ── AppMonitorWebSocketFactory(client) ──┘        (sdk/core, @Inter
 ### Added by the Gradle plugin
 
 `io.github.christianalexandre.appmonitor` (`gradle-plugin/`, ADR-0112,
-ADR-0126, ADR-0127), applied in an Android app module, adds the interceptor
-without a line of code:
+ADR-0126, ADR-0127), applied in an Android app module, adds the SDK, its
+no-ops in release (ADR-0157, SDD 01), and the interceptor without a line of
+code:
 
 - In each variant with `debuggable = true` whose dependency graph has
   `appmonitor-okhttp`, OkHttp's constructor `OkHttpClient(builder)`
@@ -57,11 +66,21 @@ without a line of code:
 - Release variants, a variant without the SDK (one build line, "OkHttp is
   not rewritten", when AGP runs the transform) and
   `appMonitor { injectOkHttp = false }` leave OkHttp's bytes untouched.
-- WebSockets still need `AppMonitorWebSocketFactory` (ADR-0112 C.1).
+- `OkHttpClient.newWebSocket` calls `AppMonitorOkHttp.newWebSocket(this,
+  request, listener)` first and returns its socket when not null (ADR-0159).
+  The entry returns null while the monitor is idle, for a request tagged
+  with a `WebSocketCapture` (the factory's own call into the client) and for
+  one carrying `X-AppMonitor-Capture` (the Ktor plugin's). Otherwise it opens
+  the socket through `AppMonitorWebSocketFactory(client)`. AGP recomputes
+  that method's frames. `AppMonitorWebSocketFactory` by hand is for apps
+  that set `injectOkHttp = false`.
 - Tests: `ClientVisitorTest` (OkHttp's real `OkHttpClient` rewritten
-  and loaded, a client from each path), `OkHttpInjectionTest` (TestKit: a consumer's APKs read with
-  `dexdump`), `AppMonitorOkHttpTest` in the SDK. The Android sample has
-  no interceptor line; `make e2e-android` captures it.
+  and loaded, a client from each path, `newWebSocket` asking the entry
+  first), `AppMonitorOkHttpWebSocketTest` in the SDK, `OkHttpInjectionTest` (TestKit: consumers with stand-in `:sdk:*`
+  projects, their APKs read with `dexdump`: debug real, release no-op, no
+  OkHttp brought to an app without it, a release resolving a real artifact
+  failing), `AppMonitorOkHttpTest` in the SDK. The Android sample has
+  no interceptor and no WebSocket line; `make e2e-android` captures both.
 
 ### One HTTP call
 
@@ -82,7 +101,8 @@ When `MonitorBridge.mockFor` returns a rule (SDD 04, ADR-0110), the
 interceptor answers without `chain.proceed` (ADR-0115):
 
 - `RequestStarted` as above, with `mock_rule_id`.
-- After `delay_ms` (`Thread.sleep`), a rule's response becomes a
+- After `delay_ms` (`Thread.sleep` in 50 ms steps that check
+  `call.isCanceled()`), a rule's response becomes a
   `Response` with its status, headers and body, protocol HTTP/1.1, and
   `ResponseReceived` is sent at once with the whole body. A rule's
   failure, a call cancelled during the delay or an interrupted delay
@@ -99,17 +119,18 @@ interceptor answers without `chain.proceed` (ADR-0115):
 
 When `MonitorBridge.breakpointFor` returns a rule (SDD 04, ADR-0118,
 ADR-0123), the interceptor holds the call on its own thread
-(`runBlocking`), checking `Call.isCanceled()` every 50 ms:
+(`runBlocking`), checking `Call.isCanceled()` every 50 ms. What each outcome
+does is `sdk/core`'s `CallCapture`, the same as Ktor's (ADR-0182):
 
 | Stage | Held | The hit carries | Then |
 | --- | --- | --- | --- |
-| Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value. `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
+| Request | Before the mock lookup and `chain.proceed` | The request as it would go out, masked, as a `RequestStarted` | The resume's method, URL, headers and body applied to the real request: a `██` header left alone goes out with its value, and one left in an edited URL or header group too (ADR-0185). `RequestStarted` is sent once, for the request as resumed; the mock lookup runs on it |
 | Response | After `chain.proceed` or a mock's answer, before the app reads the body (not for `101`) | The request as sent and the response, its body peeked up to `maxBodyBytes` (`BufferedSource.peek`, not consumed) | The resume's status and headers applied; a replaced body is the app's whole body and `ResponseReceived` is sent at once with it; otherwise the body is captured as the app reads it |
 
 - An abort, a cancel or an interrupt during the wait, or an edit OkHttp
   refuses ("Breakpoint edit refused: …": a URL that does not parse, a
-  method that refuses the body, another host or port under
-  `addNetworkInterceptor`, ADR-0128) sends `RequestStarted` when not yet
+  method that refuses the body, a header name it rejects at either stage,
+  another host or port under `addNetworkInterceptor`, ADR-0128) sends `RequestStarted` when not yet
   sent, then `RequestFailed`, and throws an `IOException`
   (`InterruptedIOException` for an interrupt).
 - No answer within the hit's timeout, or the session's end: the call
@@ -162,4 +183,4 @@ ADR-0122 B.1):
   without the error.
 - Ping and pong frames are handled inside OkHttp and not seen (DEBT-0029).
 - An event whose URL and headers exceed 256 KiB is dropped whole by
-  `MonitorClient` (DEBT-0023).
+  `MonitorClient`, and counted in its `DeliveryReport` (ADR-0166).

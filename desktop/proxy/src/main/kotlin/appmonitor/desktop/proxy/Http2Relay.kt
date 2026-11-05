@@ -64,7 +64,8 @@ internal class PrefaceDetector(
 internal class Http2Session(
     private val target: Target,
     private val upstreamTls: SslContext,
-    private val record: (Envelope) -> Unit,
+    private val originAlpn: OriginAlpn,
+    private val record: (Envelope) -> Boolean,
     private val clock: () -> Long,
 ) : ChannelInboundHandlerAdapter() {
     private lateinit var client: Channel
@@ -197,6 +198,7 @@ internal class Http2Session(
                     }
 
                     protocol != ApplicationProtocolNames.HTTP_2 -> {
+                        originAlpn.remember(target.host, target.port, http2 = false)
                         failWaiting("${target.host}:${target.port} does not offer HTTP/2")
                     }
 
@@ -224,7 +226,7 @@ internal class Http2Session(
         }
     }
 
-    /** One client stream and its upstream twin: frames relayed as they come, the exchange captured (SDD 11). */
+    /** One client stream and its upstream twin: frames relayed as they come, the exchange captured. */
     private inner class StreamRelay : ChannelInboundHandlerAdapter() {
         private lateinit var stream: ChannelHandlerContext
         private var capture: Capture? = null
@@ -324,8 +326,23 @@ internal class Http2Session(
                             if (!done.isSuccess) fail("Could not write to ${target.host}: ${done.cause().message}", reply = true)
                         },
                     )
+                    // Backpressure: a side is read only while the other takes its frames, so flow control reaches the peer.
+                    if (!open.isWritable) stream.channel().config().isAutoRead = false
                 }
             }
+        }
+
+        override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+            if (ctx.channel().isWritable) twin?.config()?.isAutoRead = true
+            super.channelWritabilityChanged(ctx)
+        }
+
+        private fun toClient(
+            from: Channel,
+            frame: Any,
+        ) {
+            stream.writeAndFlush(frame)
+            if (!stream.channel().isWritable) from.config().isAutoRead = false
         }
 
         /** Ends the exchange as failed: a `502` when the client has no response yet and [reply], else a reset. */
@@ -391,7 +408,7 @@ internal class Http2Session(
                                 ?.toIntOrNull()
                         // A 1xx is passed on and not stored; trailers add to the response's headers.
                         if (!responded && code != null && code in 100..199) {
-                            stream.writeAndFlush(DefaultHttp2HeadersFrame(msg.headers(), msg.isEndStream))
+                            toClient(ctx.channel(), DefaultHttp2HeadersFrame(msg.headers(), msg.isEndStream))
                             return
                         }
                         if (!responded) {
@@ -399,7 +416,7 @@ internal class Http2Session(
                             status = code ?: 0
                         }
                         responseHeaders += stored(msg.headers())
-                        stream.writeAndFlush(DefaultHttp2HeadersFrame(msg.headers(), msg.isEndStream))
+                        toClient(ctx.channel(), DefaultHttp2HeadersFrame(msg.headers(), msg.isEndStream))
                         if (msg.isEndStream) responseEnded()
                     }
 
@@ -407,7 +424,7 @@ internal class Http2Session(
                         val messages = responseMessages
                         if (messages != null) messages.add(msg.content()) else responseBody.add(msg.content())
                         val end = msg.isEndStream
-                        stream.writeAndFlush(DefaultHttp2DataFrame(msg.content(), end))
+                        toClient(ctx.channel(), DefaultHttp2DataFrame(msg.content(), end))
                         if (end) responseEnded()
                     }
 
@@ -419,6 +436,11 @@ internal class Http2Session(
                         ReferenceCountUtil.release(msg)
                     }
                 }
+            }
+
+            override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {
+                if (ctx.channel().isWritable) stream.channel().config().isAutoRead = true
+                super.channelWritabilityChanged(ctx)
             }
 
             override fun channelInactive(ctx: ChannelHandlerContext) {

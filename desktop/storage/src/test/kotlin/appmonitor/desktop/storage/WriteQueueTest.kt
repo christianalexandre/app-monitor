@@ -5,6 +5,7 @@ import appmonitor.v1.ResponseReceived
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -16,7 +17,9 @@ import kotlinx.coroutines.withTimeout
 import java.sql.SQLException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,6 +27,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -197,8 +201,12 @@ class WriteQueueTest {
                 assertNull(sessions.getValue("s1").disconnectedAtMs, "still lost")
                 assertNotNull(sessions.getValue("s2").disconnectedAtMs)
                 assertEquals(3, storage.exchangesOfSession(sessions.getValue("s2").id).size)
-                assertEquals(StorageHealth(notSaved = 1), storage.health.value, "the later batches cleared the error")
-                storage.close(5.seconds)
+                assertEquals(
+                    StorageHealth(notSaved = 1, lastError = "java.sql.SQLException: constraint failed"),
+                    storage.health.value,
+                    "later batches written, the error stays while its retry fails",
+                )
+                assertEquals(1, storage.close(5.seconds), "still lost at close: the next open ends that session")
             }
         }
 
@@ -234,6 +242,125 @@ class WriteQueueTest {
         }
 
     @Test
+    fun anErrorInAWriteClosesTheQueue() =
+        runBlocking {
+            val executor = Executors.newSingleThreadExecutor()
+            val settled = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val queue =
+                WriteQueue<Int>(
+                    maxBytes = 10,
+                    maxBatch = 1,
+                    dispatcher = executor.asCoroutineDispatcher(),
+                    sizeOf = { 4L },
+                    counted = { true },
+                    write = { throw AssertionError("boom") },
+                    written = { settled += it },
+                )
+            try {
+                // Without the close, the dead writer's queue fills and an enqueue waits for good.
+                withTimeout(5.seconds) { while (queue.enqueue(0)) delay(10) }
+
+                assertTrue(queue.health.value.notSaved >= 1)
+                assertEquals("java.lang.AssertionError: boom", queue.health.value.lastError)
+                // The failed batch is settled too: a flush barrier in it must not wait for good.
+                assertEquals(listOf(0), settled.take(1))
+            } finally {
+                executor.shutdownNow()
+            }
+        }
+
+    @Test
+    fun anEnqueueRacingADeadWriterDoesNotWaitForGood() =
+        runBlocking {
+            val executor = Executors.newSingleThreadExecutor()
+            val writing = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val dead = CountDownLatch(1)
+            val raced = AtomicBoolean()
+            val queue =
+                WriteQueue<Int>(
+                    maxBytes = 10,
+                    maxBatch = 1,
+                    dispatcher = executor.asCoroutineDispatcher(),
+                    sizeOf = { if (it == 0) 0L else 8L },
+                    // Between an enqueue's send and its byte count on the old order: the writer ends here.
+                    counted = {
+                        if (it == 1 && raced.compareAndSet(false, true)) {
+                            release.countDown()
+                            dead.await()
+                        }
+                        true
+                    },
+                    write = {
+                        writing.countDown()
+                        release.await()
+                        throw AssertionError("boom")
+                    },
+                )
+            queue.afterWriter { dead.countDown() }
+            try {
+                queue.enqueue(0)
+                writing.await()
+                queue.enqueue(1)
+
+                // Eight stale bytes would leave no room for these eight, and no writer to free them.
+                assertFalse(withTimeout(5.seconds) { queue.enqueue(2) })
+            } finally {
+                executor.shutdownNow()
+            }
+        }
+
+    @Test
+    fun itemsLeftByADeadWriterAreCounted() =
+        runBlocking {
+            val executor = Executors.newSingleThreadExecutor()
+            val release = CountDownLatch(1)
+            val left = java.util.concurrent.CopyOnWriteArrayList<Int>()
+            val queue =
+                WriteQueue<Int>(
+                    maxBytes = 100,
+                    maxBatch = 1,
+                    dispatcher = executor.asCoroutineDispatcher(),
+                    sizeOf = { 1L },
+                    counted = { true },
+                    write = {
+                        release.await()
+                        throw AssertionError("boom")
+                    },
+                    dropped = { left += it },
+                )
+            try {
+                repeat(3) { queue.enqueue(it) }
+                release.countDown()
+
+                assertEquals(2, queue.close(5.seconds), "the two the writer never reached")
+                assertEquals(listOf(1, 2), left)
+                assertEquals(StorageHealth(notSaved = 3, lastError = "java.lang.AssertionError: boom"), queue.health.value)
+            } finally {
+                executor.shutdownNow()
+            }
+        }
+
+    @Test
+    fun aSessionKeepsItsLastEnvelopeTimeOfABatch() =
+        withDataDir { dir ->
+            var now = 1_000L
+            val storage = Storage.open(dir, { now }, Storage.MAX_QUEUE_BYTES) {}
+            runBlocking {
+                storage.connected("s1", hello(), null)
+                val held = holdWriter(storage)
+                repeat(3) {
+                    now += 1_000
+                    storage.received("s1", envelope(started("r$it")))
+                }
+                held.release()
+                storage.flush()
+                assertEquals(4_000, storage.sessions(storage.runId).single().lastEnvelopeAtMs)
+                storage.close(5.seconds)
+            }
+        }
+
+    @Test
     fun closeDrainsQueue() =
         withDataDir { dir ->
             val storage = Storage.open(dir)
@@ -263,6 +390,33 @@ class WriteQueueTest {
                 held.release()
                 assertEquals(12, lost, "Connected, ten envelopes and the run's end")
             }
+        }
+
+    // DEBT-0091: the at-open pass queued behind a held writer kept close waiting for ever.
+    @Test
+    fun aRetentionPassOnTheWriterDoesNotHoldCloseBeyondItsTimeout() =
+        withDataDir { dir ->
+            val old = Storage.open(dir, { 0L }, Storage.MAX_QUEUE_BYTES, retentionInterval = null) {}
+            runBlocking {
+                old.connected("s1", hello(), null)
+                old.disconnected("s1")
+                assertEquals(0, old.close(5.seconds))
+            }
+            val entered = CountDownLatch(1)
+            val stall = CountDownLatch(1)
+            val storage =
+                Storage.open(dir, { 8.days.inWholeMilliseconds }, Storage.MAX_QUEUE_BYTES, afterRetentionChunk = {
+                    entered.countDown()
+                    stall.await()
+                }) {}
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS), "the pass at open reached its first chunk")
+                runBlocking { withTimeout(5.seconds) { storage.close(300.milliseconds) } }
+            } finally {
+                stall.countDown()
+            }
+            val executor = storage.writerDispatcher.executor as ExecutorService
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "closed once the pass left the writer")
         }
 
     @Test

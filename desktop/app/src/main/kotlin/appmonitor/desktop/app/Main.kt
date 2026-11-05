@@ -21,7 +21,7 @@ import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
-import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.feature.settings.DataDirectoryInUse
 import appmonitor.desktop.feature.settings.StorageUnavailable
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.mcp.McpServer
@@ -30,8 +30,10 @@ import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.DeviceKey
 import appmonitor.desktop.server.DeviceSession
 import appmonitor.desktop.server.STOP_TIMEOUT
+import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.server.printStopFailure
 import appmonitor.desktop.server.shutdownHook
+import appmonitor.desktop.storage.DataDirectoryInUseException
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Recorder
 import appmonitor.desktop.storage.Storage
@@ -53,6 +55,7 @@ import java.awt.Dimension
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -60,11 +63,19 @@ import kotlin.time.Duration
 fun main() {
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
-    val (storage, approvals, access, appearance, panes) =
+    val (storage, approvals, access, appearance, panes, desktopId) =
         try {
             openServices(directory) { server.disconnect(it) }
         } catch (e: Exception) {
-            exitAfter { runBlocking { showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e) } }
+            exitAfter {
+                runBlocking {
+                    if (e is DataDirectoryInUseException) {
+                        showDataDirectoryInUse(directory.toString())
+                    } else {
+                        showStorageFailure(directory.resolve(Storage.FILE_NAME).toString(), e)
+                    }
+                }
+            }
             return
         }
     // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
@@ -75,7 +86,7 @@ fun main() {
     val runRepository = storage.runRepository()
     val traffic = storage.trafficRepository(live)
     var status by mutableStateOf("Starting server…")
-    server = AppMonitorServer(approval = approvals.approvals)
+    server = AppMonitorServer(ServerConfig(desktopId = desktopId), approvals.approvals)
     val mcp = McpController(storage, live, access, replays = store.replays)
     val proxy = ProxyController(storage, recorder, directory)
     val stopServer = once(server::stop)
@@ -103,6 +114,7 @@ fun main() {
                         ) {
                             // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
                             LaunchedEffect(window) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
+                            LaunchedEffect(appearance) { withContext(Dispatchers.IO) { appearance.theme.collect(::applyMacAppearance) } }
                             val scope = rememberCoroutineScope()
                             AppMonitorApp(
                                 storage,
@@ -113,7 +125,7 @@ fun main() {
                                 onClearAll = {
                                     scope.launch {
                                         approvals.forgetAll()
-                                        storage.clearAll()
+                                        clearAllKeepingDesktopId(storage)
                                         appearance.setTheme(appearance.theme.value)
                                         panes.setLayout(panes.layout.value)
                                         recorder.forget()
@@ -142,16 +154,6 @@ fun main() {
     }
 }
 
-internal const val MAC_APPEARANCE = "apple.awt.application.appearance"
-
-/** The macOS appearance of the window's title bar, menus and system dialogs for [theme]. */
-internal fun macAppearanceOf(theme: ThemeMode): String =
-    when (theme) {
-        ThemeMode.System -> "system"
-        ThemeMode.Light -> "NSAppearanceNameAqua"
-        ThemeMode.Dark -> "NSAppearanceNameDarkAqua"
-    }
-
 // The devices pane, the request list and the detail at their minimums (ADR-0151), with room to spare.
 private const val MIN_WIDTH = 1000
 private const val MIN_HEIGHT = 600
@@ -162,9 +164,16 @@ internal data class Services(
     val access: McpAccess,
     val appearance: AppearanceRepository,
     val panes: PaneLayoutRepository,
+    /** The id devices pin (ADR-0168), created once and kept in the store's `settings`. */
+    val desktopId: String,
 )
 
-/** Opens the store, its device answers, the MCP token, the theme and the panes' layout; on a failure the store is closed again and no server starts. */
+internal const val DESKTOP_ID_KEY = "desktop.id"
+
+/** "Clear all data" empties `settings` too; the id devices pinned stays, or every one would refuse this desktop (ADR-0168). */
+internal suspend fun clearAllKeepingDesktopId(storage: Storage) = storage.clearAll(keepSettings = setOf(DESKTOP_ID_KEY))
+
+/** Opens the store, its device answers, the MCP token, the theme, the panes' layout and the desktop id; on a failure the store is closed again and no server starts. */
 internal fun openServices(
     directory: Path,
     disconnect: (DeviceKey) -> Unit,
@@ -179,6 +188,7 @@ internal fun openServices(
                 McpAccess.open(settings),
                 settings.appearanceRepository(),
                 settings.paneLayoutRepository(),
+                settings.setting(DESKTOP_ID_KEY) ?: UUID.randomUUID().toString().also { settings.setSetting(DESKTOP_ID_KEY, it) },
             )
         }
     } catch (e: Exception) {
@@ -199,7 +209,7 @@ internal suspend fun stopBoth(
     }
 }
 
-/** Stops [mcp], then [server], each even when the other fails, and only then runs [closeStorage] (SDD 10). */
+/** Stops [mcp], then [server], each even when the other fails, and only then runs [closeStorage]. */
 internal suspend fun stopAll(
     mcp: suspend () -> Unit,
     server: suspend () -> Unit,
@@ -213,6 +223,12 @@ internal suspend fun stopAll(
         }
     } finally {
         closeStorage()
+    }
+}
+
+private suspend fun showDataDirectoryInUse(directory: String) {
+    awaitApplication {
+        Window(onCloseRequest = ::exitApplication, title = "App Monitor") { DataDirectoryInUse(directory) }
     }
 }
 
@@ -294,7 +310,7 @@ internal suspend fun runServer(
 ) {
     try {
         val port = start()
-        onStatus("Listening on port $port")
+        onStatus("Listening on port $port" + server.advertisingProblem?.let { "; $it" }.orEmpty())
         collect(server.sessions)
         onStatus("Server stopped")
     } catch (e: CancellationException) {

@@ -9,11 +9,13 @@ import appmonitor.desktop.domain.BreakpointWrite
 import appmonitor.desktop.domain.HeldCall
 import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.HeldEdit
+import appmonitor.desktop.domain.RuleMove
 import appmonitor.v1.BreakpointRule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,13 +31,26 @@ class BreakpointsViewModel(
     private val heldCalls: HeldCallRepository?,
 ) : ViewModel() {
     val state: StateFlow<BreakpointsState> =
-        combine(breakpoints.observeBreakpoints(), heldCalls?.held ?: MutableStateFlow(emptyList()), ::BreakpointsState)
-            .stateIn(viewModelScope, SharingStarted.Eagerly, BreakpointsState(held = heldCalls?.held?.value.orEmpty()))
+        // A held call waits on the device: it shows before the first query answers.
+        combine(
+            breakpoints.observeBreakpoints().onStart {
+                emit(emptyList())
+            },
+            heldCalls?.held ?: MutableStateFlow(emptyList()),
+            ::BreakpointsState,
+        ).stateIn(viewModelScope, SharingStarted.Eagerly, BreakpointsState(held = heldCalls?.held?.value.orEmpty()))
 
     val maxTimeoutMs: Long get() = breakpoints.maxTimeoutMs
 
     fun toggle(breakpoint: Breakpoint) {
         viewModelScope.launch { breakpoints.update(breakpoint.id, BreakpointChange(enabled = !breakpoint.enabled)) }
+    }
+
+    fun move(
+        id: Long,
+        move: RuleMove,
+    ) {
+        viewModelScope.launch { breakpoints.move(id, move) }
     }
 
     fun delete(id: Long) {

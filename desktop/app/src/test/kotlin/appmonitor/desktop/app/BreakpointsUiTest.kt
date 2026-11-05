@@ -1,6 +1,7 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,6 +16,8 @@ import appmonitor.desktop.feature.breakpoints.BREAKPOINT_PATH
 import appmonitor.desktop.feature.breakpoints.HELD_BODY
 import appmonitor.desktop.feature.breakpoints.HELD_STATUS
 import appmonitor.desktop.feature.breakpoints.HELD_URL
+import appmonitor.desktop.feature.breakpoints.MOVE_BREAKPOINT_DOWN
+import appmonitor.desktop.feature.breakpoints.MOVE_BREAKPOINT_UP
 import appmonitor.desktop.feature.breakpoints.NEW_BREAKPOINT
 import appmonitor.desktop.feature.breakpoints.RESUME_HELD
 import appmonitor.desktop.feature.breakpoints.SAVE_BREAKPOINT
@@ -22,6 +25,7 @@ import appmonitor.desktop.feature.breakpoints.TOGGLE_BREAKPOINT
 import appmonitor.desktop.feature.traffic.BREAKPOINTS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
+import appmonitor.desktop.storage.BreakpointWrite
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.protocol.Protocol
 import appmonitor.v1.BreakpointAbort
@@ -49,6 +53,7 @@ import kotlinx.coroutines.withTimeout
 import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 // ADR-0119: a breakpoint made and turned off and on in the window, and the calls it holds resumed edited or aborted there.
 @OptIn(ExperimentalTestApi::class)
@@ -167,6 +172,30 @@ class BreakpointsUiTest {
                     collecting.cancel()
                     server.stop()
                 }
+            }
+        }
+
+    @Test
+    fun `a breakpoint moves up and down in its app's order, not past either end`() =
+        withStorage { storage ->
+            val (top, bottom) =
+                runBlocking {
+                    listOf("top", "bottom").map { name ->
+                        assertIs<BreakpointWrite.Saved>(storage.createBreakpoint("app", name, rule)).id
+                    }
+                }
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
+                onNodeWithTag(BREAKPOINTS).performClick()
+                awaitText("bottom")
+                onNodeWithTag(MOVE_BREAKPOINT_UP + top).assertIsNotEnabled()
+                onNodeWithTag(MOVE_BREAKPOINT_DOWN + bottom).assertIsNotEnabled()
+
+                onNodeWithTag(MOVE_BREAKPOINT_UP + bottom).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.breakpoints() }.map { it.id } == listOf(bottom, top) }
+                onNodeWithTag(MOVE_BREAKPOINT_DOWN + bottom).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.breakpoints() }.map { it.id } == listOf(top, bottom) }
             }
         }
 

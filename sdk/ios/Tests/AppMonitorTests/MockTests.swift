@@ -165,13 +165,13 @@ extension ProcessWideHooks.URLSessionCaptureTests {
 
     @Test func aFailureRuleFailsTheTaskAfterItsDelay() async throws {
         mocking(mockRule(4, path: "/error", delayMs: 300, failure: "offline on purpose"))
-        let begin = Date()
+        let begin = DispatchTime.now()
 
         let error = await #expect(throws: URLError.self) {
             try await URLSession.shared.data(from: self.server.url("/error"))
         }
 
-        #expect(Date().timeIntervalSince(begin) >= 0.3)
+        #expect(elapsed(since: begin) >= 0.3)
         #expect(error?.code == .networkConnectionLost)
         #expect(error?.localizedDescription == "offline on purpose")
         let (started, end) = try await started(server.url("/error"))

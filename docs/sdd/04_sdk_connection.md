@@ -23,7 +23,6 @@ it. The client is a state machine; exactly one state is current.
                      └─ timer ───────────────────── backing off ◄──────────────────────┘
 
   discovering … backing off ── stop() ──► stopped ── start() ──► new client
-  connecting ── cleartext blocked ──► stopped
 ```
 
 ### States and exits
@@ -32,8 +31,8 @@ it. The client is a state machine; exactly one state is current.
 | --- | --- | --- |
 | **idle** | Nothing; no client yet. Events are dropped. | `start()` with `enabled` → discovering. `start()` with `enabled = false` → stays idle. |
 | **discovering** | A manual `host` is the only source. Otherwise mDNS `_appmonitor._tcp`, then `10.0.2.2` when running on the emulator (ADR-0002), as in [Discovery](#discovery). | An endpoint found → connecting. No source answers within 5 s → backing off. `stop()` → stopped. |
-| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). Cleartext blocked by the app's network security policy — asked of `NetworkSecurityPolicy` for the host before opening, since CIO's raw sockets ignore it (ADR-0023) → one log line naming the fix, a debug-only config with `cleartextTrafficPermitted`, and the README's Usage section (ADR-0017, ADR-0132), then stopped. `stop()` → stopped. |
-| **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
+| **connecting** | Opens `ws://host:port/v1/ws`, bounded by 10 s. | Upgraded → handshaking. Refused, unreachable, timed out or not a WebSocket → backing off; the first such failure of a client, and the first after each connected session, logs one line naming the endpoint and `ACCESS_LOCAL_NETWORK` (DEBT-0030 paid). The app's network security policy is not consulted: CIO's raw sockets ignore it, and it governs the app's traffic, not the SDK's (ADR-0156). `stop()` → stopped. |
+| **handshaking** | Sends `Hello` as the first frame and waits for `HelloAck` without a timeout: the desktop may be showing the approval dialog (ADR-0018). The pinger runs, so a dead desktop is still noticed. | `HelloAck` → connected, unless it names a desktop other than the pinned one ([Pinned desktop](#pinned-desktop)): then the device closes 1000 and backs off at the longest delay. Closed 1008 (rejected) → backing off at the longest delay. Any other close, ping timeout or socket error → backing off. `stop()` → stopped. |
 | **connected** | Sends the buffer in order, then each new event as it arrives. Envelopes on a channel missing from `HelloAck.channels` are dropped, not sent. Reads the desktop's frames: a `MockRules` on `interaction` replaces the session's rules, a `BreakpointRules` its breakpoints, a `BreakpointResume` or `BreakpointAbort` lets a held call go, a `ReplayRequest` sends a kept request again, anything else is ignored ([Mock rules](#mock-rules), [Breakpoints](#breakpoints), [Replays](#replays)). | Close from the desktop (1000/1001 it stopped, 1002/1009 the SDK broke a rule, 1011 missed pong), ping timeout or socket error → backing off; Ktor's WebSocket call then gets 1 s to finish and is cancelled, since a desktop that stopped answering never closes its side (ADR-0067 D). `stop()` → stopped. |
 | **backing off** | Waits 1 s, then 2, 4… up to 30 s, ±20 % jitter. The delay resets to 1 s once a session reaches connected. | Timer → discovering (the desktop may have moved). `stop()` → stopped. |
 | **stopped** | Nothing; every resource released, buffer discarded. Events are dropped. | `start()` → a new client in discovering, empty buffer. |
@@ -86,13 +85,14 @@ it. The client is a state machine; exactly one state is current.
 ### Replays
 
 - A capture module hands each request it captures to
-  `MonitorBridge.keepForReplay(id, replay)`: a closure that sends the
+  `MonitorBridge.keepForReplay(id, bodyBytes, replay)`: a closure that sends the
   call again, marked `replay_of`, and returns null once it is on its
   way, else the reason (ADR-0122 A.1). Nothing is kept while no monitor
   runs.
 - `MonitorClient.replays` (`RecentRequests`) keeps the last 200 by
-  request id, a kept id moved last, and is emptied when the session ends,
-  as the mock rules are.
+  request id, within 32 MiB of bodies as the capture module reports them
+  (the newest stays whatever its size), a kept id moved last, and is emptied
+  when the session ends, as the mock rules are.
 - A `ReplayRequest` on an accepted `interaction` channel runs the
   request's closure on the receive loop. An id not kept, a closure's
   reason or its exception becomes a `ReplayRefused` on `interaction`
@@ -106,7 +106,7 @@ it. The client is a state machine; exactly one state is current.
 | Source | Used when | Gives up |
 | --- | --- | --- |
 | Manual `host` (`AppMonitorOptions.host`, `port`) | `host` set; then nothing else is tried | Never: the endpoint is returned at once |
-| mDNS (`NsdManager` on Android, `nw_browser` and `dns_sd` on iOS, see [Kotlin/Native (iOS)](#kotlinnative-ios)) | No `host`, and local network access allowed: below Android 17, or `ACCESS_LOCAL_NETWORK` granted, whatever the app targets (an Android 17 emulator gave no implicit grant to a target-36 app, ADR-0030). Not allowed → skipped, one log line per client (ADR-0017 E). A browser that fails → logged, nothing found | On the emulator or simulator after 3 s; on a device at the 5 s discovery bound |
+| mDNS (`NsdManager` on Android, `nw_browser` and `dns_sd` on iOS, see [Kotlin/Native (iOS)](#kotlinnative-ios)) | No `host`, and local network access allowed: below Android 17, or `ACCESS_LOCAL_NETWORK` granted, whatever the app targets (an Android 17 emulator gave no implicit grant to a target-36 app, ADR-0030). Not allowed → skipped, one log line per client. `AppMonitor.start` asks for it on the first Activity that stays resumed 500 ms, once per process (ADR-0156); with several resumed at once (multi-window), on the last one resumed, and when that one pauses, on the one left. The first Activity resumed after the dialog logs `ACCESS_LOCAL_NETWORK denied` once when it is still not granted (ADR-0162). A browser that fails → logged, nothing found | On the emulator or simulator after 3 s; on a device at the 5 s discovery bound |
 | `10.0.2.2:47474` | On the emulator (`Build.HARDWARE` `ranchu` or `goldfish`) and mDNS found nothing | Never |
 | `127.0.0.1:47474` | On the iOS simulator (`iosSimulatorArm64`) and mDNS found nothing | Never |
 
@@ -118,6 +118,12 @@ Every client reads mDNS answers through `protocol` `DesktopSelector`
   case-insensitively; a `--name` filter (fake client) applies first.
 - Its path is the TXT key `path`. An answer without TXT waits up to 500 ms
   for a later one of the same name, then uses `/v1/ws`.
+- With a pinned desktop, only an answer whose TXT key `id` is that id is
+  kept: other ids, a TXT without `id`, and answers before their TXT are
+  skipped, so the round ends at the fallback host or the 5 s bound. The
+  first answer whose TXT shows another desktop logs one line per client
+  (`DesktopSelector.refuses`), since on a device nothing else says why;
+  with the pinned desktop on the same LAN that line is all it costs.
 - Resolves never block the browser's listener: JmDNS resolves run on their
   own coroutine; `NsdManager` uses `registerServiceInfoCallback` from API
   34 and one `resolveService` at a time below it.
@@ -125,6 +131,27 @@ Every client reads mDNS answers through `protocol` `DesktopSelector`
 The device id is read or created in `noBackupFilesDir` (Android) or
 `Application Support` (iOS) on the client's scope, not on the thread that
 called `start()`.
+
+### Pinned desktop
+
+A device trusts the first desktop that approved it (ADR-0168). The desktop
+creates a random UUID once, in its store's `settings` (`desktop.id`), and
+sends it in its TXT key `id` and in `HelloAck.desktop_id`; the headless
+server sends one only with `--desktop-id UUID`.
+
+- The pin is a file beside the device id, `appmonitor-desktop-id`, written
+  as the device id is (first writer wins, ADR-0078); on iOS both SDKs share
+  it. `DesktopPin` in `DeviceId.kt` reads and writes it. It stays out of
+  backups: `noBackupFilesDir` on Android, excluded when pinned by `sdk/core`
+  on iOS, and not yet by the Swift SDK (DEBT-0120).
+- An endpoint found by discovery (mDNS or the emulator and simulator
+  fallback) checks the `HelloAck`: no pin yet and an id in it → pinned; a
+  pin and another id, or none → closed 1000 *Paired with another desktop*,
+  one log line per client, backing off at the longest delay.
+- A manual `host` neither checks nor pins: the developer named that
+  desktop.
+- Moving a device to another desktop: clear the app's data, reinstall, or
+  set `host`. A desktop that sends no id is never pinned.
 
 ### Resources and their owners
 
@@ -150,7 +177,7 @@ bounded by 1 s. Tests await it through an internal join.
 | --- | --- |
 | idle, stopped | Nothing. |
 | discovering | Stops mDNS browsing and pending resolves. |
-| connecting | Lets the connect end itself: upgraded → closed 1000 as below; failed → stopped. Still connecting at the 1 s bound → cancelled; the half-open socket is closed (ADR-0067 C, DEBT-0053 on iOS). |
+| connecting | Lets the connect end itself: upgraded → closed 1000 as below; failed → stopped. Still connecting at the 1 s bound → cancelled; the half-open socket is closed (ADR-0067 C, ADR-0184). |
 | handshaking, connected | Sends close 1000 and waits up to 1 s for the desktop's; then cancels the session. Buffered events are not flushed. |
 | backing off | Cancels the timer. |
 
@@ -167,9 +194,26 @@ cancels the scope.
 - An envelope larger than `Protocol.MAX_FRAME_BYTES` is dropped before it
   enters the buffer: the desktop would close 1009 on it (ADR-0021).
 - An envelope leaves the buffer when it is written to the socket (at most
-  once). It is not resent after a reconnect, so one the desktop rejected
+  once). After each frame the writer calls the session's `flush()`, which
+  suspends until every frame sent before it is written to the connection.
+  It does not mean the desktop received them. So at most one frame waits
+  in Ktor, and the socket's own buffers hold the rest. When a peer
+  stops reading (the desktop reads ahead, ADR-0167), that write waits on TCP and
+  new events pile up in this buffer, which drops the oldest
+  (`StalledDesktopBreakpointTest`, against a raw socket that stops
+  reading). The flush is cancelled with the session, so `stop()` still
+  ends within `closeTimeout`. It is not resent after a reconnect, so one the desktop rejected
   cannot end every later session.
 - Memory only: nothing captured is written to the app's storage.
+- Drops are reported (ADR-0166): right after `HelloAck`, before any
+  buffered envelope, and again before the next envelope whenever a count
+  grew, the client writes a `core` `DeliveryReport` with the envelopes
+  evicted and oversized since it started, and its previous session's
+  `HelloAck.session_id` with the frames it wrote on it (reports included).
+  An oversized drop wakes `sdk/core`'s idle writer, so its report goes at once;
+  the Swift SDK's waits for the next envelope (DEBT-0120).
+  A frame counts once handed to the session's `send`. Not sent when `core`
+  is not accepted.
 
 ### Kotlin/Native (iOS)
 
@@ -188,12 +232,13 @@ throw. Only these differ from the JVM:
 | Oversize counter | a `Long` under the client's lock | Same |
 | Device id | `kotlin.uuid.Uuid`, `kotlinx.io.files` in `noBackupFilesDir` | Same code; the Swift SDK's file `Application Support/appmonitor-device-id`, lowercase UUID, either SDK may create it, excluded from backup (ADR-0064 B.1); a new id is written beside it and hard linked in, the first writer wins (ADR-0078); where links are refused (always on Android, SELinux) it is renamed in under a lock on `<file>.lock`, re-read first (ADR-0080); on iOS its directory is made by `NSFileManager`, since kotlinx-io's `Path.parent` is not thread-safe there (ADR-0079) |
 | `Hello` | `Build.MANUFACTURER` and `MODEL`, `Android` release, package name | As the Swift SDK: model identifier (`SIMULATOR_MODEL_IDENTIFIER` plus " Simulator" on the simulator, `uname` machine on a device), `iOS X.Y[.Z]`, bundle id (process name without one), `CFBundleShortVersionString` |
+| `Hello.app_name` | `AppMonitorOptions.appName`, empty when null (ADR-0165) | The same |
 | mDNS | `NsdManager` | `nw_browser` with TXT records for names and `path`; each new name resolved by `DNSServiceResolve` then `DNSServiceGetAddrInfo` (IPv4), no probe connection (ADR-0068). A browser that fails, or waits on `PolicyDenied`, logs once per client and finds nothing |
 | Timestamps | `kotlin.time.Clock.System` | Same |
 | Socket errors | `kotlinx.io.IOException` | Same |
-| `platformLog` | `Log.w` / stderr | `NSLog` |
+| `platformLog` | `Log.w` / stderr | `NSLog`, the message as its escaped format: a vararg call ends the process (ADR-0173) |
 | Connect failure hint | `ACCESS_LOCAL_NETWORK` (Android) | `NSLocalNetworkUsageDescription` and `NSBonjourServices` (ADR-0063 B.1) |
-| `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; cancelling a connect may leak its socket (DEBT-0053) |
+| `stop()` while connecting | Lets the connect end itself, 1 s bound (ADR-0067 C) | Same; a cancelled connect closes its socket, with CIO's own connect timeout off (ADR-0184) |
 | Threads | `Dispatchers.Default` | `Dispatchers.Default`, the native worker pool; nothing runs on the main thread, so `start()` from the app's main thread does no I/O |
 | Emulator / simulator host | `10.0.2.2` when `Build.HARDWARE` says emulator | `127.0.0.1` on `iosSimulatorArm64`, known at compile time (ADR-0002) |
 
@@ -248,17 +293,19 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
 
 ## Limits
 
-- Dropped envelopes (full buffer, oversized, in flight when the socket
-  died) are invisible on the desktop (DEBT-0023).
+- Dropped envelopes reach the desktop as counts (`DeviceSession.drops`,
+  SDD 01), stored with each session and shown in the devices pane (SDD
+  09); those of a client's last session are never reported.
 - An oversized envelope is lost rather than cut where it is built; bodies
   fit since `maxBodyBytes` is capped (ADR-0025), so only URL and headers
   over 256 KiB get there.
-- The device connects to any desktop that advertises the service
-  (DEBT-0020).
-- `AppMonitorOptions.appName` is not sent: `Hello` has no field for it
-  (DEBT-0024).
-- `NsdBrowser`, the permission check and the emulator test run only on
+- The first connection of an install trusts whichever desktop answers,
+  and a host on the pinned desktop's LAN can copy its id from the TXT
+  record: the transport is plain `ws://` (ADR-0168). One device cannot
+  trust two desktops of one developer (DEBT-0115).
+- `NsdBrowser`, the permission check and request and the emulator test run only on
   Android; host tests use fake browsers (ADR-0024). The iOS
   `BonjourBrowser` runs for real on the simulator.
 - On iOS, local network privacy with CIO's BSD sockets is unproven on a
-  physical iPhone; the simulator has no prompt (DEBT-0052).
+  physical iPhone; the simulator has no prompt. The README's setup does not
+  reach this path: a KMP app on iOS starts the Swift SDK alone (ADR-0158).

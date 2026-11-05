@@ -25,6 +25,8 @@ class Recorder(
         val atMs: Long,
     ) {
         val runs: MutableSet<Long> = ConcurrentHashMap.newKeySet()
+
+        @Volatile var drops: StoredDrops? = null
         val exchanges = ConcurrentHashMap<String, Long>()
     }
 
@@ -47,8 +49,21 @@ class Recorder(
         val device = devices[sessionId] ?: return
         val run = runOf(device, envelope) ?: return
         val key = keyOf(sessionId, run)
-        if (device.runs.add(run)) storage.connected(key, sessionId, device.hello, device.peerAddress, run, device.atMs)
+        if (device.runs.add(run)) {
+            storage.connected(key, sessionId, device.hello, device.peerAddress, run, device.atMs)
+            device.drops?.let { storage.dropped(key, it) }
+        }
         storage.received(key, envelope)
+    }
+
+    override suspend fun dropped(
+        sessionId: String,
+        drops: StoredDrops,
+    ) {
+        live.dropped(sessionId, drops)
+        val device = devices[sessionId] ?: return
+        device.drops = drops
+        device.runs.forEach { storage.dropped(keyOf(sessionId, it), drops) }
     }
 
     override suspend fun disconnected(sessionId: String) {

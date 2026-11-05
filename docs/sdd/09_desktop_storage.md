@@ -4,7 +4,7 @@
 SQLDelight (ADR-0005), so traffic, runs and approvals survive a restart. Decisions: ADR-0081 (what, where, protection), ADR-0082
 (retention), ADR-0083 (approvals), ADR-0084 (runs), ADR-0085 (libraries,
 files, connection settings), ADR-0086 (opening, booleans, lost writes),
-ADR-0087 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
+ADR-0087 and ADR-0177 (search queries), ADR-0088 (retention pass, clearing), ADR-0095
 (issues), ADR-0096 (issue rows, their writers, retention of their exchanges),
 ADR-0140 (live traffic in memory, only recordings stored), ADR-0141 (the live
 list's types, ids and bound), ADR-0142 (recording through `Recorder`),
@@ -28,7 +28,11 @@ Opening (`Storage.open(dir)`):
 
 1. Create the directory with `0700` if absent; an existing one, such as an
    `APPMONITOR_DATA_DIR` the developer chose, keeps its mode. Create
-   `appmonitor.db` empty with `0600` if absent.
+   `appmonitor.db` empty with `0600` if absent. Take `appmonitor.lock` in the
+   directory, held until `close`; another holder is
+   `DataDirectoryInUseException`, with nothing else touched (ADR-0175).
+   Inside one process a set of held directories refuses before the file is
+   opened: on POSIX, closing any channel on it drops the process's lock.
 2. Open the driver with the connection properties of ADR-0085 (WAL,
    `foreign_keys`, `secure_delete`, `busy_timeout`).
 3. `user_version` is read first on one plain connection, without the
@@ -53,8 +57,8 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 | `runs` | `name` (null = unnamed), `started_at_ms`, `ended_at_ms`, `saved` (1 for the "Saved" collection, 0 for a recording) | `started_at_ms` |
 | `devices` | `device_id` (unique), `platform`, `name`, `os_version` (the last `Hello` seen) | |
 | `apps` | `app_id` (unique) | |
-| `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms` | `run_id`; `last_envelope_at_ms` |
-| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id`, `replay_of` | unique (`session_ref`, `request_id`); (`session_ref`, `id`); `host`; `status_code`; `method` |
+| `sessions` | `run_id`, `device_ref`, `app_ref`, `server_session_id`, the rest of `Hello` as received (`hello` blob), `app_version`, `sdk_name`, `peer_address`, `connected_at_ms`, `disconnected_at_ms`, `last_envelope_at_ms`, `drops_evicted`, `drops_oversized`, `drops_lost` (the latest `DeliveryReport`'s, null before one; `drops_lost` also null when the server could not count it, ADR-0166) | `run_id`; `last_envelope_at_ms` |
+| `exchanges` | `session_ref`, `request_id`, `method`, `url`, `host`, `status_code`, `failed`, `started_at_ms`, `ended_at_ms`, `capture_layer`, `request_meta`, `response_meta`, `error`, `frame_count`, `grpc_status`, `mock_rule_id`, `replay_of` | unique (`session_ref`, `request_id`); (`session_ref`, `id`, `url`); (`id`, `url`); (`id`, `session_ref`) where `failed = 1`; `host`; `status_code`; `method` |
 | `bodies` | `exchange_ref`, `part` (request or response), `codec`, `data`, `size` | primary key (`exchange_ref`, `part`) |
 | `frames` | `exchange_ref`, `at_ms`, `direction`, `opcode`, `payload_truncated`, `payload_size`, `stored_size` | (`exchange_ref`, `id`) |
 | `frame_payloads` | `frame_ref`, `codec`, `data` | primary key `frame_ref` |
@@ -71,7 +75,10 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   `ResponseReceived` payload re-encoded with Wire **without** its body
   (headers, truncation, sizes and any field this desktop does not know, kept
   by Wire's unknown fields). The columns beside them are what lists, search
-  and filters read; `host` is parsed from `url` at ingest.
+  and filters read; `host` is parsed from `url` at ingest. A
+  `ResponseReceived` with `request_headers` rewrites `request_meta`'s
+  headers with them and is stored without them, in the live list too
+  (ADR-0189).
 - `bodies` and `frame_payloads` keep the bytes apart, so list queries never
   read them (ADR-0005). `codec` is `raw` or `deflate` (ADR-0085); `size` is
   the stored byte count before compression, which is what the device sent
@@ -83,10 +90,12 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
 - `approvals` and `settings` are in the version-1 schema, so M5.5 and M5.8
   needed no migration. `settings` holds `retention.max_age_days` (days, or
   `never`) and `retention.max_bytes`; a missing or unreadable value is the
-  default. `mcp.token` is the MCP server's bearer token and `mcp.enabled`
+  default. `desktop.id` is the UUID devices pin, created at the first
+  launch and kept by "Clear all data", in its transaction (SDD 04, *Pinned
+  desktop*, ADR-0168). `mcp.token` is the MCP server's bearer token and `mcp.enabled`
   its switch (SDD 10); `ui.theme` is the window's theme (`system`, `light`
   or `dark`, missing or unreadable = `system`, ADR-0145), read at launch (also
-  macOS's title bar appearance, ADR-0150) and
+  macOS's title bar appearance, ADR-0150, which follows a pick, ADR-0178) and
   written back after "Clear all data" so clearing keeps it; `ui.panes` is
   the traffic panes' layout (`shown` or `hidden`, the devices pane's and
   the request list's widths in dp, as `shown,240,480`; missing or
@@ -106,7 +115,8 @@ schema version: `1.sqm` (version 1 to 2) adds the issue tables, `2.sqm`
 (version 2 to 3) `exchanges.grpc_status`, `3.sqm` (version 3 to 4)
 `mock_rules`, `4.sqm` (version 4 to 5) `exchanges.mock_rule_id`, `5.sqm`
 (version 5 to 6) `breakpoint_rules`, `6.sqm` (version 6 to 7)
-`exchanges.replay_of`. The `.sq`
+`exchanges.replay_of`, `7.sqm` (version 7 to 8) `runs.saved`, `8.sqm`
+(version 8 to 9) the `sessions.drops_*` columns. The `.sq`
 files are the current schema. Every change to a table is a new migration; a shipped
 migration is never edited. The build verifies them against the committed
 `.db` schemas (ADR-0085).
@@ -180,7 +190,10 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   `saved = 1`, which the first save opens, named "Saved" and ended at
   once. Each live session gets one session row there, found again by
   `server_session_id`; each exchange is written by `Ingest`'s own event
-  code. One already saved is not written again. Returns each live id's
+  code. One already saved takes its request and outcome again and only
+  the frames received since its last save, counted by the writer for the
+  store's lifetime (ADR-0197), so a request saved before its response gets
+  it and a live WebSocket its new frames. Returns each live id's
   stored id once written, nothing when lost or closed.
 - Approvals take the same queue (ADR-0083): `decided(hello, approved)`
   upserts the pair's row with the last `device_name`, OS and app version,
@@ -210,10 +223,9 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
 
 - **Slow writer.** The queue absorbs it until 64 MiB of encoded envelopes
   are waiting (about 50 frames of `Protocol.MAX_FRAME_BYTES`). Below that
-  the collector never waits for SQLite, so `DeviceSession` keeps reading
-  the socket and its pongs (DEBT-0022). Full → `enqueue` suspends, which is
-  today's back-pressure (ADR-0009): nothing is dropped, and DEBT-0022 is
-  back for as long as it lasts. `queueFullWaits` counts those waits and
+  the collector never waits for SQLite. Full → `enqueue` suspends: nothing
+  is dropped, and the server keeps reading devices and their pongs into
+  memory meanwhile (ADR-0167, DEBT-0113). `queueFullWaits` counts those waits and
   `close` logs it when it is not zero. Measured in M5.4: 10 000 requests
   over one real session stored in 0.7 s with a high-water mark of 2.5 MiB
   of 64 MiB and no wait (`TrafficStoreTest` on the owner's MacBook Pro).
@@ -223,7 +235,7 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   with the next batch, so one bad moment does not stop ingest or close a
   device. `Storage.health` (a `StateFlow`) holds the count and the last
   error; the window shows "N events not saved: <error>" until a later batch
-  holding events succeeds. An exchange whose `RequestStarted` was in a lost batch is
+  holding events, or a retry, is written and no retry fails. An exchange whose `RequestStarted` was in a lost batch is
   created by its next event, with what that event carries; a session whose
   row was in a lost batch is inserted again from its `Hello`, which the
   writer keeps until the session's `Disconnected` is committed. A
@@ -231,17 +243,34 @@ DeviceSession.envelopes ──► TrafficStore (one coroutine per session)
   in its own transaction, so the session does not stay connected for the
   rest of the launch and a disconnect that keeps failing never takes the
   next batch or another lost disconnect with it; once written it leaves
-  the count and clears the error.
+  the count and clears the error, whichever batch set it. A retry that
+  fails shows its error. `Ingest` keeps what it holds besides rows in one
+  immutable state, replaced whole: a lost batch goes back to the state
+  before it, plus its sessions.
+- **Error in a batch** (an `Error`, not an exception: out of memory, an
+  assertion). Counted as a failed batch and settled like one (a flush
+  barrier in it returns), then the writer ends. It closes
+  the queue on its way out, so every later `enqueue` returns false
+  (`NotSaved`) instead of waiting for room no one frees
+  (`WriteQueueTest.anErrorInAWriteClosesTheQueue`,
+  `anEnqueueRacingADeadWriterDoesNotWaitForGood`). What it leaves queued is
+  counted as not saved and in what `close` returns
+  (`itemsLeftByADeadWriterAreCounted`).
 - **Failure at open** (directory not writable, `NewerDatabase`, corrupt
   file, stored approvals that cannot be read). The app opens without storage: the window shows the error, the
   path and "Clear all data", which deletes `appmonitor.db`, `-wal` and
   `-shm` after a confirmation and asks the developer to reopen the app
   (ADR-0088); the server is not started, so devices are not admitted into
-  a desktop that cannot keep them.
+  a desktop that cannot keep them. Another desktop holding the directory has its
+  own window, the directory and what to do, without "Clear all data": those
+  files are the other desktop's (ADR-0175, `data-in-use.png`).
 - **Close.** On exit, after the server stops, `Storage.close(timeout)`
-  queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
+  cancels the retention coroutine, waiting for its pass within the same
+  timeout (a pass queued on the writer behind a long batch ends only when
+  the writer reaches it), queues the run's end and drains the queue with the same `STOP_TIMEOUT` as
   the server; what is still queued after it, the batch being written
-  included, is lost, logged and returned as a count. The next open closes
+  included, and any disconnect no retry has written, is lost, logged and
+  returned as a count. The next open closes
   what it left open. The writer stops at the next batch boundary and
   completes what it will not write, so a `flush` or `newRun` waiting on it
   returns; the database is closed on the writer thread, behind what is
@@ -276,14 +305,13 @@ every `RETENTION_INTERVAL` (10 minutes) from a coroutine `close` cancels:
    it is no longer a candidate. Then unnamed, ended runs left without
    sessions and older than the limit.
 2. **Size.** While live pages (`page_count − freelist_count`, times
-   `page_size`) pass the limit, the oldest such session goes, one per
-   statement, until they are under 90 % of it; then every unnamed, ended run
-   without sessions.
-3. Devices and apps no session refers to are deleted, and the free pages
+   `page_size`) pass the limit, the oldest such sessions go, up to 50 per
+   transaction and measured after each, until they are under 90 % of it; then
+   every unnamed, ended run without sessions.
+3. Devices and apps no session refers to are deleted, after a pass that
+   pruned something or followed one that did not finish, and the free pages
    handed back with `PRAGMA incremental_vacuum`, one page per statement (the
-   driver steps a statement once), 1 000 per transaction. Every pass runs
-   this step, so one that deleted nothing still cleans up after a superseded
-   one.
+   driver steps a statement once), 1 000 per transaction.
 
 The writer yields between transactions, so batches pass during a long pass.
 A pass whose settings changed (`setRetention`, which runs its own pass with
@@ -314,25 +342,32 @@ row types. The device server (`TrafficStore`) and the proxy
 recording. The window, its exports and benchmarks, and the MCP server read
 through the routed repositories below.
 
-- **Fed** by `TrafficSink`'s `connected`, `received`, `disconnected`, which
-  `Storage` implements too. The four `network` events are decoded as
+- **Fed** by `TrafficSink`'s `connected`, `received`, `dropped`,
+  `disconnected`, which `Storage` implements too; `dropped` sets the
+  session's `drops` (a `StoredDrops`, ADR-0166). The four `network` events are decoded as
   `Ingest` does (status 0 is no status, the last `grpc-status`, an event
   for an unknown request creates it); other channels and payloads that do
   not decode are dropped.
 - **Ids** come from one counter starting at `LiveTraffic.FIRST_ID` (2^50)
   for sessions, exchanges and frames; `LiveTraffic.isLive(id)` tells a
   live id from a row id. A live session's `runId` is 0.
-- **Bound**: 10 000 exchanges and 128 MiB of bodies and frame payloads
-  (`MAX_EXCHANGES`, `MAX_BYTES`); past either the oldest exchange goes,
-  and an ended session with it once it holds none. An ended session that
+- **Bound**: 10 000 exchanges and 128 MiB of bodies and frames
+  (`MAX_EXCHANGES`, `MAX_BYTES`), a frame counted as its payload plus
+  `FRAME_OVERHEAD_BYTES` (128); past either the oldest exchange goes,
+  and an ended session with it once it holds none. An exchange keeps its
+  last 10 000 frames (`MAX_FRAMES_PER_EXCHANGE`) and at most a quarter of
+  `MAX_BYTES` of them, its oldest frames going first; `frame_count`
+  still counts every frame received, and `exchange(id)` gives
+  `framesKept`, so the detail says "last K of N". An ended session that
   sent nothing is dropped at its end.
 - **Clear** empties the exchanges and the ended sessions; connected
   sessions stay, and their next exchange gets a new id.
 - **Reads** mirror the store's: `searchExchanges`, `searchExchangeSizes`,
   `observeExchanges` and `observeSessions` (again after each change, on
   `Dispatchers.Default`), `exchange(id)` with `replayOfId`, `frames`,
-  `session`, `replayOriginals`, `groupByEndpoint`. The filter match
-  follows `SearchQuery`'s; a filter with a run matches nothing. The mock
+  `session`, `replayOriginals`, `groupByEndpoint`. `network` envelopes
+  decode through `networkEvent()`, as in `Ingest`; the filter match is
+  `liveMatcher()`, beside `SearchQuery` in `Search.kt`; a filter with a run matches nothing. The mock
   rule's name is left null: `desktop/data` reads it from `mock_rules`.
 - **Which one a read means** (`desktop/data`'s `Storage.trafficRepository(live)`,
   `trafficQueryRepository(live)`, `benchmarkRepository(live)`): a filter
@@ -361,6 +396,9 @@ goes to `LiveTraffic` first; then:
   its own `Hello`, peer and connection time, and `server_session_id`
   as the device sent it. A session spanning two recordings has a row in
   each, ended together when the device disconnects.
+- `dropped` keeps the session's latest `StoredDrops` and writes them to
+  each of its rows; a row written later starts with them. "Save" copies a
+  live session's drops into its saved row.
 - `forget()`, after `clearAll()`, drops which requests were recorded, so
   nothing more of them is written.
 
@@ -393,9 +431,11 @@ goes to `LiveTraffic` first; then:
   session; unset or empty fields match all, set ones combine with AND.
   `SearchQuery` writes only the clauses of the fields set, so SQLite plans
   each combination with its index: `exchanges_method`,
-  `exchanges_status_code`, `exchanges_host`, and `exchanges_session_ref_id` under a subquery
-  on `sessions` for session, run, device and app. Text and failed only walk
-  the rows in `id` order up to the page's `LIMIT` (DEBT-0063). The query
+  `exchanges_status_code`, `exchanges_host`, and `exchanges_session_ref_id_url` under a subquery
+  on `sessions` for session, run, device and app. Text and failed only name
+  their index with `INDEXED BY` (ADR-0177): `exchanges_failed` holds failed
+  rows only; `url` is in `exchanges_id_url` and `exchanges_session_ref_id_url`,
+  so a `LIKE` reads a row only when it matches. The query
   listens to `exchanges`, and to `sessions` when a filter joins it, so the
   window follows commits as with the generated ones.
 - `observeIssues(filter)` follows the issues an `IssueFilter` (status, tag;
@@ -464,12 +504,14 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | A failed batch is counted, the next one is written | `WriteQueueTest.failedBatchIsCountedAndSkipped` |
 | Close drains the queue within the timeout | `WriteQueueTest.closeDrainsQueue` |
 | Close past the timeout returns what it lost | `WriteQueueTest.closeGivesUpAfterTimeout` |
+| A retention pass held on the writer does not keep close past its timeout | `WriteQueueTest.aRetentionPassOnTheWriterDoesNotHoldCloseBeyondItsTimeout` |
 | `flush`, `newRun`, `clearAll`, `applyRetention` and `setRetention` after close return | `WriteQueueTest.callsAfterCloseReturn` |
 | A timed out close leaves the file open until the writer's batch ends, waiting calls return | `WriteQueueTest.timedOutCloseLeavesTheFileToTheWriter` |
 | Retention and clear calls queued on the writer during a timed out close do nothing and return | `WriteQueueTest.callsQueuedOnTheWriterDuringATimedOutCloseDoNothing` |
 | A read in flight keeps the database open until it returns, reads after close return nothing, observed queries end without an exception | `WriteQueueTest.aReadInFlightKeepsTheDriverOpenUntilItReturns`, `WriteQueueTest.observedQueriesEndWhenTheStoreCloses` (M5.R10) |
 | Run summaries page newest first with sessions and counts; settings kept across launches, deleted by clear all, null once closing | `RunsTest.runSummariesPageNewestFirstWithSessionsAndCounts`, `RunsTest.settingsAreKeptUntilClearAll` |
 | Data directory per OS and its override | `DataDirectoryTest` |
+| A second process refused until the first closes or is killed, the first's run left alone; a refusal inside the process, by a link too, keeping the lock | `DataDirectoryLockTest` |
 | Pages by key, stable while rows are added | `PagingTest.pagesByKeyWhileIngesting` |
 | Observed pages and sessions follow commits | `PagingTest.observedPagesFollowCommits` |
 | A 10k-request session listed in bounded time and not stored, a stored run one click away after a restart, the list reads its next page | `TrafficStoreTest` in `desktop/app` (M5.4, H3.1b) |
@@ -484,7 +526,11 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Breakpoints per app in order, enabled only, kept across a restart and retention, gone with "Clear all data", ids not reused, bad ones refused, a version-5 file migrates | `BreakpointsTest` |
 | A gRPC call ended with a status other than OK (the adapter's headers): `grpc_status` in every list reader, an error to endpoint tallies and the run diff, the last header wins, a version-2 file migrates | `GrpcStatusTest` (M8.7); the proxy's real call in `Http2ProxyTest`; the list, detail and benchmarks in `GrpcStatusUiTest` |
 | Each indexed filter keeps its index | `SearchTest.indexedFiltersUseTheirIndex` (M5.7), on `EXPLAIN QUERY PLAN` |
-| Text and failed only over 100 000 exchanges, no match, bounded time | `SearchTest.unindexedFiltersOverManyExchangesInBoundedTime` (M5.7), prints the time |
+| Text and failed only over 100 000 exchanges with real headers, no match, bounded time | `SearchTest.textAndFailedOverManyExchangesInBoundedTime` (ADR-0177), prints the time |
+| A version 9 file migrated, its rows found through the new indexes | `SearchTest.aVersionNineFileIsMigratedWithItsRowsIndexed` (ADR-0177) |
+| One table of filters and one set of odd events on the store and the live list | `FilterMatchTest` (DEBT-0104) |
+| A request saved before its response gets it on the next Save, its frames not doubled | `SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt` |
+| A live WebSocket saved again gets the frames since, none twice, past frames the list cut, after a lost batch and after "Clear all data" | `SaveTest.savedAgainALiveWebSocketStoresTheFramesSince`, `framesCutFromTheListBetweenSavesAreLeftOutAndTheRestStored`, `aSaveLostInItsBatchStoresItsFramesWithTheNextSave`, `savedAgainAfterClearAllItsFramesAreStoredAgain` |
 | The filter sheet narrows the list by status class, host and method, and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
 | The hosts of a run, a session or every stored exchange | `SearchTest.hostsOfARunASessionOrEveryExchange` (H3.6c) |
 | The sheet offers the shown hosts, a host filter keeps only that host's rows | `TrafficViewModelTest` in `desktop/feature/traffic` (H3.6c) |
@@ -500,8 +546,9 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Unknown exchanges or issue write nothing; a lost batch or a closed store is not saved; "Clear all data" deletes issues; a version-1 file migrates | `IssuesTest` (M7.2) |
 | "Save as issue" on ticked requests, the list filtered, an issue edited and deleted, kept across a reopen | `IssuesUiTest` in `desktop/app`, `issues.png` (M7.2) |
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
-| Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, endpoints grouped | `LiveTrafficTest` (H3.1) |
+| Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, empty frames counted, a WebSocket's last frames kept within its share, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
+| Drops: a session's latest kept live, written to its row in a recording when reported before or during it, copied by Save, read back after a restart; none without a report | `RecorderTest` (H5.3c); a real server's `DeliveryReport` in the devices pane, `DropsUiTest` in `desktop/app` (`drops.png`) |
 | A run per endpoint and device: one column per device in the order it joined, a device reconnected during the run counted once, what came before Record left out, the filter applied, its own run id ignored | `StoredRepositoriesTest` in `desktop/data` (H3.3); the window's "By device" in `BenchmarksUiTest` (`devices.png`) |
 | Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |
@@ -510,5 +557,5 @@ Each case above, with the test that proves it (M5.3 unless noted):
 
 - Not encrypted: owner-only permissions are the protection (ADR-0081 C.1).
 - One desktop per data directory: a second instance on the same directory
-  is not detected (DEBT-0062); `APPMONITOR_DATA_DIR` separates them.
+  is refused (ADR-0175); `APPMONITOR_DATA_DIR` separates them.
 - A batch lost to a write failure is not retried.

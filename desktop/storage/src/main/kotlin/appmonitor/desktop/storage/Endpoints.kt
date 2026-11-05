@@ -11,7 +11,7 @@ class EndpointGroups(
 
 /**
  * Method, lower-cased host and the URL's path without scheme, query or fragment; `/` when it has none, `:port` for a
- * connection (SDD 09).
+ * connection.
  */
 data class Endpoint(
     val method: String?,

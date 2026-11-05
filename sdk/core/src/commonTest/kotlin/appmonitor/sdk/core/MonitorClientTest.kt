@@ -1,6 +1,7 @@
 package appmonitor.sdk.core
 
 import appmonitor.protocol.Protocol
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Hello
 import appmonitor.v1.Platform
@@ -9,6 +10,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.network.sockets.InetSocketAddress
+import io.ktor.network.sockets.Socket
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.utils.io.readAvailable
 import io.ktor.websocket.CloseReason
@@ -18,7 +20,10 @@ import io.ktor.websocket.close
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -30,11 +35,12 @@ import okio.ByteString.Companion.toByteString
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/** SDD 04's states against [StandInDesktop], on every target (ADR-0066 C). */
+/** The client's states against [StandInDesktop], on every target (ADR-0066 C). */
 class MonitorClientTest {
     private val hello =
         Hello(
@@ -61,6 +67,44 @@ class MonitorClientTest {
             client.awaitState(ClientState.Connected)
         }
 
+    // ADR-0168: a second desktop found after the first one approved the install is refused, a manual host is not.
+    @Test
+    fun aSecondDesktopIsRefusedOnceTheFirstIsPinned() =
+        runBlocking {
+            val first = desktop(desktopId = "first")
+            val second = desktop(desktopId = "second")
+            val pin = MemoryPin()
+            val found = Channel<Endpoint>(Channel.UNLIMITED)
+            val logs = Channel<String>(Channel.UNLIMITED)
+            found.send(Endpoint(LOOPBACK, first.port))
+            val client = client(discover = { found.receive() }, log = { logs.trySend(it) }, pin = pin)
+            client.awaitState(ClientState.Connected)
+            assertEquals("first", pin.pinned())
+
+            first.stop()
+            found.send(Endpoint(LOOPBACK, second.port))
+            withTimeout(5.seconds) { second.hellos.receive() }
+            assertTrue(withTimeout(5.seconds) { logs.receive() }.contains("not the one this install paired with"))
+            client.send(request("kept"))
+            client.awaitState(ClientState.BackingOff)
+            assertEquals("first", pin.pinned())
+            assertTrue(second.envelopes.isEmpty)
+
+            found.send(Endpoint(LOOPBACK, second.port, checksPin = false))
+            assertEquals(listOf("kept"), second.requestIds(1))
+            client.awaitState(ClientState.Connected)
+        }
+
+    @Test
+    fun aDesktopWithoutAnIdIsNotPinned() =
+        runBlocking {
+            val desktop = desktop()
+            val pin = MemoryPin()
+            val client = client(desktop.port, pin = pin)
+            client.awaitState(ClientState.Connected)
+            assertNull(pin.pinned())
+        }
+
     @Test
     fun delivers1000EventsInOrder() =
         runBlocking {
@@ -81,6 +125,38 @@ class MonitorClientTest {
             repeat(10) { client.send(request("q$it")) }
             val second = desktop(first.port)
             assertEquals(List(10) { "q$it" }, second.requestIds(10))
+        }
+
+    // ADR-0166: the next session names the last one and the frames written on it, its own report included.
+    @Test
+    fun aReconnectReportsWhatThePreviousSessionWrote() =
+        runBlocking {
+            val first = desktop()
+            val client = client(first.port)
+            repeat(2) { client.send(request("q$it")) }
+            assertEquals(listOf("q0", "q1"), first.requestIds(2))
+            assertEquals(DeliveryReport(), withTimeout(5.seconds) { first.reports.receive() })
+            first.stop()
+            client.awaitState(ClientState.BackingOff)
+            val second = desktop(first.port)
+            assertEquals(
+                DeliveryReport(previous_session_id = "stand-in", previous_session_written = 3),
+                withTimeout(5.seconds) { second.reports.receive() },
+            )
+        }
+
+    // DEBT-0120: nothing else wakes an idle writer.
+    @Test
+    fun anIdleSessionReportsAnOversizedEnvelopeAtOnce() =
+        runBlocking {
+            val desktop = desktop()
+            val client = client(desktop.port)
+            assertEquals(DeliveryReport(), withTimeout(5.seconds) { desktop.reports.receive() })
+            val body = ByteArray(Protocol.MAX_FRAME_BYTES.toInt()).toByteString()
+
+            client.send(Envelope(channel = Protocol.CHANNEL_NETWORK, type = "RequestStarted", payload = body))
+
+            assertEquals(DeliveryReport(oversized = 1), withTimeout(5.seconds) { desktop.reports.receive() })
         }
 
     @Test
@@ -137,19 +213,6 @@ class MonitorClientTest {
             withTimeout(5.seconds) { while (attempts.value == 0) delay(10) }
             delay(500)
             assertEquals(1, attempts.value)
-        }
-
-    @Test
-    fun blockedCleartextStopsTheClientWithOneLogLine() =
-        runBlocking {
-            val desktop = desktop()
-            val lines = Lines()
-            val client = client(desktop.port, cleartextPermitted = { false }, log = lines::add)
-            client.awaitState(ClientState.Stopped)
-            assertEquals(1, lines.all.size)
-            assertTrue("cleartextTrafficPermitted" in lines.all.single())
-            assertTrue("README.md" in lines.all.single())
-            assertEquals(null, desktop.hellos.tryReceive().getOrNull())
         }
 
     @Test
@@ -225,6 +288,44 @@ class MonitorClientTest {
             assertTrue(ended != null, "the client left the socket open")
         }
 
+    // ADR-0184: a cancellation landing as the TCP connect returns must not lose the socket.
+    @Test
+    fun aConnectCancelledAtAnyMomentClosesItsSocket() =
+        runBlocking {
+            val (selector, listener) = rawListener()
+            cleanup += {
+                listener.close()
+                selector.close()
+            }
+            val port = (listener.localAddress as InetSocketAddress).port
+            val accepted = Counter()
+            val ended = Counter()
+            val acceptor =
+                launch(Dispatchers.Default) {
+                    while (true) {
+                        val socket = listener.accept()
+                        accepted.increment()
+                        launch {
+                            val input = socket.openReadChannel()
+                            val buffer = ByteArray(1024)
+                            runCatching { while (input.readAvailable(buffer) != -1) Unit }
+                            socket.close()
+                            ended.increment()
+                        }
+                    }
+                }
+            var spin = 0
+            repeat(CANCEL_ROUNDS) { round ->
+                val client = client(port, config.copy(closeTimeout = 0.milliseconds))
+                while (client.state.value != ClientState.Connecting) Unit
+                repeat((round % 100) * 4000) { spin++ }
+                client.stopAndJoin()
+            }
+            withTimeoutOrNull(5.seconds) { while (ended.value != accepted.value) delay(50.milliseconds) }
+            assertEquals(accepted.value, ended.value, "sockets left open")
+            acceptor.cancelAndJoin()
+        }
+
     @Test
     fun stopWhileHandshakingClosesTheSessionNormally() =
         runBlocking {
@@ -272,9 +373,10 @@ class MonitorClientTest {
     private suspend fun desktop(
         port: Int = 0,
         silent: Boolean = false,
+        desktopId: String = "",
         handler: (suspend WebSocketSession.() -> Unit)? = null,
     ): StandInDesktop {
-        val desktop = StandInDesktop.start(port, silent, handler)
+        val desktop = StandInDesktop.start(port, silent, desktopId, handler)
         cleanup += { runCatching { desktop.stop() } }
         return desktop
     }
@@ -283,12 +385,12 @@ class MonitorClientTest {
         port: Int = 0,
         config: ClientConfig = this.config,
         discover: suspend () -> Endpoint? = { Endpoint(LOOPBACK, port) },
-        cleartextPermitted: (String) -> Boolean = { true },
         log: (String) -> Unit = {},
+        pin: DesktopPin? = null,
         openSession: suspend HttpClient.(Endpoint, suspend DefaultClientWebSocketSession.() -> Unit) -> Unit =
             { endpoint, block -> webSocket(host = endpoint.host, port = endpoint.port, path = endpoint.path, block = block) },
     ): MonitorClient {
-        val client = MonitorClient({ hello }, discover, config, cleartextPermitted, log, openSession = openSession)
+        val client = MonitorClient({ hello }, discover, config, log, pin = pin, openSession = openSession)
         cleanup += { client.stopAndJoin() }
         client.start()
         return client
@@ -307,11 +409,21 @@ class MonitorClientTest {
         }
 }
 
+private const val CANCEL_ROUNDS = 2000
+
+private class MemoryPin : DesktopPin {
+    private var id: String? = null
+
+    override fun pinned(): String? = id
+
+    override fun pin(desktopId: String): String = id ?: desktopId.also { id = it }
+}
+
 internal suspend fun MonitorClient.awaitState(expected: ClientState) {
     withTimeout(5.seconds) { state.first { it == expected } }
 }
 
-/** Stops and checks the release finished within the bound of SDD 04. */
+/** Stops and checks the release finished within its bound. */
 internal suspend fun MonitorClient.stopAndJoin() {
     stop()
     withTimeout(2.seconds) { join() }

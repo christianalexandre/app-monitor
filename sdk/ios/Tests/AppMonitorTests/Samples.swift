@@ -1,5 +1,4 @@
 import Foundation
-import SwiftProtobuf
 
 @testable import AppMonitor
 
@@ -20,12 +19,21 @@ enum Samples {
         $0.sdkVersion = "0.1.0"
         $0.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
         $0.sdkName = "kotlin"
+        $0.appName = "Sample"
     }
 
     static let helloAck = Appmonitor_V1_HelloAck.with {
         $0.protocolVersion = ProtocolConstants.version
         $0.sessionID = "session-0001"
         $0.channels = [ProtocolConstants.channelCore, ProtocolConstants.channelNetwork]
+        $0.desktopID = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10"
+    }
+
+    static let deliveryReport = Appmonitor_V1_DeliveryReport.with {
+        $0.evicted = 3
+        $0.oversized = 1
+        $0.previousSessionID = "session-0000"
+        $0.previousSessionWritten = 42
     }
 
     static let requestStarted = Appmonitor_V1_RequestStarted.with {
@@ -48,6 +56,11 @@ enum Samples {
         $0.body = Data([0x00, 0x7F, 0x80, 0xFF])
         $0.bodyTruncated = true
         $0.bodySize = 2_097_152
+        $0.requestHeaders = [
+            header("Content-Type", "application/json"),
+            header("Accept", "application/json"),
+            header("User-Agent", "Sample/1 CFNetwork"),
+        ]
     }
 
     static let requestFailed = Appmonitor_V1_RequestFailed.with {
@@ -170,9 +183,10 @@ enum Samples {
     }
 
     /// Fixture file name to the message its envelope carries.
-    static let messages: [String: (channel: String, type: String, message: any SwiftProtobuf.Message)] = [
+    static let messages: [String: (channel: String, type: String, message: any ProtoMessage)] = [
         "hello.bin": (ProtocolConstants.channelCore, "Hello", hello),
         "hello_ack.bin": (ProtocolConstants.channelCore, "HelloAck", helloAck),
+        "delivery_report.bin": (ProtocolConstants.channelCore, "DeliveryReport", deliveryReport),
         "request_started.bin": (ProtocolConstants.channelNetwork, "RequestStarted", requestStarted),
         "response_received.bin": (ProtocolConstants.channelNetwork, "ResponseReceived", responseReceived),
         "request_failed.bin": (ProtocolConstants.channelNetwork, "RequestFailed", requestFailed),

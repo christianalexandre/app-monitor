@@ -1,10 +1,10 @@
 ---
 id: DEBT-0014
 title: A rejection of a late frame reaches the client as a normal close
-status: Open
+status: Paid
 date: 2026-10-22
 trigger: When an SDK or a test needs to know the desktop rejected one of the last frames it sent before closing
-paid_date:
+paid_date: 2026-10-31
 ---
 
 # DEBT-0014 — A rejection of a late frame reaches the client as a normal close
@@ -32,4 +32,10 @@ it sent before closing.
 
 ## How it was paid
 
-> Filled when closing.
+The desktop reads device frames over a raw Ktor session (ADR-0167,
+PLAN-0015 H5.3): its `DeviceConnection` queues the device's close after the
+frames before it, and answers it only once the handler has taken them, with
+the handler's 1002 when it rejected one. Reproduced first: 500 envelopes, a
+rejected one and the close, collected 300 ms later, got 1000 from the old
+server, 1002 from the new (`ServerHardeningTest`). What is left: a device's
+close now waits for a lagging collector; the SDKs bound that wait at 1 s.

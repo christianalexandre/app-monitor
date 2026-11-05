@@ -21,35 +21,56 @@ internal fun interface MdnsBrowser {
 /** Where the iOS simulator reaches its Mac's loopback: it shares the Mac's network stack (ADR-0002). */
 internal const val SIMULATOR_HOST: String = "127.0.0.1"
 
-/** Bounds of SDD 04's discovering state; tests shorten them. */
+/** Bounds of the discovering state; tests shorten them. */
 internal data class DiscoveryConfig(
     val mdnsBeforeFallback: Duration = 3.seconds,
     val txtGrace: Duration = DesktopSelector.TXT_GRACE_MS.milliseconds,
 )
 
 /**
- * The `discover` of [MonitorClient] for [options] (SDD 04): a manual host only; else mDNS through [mdns] (null
- * when it may not run), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
+ * The `discover` of [MonitorClient] for [options]: a manual host only, its pin unchecked; else mDNS
+ * through [mdns] (null when it may not run), skipping desktops other than [pinned]'s, the first logged
+ * (ADR-0168), then [fallbackHost]: [EMULATOR_HOST], [SIMULATOR_HOST] or null elsewhere. */
 internal fun discovery(
     options: AppMonitorOptions,
     mdns: () -> MdnsBrowser?,
     fallbackHost: String?,
     config: DiscoveryConfig = DiscoveryConfig(),
     log: (String) -> Unit = ::platformLog,
+    pinned: () -> String? = { null },
 ): suspend () -> Endpoint? {
     val manual = options.host
-    if (manual != null) return { Endpoint(manual, options.port) }
+    if (manual != null) return { Endpoint(manual, options.port, checksPin = false) }
+    var refusalLogged = false
+    val onRefused: (DesktopAnswer) -> Unit = { refused ->
+        if (!refusalLogged) {
+            refusalLogged = true
+            log(
+                "skipping the desktop at ${refused.host}:${refused.port}, this install is paired with another one; " +
+                    "to move to it, clear the app's data, reinstall, or set AppMonitorOptions.host",
+            )
+        }
+    }
     return {
         val browser = mdns()
+        val pin = pinned()
         val found =
             try {
                 when {
-                    browser == null -> null
+                    browser == null -> {
+                        null
+                    }
 
                     // Bounded so the fallback host is tried inside MonitorClient's discovery timeout.
-                    fallbackHost != null -> withTimeoutOrNull(config.mdnsBeforeFallback) { discoverMdns(browser, config.txtGrace) }
+                    fallbackHost != null -> {
+                        withTimeoutOrNull(config.mdnsBeforeFallback) {
+                            discoverMdns(browser, config.txtGrace, pin, onRefused)
+                        }
+                    }
 
-                    else -> discoverMdns(browser, config.txtGrace)
+                    else -> {
+                        discoverMdns(browser, config.txtGrace, pin, onRefused)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -65,13 +86,19 @@ internal fun discovery(
 internal suspend fun discoverMdns(
     browser: MdnsBrowser,
     txtGrace: Duration,
+    pinned: String? = null,
+    onRefused: (DesktopAnswer) -> Unit = {},
 ): Endpoint {
     val answers = Channel<DesktopAnswer>(Channel.UNLIMITED)
-    val selector = DesktopSelector()
+    val selector = DesktopSelector(pinnedId = pinned)
     val browsing = browser.browse { answers.trySend(it) }
     try {
         var chosen: DesktopAnswer? = null
-        while (chosen == null && !selector.hasCandidate) chosen = selector.offer(answers.receive())
+        while (chosen == null && !selector.hasCandidate) {
+            val answer = answers.receive()
+            if (selector.refuses(answer)) onRefused(answer)
+            chosen = selector.offer(answer)
+        }
         if (chosen == null) {
             chosen = withTimeoutOrNull(txtGrace) {
                 var complete: DesktopAnswer? = null

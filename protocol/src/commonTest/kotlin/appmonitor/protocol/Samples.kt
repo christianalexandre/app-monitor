@@ -7,6 +7,7 @@ import appmonitor.v1.BreakpointRule
 import appmonitor.v1.BreakpointRules
 import appmonitor.v1.BreakpointStage
 import appmonitor.v1.CaptureLayer
+import appmonitor.v1.DeliveryReport
 import appmonitor.v1.Envelope
 import appmonitor.v1.Header
 import appmonitor.v1.Hello
@@ -44,6 +45,7 @@ object Samples {
             sdk_version = "0.1.0",
             channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
             sdk_name = "kotlin",
+            app_name = "Sample",
         )
 
     val helloAck =
@@ -51,6 +53,15 @@ object Samples {
             protocol_version = Protocol.VERSION,
             session_id = "session-0001",
             channels = listOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK),
+            desktop_id = "0b5d2f0e-7c1a-4f3e-9a51-2d6c8e4b7f10",
+        )
+
+    val deliveryReport =
+        DeliveryReport(
+            evicted = 3,
+            oversized = 1,
+            previous_session_id = "session-0000",
+            previous_session_written = 42,
         )
 
     val requestStarted =
@@ -76,6 +87,12 @@ object Samples {
             body = byteArrayOf(0x00, 0x7F, 0x80.toByte(), 0xFF.toByte()).toByteString(),
             body_truncated = true,
             body_size = 2_097_152,
+            request_headers =
+                listOf(
+                    Header("Content-Type", "application/json"),
+                    Header("Accept", "application/json"),
+                    Header("User-Agent", "Sample/1 CFNetwork"),
+                ),
         )
 
     val requestFailed =
@@ -215,6 +232,7 @@ object Samples {
         mapOf(
             "hello.bin" to envelope(Protocol.CHANNEL_CORE, "Hello", hello),
             "hello_ack.bin" to envelope(Protocol.CHANNEL_CORE, "HelloAck", helloAck),
+            "delivery_report.bin" to envelope(Protocol.CHANNEL_CORE, "DeliveryReport", deliveryReport),
             "request_started.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestStarted", requestStarted),
             "response_received.bin" to envelope(Protocol.CHANNEL_NETWORK, "ResponseReceived", responseReceived),
             "request_failed.bin" to envelope(Protocol.CHANNEL_NETWORK, "RequestFailed", requestFailed),

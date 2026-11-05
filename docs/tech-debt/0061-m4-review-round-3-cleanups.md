@@ -1,10 +1,10 @@
 ---
 id: DEBT-0061
 title: Non-correctness findings of the third M4 milestone review
-status: Open
+status: Paid
 date: 2026-10-24
-trigger: The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`
-paid_date:
+trigger: "The next PR that changes how the device id is written: `publish` or `linkExclusive` in `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`"
+paid_date: 2026-11-03
 ---
 
 # DEBT-0061 — Non-correctness findings of the third M4 milestone review
@@ -33,10 +33,19 @@ directory, the case the second review already rejected.
 
 ## Trigger
 
-The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`,
+The next PR that changes how the device id is written: `publish` or `linkExclusive` in `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`, or `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt` or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`.
+
+Re-triggered by PLAN-0015 H5.4 (2026-10-31): it touched `DeviceId.kt` to write the desktop pin through the same first-writer path, without changing `publish`, the link or the lock, so both findings stand as they were.
+
+Before: The next PR that touches `sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/DeviceId.kt`,
 `sdk/core/src/jvmAndAndroidMain/kotlin/appmonitor/sdk/core/Platform.jvmAndAndroid.kt`
 or `sdk/core/src/androidMain/kotlin/appmonitor/sdk/core/Platform.android.kt`.
 
 ## How it was paid
 
-> Filled when closing.
+Paid in PLAN-0016 H6.3d (`fix/kotlin-sdk-connect-pin-reports`). Both comments now
+say what breaks and cite ADR-0080. `DeviceIdTest` runs each path by name on every
+target through an injected link: a writer that links takes no lock, one that loses
+the link keeps the winner's id, and a locking writer keeps what a linking writer
+left before its lock. A linking writer landing after the re-read under the lock
+stays untested, the case the second review rejected.

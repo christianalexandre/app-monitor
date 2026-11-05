@@ -55,6 +55,7 @@ import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.CapturedFrame
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.ui.formatDuration
+import appmonitor.desktop.ui.statusOf
 import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import appmonitor.v1.WebSocketFrame
@@ -77,8 +78,13 @@ internal fun RequestDetail(
 ) {
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
-    var openFrame by remember { mutableStateOf<Int?>(null) }
-    val frameBody = openFrame?.let { exchange.frames.getOrNull(it) }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
+    // By id: the live list cuts the oldest frames, so an index would move to another one.
+    var openFrame by remember { mutableStateOf<Long?>(null) }
+    val frameBody =
+        openFrame
+            ?.let { id ->
+                exchange.frames.firstOrNull { it.id == id }
+            }?.let { key(openFrame) { rememberBodyView(emptyList(), it.payload) } }
     val tabs = tabsOf(exchange)
     val tab = detail.tab.takeIf { it in tabs } ?: DetailTab.Summary
     val requestRendered = requestBody.rendered
@@ -256,19 +262,27 @@ private fun LazyListScope.summary(
 
 private fun LazyListScope.frames(
     exchange: HttpExchange,
-    openFrame: Int?,
+    openFrame: Long?,
     frameBody: BodyView?,
     query: String,
-    onFrame: (Int) -> Unit,
+    onFrame: (Long) -> Unit,
     onMoreFrames: () -> Unit,
 ) {
     if (exchange.frameCount == 0L) return
-    item { Section("WebSocket frames (${exchange.frameCount})") {} }
-    exchange.frames.forEachIndexed { index, frame ->
-        item { FrameRow(frame, exchange.startedAtMs, open = index == openFrame) { onFrame(index) } }
-        if (index == openFrame && frameBody != null) body(frameBody, query, null)
+    val count =
+        if (exchange.framesKept <
+            exchange.frameCount
+        ) {
+            "last ${exchange.framesKept} of ${exchange.frameCount}"
+        } else {
+            "${exchange.frameCount}"
+        }
+    item { Section("WebSocket frames ($count)") {} }
+    exchange.frames.forEach { frame ->
+        item { FrameRow(frame, exchange.startedAtMs, open = frame.id == openFrame) { onFrame(frame.id) } }
+        if (frame.id == openFrame && frameBody != null) body(frameBody, query, null)
     }
-    if (exchange.frames.size < exchange.frameCount) item { TextButton("Show more frames", onClick = onMoreFrames) }
+    if (exchange.frames.size < exchange.framesKept) item { TextButton("Show more frames", onClick = onMoreFrames) }
 }
 
 /** A tab's heading with the copy action of its [part]. */
@@ -317,11 +331,11 @@ private fun rememberBodyView(
     headers: List<Header>,
     captured: CapturedBody,
 ): BodyView {
-    val decoded = remember(captured.bytes) { DecodedBody(captured.bytes) }
+    val decoded = remember(captured.bytes, headers) { DecodedBody(captured.bytes, headers) }
     var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
     val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
         value = null
-        if (decoded.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
+        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
     }
     return BodyView(captured, rendered) { chosen = it }
 }
@@ -335,6 +349,7 @@ private fun LazyListScope.body(
     item {
         if (captured.truncated) Text(truncationNote(captured), role = TextRole.Caption)
         if (captured.bytes.size == 0 && !captured.truncated) Text("None", role = TextRole.Caption)
+        view.rendered?.note?.let { Text(it, role = TextRole.Caption) }
         if (captured.bytes.size > 0) {
             Row(Modifier.padding(vertical = Spacing.xs), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 BodyFormat.entries.forEach { option ->
@@ -468,15 +483,6 @@ private fun layerOf(layer: CaptureLayer): String =
         CaptureLayer.CAPTURE_LAYER_CONNECTION -> "Connection layer"
         CaptureLayer.CAPTURE_LAYER_PROXY -> "Proxy layer"
         CaptureLayer.CAPTURE_LAYER_UNSPECIFIED -> "Unknown layer"
-    }
-
-private fun statusOf(exchange: HttpExchange): String =
-    when {
-        exchange.error != null -> "failed"
-        exchange.connection != null -> if (exchange.endedAtMs != null) "closed" else "open"
-        (exchange.grpcStatus ?: 0) != 0 -> "grpc ${exchange.grpcStatus}"
-        exchange.statusCode != null -> exchange.statusCode.toString()
-        else -> "…"
     }
 
 // ADR-0110 E.1: the device names the rule; a deleted one is left with its id.

@@ -29,9 +29,6 @@ CREATE INDEX issue_exchanges_exchange_ref ON issue_exchanges(exchange_ref);
 insert:
 INSERT INTO issues(title, note, status, source, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?);
 
-lastId:
-SELECT last_insert_rowid();
-
 exists:
 SELECT count(*) FROM issues WHERE id = ?;
 

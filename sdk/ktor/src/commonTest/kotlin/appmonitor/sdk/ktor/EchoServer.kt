@@ -1,7 +1,9 @@
 package appmonitor.sdk.ktor
 
 import appmonitor.sdk.core.AppMonitorOptions
+import appmonitor.sdk.core.CaptureSink
 import appmonitor.v1.Envelope
+import appmonitor.v1.MockRule
 import appmonitor.v1.WebSocketFrame
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
@@ -63,11 +65,17 @@ internal class EchoServer private constructor(
     }
 }
 
-/** Records envelopes sent from any thread, as frames are. */
+/** Records envelopes sent from any thread, as frames are; [mock] answers every lookup. */
 internal class ConcurrentSink(
     override val options: AppMonitorOptions? = AppMonitorOptions(),
+    private val mock: MockRule? = null,
 ) : CaptureSink {
     private val envelopes = Channel<Envelope>(Channel.UNLIMITED)
+
+    override fun mockFor(
+        method: String,
+        url: String,
+    ): MockRule? = mock
 
     override fun send(envelope: Envelope) {
         envelopes.trySend(envelope)

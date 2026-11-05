@@ -60,7 +60,7 @@ import platform.posix.sockaddr_in
 /** `kDNSServiceErr_PolicyDenied`: local network access is not granted (TN3179). */
 private const val POLICY_DENIED = -65570
 
-/** The mDNS source of SDD 04 on iOS; a browser that cannot run is logged once per client. */
+/** The mDNS source on iOS; a browser that cannot run is logged once per client. */
 internal fun bonjourBrowser(log: (String) -> Unit = ::platformLog): () -> MdnsBrowser? {
     val logged = atomic(false)
     val browser =
@@ -94,6 +94,7 @@ private class BonjourSession(
     private val resolves = mutableMapOf<String, Resolve>()
     private val addresses = mutableMapOf<String, Pair<String, Int>>()
     private val paths = mutableMapOf<String, String>()
+    private val ids = mutableMapOf<String, String>()
 
     fun start() =
         dispatch_async(queue) {
@@ -134,16 +135,19 @@ private class BonjourSession(
         resolves.remove(resolve.key)
         if (host == null) return
         addresses[resolve.key] = host to port
-        onAnswer(DesktopAnswer(resolve.name, host, port, paths[resolve.key]))
+        onAnswer(DesktopAnswer(resolve.name, host, port, paths[resolve.key], ids[resolve.key]))
     }
 
     private fun seen(result: nw_browse_result_t) {
         val name = nw_endpoint_get_bonjour_service_name(nw_browse_result_copy_endpoint(result))?.toKString() ?: return
         val key = name.lowercase()
-        txtPath(result)?.let { paths[key] = it }
+        txtValue(result, Protocol.MDNS_TXT_PATH)?.let {
+            paths[key] = it
+            txtValue(result, Protocol.MDNS_TXT_ID)?.let { id -> ids[key] = id } ?: ids.remove(key)
+        }
         val address = addresses[key]
         if (address != null) {
-            onAnswer(DesktopAnswer(name, address.first, address.second, paths[key]))
+            onAnswer(DesktopAnswer(name, address.first, address.second, paths[key], ids[key]))
         } else if (key !in resolves) {
             val resolve = Resolve(this, name, key)
             resolves[key] = resolve
@@ -151,16 +155,19 @@ private class BonjourSession(
         }
     }
 
-    private fun txtPath(result: nw_browse_result_t): String? {
+    private fun txtValue(
+        result: nw_browse_result_t,
+        key: String,
+    ): String? {
         val txt = nw_browse_result_copy_txt_record_object(result) ?: return null
-        var path: String? = null
-        nw_txt_record_access_key(txt, Protocol.MDNS_TXT_PATH) { _, found, value, length ->
+        var text: String? = null
+        nw_txt_record_access_key(txt, key) { _, found, value, length ->
             if (found == nw_txt_record_find_key_non_empty_value && value != null) {
-                path = value.readBytes(length.toInt()).decodeToString()
+                text = value.readBytes(length.toInt()).decodeToString()
             }
             true
         }
-        return path
+        return text
     }
 
     companion object {

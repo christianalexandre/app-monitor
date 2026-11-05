@@ -1,13 +1,15 @@
 package appmonitor.sdk.core
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class PlatformIosTest {
     @Test
-    fun cleartextIsAlwaysPermitted() {
-        assertTrue(isCleartextPermitted("192.168.1.10"))
-        assertTrue(isCleartextPermitted(LOOPBACK))
+    fun aLogLineWithFormatSpecifiersIsWritten() {
+        platformLog("100% %@ %s, on a dispatcher too")
+        runBlocking(Dispatchers.Default) { platformLog("100% %@ %s") }
     }
 
     @Test
