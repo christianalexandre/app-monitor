@@ -217,3 +217,5 @@ Rules:
 | [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |
 | [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) | A DEBT trigger path that exists from the root matches only there | Accepted |
 | [0199](0199-a-gzip-body-opens-in-the-detail-before-its-formats.md) | A gzip body opens in the detail before its formats, bounded | Accepted |
+| [0200](0200-the-gate-fails-early-and-seeds-its-own-cache.md) | The release gate fails early and seeds its own cache | Accepted |
+| [0201](0201-a-test-holds-through-a-stalled-runner.md) | A test holds through a stalled runner, and iOS suites are repeated before a release | Accepted |

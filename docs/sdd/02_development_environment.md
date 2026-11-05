@@ -376,6 +376,19 @@ and `.deb` on ubuntu, one matrix entry each, and uploads each as the
 The `publish` job, on macOS, runs `make publish-dry-run` and uploads
 `build/maven-dry-run/` as the `maven-dry-run` artifact for 7 days.
 
+The gate runs in three steps (ADR-0200): `branch`, then `contract` and
+`desktop`, the jobs that fail most and finish first (at most 9 min on
+2026-11-05), then every other job, skipped when one of those failed. A green
+gate takes about 9 min longer for it; `gh run rerun <id> --failed` reruns a
+failed job and the jobs after it. It also runs on `dev` on Mondays and
+Thursdays at 06:00 UTC, the only runs that write the macOS and Windows Gradle
+caches a release PR reads (`setup-gradle` writes on the default branch alone).
+
+`make swift-stress` repeats the iOS suites by hand (ADR-0201): `STRESS_RUNS`
+(20) rounds of the package's and TestHost's suites, idle, then under
+`STRESS_LOAD` (100) busy loops, then `make swift-sim` on a simulator it creates
+and deletes; logs of the failed rounds in `build/swift-stress/`.
+
 `main` requires the gate through the `protect-main` repository ruleset
 (ADR-0053): no deletion, no force-push, merge through a PR only, and every
 gate job plus `pr-conventions.yml`'s `conventions` and `docs` as required
@@ -388,6 +401,7 @@ job renamed, or a matrix changed, must change the file in the same PR
 (DEBT-0048). When `branch` fails, the other jobs are skipped and a skipped
 matrix job reports under its bare name (`desktop`), not a required one; the
 failed `branch` check is what blocks the merge (seen on the probe PR #130).
+The same holds for `contract` or `desktop` and the jobs after them.
 
 ## Limits
 
