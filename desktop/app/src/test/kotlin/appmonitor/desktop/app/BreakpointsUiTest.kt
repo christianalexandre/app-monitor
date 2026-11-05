@@ -194,6 +194,10 @@ class BreakpointsUiTest {
 
                 onNodeWithTag(MOVE_BREAKPOINT_UP + bottom).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.breakpoints() }.map { it.id } == listOf(bottom, top) }
+                // The store moves first: a click before the list follows lands on a button still disabled.
+                waitUntil(timeoutMillis = TIMEOUT_MS) {
+                    onNodeWithTag(MOVE_BREAKPOINT_UP + bottom).runCatching { assertIsNotEnabled() }.isSuccess
+                }
                 onNodeWithTag(MOVE_BREAKPOINT_DOWN + bottom).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.breakpoints() }.map { it.id } == listOf(top, bottom) }
             }

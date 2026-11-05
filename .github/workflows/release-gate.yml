@@ -3,6 +3,9 @@ name: Release gate
 on:
   pull_request:
     branches: [main]
+  # ADR-0200: seeds the macOS and Windows Gradle caches, and finds what broke before a release does.
+  schedule:
+    - cron: '0 6 * * 1,4'
   workflow_dispatch:
     inputs:
       head:
@@ -24,7 +27,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Head branch may target main
         env:
-          HEAD_REF: ${{ github.head_ref || inputs.head }}
+          HEAD_REF: ${{ github.head_ref || inputs.head || 'dev' }}
         run: scripts/branch_check.sh "$HEAD_REF" main
 
   desktop:
@@ -79,7 +82,7 @@ jobs:
           retention-days: 7
 
   package:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     strategy:
       fail-fast: false
       matrix:
@@ -153,7 +156,7 @@ jobs:
           retention-days: 7
 
   samples:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 50
     steps:
@@ -184,7 +187,7 @@ jobs:
 
   # ADR-0154: the iOS sample has a job of its own.
   samples-ios:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 50
     steps:
@@ -205,7 +208,7 @@ jobs:
           retention-days: 7
 
   e2e-android:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -242,7 +245,7 @@ jobs:
           retention-days: 7
 
   e2e-ios:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
@@ -271,7 +274,7 @@ jobs:
 
   # ADR-0163: gRPC-Core's cold build stays out of e2e-ios (DEBT-0080).
   e2e-ios-grpc:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 50
     steps:
@@ -299,7 +302,7 @@ jobs:
           retention-days: 7
 
   e2e-kmp-android:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -336,7 +339,7 @@ jobs:
           retention-days: 7
 
   e2e-kmp-ios:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
@@ -364,7 +367,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: branch
+    needs: [contract, desktop] # ADR-0200
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
