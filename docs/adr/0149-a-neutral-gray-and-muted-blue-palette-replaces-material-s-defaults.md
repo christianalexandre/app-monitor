@@ -17,17 +17,15 @@ changed: light primary `0xFF6200EE` (purple), secondary `0xFF03DAC6`
 on pure white. During the field test hold the owner asked for "a more
 neutral and pleasant palette" instead of Android's default purple.
 
-The reference (standing owner decision, `AGENTS.md`): `mibo-smart-app`'s
-`core/ui/designsystem/.../theme/color/MiboPalette.kt` declares raw tonal
-scales as objects (`MiboGray.gray50` … `gray900`, `MiboGreen`, `MiboRed`,
-`MiboYellow`, `MiboBlue`), and `MiboColorScheme.kt` builds the light and
-dark semantic schemes from those tones only. Its hues are Intelbras's
-brand green, not a fit for a neutral tool.
+The reference (standing owner decision, `AGENTS.md`): the owner's reference
+app declares raw tonal scales as objects (a gray from 50 to 900, a green, a
+red, a yellow, a blue), and builds the light and dark semantic schemes from
+those tones only. Its hues are a brand's, not a fit for a neutral tool.
 
 ## Options
 
 1. **Tonal scales in `Palette.kt`, the two schemes built from them, a
-   cool gray and one muted blue accent.** Mibo's structure; the hues of a
+   cool gray and one muted blue accent.** The reference's structure; the hues of a
    developer tool where traffic, not chrome, carries the color.
 2. **Keep Material's defaults.** What the owner asked to leave.
 3. **Move to Material 3 with a generated tonal scheme.** Rejected in
@@ -35,7 +33,7 @@ brand green, not a fit for a neutral tool.
 
 ## Decision
 
-Option 1, following `MiboPalette.kt` and `MiboColorScheme.kt`.
+Option 1, following the reference app's palette and color schemes.
 
 - `desktop/designsystem/Palette.kt`: `internal` objects `AppGray`
   (`gray0` … `gray900`), `AppBlue`, `AppGreen`, `AppAmber`, `AppRed`;
