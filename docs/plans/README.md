@@ -55,6 +55,7 @@ record of how the milestone was actually built once it is done.
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
+| [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Active |
 
 ## Roadmap
 
@@ -64,7 +65,8 @@ the plan sharpens it.
 ### Hold — the owner's go before M10
 
 The owner ran the SDKs in a real app (2026-10-30), which asked for
-[PLAN-0014](0014-plug-and-play-setup.md) (H4), then H5 and H6. The loop
+[PLAN-0014](0014-plug-and-play-setup.md) (H4), then H5 to H7; a second run
+(2026-11-06) asked for [PLAN-0018](0018-dense-traffic-window.md) (H8). The loop
 does not plan past this section: reaching it is **stop: waiting for the
 owner**, who removes it when the backlog is ready to publish.
 
