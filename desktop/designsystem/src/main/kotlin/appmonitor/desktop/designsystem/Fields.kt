@@ -34,7 +34,7 @@ fun SearchField(
     modifier: Modifier = Modifier,
 ) {
     val colors = AppMonitorTheme.colors
-    val shape = RoundedCornerShape(Radius.small)
+    val shape = RoundedCornerShape(Radius.medium)
     val style = styleOf(TextRole.Small).copy(color = colors.onSurface)
     BasicTextField(
         value,
@@ -82,7 +82,7 @@ fun GlyphButton(
     MaterialText(
         glyph,
         modifier
-            .clip(RoundedCornerShape(Radius.small))
+            .clip(RoundedCornerShape(Radius.medium))
             .clickable(onClick = onClick)
             .semantics {
                 role = Role.Button
@@ -102,7 +102,7 @@ fun Toast(
     val colors = AppMonitorTheme.colors
     Box(
         modifier
-            .background(colors.onSurface.copy(alpha = TOAST_ALPHA), RoundedCornerShape(Radius.small))
+            .background(colors.onSurface.copy(alpha = TOAST_ALPHA), RoundedCornerShape(Radius.medium))
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
     ) {
         MaterialText(text, color = colors.surface, style = styleOf(TextRole.SmallStrong))

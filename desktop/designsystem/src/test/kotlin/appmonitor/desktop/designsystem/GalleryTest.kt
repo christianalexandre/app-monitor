@@ -1,5 +1,7 @@
 package appmonitor.desktop.designsystem
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,13 +39,17 @@ class GalleryTest {
         listOf(false, true).forEach { dark ->
             var chosen: String? = null
             var tab = 0
-            runDesktopComposeUiTest(width = 1280, height = 960) {
+            runDesktopComposeUiTest(width = 1520, height = 960) {
                 setContent {
                     AppMonitorTheme(dark) {
                         AppSurface { Gallery({ tab = it }) { chosen = it } }
                     }
                 }
-                TextRole.entries.forEach { onNodeWithText("Text in ${it.name}").assertExists() }
+                TextRole.entries.forEach {
+                    val shown = "Text in ${it.name}".let { text -> if (it == TextRole.Label) text.uppercase() else text }
+                    onNodeWithText(shown).assertExists()
+                }
+                LayerNames.forEach { onNodeWithText(it).assertExists() }
                 BadgeTone.entries.forEach { onNodeWithText(it.name).assertExists() }
                 onNodeWithText("2xx on").assertIsOn()
                 onNodeWithText("4xx off").assertIsOff()
@@ -131,6 +139,8 @@ private fun Gallery(
             }
         }
         VerticalDivider()
+        Tokens()
+        VerticalDivider()
         Box(Modifier.weight(1f).fillMaxSize()) {
             DialogCard(DialogWidth.Narrow) {
                 Text("Dialog card", role = TextRole.BodyStrong)
@@ -139,6 +149,37 @@ private fun Gallery(
                     TextButton("Cancel", onClick = {})
                     TextButton("Confirm", onClick = {})
                 }
+            }
+        }
+    }
+}
+
+private val LayerNames = listOf("titleBar", "sidebar", "list", "surface", "statusBar", "border", "selected")
+
+/** Each layer's color with its name, and the bars' heights (ADR-0202). */
+@Composable
+private fun Tokens() {
+    val colors = AppMonitorTheme.colors
+    val layers =
+        listOf(colors.titleBar, colors.sidebar, colors.list, colors.surface, colors.statusBar, colors.border, colors.selected)
+    Column(Modifier.width(200.dp).padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text("Layers", role = TextRole.Label)
+        LayerNames.zip(layers).forEach { (name, color) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Box(
+                    Modifier
+                        .size(
+                            28.dp,
+                        ).border(1.dp, colors.border, RoundedCornerShape(Radius.medium))
+                        .background(color, RoundedCornerShape(Radius.medium)),
+                )
+                Text(name, role = TextRole.Small)
+            }
+        }
+        Text("Bars", Modifier.padding(top = Spacing.lg), role = TextRole.Label)
+        listOf("title" to BarHeight.title, "detail" to BarHeight.detail, "status" to BarHeight.status).forEach { (name, height) ->
+            Box(Modifier.fillMaxWidth().height(height).background(colors.statusBar), contentAlignment = Alignment.CenterStart) {
+                Text("$name ${height.value.toInt()} dp", Modifier.padding(horizontal = Spacing.md), role = TextRole.Caption)
             }
         }
     }

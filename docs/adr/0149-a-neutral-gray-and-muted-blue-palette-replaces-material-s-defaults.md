@@ -1,9 +1,9 @@
 ---
 id: ADR-0149
 title: A neutral gray and muted blue palette replaces Material's default colors
-status: Accepted # Proposed | Accepted | Superseded | Rejected
+status: Superseded # Proposed | Accepted | Superseded | Rejected
 date: 2026-10-26
-superseded_by:
+superseded_by: ADR-0202
 ---
 
 # ADR-0149 — A neutral gray and muted blue palette replaces Material's default colors
