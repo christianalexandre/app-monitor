@@ -90,7 +90,7 @@ task too large for one PR is split at once.
   with its copy action.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test` —
   each tab shows its part of a request and copies it. `Tabs` in the
-  design system after `MiboTabs`; the tab stays across picks; a body is
+  design system after the reference app's tabs; the tab stays across picks; a body is
   copied as the device sent it; Timing has start, end, duration and
   frames only, the protocol carries no phase (ADR-0147).
 - [x] **H3.6c Filter sheet.** Status class and host, as

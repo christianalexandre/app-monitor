@@ -40,7 +40,7 @@ iPhone either (ADR-0052). M10's tag is the first release an app installs.
 ## How it was paid
 
 Paid by the H4 field test (2026-10-30, PLAN-0014's *Outcome*), PLAN-0015
-H5.6. Mibo `Dev` on an iPhone 8, iOS 16.7.16, on Wi-Fi: signed for the
+H5.6. The field test app's `Dev` on an iPhone 8, iOS 16.7.16, on Wi-Fi: signed for the
 device, it found the desktop by mDNS from another host once Local Network
 was on, and 25 calls were captured, each answered. That is the path this
 debt named. It found two bugs the simulator hid (#319, #321).

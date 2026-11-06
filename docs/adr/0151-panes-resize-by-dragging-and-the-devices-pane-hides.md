@@ -20,12 +20,11 @@ The references (standing owner decision, `AGENTS.md`):
 - `nowinandroid`'s `app/.../ui/NiaApp.kt` (at `2982e63`) shows list and
   detail through `rememberListDetailSceneStrategy` (Material 3 adaptive,
   Navigation 3), with no drag handle; it targets phones and tablets.
-- `mibo-smart-app` has no split pane; its
-  `core/ui/designsystem/.../component/MiboSwipeToDelete.kt` moves content
-  with foundation's `draggable` over a `rememberDraggableState`.
+- The owner's reference app has no split pane; its swipe to delete moves
+  content with foundation's `draggable` over a `rememberDraggableState`.
 
 Neither has a resizable desktop pane, so the design system gets its own,
-built the way mibo drags.
+built the way the reference app drags.
 
 ## Options
 
