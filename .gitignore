@@ -25,6 +25,8 @@ samples/kmp/iosApp/KmpSample.xcodeproj/
 
 # Claude Code (config local, não compartilhada)
 .claude/settings.local.json
+# Private references named only on the owner's machine (AGENTS.md, "Nothing private")
+CLAUDE.local.md
 
 # Loop logs (scripts/loop.sh)
 .loop/

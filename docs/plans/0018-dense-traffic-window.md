@@ -31,8 +31,9 @@ ideas of `app-network-monitor`'s client
 `LogDetailView.swift`). The ⌘K palette is new scope: the owner approved it on 2026-11-06.
 
 Nothing private goes into the repository (owner, 2026-11-06): no name, host, file or data of the
-field test app, of the reference app or of the prototype. ADRs cite the reference app as AGENTS.md
-names it, without its files, and screenshots come from the samples or invented data.
+field test app, of the reference app or of the prototype (AGENTS.md, "Nothing private"). ADRs cite
+"the owner's reference app" with the pattern in their own words, and screenshots come from the
+samples or invented data.
 
 Only the window changes. The store, the MCP tools, the proxy and the SDKs do not. Each task
 updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays.
@@ -40,7 +41,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
 ## Tasks
 
 - [ ] **H8.1 Desktop type scale and tokens.** `desktop/designsystem` stops using Material's
-  `Typography()`. It gets its own scale, as the owner's reference app does (AGENTS.md), with
+  `Typography()`. It gets its own scale, as the owner's reference app does, with
   explicit sizes, line heights and letter spacing, and no spaced button labels:
   - body 12.5–13, secondary 11.5, caption 10.5–11, section label 10 in capitals, code 11.5
     monospace;
