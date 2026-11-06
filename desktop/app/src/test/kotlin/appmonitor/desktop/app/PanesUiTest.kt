@@ -82,7 +82,7 @@ class PanesUiTest {
                 commandB()
                 awaitText("DEVICES")
                 onNodeWithTag(ACTIONS).performClick()
-                listOf(ISSUES, BENCHMARKS, MOCKS, BREAKPOINTS, EXPORT_HAR, SETTINGS).forEach { onNodeWithTag(it).assertExists() }
+                listOf(ISSUES, BENCHMARKS, MOCKS, BREAKPOINTS, EXPORT_HAR, SETTINGS).forEach { paletteEntry(it).assertExists() }
             }
         }
 

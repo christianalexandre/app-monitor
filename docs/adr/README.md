@@ -223,3 +223,4 @@ Rules:
 | [0203](0203-two-line-request-rows-and-the-list-header.md) | Two-line request rows that keep the path's end, and the list's own header | Accepted |
 | [0204](0204-the-request-detail-as-the-mockup-a-bar-a-request-line-and-tables.md) | The request detail as the mockup, a bar, a request line and key/value tables | Accepted |
 | [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) | A sidebar, a title bar and a status bar around the traffic, the other screens behind "Actions" | Accepted |
+| [0206](0206-a-command-palette-replaces-the-actions-menu.md) | A ⌘K command palette replaces the title bar's "Actions" menu | Accepted |

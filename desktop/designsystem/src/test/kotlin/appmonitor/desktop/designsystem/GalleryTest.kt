@@ -39,7 +39,7 @@ class GalleryTest {
         listOf(false, true).forEach { dark ->
             var chosen: String? = null
             var tab = 0
-            runDesktopComposeUiTest(width = 1520, height = 960) {
+            runDesktopComposeUiTest(width = 1680, height = 960) {
                 setContent {
                     AppMonitorTheme(dark) {
                         AppSurface { Gallery({ tab = it }) { chosen = it } }
@@ -58,6 +58,8 @@ class GalleryTest {
                 assertEquals("POST", chosen)
                 onNodeWithText("Headers").performClick()
                 assertEquals(1, tab)
+                onNodeWithText("Command palette").assertExists()
+                onNodeWithText("Search requests, actions, screens…").assertExists()
                 val corner = onRoot().captureToImage().toAwtImage().getRGB(1, 1) and 0xFFFFFF
                 val surface = (if (dark) DarkAppColors else LightAppColors).surface.toArgb() and 0xFFFFFF
                 assertEquals(surface, corner, "the surface's color")
@@ -176,14 +178,37 @@ private fun Gallery(
         VerticalDivider()
         Tokens()
         VerticalDivider()
-        Box(Modifier.weight(1f).fillMaxSize()) {
-            DialogCard(DialogWidth.Narrow) {
-                Text("Dialog card", role = TextRole.BodyStrong)
-                Text("Over an overlay that dims the window", role = TextRole.Caption)
-                DialogActions {
-                    TextButton("Cancel", onClick = {})
-                    TextButton("Confirm", onClick = {})
+        Column(Modifier.weight(1f).fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                DialogCard(DialogWidth.Narrow) {
+                    Text("Dialog card", role = TextRole.BodyStrong)
+                    Text("Over an overlay that dims the window", role = TextRole.Caption)
+                    DialogActions {
+                        TextButton("Cancel", onClick = {})
+                        TextButton("Confirm", onClick = {})
+                    }
                 }
+            }
+            Box(Modifier.weight(1.4f).fillMaxWidth()) {
+                CommandPalette(
+                    "",
+                    {},
+                    listOf(
+                        PaletteGroup(
+                            "Requests",
+                            listOf(PaletteItem("/v1/events/batch", "gallery-request", "↗", {}, sub = "POST · telemetry.example.net")),
+                        ),
+                        PaletteGroup(
+                            "Actions",
+                            listOf(
+                                PaletteItem("Command palette", "gallery-record", "●", {}, shortcut = "⌘R"),
+                                PaletteItem("Copy as cURL", "gallery-curl", "$", {}),
+                            ),
+                        ),
+                        PaletteGroup("Open", listOf(PaletteItem("Settings", "gallery-settings", "⚙", {}, shortcut = "⌘,"))),
+                    ),
+                    onClose = {},
+                )
             }
         }
     }

@@ -12,7 +12,8 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   `TextField`, `Checkbox`, `CheckboxRow`, `Choice`, `DialogCard`,
   `DialogActions`, `Divider`, `VerticalDivider`, `PaneTitle`,
   `Placeholder`, `Section`, `Modifier.selectableItem`, `Badge`,
-  `ToggleChip`, `Toolbar`, `Tabs`, `EmptyState`, `MiddleEllipsisText`)
+  `ToggleChip`, `Toolbar`, `Tabs`, `EmptyState`, `MiddleEllipsisText`,
+  `CommandPalette`, `PaletteGroup`, `PaletteItem`, `KeyHint`)
   and its tokens
   (`Spacing`, `Radius`, `BarHeight`, `Elevation`, `DialogWidth`, `TextRole`, `BadgeTone`,
   `AppMonitorTheme.colors`). `make designsystem-check` fails otherwise.

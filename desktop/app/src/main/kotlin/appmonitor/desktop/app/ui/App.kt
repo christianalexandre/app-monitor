@@ -186,6 +186,9 @@ private fun AppMonitorWindow(
                     mocksWaiting = mocks.pending > 0,
                     callsHeld = held.isNotEmpty(),
                     exportNote = exportNote,
+                    covered =
+                        settingsOpen || issuesOpen || mocksShown || breakpointsOpen || benchmarksOpen || diffOpen ||
+                            saving != null || held.isNotEmpty(),
                     onSettings = { settingsOpen = true },
                     onIssues = { issuesOpen = true },
                     onMocks = {

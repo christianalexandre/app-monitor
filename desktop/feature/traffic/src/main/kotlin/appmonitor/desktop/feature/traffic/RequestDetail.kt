@@ -547,10 +547,9 @@ private fun DetailBar(
         }
         Segmented(labels, selected, onSelect)
         GlyphButton("⌕", "Search in this request", onClick = onSearch, Modifier.testTag(DETAIL_SEARCH_OPEN))
-        val mockable = exchange.connection == null && exchange.url?.startsWith("ws") != true
-        if (mockable) {
+        if (exchange.mockable) {
             TextButton("Mock", onClick = onMock, Modifier.testTag(MOCK_THIS))
-            if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
+            if (onReplay != null && exchange.replayable) {
                 TextButton(replayButtonOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
             }
         }
@@ -592,3 +591,9 @@ private fun RequestLine(
 
 // The copy glyph of a detail's part.
 private const val COPY_GLYPH = "⧉"
+
+/** Whether the detail offers Mock: neither a connection nor a WebSocket. */
+internal val HttpExchange.mockable: Boolean get() = connection == null && url?.startsWith("ws") != true
+
+/** Whether the detail offers its replay button, the device able to send it again: a mockable call the proxy did not see. */
+internal val HttpExchange.replayable: Boolean get() = mockable && captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY

@@ -7,7 +7,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -15,10 +17,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.text.AnnotatedString
+import appmonitor.desktop.designsystem.PALETTE_LIST
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.feature.traffic.ACTIONS
+import appmonitor.desktop.feature.traffic.PALETTE
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import javax.imageio.ImageIO
@@ -35,11 +40,18 @@ internal fun ComposeUiTest.awaitText(
 internal fun ComposeUiTest.awaitTag(tag: String) =
     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
 
-/** Runs the title bar's "Actions" entry tagged [tag] (ADR-0205). */
+/** Opens the palette from the title bar's "Actions" and runs its entry standing for [tag] (ADR-0206). */
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.action(tag: String) {
     onNodeWithTag(ACTIONS).performClick()
-    onNodeWithTag(tag).performClick()
+    paletteEntry(tag).performClick()
+}
+
+/** The open palette's entry standing for [tag], scrolled into its list. */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.paletteEntry(tag: String): SemanticsNodeInteraction {
+    onNodeWithTag(PALETTE_LIST).performScrollToNode(hasTestTag(PALETTE + tag))
+    return onNodeWithTag(PALETTE + tag)
 }
 
 /** Keeps the last text copied, in place of the system clipboard. */

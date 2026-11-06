@@ -16,11 +16,12 @@ object Spacing {
     val xxl: Dp = 24.dp
 }
 
-/** Corner radii: [small] for badges and marks, [medium] for controls, fields and cards (ADR-0202). */
+/** Corner radii: [small] for badges and marks, [medium] for controls, fields and cards (ADR-0202), [large] for the palette. */
 object Radius {
     val none: Dp = 0.dp
     val small: Dp = 4.dp
     val medium: Dp = 6.dp
+    val large: Dp = 12.dp
 }
 
 /** Heights of the window's fixed bars (ADR-0202). */
