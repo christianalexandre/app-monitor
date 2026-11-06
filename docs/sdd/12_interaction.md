@@ -148,7 +148,7 @@ does. The editor sends the name and the whole rule; "Turn on" and
   list when the active order changed (ADR-0180).
 - "New rule" opens an empty form for the first known app (any session,
   any run); a rule's app is fixed once made.
-- "Mock this", in a request's detail (not for a WebSocket or a
+- "Mock", in a request's detail bar (not for a WebSocket or a
   connection), opens a new rule filled from the exchange: the session's
   app id, method, host and path without the query, and the response's
   status, headers and stored body; a failed exchange without a response
@@ -207,10 +207,10 @@ first envelope to its end.
 | `answer(replay, send)` | drops it from `asked`; `send` true goes through `send` |
 | the session ends | forgets the session, its refusals and its asked replays |
 
-In the window, a request's detail has "Send again" beside "Mock this"
-(not for a WebSocket, a connection or the desktop's proxy). Its label reads
-"Send again: runs POST on the server again" for any method but `GET`,
-`HEAD` and `OPTIONS`. Under the summary it says what happened: "Sent to
+In the window, a request's detail bar has "Replay" beside "Mock" (not
+for a WebSocket, a connection or the desktop's proxy, ADR-0204). Its label
+reads "Replay: runs POST again" for any method but `GET`, `HEAD` and
+`OPTIONS`. Under the summary it says what happened: "Sent to
 the app; its call shows as a replay", "Not sent: the app's session ended,
 and a replay goes through the app", "Not sent: this app's SDK does not
 take replays", or "The app did not send it again: <reason>". A replay's

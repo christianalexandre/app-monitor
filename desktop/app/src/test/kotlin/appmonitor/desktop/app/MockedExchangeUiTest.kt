@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.MOCKED
+import appmonitor.desktop.feature.traffic.MOCKED_BY
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
 import appmonitor.desktop.storage.MockWrite
@@ -43,12 +44,15 @@ class MockedExchangeUiTest {
                 onNodeWithTag(MOCKED + "m", useUnmergedTree = true).assertExists()
                 onNodeWithTag(MOCKED + "n", useUnmergedTree = true).assertDoesNotExist()
                 onNodeWithText("https://api.example.com/v1/items").performClick()
-                awaitText("Status 503 · Duration 5 ms · Adapter layer · Mocked by rule \"items down\"")
+                awaitText("Mocked by rule \"items down\"")
+                awaitText("5 ms · ", substring = true)
                 screenshot("mocked.png")
                 onNodeWithText("https://api.example.com/v1/gone").performClick()
-                awaitText("Status 200 · Duration 1 ms · Adapter layer · Mocked by deleted rule 9999")
+                awaitText("Mocked by deleted rule 9999")
                 onNodeWithText("https://api.example.com/v1/orders").performClick()
-                awaitText("Status 200 · Duration 10 ms · Adapter layer")
+                awaitText("10 ms · ", substring = true)
+                awaitText(" · Adapter layer", substring = true)
+                onNodeWithTag(MOCKED_BY).assertDoesNotExist()
             }
         }
 

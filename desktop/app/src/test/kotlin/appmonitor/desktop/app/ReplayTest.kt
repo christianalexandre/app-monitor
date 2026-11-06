@@ -3,6 +3,7 @@ package appmonitor.desktop.app
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -86,7 +87,9 @@ class ReplayTest {
                     awaitText("Replay of an earlier request")
                     screenshot("replay.png")
                     onNodeWithTag(SHOW_ORIGINAL).performClick()
-                    awaitText("Status 200", substring = true)
+                    waitUntil(timeoutMillis = TIMEOUT_MS) {
+                        onAllNodesWithText("Replay of an earlier request").fetchSemanticsNodes().isEmpty()
+                    }
 
                     onNodeWithTag(SEND_AGAIN).performClick()
                     device.next("ReplayRequest")

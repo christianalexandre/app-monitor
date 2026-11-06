@@ -468,34 +468,43 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   first, then the path's start, so its end stays. An empty pane says why and what to do next: "No requests yet"
   (live, recording or a stored run, each with its hint), "No requests
   match" (a filter is set), "Select a request".
-- Request detail (ADR-0147): the method and URL, a copy note, "Mock this"
-  and "Send again" over five tabs: Summary (caption, error, replay link,
-  URL, connection bytes), Headers (request and response), Body (request
-  and response bodies, then WebSocket frames), Timing (started and ended
-  to the millisecond in this machine's zone, duration, frames: the
-  protocol carries no finer phase) and cURL. The tab picked stays for the
-  next request. Under the tabs, "Search in this request" highlights every
-  case-insensitive match in the shown tab and counts them per tab
-  ("Headers · 2", "2 matches"); cURL is highlighted but not counted, as it
-  repeats the others; the text stays while another request is picked
-  (ADR-0152). On the Body tab "N of M" with "↑" and "↓" walks the body
-  matches in reading order, request then response, scrolling to the
-  line of each; the current one is drawn stronger (ADR-0153). The search
-  field is one compact line with "×" to empty it, as is the toolbar's.
-  The detail's heading starts with the status badge the request row
-  shows; a request row leaves out `https://` (a plain `http://` stays). Headers show one per row, the name small and muted above the
-  value, in the order sent, each heading with its count. The URL, bodies
-  and cURL sit in a code block; a JSON body colors its keys, strings and
-  literals. Each part has "Copy": the URL, headers as `Name: value`
-  lines, a body whole as the device sent it, a gzip one opened (UTF-8,
-  else its hex dump, not the indented view), the timing lines, the cURL command; a note
-  at the pane's bottom says "Copied", "Nothing to copy" or why not, and
-  goes after two seconds (ADR-0153). The
-  detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
-  when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
+- Request detail (ADR-0147, ADR-0204): a 38 dp bar holds `host › path`,
+  the five tabs as a segmented control, "⌕" (shows or hides the search
+  field; hiding it empties it), "Mock", "Replay" and "⋯" (Copy as cURL,
+  Save as issue: what the list's "Save as issue" saves, the marked rows
+  or else the picked one). Under it the status badge, the method and the
+  whole URL in small monospace, selectable, with its copy glyph, then a
+  meta line: duration, response size "↓" (its original size when cut),
+  the device's name while its session is in the window, the start time to
+  the millisecond, and "<Layer> layer" ("Unknown layer" when no
+  `RequestStarted` or an older SDK sent it, ADR-0038). Tabs: Summary
+  (error, "Mocked by …", the replay note and link, a Request table of
+  host, path, query, method and scheme, a Response table of status or
+  failure, duration, body size and `Content-Type`, connection bytes),
+  Headers (a request and a response table), Body (request and response
+  bodies, then WebSocket frames), Timing (a table: started and ended to
+  the millisecond in this machine's zone, duration, frames: the protocol
+  carries no finer phase) and cURL. Tables are `KeyValueTable`s, keys
+  muted, every other row shaded, headers in the order sent. The tab
+  picked stays for the next request. "Search in this request" highlights
+  every case-insensitive match in the shown tab and counts them per tab
+  ("Headers · 2", "2 matches"); Summary counts its tables' values; cURL
+  is highlighted but not counted, as it repeats the others; the text
+  stays while another request is picked (ADR-0152). On the Body tab "N of
+  M" with "↑" and "↓" walks the body matches in reading order, request
+  then response, scrolling to the line of each; the current one is drawn
+  stronger (ADR-0153). A request row leaves out `https://` (a plain
+  `http://` stays). Bodies and cURL sit in a code block; a JSON body
+  colors its keys, strings and literals. Each section label has a copy
+  glyph: the URL, headers as `Name: value` lines, a body whole as the
+  device sent it, a gzip one opened (UTF-8, else its hex dump, not the
+  indented view), the timing lines, the cURL command; a note at the
+  pane's bottom says "Copied", "Nothing to copy" or why not, and goes
+  after two seconds (ADR-0153). A body side's label row gives its size,
+  its `Content-Type`, the Text / JSON / Hex control and the copy glyph. Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the
-  user can switch with the Text / JSON / Hex chips, the shown one lit. The chosen format belongs to the exchange: another
+  user can switch with the Text / JSON / Hex control, the shown one filled. The chosen format belongs to the exchange: another
   exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
   pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each

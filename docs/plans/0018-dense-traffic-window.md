@@ -68,7 +68,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it narrows ADR-0146's row and toolbar.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a long
   path with a query keeps the path's end in the row's text; `app.png` and `filters.png` read.
-- [ ] **H8.3 The detail, as the mockup.**
+- [x] **H8.3 The detail, as the mockup.** (`feat/detail-as-the-mockup`, ADR-0204)
   - A 38 dp bar: `host › path` on the left, the tabs (Summary, Headers, Body, Timing, cURL) as
     a segmented control, then "Mock", "Replay" and a "⋯" menu for the rest (Copy as cURL,
     Save as issue).

@@ -109,7 +109,7 @@ class MocksUiTest {
                         onNodeWithText("Recorded").performClick()
                         awaitText(URL)
                         onNodeWithText(URL).performClick()
-                        awaitText("Mock this")
+                        awaitTag(MOCK_THIS)
                         onNodeWithTag(MOCK_THIS).performClick()
                         awaitText("New mock rule")
                         onNodeWithText("GET /v1/items").assertExists()

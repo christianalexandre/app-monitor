@@ -11,6 +11,9 @@ import java.time.format.DateTimeFormatter
 fun replayLabelOf(method: String?): String =
     if (method?.uppercase() in SAFE_METHODS) "Send again" else "Send again: runs ${method ?: "it"} on the server again"
 
+/** The detail bar's shorter twin of [replayLabelOf], warning the same way. */
+fun replayButtonOf(method: String?): String = if (method?.uppercase() in SAFE_METHODS) "Replay" else "Replay: runs ${method ?: "it"} again"
+
 private val SAFE_METHODS = setOf("GET", "HEAD", "OPTIONS")
 
 /** The devices pane's line for a session's [drops] (ADR-0166): each count above zero, and "lost unknown" when it is. */

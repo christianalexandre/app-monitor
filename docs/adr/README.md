@@ -221,3 +221,4 @@ Rules:
 | [0201](0201-a-test-holds-through-a-stalled-runner.md) | A test holds through a stalled runner, and iOS suites are repeated before a release | Accepted |
 | [0202](0202-a-desktop-type-scale-and-the-mockup-s-layered-palette.md) | A desktop type scale and the mockup's layered palette replace Material's type and ADR-0149's values | Accepted |
 | [0203](0203-two-line-request-rows-and-the-list-header.md) | Two-line request rows that keep the path's end, and the list's own header | Accepted |
+| [0204](0204-the-request-detail-as-the-mockup-a-bar-a-request-line-and-tables.md) | The request detail as the mockup, a bar, a request line and key/value tables | Accepted |

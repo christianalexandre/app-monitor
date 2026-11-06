@@ -120,6 +120,17 @@ private fun Gallery(
                 SegmentButton("Failed", selected = false, onClick = {})
             }
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Segmented(listOf("Request", "Response", "Timing"), selected = 1, onSelect = {})
+                Segmented(listOf("Text", "JSON", "Hex"), selected = 1, onSelect = {}, small = true)
+                MenuButton("⋯", "More actions", listOf(MenuAction("Copy as cURL", "copy") {}))
+            }
+            Box(Modifier.width(360.dp).padding(horizontal = Spacing.lg)) {
+                KeyValueTable(
+                    listOf("Content-Type" to "application/json", "X-Request-Id" to "42", "Cache-Control" to "no-store"),
+                    query = "json",
+                )
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text("Secondary text", role = TextRole.Small, secondary = true)
                 Text("Warning text", role = TextRole.Small, warning = true)
                 Text("Error text", role = TextRole.Small, error = true)

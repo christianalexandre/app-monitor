@@ -35,7 +35,8 @@ class GrpcStatusUiTest {
                 awaitText("https://api.example.com/test.Echo/Unary")
                 onNodeWithText("grpc 13").assertExists()
                 onNodeWithText("grpc 5").performClick()
-                awaitText("Status grpc 5 · Duration 10 ms · Proxy layer")
+                awaitText("10 ms · ", substring = true)
+                awaitText(" · Proxy layer", substring = true)
 
                 onNodeWithTag(BENCHMARKS).performClick()
                 awaitText("POST api.example.com/test.Echo/Unary")
