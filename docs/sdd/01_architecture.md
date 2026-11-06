@@ -368,9 +368,10 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   shown while the source holds more than are read)
   again whenever its list row changes. A write failure shows
   "N events not saved: <error>" under the status.
-- Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
-  issue" (or "Save N as issue") in the toolbar takes the ticked requests,
-  from any session or run, or the selected one (live ones are saved to
+- Issues (ADR-0095, ADR-0096): each request row has a checkbox, shown on
+  hover or once ticked; ticked rows bring a bar under the list ("N marked",
+  "Save as issue", Save) whose "Save as issue" takes them, from any session
+  or run; with none ticked the toolbar's takes the selected one (ADR-0203) (live ones are saved to
   "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
   tags. "Issues" under the devices lists them newest first ("Open" or
@@ -448,18 +449,23 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   360 dp, the detail at least 360 dp; the window keeps at least
   1000 × 600 px); the hidden pane and both widths are kept across launches
   in `ui.panes` (ADR-0153). The toolbar holds the run picker, Record /
-  "Stop recording", Save and Clear (live list only), "Save as issue", the
-  URL search and "Filters", which opens the filter sheet (method, status
-  classes, "Failed only", hosts, ADR-0148); Save's and
+  "Stop recording", Save and Clear (live list only), "Save as issue" (Save
+  and it hidden while rows are ticked) and "Filters", which opens the filter
+  sheet (method, hosts, ADR-0148). Over the request list, its header holds
+  "Filter by URL" (⌘F, Ctrl+F off macOS), the status choices All, 2xx, 3xx,
+  4xx, 5xx, Failed, one at a time, and the count ("N requests", "N+" while
+  the last page read is full, ADR-0203); Save's and
   the HAR export's notes show under it. A status bar along the bottom
   holds the server's status, what failed to be stored and the retention
   warning, then the screens the window opens: Issues, Benchmarks, Mocks,
   Breakpoints, Export HAR, Settings; it stays while the devices pane is
-  hidden (ADR-0151). A request row shows its status as a badge colored by class
-  (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
-  pending or a socket neutral), the method, the URL cut in its middle,
-  "mocked" and "replay" badges, the start time to the millisecond (left
-  out while the list is under 560 dp) and the duration. An empty pane says why and what to do next: "No requests yet"
+  hidden (ADR-0151). A request row is two lines (ADR-0203): the method, the
+  path with its query muted and the start time to the millisecond; then its
+  status as a badge colored by class (2xx green, 3xx blue, 4xx amber, 5xx, a
+  failure or a gRPC error red, pending or a socket neutral), the host or
+  the failure's message, "mocked" and "replay" badges, the device's
+  platform and the duration, amber over 2 s. Too narrow, the query is cut
+  first, then the path's start, so its end stays. An empty pane says why and what to do next: "No requests yet"
   (live, recording or a stored run, each with its hint), "No requests
   match" (a filter is set), "Select a request".
 - Request detail (ADR-0147): the method and URL, a copy note, "Mock this"

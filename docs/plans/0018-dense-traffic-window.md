@@ -55,7 +55,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:designsystem:test` with `gallery-light.png` and
   `gallery-dark.png` read; `make designsystem-check`; `./gradlew :desktop:app:test` green with
   the screenshots read.
-- [ ] **H8.2 Two-line request rows.** Each row is in two lines:
+- [x] **H8.2 Two-line request rows.** (`feat/two-line-request-rows`, ADR-0203) Each row is in two lines:
   - first line: method, **path** and start time;
   - second line: status badge, host (or the failure's message), the device's platform glyph
     and the duration (warning tone over 2 s).

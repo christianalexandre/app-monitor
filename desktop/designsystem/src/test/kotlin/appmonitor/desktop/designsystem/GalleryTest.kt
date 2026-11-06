@@ -110,6 +110,20 @@ private fun Gallery(
             Box(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
                 MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")
             }
+            Column(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
+                PathText("/v1/items/42", "?include=tags")
+                PathText("/v1/orders/42/items/7/lines", "?page=2&sort=price")
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+                SegmentButton("All", selected = true, onClick = {})
+                SegmentButton("2xx", selected = false, onClick = {})
+                SegmentButton("Failed", selected = false, onClick = {})
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("Secondary text", role = TextRole.Small, secondary = true)
+                Text("Warning text", role = TextRole.Small, warning = true)
+                Text("Error text", role = TextRole.Small, error = true)
+            }
             Column(Modifier.padding(horizontal = Spacing.lg)) {
                 CodeText("content-type", role = TextRole.CodeCaption, muted = true)
                 CodeBlock {
@@ -128,7 +142,7 @@ private fun Gallery(
             }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
             Row(Modifier.padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                SearchField("", {}, "Search field", Modifier.weight(1f))
+                SearchField("", {}, "Search field", Modifier.weight(1f), shortcut = "⌘F")
                 SearchField("query", {}, "Search field", Modifier.weight(1f))
                 GlyphButton("↓", "Next", onClick = {})
             }

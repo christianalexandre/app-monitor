@@ -2,17 +2,24 @@ package appmonitor.desktop.app
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
@@ -34,7 +41,6 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
-import appmonitor.desktop.feature.traffic.FAILED_ONLY
 import appmonitor.desktop.feature.traffic.FILTERS
 import appmonitor.desktop.feature.traffic.FILTERS_DONE
 import appmonitor.desktop.feature.traffic.FILTER_RESET
@@ -640,7 +646,8 @@ class AppMonitorAppTest {
                 awaitText("https://a.example/keep")
                 onNodeWithTag(MARK + "r1").performClick()
                 onNodeWithTag(MARK + "r2").performClick()
-                onNodeWithText("Save 2").performClick()
+                onNodeWithText("2 marked").assertExists()
+                onNodeWithTag(SAVE).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(SAVE_NOTE).fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithText("Saved 2 to Saved").assertExists()
                 screenshot("saved.png")
@@ -661,7 +668,7 @@ class AppMonitorAppTest {
         }
 
     @Test
-    fun `the filter sheet narrows the request list by status class, host and method, and combines`() =
+    fun `the list header's status classes and the filter sheet narrow the request list, and combine`() =
         withStorage { storage ->
             val live = LiveTraffic()
 
@@ -687,32 +694,42 @@ class AppMonitorAppTest {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText(api("feed"))
+                onNodeWithText("4 requests").assertExists()
+                onRoot().performKeyInput {
+                    keyDown(Key.MetaLeft)
+                    pressKey(Key.F)
+                    keyUp(Key.MetaLeft)
+                }
+                onNodeWithTag(SEARCH).assertIsFocused()
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(api("login")).fetchSemanticsNodes().isEmpty() }
                 awaitText(shop)
                 awaitText(api("items/missing"))
                 onNodeWithText(api("feed")).assertDoesNotExist()
 
-                onNodeWithTag(FILTERS).performClick()
-                onNodeWithTag(HOST_FILTER + "api.example.com").assertExists()
-                onNodeWithTag(HOST_FILTER + "shop.example.com").assertExists()
                 onNodeWithTag(STATUS_FILTER + 400).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
                 awaitText(api("items/missing"))
-                onNodeWithTag(STATUS_FILTER + 400).assertIsOn()
+                onNodeWithTag(STATUS_FILTER + 400).assertIsSelected()
+                onNodeWithTag(STATUS_FILTER + "all").assertIsNotSelected()
+                onNodeWithText("1 request").assertExists()
                 screenshot("filters.png")
 
+                onNodeWithTag(FILTERS).performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").assertExists()
+                onNodeWithTag(HOST_FILTER + "shop.example.com").assertExists()
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
                 onNodeWithTag(FILTERS_DONE).performClick()
                 awaitText("No requests match")
                 onNodeWithText("Change the search or the filters").assertExists()
-                onNodeWithText("Filters (2)").assertExists()
+                onNodeWithText("Filters (1)").assertExists()
 
                 onNodeWithTag(FILTERS).performClick()
                 onNodeWithTag(FILTER_RESET).performClick()
                 onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
                 onNodeWithTag(FILTERS_DONE).performClick()
+                onNodeWithTag(STATUS_FILTER + "all").performClick()
                 onNodeWithTag(SEARCH).performTextReplacement("")
                 awaitText(shop)
                 onNodeWithText(api("items/missing")).assertDoesNotExist()
@@ -720,11 +737,12 @@ class AppMonitorAppTest {
 
                 onNodeWithTag(FILTERS).performClick()
                 onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
-                onNodeWithTag(FAILED_ONLY).performClick()
                 onNodeWithTag(FILTERS_DONE).performClick()
+                onNodeWithTag(STATUS_FILTER + "failed").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
                 awaitText(api("feed"))
-                onNodeWithText("Filters (1)").assertExists()
+                onNodeWithText("timeout").assertExists()
+                onNodeWithText("Filters").assertExists()
             }
         }
 

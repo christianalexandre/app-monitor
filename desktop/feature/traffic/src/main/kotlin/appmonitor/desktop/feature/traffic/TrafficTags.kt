@@ -36,6 +36,8 @@ const val SAVE_AS_ISSUE = "save-as-issue"
 
 const val MARK = "mark-"
 
+const val MARKED_BAR = "marked-bar"
+
 const val COMPARE_RUNS = "compare-runs"
 
 const val MOCKED = "mocked-"
@@ -91,9 +93,7 @@ const val FILTERS_DONE = "filters-done"
 
 const val FILTER_RESET = "filter-reset"
 
-const val FAILED_ONLY = "failed-only"
-
-// A status class chip's tag is this prefix and the class's first code, as `status-filter-400`.
+// A status choice's tag is this prefix and the class's first code, `all` or `failed`, as `status-filter-400`.
 const val STATUS_FILTER = "status-filter-"
 
 // A host row's tag is this prefix and the host.

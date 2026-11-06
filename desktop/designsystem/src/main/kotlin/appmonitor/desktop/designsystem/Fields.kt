@@ -25,13 +25,14 @@ import androidx.compose.material.Text as MaterialText
 /** The "×" of a [SearchField] that empties it. */
 const val SEARCH_CLEAR = "search-clear"
 
-/** A one-line search box as tall as a button row: [placeholder] while empty, "×" to empty it (ADR-0153). */
+/** A one-line search box as tall as a button row: [placeholder] and its [shortcut] while empty, "×" to empty it (ADR-0153). */
 @Composable
 fun SearchField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    shortcut: String? = null,
 ) {
     val colors = AppMonitorTheme.colors
     val shape = RoundedCornerShape(Radius.medium)
@@ -51,6 +52,9 @@ fun SearchField(
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) MaterialText(placeholder, color = colors.neutral, style = styleOf(TextRole.Small), maxLines = 1)
                     field()
+                }
+                if (value.isEmpty() && shortcut != null) {
+                    MaterialText(shortcut, color = colors.muted, style = styleOf(TextRole.Caption), maxLines = 1)
                 }
                 if (value.isNotEmpty()) {
                     MaterialText(
