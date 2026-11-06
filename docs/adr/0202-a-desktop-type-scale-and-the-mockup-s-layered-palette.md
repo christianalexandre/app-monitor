@@ -31,9 +31,8 @@ and the tokens.
   `#6E6E73` (dark `#8A8A8E`). Status tones: ok `#1F8A3B`, warning
   `#B26A00`, error `#C93A32`, info `#3A5F95` (dark `#4CD964`, `#FFD60A`,
   `#FF6961`, `#7AAFD8`).
-- The reference (standing owner decision, `AGENTS.md`): `mibo-smart-app`'s
-  `core/ui/designsystem/.../theme/typography/MiboTypography.kt` declares
-  every style explicitly (`fontSize` and `lineHeight` in sp, `letterSpacing`
+- The reference (standing owner decision, `AGENTS.md`): the owner's
+  reference app's typography object declares every style explicitly (`fontSize` and `lineHeight` in sp, `letterSpacing`
   in em) and keeps the line height untrimmed with
   `LineHeightStyle(…, Trim.None)` so stacked texts are spaced as designed.
   ADR-0149's palette structure (tonal scales in `Palette.kt`, two schemes
@@ -42,7 +41,7 @@ and the tokens.
 ## Options
 
 1. **Own scale per `TextRole`, Material's `Typography` slots filled from
-   it, and the mockup's tones in `Palette.kt`.** Mibo's way of declaring
+   it, and the mockup's tones in `Palette.kt`.** The reference's way of declaring
    styles; Material's buttons, fields and menus read the same scale, so no
    component keeps a mobile size or a spaced label.
 2. **Scale only `TextRole`, keep `Typography()` for Material's
@@ -54,7 +53,7 @@ and the tokens.
 
 ## Decision
 
-Option 1, following `MiboTypography.kt`.
+Option 1, following the reference app's typography object.
 
 - `Theme.kt` holds the scale, in sp with explicit line heights, no letter
   spacing but the label's: `Title` 14/18 semibold, `Heading` 13/17

@@ -32,11 +32,10 @@ Evidence read:
   `0xFF3700B3`, secondary `0xFF03DAC6`, secondary variant `0xFF018786`, error
   `0xFFB00020`; dark primary `0xFFBB86FC`, background and surface
   `0xFF121212`, error `0xFFCF6679`.
-- The reference (standing owner decision, `AGENTS.md`): `mibo-smart-app`'s
-  `core/ui/designsystem/.../theme/MiboTheme.kt` takes
-  `darkTheme: Boolean = isSystemInDarkTheme()` and provides one of two
-  color schemes, `LightMiboColorScheme` or `DarkMiboColorScheme`, declared
-  in `theme/color/MiboColorScheme.kt` as one data class of semantic colors.
+- The reference (standing owner decision, `AGENTS.md`): the owner's
+  reference app's theme takes `darkTheme: Boolean = isSystemInDarkTheme()`
+  and provides one of two color schemes, light or dark, declared as one
+  data class of semantic colors.
 
 ## Options
 
@@ -51,7 +50,7 @@ Evidence read:
 
 ## Decision
 
-Option 1, following `mibo-smart-app`'s `MiboTheme.kt`: one `AppColors`
+Option 1, following the reference app's theme: one `AppColors`
 data class with every color a component paints and its Light and Dark
 values, Material's `Colors` built from it.
 

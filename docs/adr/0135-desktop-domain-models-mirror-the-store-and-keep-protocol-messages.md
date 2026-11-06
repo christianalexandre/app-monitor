@@ -27,14 +27,14 @@ open:
   the store's types from the same shell.
 
 AGENTS.md's standing decision: desktop architecture follows
-`nowinandroid` or `mibo-smart-app`. Read for this ADR:
+`nowinandroid` or the owner's reference app. Read for this ADR:
 
 - nowinandroid `core/data/.../repository/OfflineFirstTopicsRepository.kt`:
   an `internal` implementation of the `TopicsRepository` interface maps
   each row with `TopicEntity::asExternalModel`, declared next to the
   entity in `core/database/.../model/TopicEntity.kt`; the external model
   `Topic` lives in `core/model`.
-- mibo-smart-app `docs/guidelines/09_camada_de_dados.md`: the core model
+- The owner's reference app, its data layer guideline: the core model
   reaches a feature only through its `data/` layer, by an `internal`,
   pure mapper with a unit test; `<Name>RepositoryImpl` is `internal`.
 

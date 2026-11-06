@@ -14,8 +14,8 @@ The owner asked, before the field test (roadmap Hold), for the desktop
 app to follow a market-standard clean architecture (presentation,
 domain, data, with repositories in front of data access) and to have a
 design system module that owns everything about layout, as in the
-owner's other project (`mibo-smart-app`, `core/ui/designsystem` and its
-guideline 04). The field test will polish the interface; today that work
+owner's reference app (its design system module and its guideline on
+it). The field test will polish the interface; today that work
 would land in one file.
 
 The state on `dev` at `b5617d8`:

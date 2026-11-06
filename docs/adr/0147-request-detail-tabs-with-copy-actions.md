@@ -23,8 +23,7 @@ copied but by selecting text.
 Evidence read:
 
 - The owner's references (`AGENTS.md`, "Desktop architecture follows
-  known references"): `mibo-smart-app`'s
-  `core/ui/designsystem/.../component/MiboTabs.kt`: text tabs in one row,
+  known references"): the owner's reference app's tabs: text tabs in one row,
   the chosen one strong and underlined in the primary color, each
   `selectable` with `Role.Tab` in a `selectableGroup`.
 - `desktop/domain`'s `HttpExchange` holds `startedAtMs` and `endedAtMs`
@@ -36,7 +35,7 @@ Evidence read:
 
 ## Options
 
-1. **Tabs in `desktop/designsystem` as `MiboTabs`; the tab kept by the
+1. **Tabs in `desktop/designsystem` as the reference's; the tab kept by the
    view model across picks; each copy built by the view model from the
    exchange it read, bodies as the device sent them (UTF-8, else the hex
    dump); the cURL command read when its tab opens.** One place builds
@@ -52,7 +51,7 @@ Evidence read:
 
 Option 1.
 
-- `Tabs` in `desktop/designsystem/Panes.kt`, after `MiboTabs` without its
+- `Tabs` in `desktop/designsystem/Panes.kt`, after the reference's tabs without their
   animation or scroll: five tabs fit the detail pane at 1280 px.
 - `DetailTab` (Summary, Headers, Body, Timing, cURL) is held by
   `TrafficViewModel` and stays while another request is picked. A
