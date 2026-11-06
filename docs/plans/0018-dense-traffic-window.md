@@ -39,7 +39,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
 
 ## Tasks
 
-- [x] **H8.1 Desktop type scale and tokens.** (`feat/desktop-type-scale`, ADR-0202) `desktop/designsystem` stops using Material's
+- [x] **H8.1 Desktop type scale and tokens.** (#386, ADR-0202) `desktop/designsystem` stops using Material's
   `Typography()`. It gets its own scale, as the owner's reference app does (AGENTS.md), with
   explicit sizes, line heights and letter spacing, and no spaced button labels:
   - body 12.5–13, secondary 11.5, caption 10.5–11, section label 10 in capitals, code 11.5
