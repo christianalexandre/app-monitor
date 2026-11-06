@@ -155,7 +155,7 @@ class TrafficViewModelTest {
                 viewModel.state.value.rows
                     .map { it.id },
             )
-            assertEquals(1, viewModel.state.value.filter.count)
+            assertEquals(setOf("shop.example.com"), viewModel.state.value.filter.hosts)
 
             viewModel.selectSession(10)
             assertEquals(emptyList(), viewModel.state.value.rows)

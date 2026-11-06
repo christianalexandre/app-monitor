@@ -168,7 +168,7 @@ Rules:
 | [0148](0148-a-filter-sheet-keeps-any-of-the-picked-status-classes-and-hosts.md) | A filter sheet keeps any of the picked status classes and hosts | Accepted |
 | [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Superseded by [0202](0202-a-desktop-type-scale-and-the-mockup-s-layered-palette.md) |
 | [0150](0150-the-macos-title-bar-takes-the-stored-theme-at-launch.md) | The macOS title bar takes the stored theme at launch | Accepted |
-| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Accepted |
+| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Superseded by [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) |
 | [0152](0152-a-search-inside-the-request-and-code-blocks-for-its-texts.md) | A search inside the request, header rows, and code blocks with JSON colors | Accepted |
 | [0153](0153-field-test-polish-of-the-traffic-window.md) | Field test polish of the traffic window, the panes kept across launches | Accepted |
 | [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |
@@ -222,3 +222,4 @@ Rules:
 | [0202](0202-a-desktop-type-scale-and-the-mockup-s-layered-palette.md) | A desktop type scale and the mockup's layered palette replace Material's type and ADR-0149's values | Accepted |
 | [0203](0203-two-line-request-rows-and-the-list-header.md) | Two-line request rows that keep the path's end, and the list's own header | Accepted |
 | [0204](0204-the-request-detail-as-the-mockup-a-bar-a-request-line-and-tables.md) | The request detail as the mockup, a bar, a request line and key/value tables | Accepted |
+| [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) | A sidebar, a title bar and a status bar around the traffic, the other screens behind "Actions" | Accepted |

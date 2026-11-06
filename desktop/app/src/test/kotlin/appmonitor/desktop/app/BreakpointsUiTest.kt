@@ -2,6 +2,7 @@ package appmonitor.desktop.app
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -117,7 +118,7 @@ class BreakpointsUiTest {
                             )
                         }
                         awaitText("Pixel")
-                        onNodeWithTag(BREAKPOINTS).performClick()
+                        action(BREAKPOINTS)
                         onNodeWithTag(NEW_BREAKPOINT).performClick()
                         awaitText("New breakpoint")
                         onNodeWithTag(BREAKPOINT_NAME).performTextReplacement("items")
@@ -152,7 +153,7 @@ class BreakpointsUiTest {
                             BreakpointResume.ADAPTER.decode(next("BreakpointResume").payload),
                             "the masked Authorization left alone is not sent back",
                         )
-                        awaitText("Breakpoints")
+                        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("Breakpoints (1 held)").fetchSemanticsNodes().isEmpty() }
 
                         toSend.trySend(responseHit)
                         awaitText("Response held")
@@ -187,7 +188,7 @@ class BreakpointsUiTest {
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
-                onNodeWithTag(BREAKPOINTS).performClick()
+                action(BREAKPOINTS)
                 awaitText("bottom")
                 onNodeWithTag(MOVE_BREAKPOINT_UP + top).assertIsNotEnabled()
                 onNodeWithTag(MOVE_BREAKPOINT_DOWN + bottom).assertIsNotEnabled()

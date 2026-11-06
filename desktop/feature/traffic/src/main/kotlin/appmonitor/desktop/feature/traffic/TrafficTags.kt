@@ -36,8 +36,6 @@ const val RUN_NAME = "run-name"
 
 const val SEARCH = "search"
 
-const val RUNS = "runs"
-
 const val ISSUES = "issues"
 
 const val MOCKS = "mocks"
@@ -105,9 +103,20 @@ const val RECONNECT = "reconnect-"
 
 const val FILTERS = "filters"
 
-const val FILTERS_DONE = "filters-done"
+// The title bar's "Actions" menu, the sidebar's gear and its runs (RUN is a prefix with the run's id).
+const val ACTIONS = "actions"
 
-const val FILTER_RESET = "filter-reset"
+const val SETTINGS = "settings"
+
+const val SETTINGS_GEAR = "settings-gear"
+
+const val LIVE_RUN = "live-run"
+
+const val RUN = "run-"
+
+const val RENAME_RUN = "rename-run"
+
+const val STATUS_BAR = "status-bar"
 
 // A status choice's tag is this prefix and the class's first code, `all` or `failed`, as `status-filter-400`.
 const val STATUS_FILTER = "status-filter-"

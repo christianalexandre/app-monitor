@@ -100,7 +100,7 @@ device                         AppMonitorServer
   lost N`. `TrafficStore` reads it with each envelope, so a new value reaches
   the sink (`TrafficSink.dropped`, SDD 09) in order with the report, and once
   when a lost count settles, with no envelope to carry it; the
-  devices pane names a session's counts once one is above zero, in the
+  sidebar names a session's counts once one is above zero, in the
   error color ("Dropped: 12 buffer full, 1 too large, lost unknown").
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an
   accepted channel, written in order after `HelloAck` (SDD 12).
@@ -371,7 +371,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
 - Issues (ADR-0095, ADR-0096): each request row has a checkbox, shown on
   hover or once ticked; ticked rows bring a bar under the list ("N marked",
   "Save as issue", Save) whose "Save as issue" takes them, from any session
-  or run; with none ticked the toolbar's takes the selected one (ADR-0203) (live ones are saved to
+  or run; with none ticked the title bar's "Actions" takes the selected one (ADR-0203, ADR-0205) (live ones are saved to
   "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
   tags. "Issues" under the devices lists them newest first ("Open" or
@@ -442,24 +442,30 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `make fake-traffic` against the app waits up to 120 s for the approval the
   first time; its fixture `Hello` is always the same pair, so later runs are
   admitted with no dialog.
-- UI (ADR-0146): a toolbar over three panes (devices, requests of the
-  selected device, detail). "◂ Devices" hides the devices pane and
-  "▸ Devices" brings it back; the rule after the devices and after the
-  requests is dragged to resize them (devices 240–400 dp, requests from
-  360 dp, the detail at least 360 dp; the window keeps at least
-  1000 × 600 px); the hidden pane and both widths are kept across launches
-  in `ui.panes` (ADR-0153). The toolbar holds the run picker, Record /
-  "Stop recording", Save and Clear (live list only), "Save as issue" (Save
-  and it hidden while rows are ticked) and "Filters", which opens the filter
-  sheet (method, hosts, ADR-0148). Over the request list, its header holds
-  "Filter by URL" (⌘F, Ctrl+F off macOS), the status choices All, 2xx, 3xx,
-  4xx, 5xx, Failed, one at a time, and the count ("N requests", "N+" while
-  the last page read is full, ADR-0203); Save's and
-  the HAR export's notes show under it. A status bar along the bottom
-  holds the server's status, what failed to be stored and the retention
-  warning, then the screens the window opens: Issues, Benchmarks, Mocks,
-  Breakpoints, Export HAR, Settings; it stays while the devices pane is
-  hidden (ADR-0151). A request row is two lines (ADR-0203): the method, the
+- UI (ADR-0146, ADR-0205): a 40 dp title bar over a sidebar, the requests
+  and the detail, then a 24 dp status bar. The title bar holds the
+  sidebar's toggle (also ⌘B, Ctrl+B off macOS), "App Monitor — <run>",
+  Record or Stop and Clear (live list only), then "Actions ▾": Save and
+  "Save as issue" for the picked row (both hidden while rows are ticked),
+  Compare runs, Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
+  Settings. The sidebar has DEVICES ("All devices", each session with a
+  green dot while connected, its app, OS, drops and Disconnect, a refused
+  device with Reconnect), TRAFFIC (Live, the recordings newest first, the
+  running one with a red dot and the shown one renamed in place by "✎",
+  Saved) and HOSTS (a click hides a host or shows it again), and a gear for
+  the settings; it shows no counts (DEBT-0130). The rule after the sidebar
+  and after the requests is dragged to resize them (sidebar 220–400 dp,
+  requests from 360 dp, the detail at least 360 dp; the window keeps at
+  least 1000 × 600 px); the hidden sidebar and both widths are kept across
+  launches in `ui.panes` (ADR-0153). Over the request list, its header holds
+  "Filter by URL" (⌘F, Ctrl+F off macOS) and the method, the status choices
+  All, 2xx, 3xx, 4xx, 5xx, Failed, one at a time, and the count ("N
+  requests", "N+" while the last page read is full, ADR-0203); Save's and
+  the HAR export's notes show under the title bar. The status bar holds the
+  server's status, the devices connected, the recording, MCP and the proxy,
+  what failed to be stored and the retention warning, then "Mocks (N to
+  confirm)" and "Breakpoints (N held)" while they wait, and the events
+  dropped. A request row is two lines (ADR-0203): the method, the
   path with its query muted and the start time to the millisecond; then its
   status as a badge colored by class (2xx green, 3xx blue, 4xx amber, 5xx, a
   failure or a gRPC error red, pending or a socket neutral), the host or

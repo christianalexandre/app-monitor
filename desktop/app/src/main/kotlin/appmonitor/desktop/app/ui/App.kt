@@ -55,6 +55,7 @@ import appmonitor.desktop.feature.traffic.PendingDecisions
 import appmonitor.desktop.feature.traffic.TrafficLinks
 import appmonitor.desktop.feature.traffic.TrafficScreen
 import appmonitor.desktop.feature.traffic.TrafficViewModel
+import appmonitor.desktop.feature.traffic.serviceLabel
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
 import org.koin.compose.KoinIsolatedContext
@@ -149,11 +150,8 @@ private fun AppMonitorWindow(
     val state by viewModel.state.collectAsState()
     val shownRunId = state.runs.shownRunId
     val filter = state.filter
-    val retentionState =
-        koinViewModel<SettingsViewModel>()
-            .state
-            .collectAsState()
-            .value.retentionState
+    val settings by koinViewModel<SettingsViewModel>().state.collectAsState()
+    val retentionState = settings.retentionState
     var settingsOpen by remember { mutableStateOf(false) }
     var issuesOpen by remember { mutableStateOf(false) }
     // Null: closed; a draft opens the editor on it.
@@ -180,9 +178,13 @@ private fun AppMonitorWindow(
             TrafficScreen(
                 TrafficLinks(
                     status = status,
+                    mcpStatus = settings.mcp?.let { serviceLabel("MCP", it.status, MCP_HOST) },
+                    proxyStatus = settings.proxy?.let { serviceLabel("Proxy", it.status, it.host) },
                     retentionWarning = retentionWarning(retentionState),
                     mocksLabel = mocksLabel(mocks.pending),
                     breakpointsLabel = breakpointsLabel(held.size),
+                    mocksWaiting = mocks.pending > 0,
+                    callsHeld = held.isNotEmpty(),
                     exportNote = exportNote,
                     onSettings = { settingsOpen = true },
                     onIssues = { issuesOpen = true },
@@ -258,3 +260,6 @@ private fun AppMonitorWindow(
         }
     }
 }
+
+// The MCP server listens on loopback only (ADR-0090).
+private const val MCP_HOST = "127.0.0.1"
