@@ -3,7 +3,7 @@ id: DEBT-0127
 title: Findings of the H7 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-04
-trigger: "The next PR that touches a file its items name: `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/GzipBody.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficViewModel.kt`, `desktop/feature/mocks/src/main/kotlin/appmonitor/desktop/feature/mocks/MocksScreen.kt`, `scripts/e2e_android.sh`"
+trigger: "The next PR that touches a file its items name: `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/GzipBody.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`, PLAN-0018 H8.3's PR for `TrafficViewModel.kt`, `desktop/feature/mocks/src/main/kotlin/appmonitor/desktop/feature/mocks/MocksScreen.kt`, `scripts/e2e_android.sh`"
 paid_date:
 ---
 
@@ -49,9 +49,10 @@ owner (ADR-0019).
 The next PR that touches `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`,
 `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/GzipBody.kt`,
 `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`,
-`desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficViewModel.kt`,
 `desktop/feature/mocks/src/main/kotlin/appmonitor/desktop/feature/mocks/MocksScreen.kt` or
-`scripts/e2e_android.sh`, for that file's item.
+`scripts/e2e_android.sh`, for that file's item; item 2 at PLAN-0018 H8.3's PR, which reworks
+each body's copy. H8.2's PR touched `TrafficViewModel.kt` for one state field, not the copy
+path (re-triggered 2026-11-06).
 
 ## How it was paid
 

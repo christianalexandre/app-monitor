@@ -90,7 +90,7 @@ class IssuesUiTest {
                 awaitText("https://api.example.com/feed")
                 onNodeWithTag(MARK + "r1").performClick()
                 onNodeWithTag(MARK + "r2").performClick()
-                awaitText("Save 2 as issue")
+                awaitText("2 marked")
                 onNodeWithTag(SAVE_AS_ISSUE).performClick()
                 awaitText("2 requests")
                 onNodeWithText("POST https://api.example.com/cart").assertExists()

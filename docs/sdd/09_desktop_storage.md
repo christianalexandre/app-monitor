@@ -473,8 +473,8 @@ goes to `LiveTraffic` first; then:
   either grouping was. `diff_runs` and the window's run diff use it; it
   reads nothing itself.
 - The window's request list is the selected session's exchanges under the
-  toolbar's search field and the filter sheet: method, status classes,
-  failed only, hosts (ADR-0148). The sheet lists the hosts of the shown
+  list header's URL filter and status choice (one class or failed only,
+  ADR-0203) and the filter sheet: method, hosts (ADR-0148). The sheet lists the hosts of the shown
   list (`observeHosts`: the distinct `exchanges.host` of a session, a run
   or every stored exchange, or of the live list), and a picked host gone
   from it, so it can be unpicked. The device

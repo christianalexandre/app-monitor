@@ -38,8 +38,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.awt.Cursor
@@ -263,3 +267,87 @@ private fun keep(
     text: String,
     count: Int,
 ): String = text.take(count - count / 2) + "…" + text.takeLast(count / 2)
+
+/**
+ * A URL's [path], strong, then its [query], muted, on one line; too wide, the query is cut first, then the path's start,
+ * so the path's end stays ([pathCut], ADR-0203). The whole URL stays its [semantics].
+ */
+@Composable
+fun PathText(
+    path: String,
+    query: String,
+    modifier: Modifier = Modifier,
+    semantics: String = path + query,
+) {
+    val measurer = rememberTextMeasurer()
+    val style = styleOf(TextRole.BodyStrong)
+    val muted = AppMonitorTheme.colors.muted
+    BoxWithConstraints(modifier.clearAndSetSemantics { this.text = AnnotatedString(semantics) }) {
+        val width = constraints.maxWidth
+        val (shownPath, shownQuery) =
+            remember(path, query, width, style) {
+                pathCut(path, query, width) { measurer.measure(it, style, maxLines = 1, softWrap = false).size.width }
+            }
+        val text =
+            buildAnnotatedString {
+                append(shownPath)
+                withStyle(SpanStyle(color = muted, fontWeight = FontWeight.Normal)) { append(shownQuery) }
+            }
+        MaterialText(text, style = style, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * What [PathText] draws of [path] and [query] in [maxWidth], as [widthOf] measures: both whole when they fit, else the
+ * path and the longest start of the query before "…", else "…" and the longest end of the path.
+ */
+fun pathCut(
+    path: String,
+    query: String,
+    maxWidth: Int,
+    widthOf: (String) -> Int,
+): Pair<String, String> {
+    if (widthOf(path + query) <= maxWidth) return path to query
+    if (query.isNotEmpty() && widthOf("$path…") <= maxWidth) {
+        val kept = longest(query.length) { widthOf(path + query.take(it) + "…") <= maxWidth }
+        return path to query.take(kept) + "…"
+    }
+    val kept = longest(path.length) { widthOf("…" + path.takeLast(it)) <= maxWidth }
+    return "…" + path.takeLast(kept) to ""
+}
+
+// The largest count in 0..[most] that [fits], by binary search; fitting is monotonic in the count.
+private fun longest(
+    most: Int,
+    fits: (Int) -> Boolean,
+): Int {
+    var low = 0
+    var high = most
+    while (low < high) {
+        val mid = (low + high + 1) / 2
+        if (fits(mid)) low = mid else high = mid - 1
+    }
+    return low
+}
+
+/** One choice of a row of them, as a status class over a list: strong on a faded primary while [selected]. */
+@Composable
+fun SegmentButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = AppMonitorTheme.colors
+    MaterialText(
+        text,
+        modifier
+            .clip(RoundedCornerShape(Radius.small))
+            .selectable(selected, role = Role.Tab, onClick = onClick)
+            .background(if (selected) colors.selected else Color.Transparent)
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+        color = if (selected) colors.primary else colors.neutral,
+        style = styleOf(if (selected) TextRole.SmallStrong else TextRole.Small),
+        maxLines = 1,
+    )
+}

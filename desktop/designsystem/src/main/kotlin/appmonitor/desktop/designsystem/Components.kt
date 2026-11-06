@@ -42,13 +42,18 @@ import androidx.compose.material.Divider as MaterialDivider
 import androidx.compose.material.Text as MaterialText
 import androidx.compose.material.TextButton as MaterialTextButton
 
-/** Text in a [role]; [error] paints it in the theme's error color. A [TextRole.Label] shows in capitals. */
+/**
+ * Text in a [role]; [error] paints it in the theme's error color, [warning] in the warning one, [secondary] in the neutral one.
+ * A [TextRole.Label] shows in capitals.
+ */
 @Composable
 fun Text(
     text: String,
     modifier: Modifier = Modifier,
     role: TextRole = TextRole.Body,
     error: Boolean = false,
+    warning: Boolean = false,
+    secondary: Boolean = false,
     textAlign: TextAlign? = null,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
@@ -60,6 +65,8 @@ fun Text(
         color =
             when {
                 error -> MaterialTheme.colors.error
+                warning -> AppMonitorTheme.colors.warning
+                secondary -> AppMonitorTheme.colors.neutral
                 role == TextRole.Label -> AppMonitorTheme.colors.muted
                 else -> Color.Unspecified
             },

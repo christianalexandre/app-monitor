@@ -68,8 +68,8 @@ data class RunsState(
 }
 
 /**
- * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), the
- * picked [row], its [detail], [marked] (ADR-0095 A.1), [disconnected] (ADR-0144); [hosts] for the filter sheet.
+ * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), [more]
+ * when the store may hold others, the picked [row], its [detail], [marked] (ADR-0095 A.1), [disconnected] (ADR-0144); [hosts] for the filter sheet.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -79,6 +79,7 @@ data class TrafficState(
     val filter: ExchangeFilter = ExchangeFilter(),
     val hosts: List<String> = emptyList(),
     val rows: List<Exchange> = emptyList(),
+    val more: Boolean = false,
     val row: Exchange? = null,
     val marked: Map<Long, Exchange> = emptyMap(),
     val detail: DetailState = DetailState(),
@@ -242,7 +243,7 @@ class TrafficViewModel(
 
     val state: StateFlow<TrafficState> =
         combine(lists, rows, row, marked, detail) { lists, rows, row, marked, detail ->
-            lists.copy(rows = rows, row = row, marked = marked, detail = detail)
+            lists.copy(rows = rows, more = rows.size >= limit.value, row = row, marked = marked, detail = detail)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, TrafficState(runs = runs.value, canDisconnect = connections != null))
 
     init {
