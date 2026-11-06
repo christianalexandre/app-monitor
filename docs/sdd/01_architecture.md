@@ -371,7 +371,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
 - Issues (ADR-0095, ADR-0096): each request row has a checkbox, shown on
   hover or once ticked; ticked rows bring a bar under the list ("N marked",
   "Save as issue", Save) whose "Save as issue" takes them, from any session
-  or run; with none ticked the title bar's "Actions" takes the selected one (ADR-0203, ADR-0205) (live ones are saved to
+  or run; with none ticked the palette's "Save as issue…" takes the selected one (ADR-0203, ADR-0206) (live ones are saved to
   "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
   tags. "Issues" under the devices lists them newest first ("Open" or
@@ -442,13 +442,20 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `make fake-traffic` against the app waits up to 120 s for the approval the
   first time; its fixture `Hello` is always the same pair, so later runs are
   admitted with no dialog.
-- UI (ADR-0146, ADR-0205): a 40 dp title bar over a sidebar, the requests
+- UI (ADR-0146, ADR-0205, ADR-0206): a 40 dp title bar over a sidebar, the requests
   and the detail, then a 24 dp status bar. The title bar holds the
   sidebar's toggle (also ⌘B, Ctrl+B off macOS), "App Monitor — <run>",
-  Record or Stop and Clear (live list only), then "Actions ▾": Save and
-  "Save as issue" for the picked row (both hidden while rows are ticked),
-  Compare runs, Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
-  Settings. The sidebar has DEVICES ("All devices", each session with a
+  Record or Stop and Clear (live list only), then "Actions ⌘K", which opens
+  the palette (also ⌘K, Ctrl+K off macOS; ⌘K, Esc or a click outside closes
+  it). The palette's field narrows four groups: Requests (the loaded rows
+  whose method and URL hold the text, one per method and path, five at most;
+  ↵ picks one), Actions (Record or Stop ⌘R and Clear on the live list, Save
+  ⌘S and "Save as issue…" for the ticked or picked rows, Mock, Replay and
+  "Copy as cURL" for the request shown, Export HAR ⌘E), Open (Issues,
+  Benchmarks, Mocks, Breakpoints, Compare runs with two recordings or more,
+  Settings ⌘,) and Devices ("Show <device>"); ↑ and ↓ move, ↵ runs. Each
+  entry runs what a button runs, and the shortcuts it lists work without it.
+  The sidebar has DEVICES ("All devices", each session with a
   green dot while connected, its app, OS, drops and Disconnect, a refused
   device with Reconnect), TRAFFIC (Live, the recordings newest first, the
   running one with a red dot and the shown one renamed in place by "✎",

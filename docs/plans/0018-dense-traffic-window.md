@@ -101,7 +101,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it supersedes ADR-0151's devices pane and the links' place.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with `devices.png`,
   `devices-hidden.png`, `panes.png`, `runs.png`, `recording.png` and `disconnected.png` read.
-- [ ] **H8.5 The ⌘K palette.** A palette over the window, as the mockup, with four groups:
+- [x] **H8.5 The ⌘K palette.** (`feat/command-palette`, ADR-0206; Compare runs kept in Open, ⌘R ⌘S ⌘E ⌘, the only new shortcuts) A palette over the window, as the mockup, with four groups:
   - Requests: endpoints matching what is typed, one per method and path;
   - Actions: Record/Stop, Save, Save as issue, Mock, Replay, Copy as cURL, Export HAR, Clear;
   - Open: Issues, Benchmarks, Mock rules, Breakpoints, Settings;

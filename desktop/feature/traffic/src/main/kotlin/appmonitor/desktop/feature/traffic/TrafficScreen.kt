@@ -93,7 +93,8 @@ import kotlin.math.roundToInt
 /**
  * What the traffic panes show of other screens and open there: the server's [status], the MCP server's and proxy's
  * ([mcpStatus], [proxyStatus]), a [retentionWarning], the mocks', breakpoints' and export's labels (in the status bar too
- * while [mocksWaiting] or [callsHeld]), and the buttons that leave this feature.
+ * while [mocksWaiting] or [callsHeld]), whether a dialog of theirs is [covered] over the panes, and the buttons that leave this
+ * feature.
  */
 data class TrafficLinks(
     val status: String = "",
@@ -105,6 +106,7 @@ data class TrafficLinks(
     val mocksWaiting: Boolean = false,
     val callsHeld: Boolean = false,
     val exportNote: String? = null,
+    val covered: Boolean = false,
     val onSettings: () -> Unit = {},
     val onIssues: () -> Unit = {},
     val onMocks: () -> Unit = {},
@@ -136,23 +138,41 @@ fun TrafficScreen(
     val clipboard = LocalClipboardManager.current
     val root = remember { FocusRequester() }
     val search = remember { FocusRequester() }
+    var paletteShown by remember { mutableStateOf(false) }
+    var paletteQuery by remember { mutableStateOf("") }
+    val commands = TrafficCommands(state, links, viewModel) { viewModel.copy(DetailPart.Curl) { clipboard.setText(AnnotatedString(it)) } }
+    val closePalette: () -> Unit = {
+        paletteShown = false
+        root.requestFocus()
+    }
+    val openPalette = {
+        paletteQuery = ""
+        paletteShown = true
+    }
     // Key events reach a node only through the focused one: the window's root holds focus while no field does.
-    LaunchedEffect(Unit) { root.requestFocus() }
+    // A dialog closing takes the focus with it: the root takes it back, or no shortcut works (ADR-0206).
+    LaunchedEffect(links.covered) { if (!links.covered) root.requestFocus() }
     Box(
         Modifier
             .fillMaxSize()
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || !event.isShortcut) return@onPreviewKeyEvent false
+                if (event.key == Key.K) return@onPreviewKeyEvent true.also { if (paletteShown) closePalette() else openPalette() }
+                if (paletteShown) return@onPreviewKeyEvent false
                 when (event.key) {
                     Key.F -> true.also { search.requestFocus() }
                     Key.B -> true.also { toggleSidebar() }
+                    Key.R -> commands.record()
+                    Key.S -> commands.save()
+                    Key.E -> commands.exportHar()
+                    Key.Comma -> commands.settings()
                     else -> false
                 }
             }.focusRequester(root)
             .focusable(),
     ) {
         Column(Modifier.fillMaxSize()) {
-            TrafficTitleBar(state, links, viewModel, sidebarShown, toggleSidebar)
+            TrafficTitleBar(state, viewModel, sidebarShown, toggleSidebar, openPalette)
             val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
             notes.forEach { (note, tag) ->
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
@@ -210,21 +230,20 @@ fun TrafficScreen(
             }
             TrafficStatusBar(state, links)
         }
+        if (paletteShown) TrafficPalette(commands, paletteQuery, { paletteQuery = it }, closePalette)
     }
 }
 
-/** The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, then "Actions" with the rest (ADR-0205). */
+/** The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, then "Actions ⌘K" for the palette (ADR-0206). */
 @Composable
 private fun TrafficTitleBar(
     state: TrafficState,
-    links: TrafficLinks,
     viewModel: TrafficViewModel,
     sidebarShown: Boolean,
     onSidebar: () -> Unit,
+    onPalette: () -> Unit,
 ) {
     val live = state.runs.shownRunId == null
-    // Marked rows have their own Save and "Save as issue" under the list.
-    val picked = state.marked.isEmpty() && state.row != null
     TitleBar {
         GlyphButton(
             if (sidebarShown) "◧" else "▢",
@@ -249,19 +268,7 @@ private fun TrafficTitleBar(
             }
             TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
         }
-        val actions =
-            listOfNotNull(
-                MenuAction("Save", SAVE, viewModel::save).takeIf { live && picked },
-                MenuAction("Save as issue", SAVE_AS_ISSUE, links.onSaveAsIssue).takeIf { picked },
-                MenuAction("Compare runs", COMPARE_RUNS, links.onCompareRuns).takeIf { state.runs.recordings.size > 1 },
-                MenuAction("Issues", ISSUES, links.onIssues),
-                MenuAction("Benchmarks", BENCHMARKS, links.onBenchmarks),
-                MenuAction(links.mocksLabel, MOCKS, links.onMocks),
-                MenuAction(links.breakpointsLabel, BREAKPOINTS, links.onBreakpoints),
-                MenuAction("Export HAR", EXPORT_HAR, links.onExportHar),
-                MenuAction("Settings", SETTINGS, links.onSettings),
-            )
-        MenuButton("Actions ▾", "Actions", actions, Modifier.testTag(ACTIONS))
+        TextButton("Actions ${SHORTCUT_PREFIX}K", onClick = onPalette, Modifier.testTag(ACTIONS))
     }
 }
 

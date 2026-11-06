@@ -103,8 +103,17 @@ const val RECONNECT = "reconnect-"
 
 const val FILTERS = "filters"
 
-// The title bar's "Actions" menu, the sidebar's gear and its runs (RUN is a prefix with the run's id).
+// The title bar's "Actions ⌘K", the sidebar's gear and its runs (RUN is a prefix with the run's id).
 const val ACTIONS = "actions"
+
+// The palette (ADR-0206): an entry's tag is PALETTE and the tag of the button it stands for, REQUEST or DEVICE with an id.
+const val PALETTE = "palette-"
+
+const val PALETTE_OPEN = "palette-open"
+
+const val REQUEST = "request-"
+
+const val DEVICE = "device-"
 
 const val SETTINGS = "settings"
 
