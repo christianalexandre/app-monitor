@@ -190,6 +190,12 @@ fun TrafficScreen(
                                         viewModel::moreFrames,
                                         detailQuery,
                                         { detailQuery = it },
+                                        device =
+                                            state.row
+                                                ?.let { row -> state.sessions.firstOrNull { it.id == row.sessionId } }
+                                                ?.hello
+                                                ?.device_name,
+                                        onSaveAsIssue = links.onSaveAsIssue,
                                     )
                                 } ?: Placeholder("Loading…")
                             }

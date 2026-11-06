@@ -3,6 +3,7 @@ package appmonitor.desktop.app
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,11 +13,15 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.designsystem.SEARCH_CLEAR
 import appmonitor.desktop.feature.traffic.COPY
+import appmonitor.desktop.feature.traffic.COPY_CURL_ACTION
 import appmonitor.desktop.feature.traffic.COPY_NOTE
 import appmonitor.desktop.feature.traffic.CURL
 import appmonitor.desktop.feature.traffic.DETAIL_MATCHES
+import appmonitor.desktop.feature.traffic.DETAIL_META
 import appmonitor.desktop.feature.traffic.DETAIL_SEARCH
+import appmonitor.desktop.feature.traffic.DETAIL_SEARCH_OPEN
 import appmonitor.desktop.feature.traffic.DetailPart
+import appmonitor.desktop.feature.traffic.MORE_ACTIONS
 import appmonitor.desktop.feature.traffic.NEXT_MATCH
 import appmonitor.desktop.feature.traffic.PREVIOUS_MATCH
 import appmonitor.desktop.storage.LiveTraffic
@@ -88,6 +93,7 @@ class DetailTabsUiTest {
                 val copied = clipboard.copied!!.text
                 assertTrue(copied.length > 20 && document.startsWith(copied), copied)
 
+                onNodeWithTag(DETAIL_SEARCH_OPEN).performClick()
                 onNodeWithTag(DETAIL_SEARCH).performTextInput("item-1\"")
                 awaitText("1 of 1")
             }
@@ -135,7 +141,10 @@ class DetailTabsUiTest {
 
                 awaitText(URL)
                 onNodeWithText(URL).performClick()
-                awaitText("Status 201 · Duration 120 ms", substring = true)
+                awaitText("Content-Type")
+                onNodeWithTag(DETAIL_META).assertTextContains("120 ms · 8 B ↓ · ", substring = true)
+                awaitText("page=2")
+                awaitText("application/json")
                 assertEquals(URL, copy(DetailPart.Url))
                 onNodeWithTag(COPY_NOTE).assertExists()
                 screenshot("detail-summary.png")
@@ -143,7 +152,7 @@ class DetailTabsUiTest {
                 showTab("Headers")
                 awaitText("X-Request-Id")
                 onNodeWithText("42").assertExists()
-                onNodeWithText("Response headers (2)").assertExists()
+                onNodeWithText("RESPONSE · 2").assertExists()
                 assertEquals("Content-Type: application/json", copy(DetailPart.RequestHeaders))
                 assertEquals("Content-Type: application/json\nX-Request-Id: 42", copy(DetailPart.ResponseHeaders))
                 screenshot("detail-headers.png")
@@ -165,9 +174,18 @@ class DetailTabsUiTest {
                 val command = copy(DetailPart.Curl)
                 assertTrue(command.startsWith("curl --globoff -X 'POST' '$URL'"), command)
                 screenshot("detail-curl.png")
+                showTab("Summary")
+                clipboard.copied = null
+                onNodeWithTag(MORE_ACTIONS).performClick()
+                onNodeWithTag(COPY_CURL_ACTION).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { clipboard.copied != null }
+                assertEquals(command, clipboard.copied!!.text, "the menu copies the cURL tab's command")
+                showTab("cURL")
 
+                onNodeWithTag(DETAIL_SEARCH_OPEN).performClick()
                 onNodeWithTag(DETAIL_SEARCH).performTextInput("application")
-                awaitText("2 matches")
+                awaitText("3 matches")
+                showTab("Summary · 1")
                 showTab("Headers · 2")
                 screenshot("detail-search.png")
                 onNodeWithTag(DETAIL_SEARCH).performTextReplacement("")

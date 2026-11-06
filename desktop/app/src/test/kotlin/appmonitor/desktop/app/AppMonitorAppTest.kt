@@ -125,7 +125,7 @@ class AppMonitorAppTest {
 
                 onNodeWithText(URL).performClick()
                 awaitText("Adapter layer", substring = true)
-                onAllNodesWithText(URL, substring = true).assertCountEquals(3)
+                onAllNodesWithText(URL, substring = true).assertCountEquals(2)
                 showTab("Headers")
                 awaitText("application/json")
                 showTab("Body")

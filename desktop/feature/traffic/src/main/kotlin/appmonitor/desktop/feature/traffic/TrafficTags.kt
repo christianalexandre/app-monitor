@@ -4,6 +4,22 @@ const val REQUEST_LIST = "requests"
 
 const val DETAIL_SEARCH = "detail-search"
 
+// The detail bar's search glyph, which shows or hides the search field.
+const val DETAIL_SEARCH_OPEN = "detail-search-open"
+
+const val DETAIL_URL = "detail-url"
+
+const val DETAIL_META = "detail-meta"
+
+const val MOCKED_BY = "mocked-by"
+
+// The detail bar's "⋯" and the actions of its menu.
+const val MORE_ACTIONS = "more-actions"
+
+const val COPY_CURL_ACTION = "copy-curl-action"
+
+const val SAVE_AS_ISSUE_ACTION = "save-as-issue-action"
+
 const val DETAIL_MATCHES = "detail-matches"
 
 const val NEXT_MATCH = "next-match"
