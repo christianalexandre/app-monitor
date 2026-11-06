@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -41,7 +42,7 @@ import androidx.compose.material.Divider as MaterialDivider
 import androidx.compose.material.Text as MaterialText
 import androidx.compose.material.TextButton as MaterialTextButton
 
-/** Text in a [role]; [error] paints it in the theme's error color. */
+/** Text in a [role]; [error] paints it in the theme's error color. A [TextRole.Label] shows in capitals. */
 @Composable
 fun Text(
     text: String,
@@ -54,9 +55,14 @@ fun Text(
     softWrap: Boolean = true,
 ) {
     MaterialText(
-        text,
+        if (role == TextRole.Label) text.uppercase() else text,
         modifier,
-        color = if (error) MaterialTheme.colors.error else Color.Unspecified,
+        color =
+            when {
+                error -> MaterialTheme.colors.error
+                role == TextRole.Label -> AppMonitorTheme.colors.muted
+                else -> Color.Unspecified
+            },
         textAlign = textAlign,
         maxLines = maxLines,
         overflow = overflow,
@@ -65,7 +71,7 @@ fun Text(
     )
 }
 
-/** A flat button showing [label]; [singleLine] cuts a long one with an ellipsis. */
+/** A flat button showing [label] in the secondary text color; [singleLine] cuts a long one with an ellipsis. */
 @Composable
 fun TextButton(
     label: String,
@@ -74,7 +80,8 @@ fun TextButton(
     enabled: Boolean = true,
     singleLine: Boolean = false,
 ) {
-    MaterialTextButton(onClick = onClick, modifier, enabled = enabled) {
+    val colors = ButtonDefaults.textButtonColors(contentColor = AppMonitorTheme.colors.neutral)
+    MaterialTextButton(onClick = onClick, modifier, enabled = enabled, colors = colors) {
         if (singleLine) MaterialText(label, maxLines = 1, overflow = TextOverflow.Ellipsis) else MaterialText(label)
     }
 }
@@ -130,13 +137,13 @@ fun CheckboxRow(
 /** A horizontal rule across its parent. */
 @Composable
 fun Divider(modifier: Modifier = Modifier) {
-    MaterialDivider(modifier)
+    MaterialDivider(modifier, color = AppMonitorTheme.colors.border)
 }
 
 /** A one-pixel rule between two panes of a row. */
 @Composable
 fun VerticalDivider() {
-    MaterialDivider(Modifier.fillMaxHeight().width(1.dp))
+    MaterialDivider(Modifier.fillMaxHeight().width(1.dp), color = AppMonitorTheme.colors.border)
 }
 
 /** Dims the window and takes its clicks; [content] is centred. */

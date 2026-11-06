@@ -14,7 +14,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   `Placeholder`, `Section`, `Modifier.selectableItem`, `Badge`,
   `ToggleChip`, `Toolbar`, `Tabs`, `EmptyState`, `MiddleEllipsisText`)
   and its tokens
-  (`Spacing`, `Radius`, `Elevation`, `DialogWidth`, `TextRole`, `BadgeTone`,
+  (`Spacing`, `Radius`, `BarHeight`, `Elevation`, `DialogWidth`, `TextRole`, `BadgeTone`,
   `AppMonitorTheme.colors`). `make designsystem-check` fails otherwise.
 - **No Material outside the design system**: no
   `androidx.compose.material*` import, no `MaterialTheme`. A component
@@ -65,7 +65,7 @@ ADR-0133 join this chapter as they land (PLAN-0012).
   `GalleryTest`, which renders it in light and dark
   (`desktop/designsystem/build/screenshots/gallery-*.png`).
 - **Every color is a token with a light and a dark value** in `AppColors`
-  (ADR-0145), built from a tone in `Palette.kt` (ADR-0149); a screen reads it through `AppMonitorTheme.colors` or a
+  (ADR-0145), built from a tone in `Palette.kt` (ADR-0202); a screen reads it through `AppMonitorTheme.colors` or a
   component, never `Color(0x…)` or `Color.White`. A screen test's
   `screenshot("x.png")` writes `x.png` and `x-dark.png` when the window
   gets `TestAppearance`.

@@ -91,7 +91,7 @@ fun ToggleChip(
     modifier: Modifier = Modifier,
 ) {
     val color = if (selected) colorOf(tone) else colorOf(BadgeTone.Neutral)
-    val shape = RoundedCornerShape(Radius.small)
+    val shape = RoundedCornerShape(Radius.medium)
     Box(
         modifier
             .clip(shape)

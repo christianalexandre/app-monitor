@@ -16,10 +16,18 @@ object Spacing {
     val xxl: Dp = 24.dp
 }
 
-/** Corner radii; the theme's shapes are built from them. */
+/** Corner radii: [small] for badges and marks, [medium] for controls, fields and cards (ADR-0202). */
 object Radius {
     val none: Dp = 0.dp
     val small: Dp = 4.dp
+    val medium: Dp = 6.dp
+}
+
+/** Heights of the window's fixed bars (ADR-0202). */
+object BarHeight {
+    val title: Dp = 40.dp
+    val detail: Dp = 38.dp
+    val status: Dp = 24.dp
 }
 
 object Elevation {
@@ -50,6 +58,14 @@ data class AppColors(
     val onSecondary: Color,
     val error: Color,
     val onError: Color,
+    // The window's layers behind the content ([surface]): its title bar, sidebar, request list and status bar, and the rule between them.
+    val titleBar: Color,
+    val sidebar: Color,
+    val list: Color,
+    val statusBar: Color,
+    val border: Color,
+    // Text quieter than [neutral]: a section's label, a URL's query.
+    val muted: Color,
     // The row a list shows as selected, and what dims the window under a dialog.
     val selected: Color,
     val scrim: Color,
@@ -69,54 +85,66 @@ data class AppColors(
 
 internal val LightAppColors =
     AppColors(
-        background = AppGray.gray50,
+        background = AppGray.gray25,
         surface = AppGray.gray0,
-        onSurface = AppGray.gray800,
+        onSurface = AppGray.gray875,
         primary = AppBlue.blue500,
-        primaryVariant = AppBlue.blue700,
+        primaryVariant = AppBlue.blue600,
         onPrimary = AppGray.gray0,
         secondary = AppBlue.blue500,
         secondaryVariant = AppBlue.blue600,
         onSecondary = AppGray.gray0,
-        error = AppRed.red700,
+        error = AppRed.red600,
         onError = AppGray.gray0,
-        selected = AppBlue.blue500.copy(alpha = 0.12f),
-        scrim = AppGray.gray900.copy(alpha = 0.4f),
-        success = AppGreen.green700,
+        titleBar = AppGray.gray50,
+        sidebar = AppGray.gray75,
+        list = AppGray.gray25,
+        statusBar = AppGray.gray75,
+        border = AppGray.gray150,
+        muted = AppGray.gray350,
+        selected = AppBlue.blue500.copy(alpha = 0.10f),
+        scrim = AppGray.gray950.copy(alpha = 0.32f),
+        success = AppGreen.green600,
         info = AppBlue.blue600,
         warning = AppAmber.amber700,
-        neutral = AppGray.gray600,
-        code = AppGray.gray100,
+        neutral = AppGray.gray550,
+        code = AppGray.gray25,
         highlight = AppAmber.amber300.copy(alpha = 0.5f),
         highlightCurrent = AppAmber.amber300,
         syntaxKey = AppBlue.blue600,
         syntaxString = AppGreen.green700,
-        syntaxValue = AppAmber.amber700,
+        syntaxValue = AppAmber.amber800,
     )
 
 internal val DarkAppColors =
     AppColors(
-        background = AppGray.gray900,
-        surface = AppGray.gray850,
-        onSurface = AppGray.gray200,
-        primary = AppBlue.blue300,
-        primaryVariant = AppBlue.blue500,
-        onPrimary = AppGray.gray900,
-        secondary = AppBlue.blue300,
-        secondaryVariant = AppBlue.blue400,
-        onSecondary = AppGray.gray900,
+        background = AppGray.gray850,
+        surface = AppGray.gray825,
+        onSurface = AppGray.gray50,
+        primary = AppBlue.blue400,
+        primaryVariant = AppBlue.blue300,
+        onPrimary = AppGray.gray0,
+        secondary = AppBlue.blue400,
+        secondaryVariant = AppBlue.blue300,
+        onSecondary = AppGray.gray0,
         error = AppRed.red300,
-        onError = AppGray.gray900,
-        selected = AppBlue.blue300.copy(alpha = 0.2f),
-        scrim = AppGray.gray900.copy(alpha = 0.6f),
+        onError = AppGray.gray950,
+        titleBar = AppGray.gray875,
+        sidebar = AppGray.gray900,
+        list = AppGray.gray850,
+        statusBar = AppGray.gray925,
+        border = AppGray.gray750,
+        muted = AppGray.gray650,
+        selected = AppBlue.blue400.copy(alpha = 0.13f),
+        scrim = AppGray.gray950.copy(alpha = 0.52f),
         success = AppGreen.green300,
-        info = AppBlue.blue200,
-        warning = AppAmber.amber300,
-        neutral = AppGray.gray400,
-        code = AppGray.gray900,
+        info = AppBlue.blue300,
+        warning = AppAmber.amber200,
+        neutral = AppGray.gray450,
+        code = AppGray.gray800,
         highlight = AppAmber.amber300.copy(alpha = 0.35f),
         highlightCurrent = AppAmber.amber300.copy(alpha = 0.8f),
-        syntaxKey = AppBlue.blue200,
-        syntaxString = AppGreen.green300,
+        syntaxKey = AppBlue.blue300,
+        syntaxString = AppGreen.green200,
         syntaxValue = AppAmber.amber300,
     )
