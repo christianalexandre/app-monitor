@@ -11,12 +11,14 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.AnnotatedString
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.feature.traffic.ACTIONS
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import javax.imageio.ImageIO
@@ -32,6 +34,13 @@ internal fun ComposeUiTest.awaitText(
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.awaitTag(tag: String) =
     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+
+/** Runs the title bar's "Actions" entry tagged [tag] (ADR-0205). */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.action(tag: String) {
+    onNodeWithTag(ACTIONS).performClick()
+    onNodeWithTag(tag).performClick()
+}
 
 /** Keeps the last text copied, in place of the system clipboard. */
 internal class FakeClipboard : ClipboardManager {

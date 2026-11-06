@@ -38,7 +38,7 @@ class GrpcStatusUiTest {
                 awaitText("10 ms · ", substring = true)
                 awaitText(" · Proxy layer", substring = true)
 
-                onNodeWithTag(BENCHMARKS).performClick()
+                action(BENCHMARKS)
                 awaitText("POST api.example.com/test.Echo/Unary")
                 onNodeWithText("POST 127.0.0.1/test.Echo/Missing").assertExists()
                 val texts =

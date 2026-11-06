@@ -44,7 +44,7 @@ class ConnectionsUiTest {
                 awaitText("tcp://push.example.com:5223")
                 onNodeWithText("closed").assertExists()
                 onNodeWithText("failed").assertExists()
-                onNodeWithTag(EXPORT_HAR).performClick()
+                action(EXPORT_HAR)
                 awaitText("Exported 1 exchanges to run.har; 2 connections left out")
 
                 onNodeWithText("tcp://10.0.0.7:8443").performClick()
@@ -58,7 +58,7 @@ class ConnectionsUiTest {
                 onNodeWithText("Headers").assertDoesNotExist()
                 screenshot("connections.png")
 
-                onNodeWithTag(BENCHMARKS).performClick()
+                action(BENCHMARKS)
                 awaitText("CONNECT push.example.com:5223")
                 onNodeWithText("CONNECT 10.0.0.7:8443").assertExists()
             }

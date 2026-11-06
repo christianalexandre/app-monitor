@@ -1,9 +1,9 @@
 ---
 id: ADR-0151
 title: Panes resize by dragging their rule, and the devices pane hides
-status: Accepted # Proposed | Accepted | Superseded | Rejected
+status: Superseded # Proposed | Accepted | Superseded | Rejected
 date: 2026-10-26
-superseded_by:
+superseded_by: ADR-0205
 ---
 
 # ADR-0151 — Panes resize by dragging their rule, and the devices pane hides

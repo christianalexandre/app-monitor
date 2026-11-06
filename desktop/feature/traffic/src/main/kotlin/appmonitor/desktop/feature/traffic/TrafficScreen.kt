@@ -1,5 +1,6 @@
 package appmonitor.desktop.feature.traffic
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,11 +14,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -46,28 +45,32 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.Badge
 import appmonitor.desktop.designsystem.BadgeTone
 import appmonitor.desktop.designsystem.Checkbox
-import appmonitor.desktop.designsystem.DialogActions
-import appmonitor.desktop.designsystem.DialogCard
-import appmonitor.desktop.designsystem.DialogWidth
+import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.EmptyState
+import appmonitor.desktop.designsystem.GlyphButton
+import appmonitor.desktop.designsystem.MenuAction
+import appmonitor.desktop.designsystem.MenuButton
 import appmonitor.desktop.designsystem.PaneDivider
 import appmonitor.desktop.designsystem.PaneDividerWidth
-import appmonitor.desktop.designsystem.PaneTitle
 import appmonitor.desktop.designsystem.PathText
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.SearchField
 import appmonitor.desktop.designsystem.SegmentButton
+import appmonitor.desktop.designsystem.SidebarItem
+import appmonitor.desktop.designsystem.SidebarSection
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.StatusBar
+import appmonitor.desktop.designsystem.StatusDot
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
-import appmonitor.desktop.designsystem.Toolbar
+import appmonitor.desktop.designsystem.TitleBar
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
@@ -75,6 +78,7 @@ import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.domain.Session
 import appmonitor.desktop.domain.appLabel
 import appmonitor.desktop.domain.durationOf
+import appmonitor.desktop.ui.METHODS
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.statusOf
 import appmonitor.desktop.ui.titleOf
@@ -87,14 +91,19 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * What the traffic panes show of other screens and open there: the server's [status], a [retentionWarning], the
- * mocks', breakpoints' and export's labels, and the buttons that leave this feature.
+ * What the traffic panes show of other screens and open there: the server's [status], the MCP server's and proxy's
+ * ([mcpStatus], [proxyStatus]), a [retentionWarning], the mocks', breakpoints' and export's labels (in the status bar too
+ * while [mocksWaiting] or [callsHeld]), and the buttons that leave this feature.
  */
 data class TrafficLinks(
     val status: String = "",
+    val mcpStatus: String? = null,
+    val proxyStatus: String? = null,
     val retentionWarning: String? = null,
     val mocksLabel: String = "Mocks",
     val breakpointsLabel: String = "Breakpoints",
+    val mocksWaiting: Boolean = false,
+    val callsHeld: Boolean = false,
     val exportNote: String? = null,
     val onSettings: () -> Unit = {},
     val onIssues: () -> Unit = {},
@@ -107,24 +116,23 @@ data class TrafficLinks(
     val onMock: (HttpExchange) -> Unit = {},
 )
 
-/** The live list's or a stored run's toolbar, sessions, requests and request, and the runs dialog. */
+/** The title bar, the sidebar, the requests and the request, then the status bar (ADR-0205). */
 @Composable
 fun TrafficScreen(
     links: TrafficLinks,
     viewModel: TrafficViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    var runsOpen by remember { mutableStateOf(false) }
-    var filtersOpen by remember { mutableStateOf(false) }
     // Kept while another request is picked, so the same text is looked for in each.
     var detailQuery by remember { mutableStateOf("") }
     val saved by viewModel.panes.collectAsState()
-    val devicesShown = saved.devicesShown
-    var devicesWidth by remember { mutableStateOf(saved.devicesWidth.dp.coerceIn(DEVICES_MIN, DEVICES_MAX)) }
+    val sidebarShown = saved.devicesShown
+    var sidebarWidth by remember { mutableStateOf(saved.devicesWidth.dp.coerceIn(SIDEBAR_MIN, SIDEBAR_MAX)) }
     var requestsWidth by remember { mutableStateOf(saved.requestsWidth.dp.coerceAtLeast(REQUESTS_MIN)) }
     val keepWidths = {
-        viewModel.setPanes(saved.copy(devicesWidth = devicesWidth.value.roundToInt(), requestsWidth = requestsWidth.value.roundToInt()))
+        viewModel.setPanes(saved.copy(devicesWidth = sidebarWidth.value.roundToInt(), requestsWidth = requestsWidth.value.roundToInt()))
     }
+    val toggleSidebar = { viewModel.setPanes(saved.copy(devicesShown = !sidebarShown)) }
     val clipboard = LocalClipboardManager.current
     val root = remember { FocusRequester() }
     val search = remember { FocusRequester() }
@@ -134,33 +142,30 @@ fun TrafficScreen(
         Modifier
             .fillMaxSize()
             .onPreviewKeyEvent { event ->
-                (event.type == KeyEventType.KeyDown && event.isShortcut && event.key == Key.F).also { if (it) search.requestFocus() }
+                if (event.type != KeyEventType.KeyDown || !event.isShortcut) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.F -> true.also { search.requestFocus() }
+                    Key.B -> true.also { toggleSidebar() }
+                    else -> false
+                }
             }.focusRequester(root)
             .focusable(),
     ) {
         Column(Modifier.fillMaxSize()) {
-            TrafficToolbar(
-                state,
-                links,
-                viewModel,
-                devicesShown,
-                onDevices = { viewModel.setPanes(saved.copy(devicesShown = !devicesShown)) },
-                onRuns = { runsOpen = true },
-                onFilters = { filtersOpen = true },
-            )
+            TrafficTitleBar(state, links, viewModel, sidebarShown, toggleSidebar)
             val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
             notes.forEach { (note, tag) ->
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
             }
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val shownDevices = if (devicesShown) devicesWidth + PaneDividerWidth else 0.dp
-                val maxRequests = (maxWidth - shownDevices - PaneDividerWidth - DETAIL_MIN).coerceAtLeast(REQUESTS_MIN)
+                val shownSidebar = if (sidebarShown) sidebarWidth + PaneDividerWidth else 0.dp
+                val maxRequests = (maxWidth - shownSidebar - PaneDividerWidth - DETAIL_MIN).coerceAtLeast(REQUESTS_MIN)
                 val requests = requestsWidth.coerceIn(REQUESTS_MIN, maxRequests)
                 Row(Modifier.fillMaxSize()) {
-                    if (devicesShown) {
-                        DeviceList(state, links, viewModel, Modifier.width(devicesWidth).fillMaxHeight())
+                    if (sidebarShown) {
+                        Sidebar(state, links, viewModel, Modifier.width(sidebarWidth).fillMaxHeight())
                         PaneDivider(
-                            { devicesWidth = (devicesWidth + it).coerceIn(DEVICES_MIN, DEVICES_MAX) },
+                            { sidebarWidth = (sidebarWidth + it).coerceIn(SIDEBAR_MIN, SIDEBAR_MAX) },
                             Modifier.testTag(DEVICES_DIVIDER),
                             onDragStopped = keepWidths,
                         )
@@ -205,194 +210,91 @@ fun TrafficScreen(
             }
             TrafficStatusBar(state, links)
         }
-        if (filtersOpen) {
-            FilterSheet(state.filter, state.hosts, viewModel::setFilter) { filtersOpen = false }
-        }
-        if (runsOpen) {
-            RunList(
-                state.runs,
-                onShow = {
-                    viewModel.showRun(it)
-                    runsOpen = false
-                },
-                onRename = viewModel::rename,
-                onCompare = {
-                    runsOpen = false
-                    links.onCompareRuns()
-                },
-            ) { runsOpen = false }
-        }
     }
 }
 
-/** What is shown and what it does to it: the run picker, Record, Save, Clear, search and the filter sheet (ADR-0140 G). */
+/** The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, then "Actions" with the rest (ADR-0205). */
 @Composable
-private fun TrafficToolbar(
+private fun TrafficTitleBar(
     state: TrafficState,
     links: TrafficLinks,
     viewModel: TrafficViewModel,
-    devicesShown: Boolean,
-    onDevices: () -> Unit,
-    onRuns: () -> Unit,
-    onFilters: () -> Unit,
+    sidebarShown: Boolean,
+    onSidebar: () -> Unit,
 ) {
+    val live = state.runs.shownRunId == null
     // Marked rows have their own Save and "Save as issue" under the list.
-    val unmarked = state.marked.isEmpty()
-    Toolbar {
-        TextButton(if (devicesShown) "◂ Devices" else "▸ Devices", onClick = onDevices, Modifier.testTag(DEVICES_TOGGLE))
-        TextButton("${state.runs.title} ▾", onClick = onRuns, Modifier.widthIn(max = 200.dp).testTag(RUNS), singleLine = true)
-        if (state.runs.shownRunId == null) {
+    val picked = state.marked.isEmpty() && state.row != null
+    TitleBar {
+        GlyphButton(
+            if (sidebarShown) "◧" else "▢",
+            (if (sidebarShown) "Hide the sidebar " else "Show the sidebar ") + SHORTCUT_PREFIX + "B",
+            onClick = onSidebar,
+            Modifier.testTag(DEVICES_TOGGLE),
+        )
+        Text(
+            "App Monitor — ${state.runs.title}",
+            Modifier.weight(1f),
+            role = TextRole.SmallStrong,
+            secondary = true,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (live) {
             if (state.runs.recording == null) {
                 TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
             } else {
-                TextButton("Stop recording", onClick = viewModel::stop, Modifier.testTag(RECORD))
+                TextButton("Stop", onClick = viewModel::stop, Modifier.testTag(RECORD))
             }
-            if (unmarked) TextButton("Save", onClick = viewModel::save, Modifier.testTag(SAVE), enabled = state.row != null)
             TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
         }
-        if (unmarked) {
-            TextButton("Save as issue", onClick = links.onSaveAsIssue, Modifier.testTag(SAVE_AS_ISSUE), enabled = state.row != null)
-        }
-        Spacer(Modifier.weight(1f))
-        val count = state.filter.count
-        TextButton(if (count == 0) "Filters" else "Filters ($count)", onClick = onFilters, Modifier.testTag(FILTERS))
-    }
-}
-
-/**
- * The live list, "Saved", then every recording, newest first; [onShow] gets null for the live list. A blank name makes a
- * recording unnamed.
- */
-@Composable
-private fun RunList(
-    state: RunsState,
-    onShow: (Long?) -> Unit,
-    onRename: (Long, String) -> Unit,
-    onCompare: () -> Unit,
-    onClose: () -> Unit,
-) {
-    val runs = state.recordings
-    val shownRunId = state.shownRunId
-    var editing by remember { mutableStateOf<Long?>(null) }
-    var draft by remember { mutableStateOf("") }
-    DialogCard(DialogWidth.Medium) {
-        Text("Runs", role = TextRole.Title)
-        Text(
-            LIVE,
-            Modifier.fillMaxWidth().selectableItem(shownRunId == null) { onShow(null) }.padding(vertical = Spacing.md),
-            role = TextRole.BodyStrong,
-        )
-        state.saved?.let { saved ->
-            Text(
-                titleOf(saved),
-                Modifier
-                    .fillMaxWidth()
-                    .selectableItem(saved.id == shownRunId) { onShow(saved.id) }
-                    .padding(vertical = Spacing.md)
-                    .testTag(SAVED_RUN),
-                role = TextRole.BodyStrong,
+        val actions =
+            listOfNotNull(
+                MenuAction("Save", SAVE, viewModel::save).takeIf { live && picked },
+                MenuAction("Save as issue", SAVE_AS_ISSUE, links.onSaveAsIssue).takeIf { picked },
+                MenuAction("Compare runs", COMPARE_RUNS, links.onCompareRuns).takeIf { state.runs.recordings.size > 1 },
+                MenuAction("Issues", ISSUES, links.onIssues),
+                MenuAction("Benchmarks", BENCHMARKS, links.onBenchmarks),
+                MenuAction(links.mocksLabel, MOCKS, links.onMocks),
+                MenuAction(links.breakpointsLabel, BREAKPOINTS, links.onBreakpoints),
+                MenuAction("Export HAR", EXPORT_HAR, links.onExportHar),
+                MenuAction("Settings", SETTINGS, links.onSettings),
             )
-        }
-        Text("Recordings", role = TextRole.Caption)
-        if (runs.isEmpty()) Text("None yet: Record stores what the devices send until Stop", role = TextRole.Caption)
-        LazyColumn(Modifier.heightIn(max = 240.dp)) {
-            items(runs, key = { it.id }) { run ->
-                Row(
-                    Modifier.fillMaxWidth().selectableItem(run.id == shownRunId) { onShow(run.id) }.padding(vertical = Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (run.id == editing) {
-                        TextField(draft, { draft = it }, Modifier.weight(1f).testTag(RUN_NAME), singleLine = true)
-                        TextButton("Save", onClick = {
-                            onRename(run.id, draft)
-                            editing = null
-                        }, Modifier.testTag(SAVE_RUN_NAME))
-                    } else {
-                        Column(Modifier.weight(1f)) {
-                            Text(titleOf(run), role = TextRole.BodyStrong)
-                            Text(spanOf(run, recording = run.id == state.recording), role = TextRole.Caption)
-                        }
-                        TextButton("Rename", onClick = {
-                            draft = run.name.orEmpty()
-                            editing = run.id
-                        })
-                    }
-                }
-            }
-        }
-        DialogActions {
-            TextButton("Compare runs", onClick = onCompare, Modifier.testTag(COMPARE_RUNS), enabled = runs.size > 1)
-            TextButton("Close", onClick = onClose)
-        }
+        MenuButton("Actions ▾", "Actions", actions, Modifier.testTag(ACTIONS))
     }
 }
 
+/** DEVICES, TRAFFIC and HOSTS, then a gear for the settings (ADR-0205). */
 @Composable
-private fun DeviceList(
+private fun Sidebar(
     state: TrafficState,
     links: TrafficLinks,
     viewModel: TrafficViewModel,
     modifier: Modifier,
 ) {
-    val onSelect = viewModel::selectSession
-    Column(modifier) {
-        PaneTitle("Devices")
-        LazyColumn(Modifier.weight(1f)) {
+    Column(modifier.background(AppMonitorTheme.colors.sidebar)) {
+        LazyColumn(Modifier.weight(1f).padding(horizontal = Spacing.sm)) {
+            item { SidebarSection("Devices") }
             item {
-                Text(
+                SidebarItem(
                     "All devices",
-                    Modifier
-                        .fillMaxWidth()
-                        .selectableItem(
-                            state.session == null,
-                        ) { onSelect(null) }
-                        .padding(Spacing.lg)
-                        .testTag(ALL_DEVICES),
-                    role = TextRole.BodyStrong,
+                    { viewModel.selectSession(null) },
+                    Modifier.testTag(ALL_DEVICES),
+                    selected = state.session == null,
                 )
             }
             if (state.sessions.isEmpty() && state.disconnected.isEmpty()) {
-                item {
-                    Text(
-                        "A device shows here with its first request",
-                        Modifier.padding(horizontal = Spacing.lg),
-                        role = TextRole.Caption,
-                    )
-                }
+                item { SidebarNote("A device shows here with its first request") }
             }
-            items(state.sessions, key = { it.id }) { session ->
-                val hello = session.hello
-                Column(
-                    Modifier.fillMaxWidth().selectableItem(session.id == state.session?.id) { onSelect(session.id) }.padding(Spacing.lg),
-                ) {
-                    Text(hello.device_name, role = TextRole.BodyStrong)
-                    Text("${hello.appLabel} ${hello.app_version}", role = TextRole.Caption)
-                    val refused = state.refuses(session)
-                    Text(
-                        "${hello.os_version} · ${when {
-                            refused -> "refused until Reconnect"
-                            session.disconnectedAtMs == null -> "connected"
-                            else -> "disconnected"
-                        }}",
-                        role = TextRole.Caption,
-                    )
-                    session.drops?.takeIf { it.any }?.let { drops ->
-                        Text(dropsLabel(drops), Modifier.testTag(DROPS + session.id), error = true, role = TextRole.Caption)
-                    }
-                    if (state.canDisconnect && state.runs.shownRunId == null && !refused && session.disconnectedAtMs == null) {
-                        TextButton("Disconnect", onClick = { viewModel.disconnect(session) }, Modifier.testTag(DISCONNECT + session.id))
-                    }
-                }
-            }
-            if (state.disconnected.isNotEmpty()) {
-                item { Text("Disconnected", Modifier.padding(Spacing.lg), role = TextRole.Caption) }
-            }
+            items(state.sessions, key = { "session-${it.id}" }) { session -> DeviceItem(state, session, viewModel) }
             items(state.disconnected, key = { "disconnected-${it.deviceId}-${it.appId}" }) { device ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(device.hello.device_name, role = TextRole.BodyStrong)
-                        Text(device.hello.appLabel, role = TextRole.Caption)
-                    }
+                SidebarItem(
+                    device.hello.device_name,
+                    {},
+                    sub = "${device.hello.appLabel} · refused",
+                    dot = BadgeTone.Neutral,
+                ) {
                     TextButton(
                         "Reconnect",
                         onClick = { viewModel.reconnect(device) },
@@ -400,30 +302,181 @@ private fun DeviceList(
                     )
                 }
             }
+            item { SidebarSection("Traffic") }
+            item { RunItems(state.runs, viewModel) }
+            item { SidebarSection("Hosts") }
+            if (state.hosts.isEmpty()) item { SidebarNote("No host in this list yet") }
+            items(state.hosts, key = { "host-$it" }) { host ->
+                val hidden = state.filter.hosts.isNotEmpty() && host !in state.filter.hosts
+                SidebarItem(
+                    host,
+                    { viewModel.setFilter(state.filter.withHost(host, shown = hidden, state.hosts)) },
+                    Modifier.testTag(HOST_FILTER + host),
+                    dimmed = hidden,
+                )
+            }
+        }
+        Divider()
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1f))
+            GlyphButton("⚙", "Settings", onClick = links.onSettings, Modifier.testTag(SETTINGS_GEAR))
         }
     }
 }
 
-/** The server's status and what went wrong storing, then the screens this one opens; shown whether the devices pane is or not. */
+@Composable
+private fun SidebarNote(text: String) {
+    Text(text, Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs), role = TextRole.Caption, secondary = true)
+}
+
+/** A device: a connected dot, its app and OS, what it dropped, and Disconnect while connected. */
+@Composable
+private fun DeviceItem(
+    state: TrafficState,
+    session: Session,
+    viewModel: TrafficViewModel,
+) {
+    val hello = session.hello
+    val refused = state.refuses(session)
+    val connected = !refused && session.disconnectedAtMs == null
+    val condition =
+        when {
+            refused -> " · refused until Reconnect"
+            connected -> ""
+            else -> " · disconnected"
+        }
+    Column {
+        SidebarItem(
+            hello.device_name,
+            { viewModel.selectSession(session.id) },
+            selected = session.id == state.session?.id,
+            sub = "${hello.appLabel} ${hello.app_version} · ${hello.os_version}$condition",
+            dot = if (connected) BadgeTone.Success else BadgeTone.Neutral,
+        )
+        session.drops?.takeIf { it.any }?.let { drops ->
+            Text(
+                dropsLabel(drops),
+                Modifier.padding(horizontal = Spacing.md).testTag(DROPS + session.id),
+                error = true,
+                role = TextRole.Caption,
+            )
+        }
+        if (state.canDisconnect && state.runs.shownRunId == null && connected) {
+            TextButton(
+                "Disconnect",
+                onClick = { viewModel.disconnect(session) },
+                Modifier.padding(start = Spacing.lg).testTag(DISCONNECT + session.id),
+            )
+        }
+    }
+}
+
+/** Live, every recording newest first (the running one with a red dot), then "Saved"; the shown one renames in place. */
+@Composable
+private fun RunItems(
+    runs: RunsState,
+    viewModel: TrafficViewModel,
+) {
+    val shownRunId = runs.shownRunId
+    var editing by remember { mutableStateOf<Long?>(null) }
+    var draft by remember { mutableStateOf("") }
+    Column {
+        SidebarItem(LIVE, { viewModel.showRun(null) }, Modifier.testTag(LIVE_RUN), selected = shownRunId == null)
+        runs.recordings.forEach { run ->
+            if (run.id == editing) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                    TextField(draft, { draft = it }, Modifier.weight(1f).testTag(RUN_NAME), singleLine = true)
+                    TextButton("Save", onClick = {
+                        viewModel.rename(run.id, draft)
+                        editing = null
+                    }, Modifier.testTag(SAVE_RUN_NAME))
+                }
+            } else {
+                val shown = run.id == shownRunId
+                SidebarItem(
+                    titleOf(run),
+                    { viewModel.showRun(run.id) },
+                    Modifier.testTag(RUN + run.id),
+                    selected = shown,
+                    sub = spanOf(run, recording = run.id == runs.recording),
+                    dot = if (run.id == runs.recording) BadgeTone.Error else null,
+                ) {
+                    if (shown) {
+                        GlyphButton("✎", "Rename", onClick = {
+                            draft = run.name.orEmpty()
+                            editing = run.id
+                        }, Modifier.testTag(RENAME_RUN))
+                    }
+                }
+            }
+        }
+        if (runs.recordings.isEmpty()) SidebarNote("Record stores what the devices send until Stop")
+        runs.saved?.let { saved ->
+            SidebarItem(titleOf(saved), { viewModel.showRun(saved.id) }, Modifier.testTag(SAVED_RUN), selected = saved.id == shownRunId)
+        }
+    }
+}
+
+/** Listening, the devices connected, the recording, MCP, the proxy, what went wrong storing, what was dropped (ADR-0205). */
 @Composable
 private fun TrafficStatusBar(
     state: TrafficState,
     links: TrafficLinks,
 ) {
-    StatusBar {
-        Column(Modifier.weight(1f)) {
-            Text(links.status, role = TextRole.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            state.health.lastError?.let {
-                Text("${state.health.notSaved} events not saved: $it", error = true, role = TextRole.Caption, maxLines = 1)
-            }
-            links.retentionWarning?.let { Text(it, error = true, role = TextRole.Caption, maxLines = 1) }
+    val connected = state.sessions.count { it.disconnectedAtMs == null && !state.refuses(it) }
+    val dropped = state.sessions.sumOf { (it.drops?.evicted ?: 0) + (it.drops?.oversized ?: 0) + (it.drops?.lost ?: 0) }
+    StatusBar(Modifier.testTag(STATUS_BAR)) {
+        StatusDot(if (links.status.startsWith("Listening")) BadgeTone.Success else BadgeTone.Error)
+        StatusText(links.status)
+        StatusText(if (connected == 1) "1 device connected" else "$connected devices connected")
+        val recording = state.runs.recording
+        if (recording == null) {
+            StatusText("Not recording")
+        } else {
+            StatusDot(BadgeTone.Error)
+            val since =
+                state.runs.recordings
+                    .firstOrNull { it.id == recording }
+                    ?.let { " since ${formatMinute(it.startedAtMs)}" }
+            StatusText("Recording${since.orEmpty()}")
         }
-        TextButton("Issues", onClick = links.onIssues, Modifier.testTag(ISSUES))
-        TextButton("Benchmarks", onClick = links.onBenchmarks, Modifier.testTag(BENCHMARKS))
-        TextButton(links.mocksLabel, onClick = links.onMocks, Modifier.testTag(MOCKS), singleLine = true)
-        TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, Modifier.testTag(BREAKPOINTS), singleLine = true)
-        TextButton("Export HAR", onClick = links.onExportHar, Modifier.testTag(EXPORT_HAR))
-        TextButton("Settings", onClick = links.onSettings)
+        links.mcpStatus?.let { StatusText(it) }
+        links.proxyStatus?.let { StatusText(it) }
+        state.health.lastError?.let { StatusText("${state.health.notSaved} events not saved: $it", error = true) }
+        links.retentionWarning?.let { StatusText(it, error = true) }
+        Spacer(Modifier.weight(1f))
+        if (links.mocksWaiting) TextButton(links.mocksLabel, onClick = links.onMocks, singleLine = true)
+        if (links.callsHeld) TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, singleLine = true)
+        StatusText("$dropped dropped", error = dropped > 0)
+    }
+}
+
+@Composable
+private fun StatusText(
+    text: String,
+    error: Boolean = false,
+) {
+    Text(text, role = TextRole.Caption, secondary = !error, error = error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/**
+ * The filter with [host] shown or hidden among [hosts]: the store keeps the hosts picked, none keeping all (ADR-0148), so
+ * hiding one picks every other one and showing the last hidden one picks none again. The last host shown stays shown.
+ */
+internal fun ExchangeFilter.withHost(
+    host: String,
+    shown: Boolean,
+    hosts: List<String>,
+): ExchangeFilter {
+    val picked = this.hosts.ifEmpty { hosts.toSet() }
+    val next = if (shown) picked + host else picked - host
+    return when {
+        next.isEmpty() -> this
+        next.containsAll(hosts) -> copy(hosts = emptySet())
+        else -> copy(hosts = next)
     }
 }
 
@@ -488,7 +541,7 @@ private fun RequestList(
     }
 }
 
-/** The URL filter (⌘F), the status classes and how many requests are listed, over the list (ADR-0203). */
+/** The URL filter (⌘F) and the method, the status classes and how many requests are listed, over the list (ADR-0203, ADR-0205). */
 @Composable
 private fun ListHeader(
     state: TrafficState,
@@ -497,13 +550,18 @@ private fun ListHeader(
 ) {
     val filter = state.filter
     Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-        SearchField(
-            filter.text.orEmpty(),
-            { viewModel.setFilter(filter.copy(text = it.ifEmpty { null })) },
-            "Filter by URL",
-            Modifier.fillMaxWidth().focusRequester(search).testTag(SEARCH),
-            shortcut = SHORTCUT_PREFIX + "F",
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SearchField(
+                filter.text.orEmpty(),
+                { viewModel.setFilter(filter.copy(text = it.ifEmpty { null })) },
+                "Filter by URL",
+                Modifier.weight(1f).focusRequester(search).testTag(SEARCH),
+                shortcut = SHORTCUT_PREFIX + "F",
+            )
+            Box(
+                Modifier.testTag(FILTERS),
+            ) { Choice("Method", filter.method, METHODS, { it }) { viewModel.setFilter(filter.copy(method = it)) } }
+        }
         Row(Modifier.fillMaxWidth().padding(top = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
             val shown = StatusChoice.of(filter)
             StatusChoice.entries.forEach { choice ->
@@ -608,14 +666,19 @@ internal fun statusTone(
         else -> BadgeTone.Neutral
     }
 
+/** A recording's start, to the minute, in this machine's zone. */
+internal fun formatMinute(ms: Long): String = MINUTE.format(Instant.ofEpochMilli(ms))
+
+private val MINUTE = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).withZone(ZoneId.systemDefault())
+
 /** A start time to the millisecond, in this machine's zone, as the request rows show it. */
 internal fun formatClock(ms: Long): String = CLOCK.format(Instant.ofEpochMilli(ms))
 
 private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).withZone(ZoneId.systemDefault())
 
-// ADR-0151: the bounds a drag keeps each pane in, the widths at launch are PaneLayout's; the detail takes the rest.
-private val DEVICES_MIN = 240.dp
-private val DEVICES_MAX = 400.dp
+// ADR-0151, ADR-0205: the bounds a drag keeps each pane in, the widths at launch are PaneLayout's; the detail the rest.
+private val SIDEBAR_MIN = 220.dp
+private val SIDEBAR_MAX = 400.dp
 private val REQUESTS_MIN = 360.dp
 private val DETAIL_MIN = 360.dp
 

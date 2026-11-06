@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -72,7 +73,7 @@ fun Badge(
 }
 
 @Composable
-private fun colorOf(tone: BadgeTone): Color {
+internal fun colorOf(tone: BadgeTone): Color {
     val colors = AppMonitorTheme.colors
     return when (tone) {
         BadgeTone.Neutral -> colors.neutral
@@ -135,16 +136,16 @@ fun PaneDivider(
     }
 }
 
-/** The window's actions over its panes, in one row ruled below. */
+/** The window's own bar over its panes (ADR-0205): [BarHeight.title] tall on the title bar's layer, ruled below. */
 @Composable
-fun Toolbar(
+fun TitleBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().background(AppMonitorTheme.colors.titleBar)) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            Modifier.fillMaxWidth().height(BarHeight.title).padding(horizontal = Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
         )
@@ -152,17 +153,17 @@ fun Toolbar(
     }
 }
 
-/** The window's status and the screens it opens, in one row ruled above, along its bottom edge (ADR-0151). */
+/** The window's state in one row ruled above, along its bottom edge: [BarHeight.status] tall on its layer (ADR-0205). */
 @Composable
 fun StatusBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().background(AppMonitorTheme.colors.statusBar)) {
         Divider()
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            Modifier.fillMaxWidth().height(BarHeight.status).padding(horizontal = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
         )

@@ -153,7 +153,7 @@ interface AppearanceRepository {
 /** How the traffic panes were left: the devices pane shown or not, its width and the request list's, in dp (ADR-0153). */
 data class PaneLayout(
     val devicesShown: Boolean = true,
-    val devicesWidth: Int = 240,
+    val devicesWidth: Int = 220,
     val requestsWidth: Int = 480,
 )
 

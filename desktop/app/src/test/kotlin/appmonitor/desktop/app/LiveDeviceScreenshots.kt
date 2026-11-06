@@ -18,7 +18,6 @@ import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.RECORD
-import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.ExchangeFilter
@@ -79,7 +78,7 @@ class LiveDeviceScreenshots {
                 }
                 println("liveScreenshots: data in $dir, listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")
                 onNodeWithTag(RECORD).performClick()
-                waitFor("Stop recording")
+                waitFor("Stop")
                 waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText("Approve").fetchSemanticsNodes().isNotEmpty() }
                 screenshot("$name-approval.png")
                 onNodeWithText("Approve").performClick()
@@ -107,7 +106,6 @@ class LiveDeviceScreenshots {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Reopened", appearance = TestAppearance) }
                 println("liveScreenshots: store reopened, opening the recording")
-                onNodeWithTag(RUNS).performClick()
                 onAllNodesWithText(" – ", substring = true).onFirst().performClick()
                 waitFor("/json")
                 onAllNodesWithText("/json", substring = true).onFirst().performClick()

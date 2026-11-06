@@ -82,7 +82,9 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it narrows ADR-0147 and ADR-0153's heading.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with the `detail-*.png`
   screenshots read; each tab's copied text unchanged (existing tests).
-- [ ] **H8.4 Sidebar, title bar and status bar.**
+- [x] **H8.4 Sidebar, title bar and status bar.** (`feat/sidebar-title-and-status-bars`, ADR-0205, DEBT-0130:
+  no counts, the store has no count query; the other screens sit in an "Actions" menu until H8.5;
+  the method filter joins the list header and the filter sheet goes)
   - A 220 dp sidebar replaces the devices pane, the run picker and the filter sheet's hosts.
     It has three sections:
     - DEVICES: all devices, then each device with a connected dot, app and OS, and its count;

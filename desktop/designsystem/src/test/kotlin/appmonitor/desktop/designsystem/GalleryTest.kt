@@ -95,9 +95,17 @@ private fun Gallery(
         }
         PaneDivider(onDrag = {})
         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-            Toolbar {
+            TitleBar {
+                GlyphButton("◧", "Sidebar", onClick = {})
+                Text("Title bar", Modifier.weight(1f), role = TextRole.SmallStrong, secondary = true)
                 TextButton("Record", onClick = {})
                 TextButton("Clear", onClick = {})
+            }
+            Column(Modifier.width(220.dp).background(AppMonitorTheme.colors.sidebar).padding(horizontal = Spacing.sm)) {
+                SidebarSection("Devices")
+                SidebarItem("All devices", onClick = {}, selected = true) { Text("12", role = TextRole.Caption, secondary = true) }
+                SidebarItem("Pixel 9", onClick = {}, sub = "Sample 1.0 · Android 16", dot = BadgeTone.Success)
+                SidebarItem("api.example.com", onClick = {}, dimmed = true)
             }
             Tabs(listOf("Summary", "Headers", "Body"), selected = 0, onSelect = onTab, Modifier.padding(horizontal = Spacing.lg))
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -159,8 +167,10 @@ private fun Gallery(
             }
             Toast("Toast", Modifier.padding(horizontal = Spacing.lg))
             StatusBar {
-                Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)
-                TextButton("Settings", onClick = {})
+                StatusDot(BadgeTone.Success)
+                Text("Listening :47474", role = TextRole.Caption, secondary = true)
+                StatusDot(BadgeTone.Error)
+                Text("Recording · 12 requests", role = TextRole.Caption, secondary = true)
             }
         }
         VerticalDivider()

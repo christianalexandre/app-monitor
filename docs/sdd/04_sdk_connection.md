@@ -294,7 +294,7 @@ when `APPMONITOR_LIVE_DISCOVERY=1`.
 ## Limits
 
 - Dropped envelopes reach the desktop as counts (`DeviceSession.drops`,
-  SDD 01), stored with each session and shown in the devices pane (SDD
+  SDD 01), stored with each session and shown in the sidebar (SDD
   09); those of a client's last session are never reported.
 - An oversized envelope is lost rather than cut where it is built; bodies
   fit since `maxBodyBytes` is capped (ADR-0025), so only URL and headers
