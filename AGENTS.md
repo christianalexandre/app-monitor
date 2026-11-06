@@ -76,9 +76,14 @@ always stop. Only the owner adds to this list:
 - **Desktop architecture follows known references.** A choice about the
   desktop's layers, modules, design system, view models, injection or
   navigation (ADR-0133) follows how Google's `nowinandroid`
-  (github.com/android/nowinandroid) or the owner's `mibo-smart-app`
-  (`~/Documents/mibo-smart-app`, `core/ui/designsystem`, its
-  `docs/guidelines/`) does it; the ADR cites which, with the file read.
+  (github.com/android/nowinandroid) or the owner's private reference app
+  does it. The reference app's name and path are in `CLAUDE.local.md`,
+  which is not committed. The ADR cites `nowinandroid` with the file read,
+  or "the owner's reference app" with the pattern in its own words.
+- **Nothing private.** No name, path, host, file, screenshot or data of the
+  owner's private repositories or apps goes into the repository, a commit
+  message or a PR. Field tests are reported without naming the app, and
+  screenshots come from the samples or invented data (owner, 2026-11-06).
 
 ## The loop
 
