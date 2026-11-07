@@ -102,7 +102,10 @@ private fun Gallery(
                 Text("Title bar", Modifier.weight(1f), role = TextRole.SmallStrong, secondary = true)
                 TextButton("Record", onClick = {})
                 TextButton("Clear", onClick = {})
+                IconButton(AppIcons.Gear, "Settings", onClick = {}, tooltip = true)
+                IconButton(AppIcons.Compare, "Compare runs", onClick = {}, enabled = false)
             }
+            TooltipBubble("Settings ⌘,")
             Column(Modifier.width(220.dp).background(AppMonitorTheme.colors.sidebar).padding(horizontal = Spacing.sm)) {
                 SidebarSection("Devices")
                 SidebarItem("All devices", onClick = {}, selected = true) { Text("12", role = TextRole.Caption, secondary = true) }

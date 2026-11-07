@@ -55,6 +55,41 @@ class TrafficViewModelTest {
 
     private fun viewModel(replays: ReplayRepository? = this.replays) = TrafficViewModel(runs, traffic, exports, replays)
 
+    // ADR-0210: each title bar tool runs what the palette's entry with its tag runs, and shows when that entry does.
+    @Test
+    fun `each title bar tool runs what its palette entry runs`() {
+        val opened = mutableListOf<String>()
+        val links =
+            TrafficLinks(
+                onExportHar = { opened += EXPORT_HAR },
+                onIssues = { opened += ISSUES },
+                onBenchmarks = { opened += BENCHMARKS },
+                onCompareRuns = { opened += COMPARE_RUNS },
+                onMocks = { opened += MOCKS },
+                onBreakpoints = { opened += BREAKPOINTS },
+                onSettings = { opened += SETTINGS },
+            )
+        val recordings = listOf(Run(1, "one", 0, 1), Run(2, "two", 2, 3))
+        for (runs in listOf(emptyList(), recordings)) {
+            val commands = TrafficCommands(TrafficState(runs = RunsState(runs = runs)), links, viewModel()) {}
+            val entries = commands.groups("").flatMap { it.items }.associateBy { it.tag.removePrefix(PALETTE) }
+            val tools = commands.tools()
+            assertEquals(listOf(SAVE, EXPORT_HAR, ISSUES, BENCHMARKS, COMPARE_RUNS, MOCKS, BREAKPOINTS, SETTINGS), tools.map { it.tag })
+            tools.forEach { tool ->
+                assertEquals(tool.enabled, tool.tag in entries, tool.tag)
+                if (tool.enabled) {
+                    opened.clear()
+                    tool.onClick()
+                    val byTool = opened.toList()
+                    opened.clear()
+                    entries.getValue(tool.tag).onRun()
+                    assertEquals(listOf(tool.tag), byTool)
+                    assertEquals(byTool, opened)
+                }
+            }
+        }
+    }
+
     @Test
     fun `disconnects a device until reconnected`() =
         runTest {

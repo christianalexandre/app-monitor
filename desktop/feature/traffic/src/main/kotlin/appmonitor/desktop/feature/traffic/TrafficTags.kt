@@ -137,3 +137,9 @@ const val HOST_FILTER = "host-filter-"
 
 // HOSTS' button that hides every host or shows them all again.
 const val EVERY_HOST = "every-host"
+
+// A title bar tool's tag is this prefix and its palette tag (`save`, `issues`…), ADR-0210.
+const val TOOL = "tool-"
+
+// The title bar's "⋯" holding the tools under a narrow window.
+const val TOOLS_MENU = "tools-menu"

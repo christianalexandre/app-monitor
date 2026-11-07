@@ -161,7 +161,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:designsystem:test :desktop:feature:traffic:test
   :desktop:app:test`, with the gallery and `devices.png`, `devices-hidden.png`, `filters.png`
   and `detail-*.png` read; a test for hosts all off and back on.
-- [ ] **H8.10 A fuller title bar.** The owner (2026-11-07): besides the palette, the title bar
+- [x] **H8.10 A fuller title bar.** (`feat/fuller-title-bar`, ADR-0210; tools fold under 760 dp, not at the 1000 dp minimum, where they fit with 450 dp left for the title; a tool the palette hides is dimmed) The owner (2026-11-07): besides the palette, the title bar
   holds the actions and the tools.
   - After Record/Stop and Clear, icon buttons for Save (⌘S), Export HAR (⌘E), Issues,
     Benchmarks, Compare runs, Mock rules, Breakpoints and Settings (⌘,), then

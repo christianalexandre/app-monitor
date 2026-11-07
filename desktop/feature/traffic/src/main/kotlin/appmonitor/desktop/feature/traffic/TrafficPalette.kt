@@ -2,6 +2,7 @@ package appmonitor.desktop.feature.traffic
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import appmonitor.desktop.designsystem.AppIcons
 import appmonitor.desktop.designsystem.CommandPalette
@@ -37,6 +38,21 @@ internal class TrafficCommands(
     fun exportHar(): Boolean = true.also { links.onExportHar() }
 
     fun settings(): Boolean = true.also { links.onSettings() }
+
+    /** The title bar's tools (ADR-0210), in its order: each runs what the palette's entry of the same name runs. */
+    fun tools(): List<Tool> {
+        val shortcut = { key: String -> " $SHORTCUT_PREFIX$key" }
+        return listOfNotNull(
+            Tool("Save" + shortcut("S"), SAVE, AppIcons.Save, { save() }, enabled = chosen).takeIf { live },
+            Tool("Export HAR" + shortcut("E"), EXPORT_HAR, AppIcons.Export, links.onExportHar),
+            Tool("Issues", ISSUES, AppIcons.Issue, links.onIssues),
+            Tool("Benchmarks", BENCHMARKS, AppIcons.Chart, links.onBenchmarks),
+            Tool("Compare runs", COMPARE_RUNS, AppIcons.Compare, links.onCompareRuns, enabled = state.runs.recordings.size > 1),
+            Tool(links.mocksLabel, MOCKS, AppIcons.Mask, links.onMocks),
+            Tool(links.breakpointsLabel, BREAKPOINTS, AppIcons.Pause, links.onBreakpoints),
+            Tool("Settings" + shortcut(","), SETTINGS, AppIcons.Gear, links.onSettings),
+        )
+    }
 
     /** The palette's groups for [query]: Requests, Actions, Open and Devices, an empty one left out. */
     fun groups(query: String): List<PaletteGroup> {
@@ -119,6 +135,15 @@ internal class TrafficCommands(
         ).filter { it.items.isNotEmpty() }
     }
 }
+
+/** One of the title bar's tools: its [name] (with its shortcut), the [tag] after `TOOL`, its [icon], what it runs. */
+internal class Tool(
+    val name: String,
+    val tag: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+)
 
 /** The palette over the window, filled by [commands] (ADR-0206). */
 @Composable

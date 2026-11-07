@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -106,6 +107,7 @@ object AppIcons {
     val ChevronUp by icon { stroke("M4 10 l4 -4 l4 4") }
     val ChevronDown by icon { stroke("M4 6 l4 4 l4 -4") }
     val Pencil by icon { stroke("M10.5 2.5 l3 3 l-8 8 H2.5 v-3 z M9 4 l3 3") }
+    val Compare by icon { stroke("M2.5 5.5 h10 M10 3 l2.5 2.5 L10 8 M13.5 10.5 h-10 M6 8 l-2.5 2.5 L6 13") }
 
     /** Every icon with its name, in the order above: what the gallery draws. */
     val all: List<Pair<String, ImageVector>>
@@ -138,6 +140,7 @@ object AppIcons {
                 "ChevronUp" to ChevronUp,
                 "ChevronDown" to ChevronDown,
                 "Pencil" to Pencil,
+                "Compare" to Compare,
             )
 }
 
@@ -152,7 +155,10 @@ fun Icon(
     Image(rememberVectorPainter(icon), contentDescription = null, modifier.size(size), colorFilter = ColorFilter.tint(tint))
 }
 
-/** A button that is only an [icon]: the bars' sidebar toggle, search, copy, "⋯"; [description] is what a screen reader says. */
+/**
+ * A button that is only an [icon]: the bars' sidebar toggle, search, copy, "⋯"; [description] is what a screen reader says,
+ * and what its [Tooltip] shows when [tooltip] is set (ADR-0210); dimmed and inert unless [enabled].
+ */
 @Composable
 fun IconButton(
     icon: ImageVector,
@@ -160,19 +166,26 @@ fun IconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color = AppMonitorTheme.colors.neutral,
+    tooltip: Boolean = false,
+    enabled: Boolean = true,
 ) {
-    Box(
-        modifier
-            .clip(RoundedCornerShape(Radius.medium))
-            .clickable(onClick = onClick)
-            .semantics {
-                role = Role.Button
-                contentDescription = description
-            }.padding(Spacing.xs),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, tint = tint)
-    }
+    val button =
+        @Composable {
+            Box(
+                modifier
+                    .clip(RoundedCornerShape(Radius.medium))
+                    .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                    .clickable(enabled = enabled, onClick = onClick)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = description
+                    }.padding(Spacing.xs),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, tint = tint)
+            }
+        }
+    if (tooltip) Tooltip(description, content = button) else button()
 }
 
 /** An icon's side: [small] in a sidebar row, [medium] in a bar and on a button, [large] in the palette's field. */
@@ -183,6 +196,7 @@ object IconSize {
 }
 
 private const val VIEWPORT = 16f
+private const val DISABLED_ALPHA = 0.4f
 private const val STROKE = 1.25f
 
 private class IconScope(
