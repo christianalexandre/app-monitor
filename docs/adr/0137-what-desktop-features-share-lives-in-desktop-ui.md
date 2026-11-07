@@ -32,10 +32,8 @@ Both references split this out:
   `UserNewsResource`), and every feature depends on it: its feature
   convention plugin adds `implementation(project(":core:ui"))`
   (`build-logic/convention/.../AndroidFeatureImplConventionPlugin.kt`).
-- mibo-smart-app has `core/ui/designsystem` and, beside it,
-  `core/ui/camera` and `core/ui/map` (read in
-  `~/Documents/mibo-smart-app/core/ui/`): UI shared by features;
-  `feature/home/build.gradle.kts` depends on `:core:ui:map`.
+- The owner's reference app has its design system module and, beside it,
+  modules of UI shared by features, which a feature module depends on.
 
 ## Options
 
@@ -49,8 +47,8 @@ Both references split this out:
 
 ## Decision
 
-Option 1, following nowinandroid's `core/ui` and mibo-smart-app's
-`core/ui/*`: a `desktop/ui` module (package `appmonitor.desktop.ui`) with
+Option 1, following nowinandroid's `core/ui` and the reference app's
+shared UI modules: a `desktop/ui` module (package `appmonitor.desktop.ui`) with
 `api(desktop/domain)`, holding what two features or more read or write of a
 domain value. A helper used by one feature stays in that feature. It holds
 no Compose code today; a composable shared by features and knowing a domain

@@ -97,8 +97,8 @@ add `AUTOINCREMENT`, so a rule's id is never reused, ADR-0113 B.1); children ref
   or `dark`, missing or unreadable = `system`, ADR-0145), read at launch (also
   macOS's title bar appearance, ADR-0150, which follows a pick, ADR-0178) and
   written back after "Clear all data" so clearing keeps it; `ui.panes` is
-  the traffic panes' layout (`shown` or `hidden`, the devices pane's and
-  the request list's widths in dp, as `shown,240,480`; missing or
+  the traffic panes' layout (`shown` or `hidden`, the sidebar's and
+  the request list's widths in dp, as `shown,220,480`; missing or
   unreadable = those defaults, ADR-0153), kept the same way; all read with
   `setting(key)` and written through the queue with `setSetting(key, value)`.
 - `approvals` and `settings` are not under a session: retention never
@@ -473,8 +473,8 @@ goes to `LiveTraffic` first; then:
   either grouping was. `diff_runs` and the window's run diff use it; it
   reads nothing itself.
 - The window's request list is the selected session's exchanges under the
-  toolbar's search field and the filter sheet: method, status classes,
-  failed only, hosts (ADR-0148). The sheet lists the hosts of the shown
+  list header's URL filter and status choice (one class or failed only,
+  ADR-0203), the header's method and the sidebar's hosts (ADR-0148, ADR-0205). The sidebar lists the hosts of the shown
   list (`observeHosts`: the distinct `exchanges.host` of a session, a run
   or every stored exchange, or of the live list), and a picked host gone
   from it, so it can be unpicked. The device
@@ -531,7 +531,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | One table of filters and one set of odd events on the store and the live list | `FilterMatchTest` (DEBT-0104) |
 | A request saved before its response gets it on the next Save, its frames not doubled | `SaveTest.savedAgainAfterItsResponseTheExchangeGetsIt` |
 | A live WebSocket saved again gets the frames since, none twice, past frames the list cut, after a lost batch and after "Clear all data" | `SaveTest.savedAgainALiveWebSocketStoresTheFramesSince`, `framesCutFromTheListBetweenSavesAreLeftOutAndTheRestStored`, `aSaveLostInItsBatchStoresItsFramesWithTheNextSave`, `savedAgainAfterClearAllItsFramesAreStoredAgain` |
-| The filter sheet narrows the list by status class, host and method, and combines | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
+| The list header and the sidebar's hosts narrow the list by status class, host and method, and combine | `AppMonitorAppTest` in `desktop/app`, `filters.png` (M5.7, H3.6c) |
 | The hosts of a run, a session or every stored exchange | `SearchTest.hostsOfARunASessionOrEveryExchange` (H3.6c) |
 | The sheet offers the shown hosts, a host filter keeps only that host's rows | `TrafficViewModelTest` in `desktop/feature/traffic` (H3.6c) |
 | Age bound, oldest session first, connected and named kept, empty runs and unused devices deleted, secure delete | `RetentionTest.ageBoundDeletesOldSessionsAndKeepsNamedRunsAndConnectedOnes` (M5.8) |
@@ -548,7 +548,7 @@ Each case above, with the test that proves it (M5.3 unless noted):
 | Mock rules: active per app in order, pending until confirmed, kept across a reopen, a version-3 file migrates | `MocksTest` (M9.2), SDD 12 |
 | Live list: two devices in one list, events as the store gives them, filters, Clear keeps connected sessions, both bounds drop the oldest, empty frames counted, a WebSocket's last frames kept within its share, endpoints grouped | `LiveTrafficTest` (H3.1) |
 | Record: nothing stored without a recording, every device in the run whatever when it connected, what started while recording ends in the run after Stop, a session spanning two recordings, `clearAll` ends it and opens no run | `RecorderTest` (H3.2); Record and Stop in the window, the run opened read-only, in `AppMonitorAppTest` (`recording.png`) |
-| Drops: a session's latest kept live, written to its row in a recording when reported before or during it, copied by Save, read back after a restart; none without a report | `RecorderTest` (H5.3c); a real server's `DeliveryReport` in the devices pane, `DropsUiTest` in `desktop/app` (`drops.png`) |
+| Drops: a session's latest kept live, written to its row in a recording when reported before or during it, copied by Save, read back after a restart; none without a report | `RecorderTest` (H5.3c); a real server's `DeliveryReport` in the sidebar, `DropsUiTest` in `desktop/app` (`drops.png`) |
 | A run per endpoint and device: one column per device in the order it joined, a device reconnected during the run counted once, what came before Record left out, the filter applied, its own run id ignored | `StoredRepositoriesTest` in `desktop/data` (H3.3); the window's "By device" in `BenchmarksUiTest` (`devices.png`) |
 | Save: live exchanges into one "Saved" run with their bodies, frames and failure, not written twice, kept across a restart and by retention, one gone from the list left out; an issue from live requests links their saved rows | `SaveTest` (H3.2b); `LiveRepositoriesTest` in `desktop/data`; Save in the window, "Saved" opened read-only, in `AppMonitorAppTest` (`saved.png`) |
 | Live list behind the repositories: no store row of it, a run or stored id reads the store, the rule name from the store; MCP tools read it without `run_id` | `LiveRepositoriesTest` in `desktop/data`, `LiveTrafficToolsTest` in `desktop/mcp` (H3.1) |

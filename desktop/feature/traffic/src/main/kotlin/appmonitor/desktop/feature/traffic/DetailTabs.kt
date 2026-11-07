@@ -5,6 +5,8 @@ import appmonitor.desktop.domain.CapturedBody
 import appmonitor.desktop.domain.HttpExchange
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.desktop.ui.headersText
+import appmonitor.desktop.ui.statusOf
+import appmonitor.v1.CaptureLayer
 import appmonitor.v1.Header
 import java.time.Instant
 import java.time.ZoneId
@@ -87,7 +89,7 @@ internal fun searchedTexts(
 ): Map<DetailTab, List<String>> =
     tabsOf(exchange).associateWith { tab ->
         when (tab) {
-            DetailTab.Summary -> listOfNotNull(exchange.url, exchange.error)
+            DetailTab.Summary -> (requestRowsOf(exchange) + responseRowsOf(exchange)).map { it.second }
             DetailTab.Headers -> (exchange.requestHeaders + exchange.responseHeaders).flatMap { listOf(it.name, it.value_) }
             DetailTab.Body -> bodies
             DetailTab.Timing -> timingOf(exchange, zone).map { it.second }
@@ -122,3 +124,71 @@ internal fun bodyMatches(
             }
         }
     }
+
+/** The Summary tab's request table (ADR-0204): the URL's parts and the method; empty without a URL. */
+internal fun requestRowsOf(exchange: HttpExchange): List<Pair<String, String>> {
+    val url = exchange.url ?: return emptyList()
+    val parts = urlPartsOf(url)
+    return listOf(
+        "Host" to parts.host,
+        "Path" to parts.path,
+        "Query" to parts.query.removePrefix("?").ifEmpty { "—" },
+        "Method" to (exchange.method ?: "—"),
+        "Scheme" to (url.substringBefore("://", "").ifEmpty { "—" }),
+    )
+}
+
+/** The Summary tab's response table: status (or the failure), duration, body size and type. */
+internal fun responseRowsOf(exchange: HttpExchange): List<Pair<String, String>> =
+    listOf(
+        "Status" to (exchange.error?.let { "failed — $it" } ?: statusOf(exchange)),
+        "Duration" to (exchange.durationMs?.let(::formatDuration) ?: "—"),
+        "Body" to bodySizeOf(exchange.responseBody),
+        "Content-Type" to (contentTypeOf(exchange.responseHeaders) ?: "—"),
+    )
+
+/** The line under the URL: duration, response size, [device], start time in [zone], capture layer. */
+internal fun metaOf(
+    exchange: HttpExchange,
+    device: String?,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String =
+    listOfNotNull(
+        exchange.durationMs?.let(::formatDuration),
+        exchange.connection?.received?.let { "${sizeLabel(it)} ↓" } ?: "${bodySizeOf(exchange.responseBody)} ↓",
+        device,
+        exchange.startedAtMs?.let { CLOCK.withZone(zone).format(Instant.ofEpochMilli(it)) },
+        layerOf(exchange.captureLayer),
+    ).joinToString(" · ")
+
+/** A body's size as the device saw it: its original size when cut. */
+internal fun bodySizeOf(body: CapturedBody): String = sizeLabel(body.originalSize ?: body.bytes.size.toLong())
+
+internal fun sizeLabel(bytes: Long): String =
+    when {
+        bytes < KIB -> "$bytes B"
+        bytes < KIB * KIB -> String.format(Locale.ROOT, "%.1f KB", bytes / KIB.toDouble())
+        else -> String.format(Locale.ROOT, "%.1f MB", bytes / (KIB * KIB).toDouble())
+    }
+
+private const val KIB = 1024L
+
+/** The media type of [headers]' `Content-Type`, without its parameters. */
+internal fun contentTypeOf(headers: List<Header>): String? =
+    headers
+        .lastOrNull { it.name.equals("Content-Type", ignoreCase = true) }
+        ?.value_
+        ?.substringBefore(';')
+        ?.trim()
+        ?.ifEmpty { null }
+
+internal fun layerOf(layer: CaptureLayer): String =
+    when (layer) {
+        CaptureLayer.CAPTURE_LAYER_PLATFORM -> "Platform layer"
+        CaptureLayer.CAPTURE_LAYER_ADAPTER -> "Adapter layer"
+        CaptureLayer.CAPTURE_LAYER_CONNECTION -> "Connection layer"
+        CaptureLayer.CAPTURE_LAYER_PROXY -> "Proxy layer"
+        CaptureLayer.CAPTURE_LAYER_UNSPECIFIED -> "Unknown layer"
+    }
+
+private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT)

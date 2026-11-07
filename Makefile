@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check check-full samples android-samples docs-check designsystem-check lint scripts-test build swift swift-sim ios-sample kmp-sample e2e-android e2e-ios e2e-ios-grpc e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check check-full samples android-samples docs-check designsystem-check lint scripts-test build swift swift-sim swift-stress ios-sample kmp-sample e2e-android e2e-ios e2e-ios-grpc e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -46,6 +46,9 @@ XCODEGEN_HOST = [ "$$(uname -s)" = Darwin ] && command -v xcodegen >/dev/null
 
 swift-sim: ## iOS SDK tests hosted in an app on an iPhone simulator (SIM_DEVICE="iPhone 17", ADR-0047)
 	@if $(XCODEGEN_HOST); then scripts/swift_sim_check.sh; else echo "swift-sim: SKIPPED (needs macOS and 'brew install xcodegen'; ADR-0047)"; fi
+
+swift-stress: ## iOS suites repeated, idle, under load and on a new simulator, before a release (STRESS_RUNS, STRESS_LOAD, ADR-0201)
+	@if $(XCODEGEN_HOST); then scripts/swift_stress.sh; else echo "swift-stress: SKIPPED (needs macOS and 'brew install xcodegen'; ADR-0201)"; fi
 
 ios-sample: ## Build samples/ios in Debug and Release, keys and SDK in Debug only (ADR-0050)
 	@if $(XCODEGEN_HOST); then scripts/ios_sample_check.sh; else echo "ios-sample: SKIPPED (needs macOS and 'brew install xcodegen'; ADR-0050)"; fi

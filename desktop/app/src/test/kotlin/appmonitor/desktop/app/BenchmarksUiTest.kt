@@ -21,7 +21,6 @@ import appmonitor.desktop.feature.insights.BenchmarkColumn
 import appmonitor.desktop.feature.insights.BenchmarkRow
 import appmonitor.desktop.feature.insights.sortBenchmarks
 import appmonitor.desktop.feature.traffic.BENCHMARKS
-import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.feature.traffic.SEARCH
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.v1.Envelope
@@ -96,7 +95,7 @@ class BenchmarksUiTest {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("https://api.example.com/search?q=1")
-                onNodeWithTag(BENCHMARKS).performClick()
+                action(BENCHMARKS)
                 awaitText("203 requests read")
                 onNodeWithText("198 ms").assertExists()
                 onNodeWithText("2xx 190 · 5xx 10").assertExists()
@@ -106,7 +105,7 @@ class BenchmarksUiTest {
                 onNodeWithText("Close").performClick()
 
                 onNodeWithTag(SEARCH).performTextInput("orders")
-                onNodeWithTag(BENCHMARKS).performClick()
+                action(BENCHMARKS)
                 awaitText("2 requests read")
                 onNodeWithText("Every device in the live list", substring = true).assertExists()
                 onNodeWithText("under the request filter", substring = true).assertExists()
@@ -135,11 +134,10 @@ class BenchmarksUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
-                onNodeWithTag(RUNS).performClick()
                 awaitText("Checkout")
                 onNodeWithText("Checkout").performClick()
                 awaitText("https://api.example.com/feed")
-                onNodeWithTag(BENCHMARKS).performClick()
+                action(BENCHMARKS)
                 awaitText("3 requests read")
                 onNodeWithTag(BY_DEVICE).performClick()
                 awaitText("3 requests read from 2 devices")

@@ -4,9 +4,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
@@ -18,7 +23,8 @@ import appmonitor.desktop.app.store.ApprovalStore
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.RECORD
-import appmonitor.desktop.feature.traffic.RUNS
+import appmonitor.desktop.feature.traffic.REQUEST_LIST
+import appmonitor.desktop.feature.traffic.RUN
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.ExchangeFilter
@@ -79,7 +85,7 @@ class LiveDeviceScreenshots {
                 }
                 println("liveScreenshots: data in $dir, listening on $port, mDNS ${if (advertise) "on" else "off"}, waiting for a device")
                 onNodeWithTag(RECORD).performClick()
-                waitFor("Stop recording")
+                waitFor("Stop")
                 waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText("Approve").fetchSemanticsNodes().isNotEmpty() }
                 screenshot("$name-approval.png")
                 onNodeWithText("Approve").performClick()
@@ -107,10 +113,9 @@ class LiveDeviceScreenshots {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Reopened", appearance = TestAppearance) }
                 println("liveScreenshots: store reopened, opening the recording")
-                onNodeWithTag(RUNS).performClick()
-                onAllNodesWithText(" – ", substring = true).onFirst().performClick()
+                onAllNodes(tagStartsWith(RUN)).onFirst().performClick()
                 waitFor("/json")
-                onAllNodesWithText("/json", substring = true).onFirst().performClick()
+                inList("/json").performClick()
                 waitFor("\"slideshow\"")
                 screenshot("$name-reopen.png")
             }
@@ -120,13 +125,23 @@ class LiveDeviceScreenshots {
     }
 
     private fun ComposeUiTest.showJsonAndFrames() {
-        onAllNodesWithText("/json", substring = true).onFirst().performClick()
+        inList("/json").performClick()
         waitFor("\"slideshow\"")
         screenshot("$name-traffic.png")
-        onAllNodesWithText("echo.websocket.org", substring = true).onFirst().performClick()
+        inList("echo.websocket.org").performClick()
         waitFor("WebSocket frames")
         screenshot("$name-frames.png")
     }
+
+    // The sidebar lists hosts and runs too (ADR-0205): a row is picked inside the request list.
+    private fun ComposeUiTest.inList(text: String) =
+        onAllNodes(hasText(text, substring = true) and hasAnyAncestor(hasTestTag(REQUEST_LIST))).onFirst()
+
+    private fun tagStartsWith(prefix: String) =
+        SemanticsMatcher("testTag starts with $prefix") {
+            SemanticsProperties.TestTag in it.config &&
+                it.config[SemanticsProperties.TestTag].startsWith(prefix)
+        }
 
     private fun ComposeUiTest.waitFor(text: String) =
         waitUntil(timeoutMillis = timeoutMs) { onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }

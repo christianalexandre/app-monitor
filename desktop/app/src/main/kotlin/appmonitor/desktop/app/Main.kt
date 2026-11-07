@@ -1,8 +1,10 @@
 package appmonitor.desktop.app
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
@@ -19,6 +21,8 @@ import appmonitor.desktop.data.paneLayoutRepository
 import appmonitor.desktop.data.runRepository
 import appmonitor.desktop.data.settingRepository
 import appmonitor.desktop.data.trafficRepository
+import appmonitor.desktop.designsystem.LocalWindowBar
+import appmonitor.desktop.designsystem.WindowBar
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.feature.settings.DataDirectoryInUse
@@ -61,6 +65,7 @@ import kotlin.system.exitProcess
 import kotlin.time.Duration
 
 fun main() {
+    nameApp()
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
     val (storage, approvals, access, appearance, panes, desktopId) =
@@ -80,6 +85,7 @@ fun main() {
         }
     // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
     System.setProperty(MAC_APPEARANCE, macAppearanceOf(appearance.theme.value))
+    showDockIcon()
     val live = LiveTraffic()
     val recorder = Recorder(live, storage)
     val store = TrafficStore(storage, recorder)
@@ -109,41 +115,45 @@ fun main() {
                     awaitApplication {
                         Window(
                             onCloseRequest = ::exitApplication,
-                            title = "App Monitor",
+                            title = APP_NAME,
+                            icon = appIconPainter(),
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
                             // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
                             LaunchedEffect(window) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
                             LaunchedEffect(appearance) { withContext(Dispatchers.IO) { appearance.theme.collect(::applyMacAppearance) } }
                             val scope = rememberCoroutineScope()
-                            AppMonitorApp(
-                                storage,
-                                status,
-                                approvals,
-                                answered = approvals,
-                                connections = approvals,
-                                onClearAll = {
-                                    scope.launch {
-                                        approvals.forgetAll()
-                                        clearAllKeepingDesktopId(storage)
-                                        appearance.setTheme(appearance.theme.value)
-                                        panes.setLayout(panes.layout.value)
-                                        recorder.forget()
-                                        live.clear()
-                                        mcp.afterClearAll()
-                                        proxy.afterClearAll()
-                                    }
-                                },
-                                mcp = mcp,
-                                proxy = proxy,
-                                heldCalls = store.heldCalls,
-                                replays = store.replays,
-                                appearance = appearance,
-                                panes = panes,
-                                live = live,
-                                runRepository = runRepository,
-                                traffic = traffic,
-                            )
+                            val bar = remember(window) { if (unifyTitleBar(window.rootPane)) macWindowBar(this) else WindowBar.Plain }
+                            CompositionLocalProvider(LocalWindowBar provides bar) {
+                                AppMonitorApp(
+                                    storage,
+                                    status,
+                                    approvals,
+                                    answered = approvals,
+                                    connections = approvals,
+                                    onClearAll = {
+                                        scope.launch {
+                                            approvals.forgetAll()
+                                            clearAllKeepingDesktopId(storage)
+                                            appearance.setTheme(appearance.theme.value)
+                                            panes.setLayout(panes.layout.value)
+                                            recorder.forget()
+                                            live.clear()
+                                            mcp.afterClearAll()
+                                            proxy.afterClearAll()
+                                        }
+                                    },
+                                    mcp = mcp,
+                                    proxy = proxy,
+                                    heldCalls = store.heldCalls,
+                                    replays = store.replays,
+                                    appearance = appearance,
+                                    panes = panes,
+                                    live = live,
+                                    runRepository = runRepository,
+                                    traffic = traffic,
+                                )
+                            }
                         }
                     }
                 }
@@ -227,8 +237,9 @@ internal suspend fun stopAll(
 }
 
 private suspend fun showDataDirectoryInUse(directory: String) {
+    showDockIcon()
     awaitApplication {
-        Window(onCloseRequest = ::exitApplication, title = "App Monitor") { DataDirectoryInUse(directory) }
+        Window(onCloseRequest = ::exitApplication, title = APP_NAME, icon = appIconPainter()) { DataDirectoryInUse(directory) }
     }
 }
 
@@ -237,8 +248,9 @@ private suspend fun showStorageFailure(
     failure: Exception,
 ) {
     failure.printStackTrace()
+    showDockIcon()
     awaitApplication {
-        Window(onCloseRequest = ::exitApplication, title = "App Monitor") {
+        Window(onCloseRequest = ::exitApplication, title = APP_NAME, icon = appIconPainter()) {
             StorageUnavailable(file, failure.message ?: failure.toString()) { clearDataFiles(Path.of(file)) }
         }
     }

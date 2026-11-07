@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -38,8 +39,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.awt.Cursor
@@ -68,7 +73,7 @@ fun Badge(
 }
 
 @Composable
-private fun colorOf(tone: BadgeTone): Color {
+internal fun colorOf(tone: BadgeTone): Color {
     val colors = AppMonitorTheme.colors
     return when (tone) {
         BadgeTone.Neutral -> colors.neutral
@@ -91,7 +96,7 @@ fun ToggleChip(
     modifier: Modifier = Modifier,
 ) {
     val color = if (selected) colorOf(tone) else colorOf(BadgeTone.Neutral)
-    val shape = RoundedCornerShape(Radius.small)
+    val shape = RoundedCornerShape(Radius.medium)
     Box(
         modifier
             .clip(shape)
@@ -131,34 +136,40 @@ fun PaneDivider(
     }
 }
 
-/** The window's actions over its panes, in one row ruled below. */
+/**
+ * The window's own bar over its panes (ADR-0205): [BarHeight.title] tall on the title bar's layer, ruled below, in the
+ * window's [LocalWindowBar] (ADR-0213).
+ */
 @Composable
-fun Toolbar(
+fun TitleBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content,
-        )
+    val bar = LocalWindowBar.current
+    Column(modifier.fillMaxWidth().background(AppMonitorTheme.colors.titleBar)) {
+        bar.area(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().height(BarHeight.title).padding(start = bar.buttonsInset + Spacing.md, end = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content,
+            )
+        }
         Divider()
     }
 }
 
-/** The window's status and the screens it opens, in one row ruled above, along its bottom edge (ADR-0151). */
+/** The window's state in one row ruled above, along its bottom edge: [BarHeight.status] tall on its layer (ADR-0205). */
 @Composable
 fun StatusBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().background(AppMonitorTheme.colors.statusBar)) {
         Divider()
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            Modifier.fillMaxWidth().height(BarHeight.status).padding(horizontal = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
         )
@@ -263,3 +274,87 @@ private fun keep(
     text: String,
     count: Int,
 ): String = text.take(count - count / 2) + "…" + text.takeLast(count / 2)
+
+/**
+ * A URL's [path], strong, then its [query], muted, on one line; too wide, the query is cut first, then the path's start,
+ * so the path's end stays ([pathCut], ADR-0203). The whole URL stays its [semantics].
+ */
+@Composable
+fun PathText(
+    path: String,
+    query: String,
+    modifier: Modifier = Modifier,
+    semantics: String = path + query,
+) {
+    val measurer = rememberTextMeasurer()
+    val style = styleOf(TextRole.BodyStrong)
+    val muted = AppMonitorTheme.colors.muted
+    BoxWithConstraints(modifier.clearAndSetSemantics { this.text = AnnotatedString(semantics) }) {
+        val width = constraints.maxWidth
+        val (shownPath, shownQuery) =
+            remember(path, query, width, style) {
+                pathCut(path, query, width) { measurer.measure(it, style, maxLines = 1, softWrap = false).size.width }
+            }
+        val text =
+            buildAnnotatedString {
+                append(shownPath)
+                withStyle(SpanStyle(color = muted, fontWeight = FontWeight.Normal)) { append(shownQuery) }
+            }
+        MaterialText(text, style = style, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * What [PathText] draws of [path] and [query] in [maxWidth], as [widthOf] measures: both whole when they fit, else the
+ * path and the longest start of the query before "…", else "…" and the longest end of the path.
+ */
+fun pathCut(
+    path: String,
+    query: String,
+    maxWidth: Int,
+    widthOf: (String) -> Int,
+): Pair<String, String> {
+    if (widthOf(path + query) <= maxWidth) return path to query
+    if (query.isNotEmpty() && widthOf("$path…") <= maxWidth) {
+        val kept = longest(query.length) { widthOf(path + query.take(it) + "…") <= maxWidth }
+        return path to query.take(kept) + "…"
+    }
+    val kept = longest(path.length) { widthOf("…" + path.takeLast(it)) <= maxWidth }
+    return "…" + path.takeLast(kept) to ""
+}
+
+// The largest count in 0..[most] that [fits], by binary search; fitting is monotonic in the count.
+private fun longest(
+    most: Int,
+    fits: (Int) -> Boolean,
+): Int {
+    var low = 0
+    var high = most
+    while (low < high) {
+        val mid = (low + high + 1) / 2
+        if (fits(mid)) low = mid else high = mid - 1
+    }
+    return low
+}
+
+/** One choice of a row of them, as a status class over a list: strong on a faded primary while [selected]. */
+@Composable
+fun SegmentButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = AppMonitorTheme.colors
+    MaterialText(
+        text,
+        modifier
+            .clip(RoundedCornerShape(Radius.small))
+            .selectable(selected, role = Role.Tab, onClick = onClick)
+            .background(if (selected) colors.selected else Color.Transparent)
+            .padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
+        color = if (selected) colors.primary else colors.neutral,
+        style = styleOf(if (selected) TextRole.SmallStrong else TextRole.Small),
+        maxLines = 1,
+    )
+}

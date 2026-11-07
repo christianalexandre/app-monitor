@@ -63,7 +63,7 @@ class ExportUiTest {
                     }
                 }
 
-                onNodeWithTag(EXPORT_HAR).performClick()
+                action(EXPORT_HAR)
                 awaitText("Exported 2 exchanges to run.har")
                 val har = Json.parseToJsonElement(file.readText()).jsonObject
                 assertHar12(har)

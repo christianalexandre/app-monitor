@@ -30,10 +30,9 @@ each (Material's minimum width); a request row spent its URL's room on
 `https://`; the detail's heading did not show the status (the reference
 client shows it beside the URL, `LogDetailView.swift`).
 
-The reference (standing owner decision): `mibo-smart-app` builds its
-search and text fields on foundation's `BasicTextField`, not Material's
-(`core/ui/designsystem/.../component/MiboSearchField.kt` and
-`MiboTextField.kt`; no `OutlinedTextField` in its design system). The
+The reference (standing owner decision): the owner's reference app builds
+its search and text fields on foundation's `BasicTextField`, not Material's
+(no `OutlinedTextField` in its design system). The
 layout is stored the way `ui.theme` is (ADR-0145).
 
 ## Options

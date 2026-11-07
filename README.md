@@ -72,7 +72,7 @@ flowchart LR
    message inside a channel envelope — the same transport will carry logs,
    analytics and storage inspection later.
 
-![The desktop showing a physical Android device's traffic](docs/screenshots/device-traffic.png)
+![The desktop showing the iOS sample's traffic on a simulator](docs/screenshots/simulator-traffic.png)
 
 Design details: [architecture](docs/sdd/01_architecture.md) and the
 [decision records](docs/adr/README.md).

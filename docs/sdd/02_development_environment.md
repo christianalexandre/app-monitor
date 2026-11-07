@@ -245,7 +245,10 @@ jpackage from the JDK 21 toolchain (the Compose plugin downloads WiX for
 `io.github.christianalexandre.appmonitor.desktop`, Linux package
 `app-monitor` and the Windows `upgradeUuid` are ADR-0055's; the bundled
 runtime adds the modules `./gradlew :desktop:app:suggestRuntimeModules`
-prints, so rerun it after adding a dependency. The packages are **unsigned
+prints, so rerun it after adding a dependency. The icon is
+`desktop/app/icon/app-monitor.svg`; `./gradlew :desktop:app:appIcons`
+renders it to the committed ICNS, ICO and PNG the packages, the window and
+the Dock use (ADR-0211). The packages are **unsigned
 build proof**, not releases: macOS Gatekeeper and Windows SmartScreen block
 them until the user overrides (ADR-0055). The app inside listens on 47474
 like `make desktop`.
@@ -376,6 +379,34 @@ and `.deb` on ubuntu, one matrix entry each, and uploads each as the
 The `publish` job, on macOS, runs `make publish-dry-run` and uploads
 `build/maven-dry-run/` as the `maven-dry-run` artifact for 7 days.
 
+The gate runs in three steps (ADR-0200): `branch`, then `contract` and
+`desktop`, the jobs that fail most and finish first, then every other job,
+skipped when one of those failed; `gh run rerun <id> --failed` reruns a failed
+job and the jobs after it. It also runs on `dev` on Mondays and Thursdays at
+06:00 UTC, the only runs that write the macOS Gradle cache a release PR reads
+(`setup-gradle` writes on the default branch alone). The Windows job never
+saves one (DEBT-0129).
+
+Measured on `dev` at `ac5b460`, 2026-11-05, minutes:
+
+| | Cold cache (run `42074065010`) | Warm cache (run `42088402191`) |
+| --- | --- | --- |
+| `contract` and `desktop`, the first step | 20.4 | 8.0 (Windows 7.8, `contract` 6.5) |
+| `samples`, the longest after them | 27.8 | 30.2 |
+| `e2e-ios-grpc` | 27.9 | 23.4 |
+| `e2e-kmp-ios` | 20.9 | 19.5 |
+| Whole gate | 48.6 | 38.2 |
+
+The first step's 20.4 min was `contract` on a slow simulator (the package's
+suite in 50 s, against 8 s on the warm run), not the cache: ADR-0200's "at most
+9 minutes" holds on that runner only. Before ADR-0200 a gate took about 47 min,
+pass or fail.
+
+`make swift-stress` repeats the iOS suites by hand (ADR-0201): `STRESS_RUNS`
+(20) rounds of the package's and TestHost's suites, idle, then under
+`STRESS_LOAD` (100) busy loops, then `make swift-sim` on a simulator it creates
+and deletes; logs of the failed rounds in `build/swift-stress/`.
+
 `main` requires the gate through the `protect-main` repository ruleset
 (ADR-0053): no deletion, no force-push, merge through a PR only, and every
 gate job plus `pr-conventions.yml`'s `conventions` and `docs` as required
@@ -388,6 +419,7 @@ job renamed, or a matrix changed, must change the file in the same PR
 (DEBT-0048). When `branch` fails, the other jobs are skipped and a skipped
 matrix job reports under its bare name (`desktop`), not a required one; the
 failed `branch` check is what blocks the merge (seen on the probe PR #130).
+The same holds for `contract` or `desktop` and the jobs after them.
 
 ## Limits
 

@@ -7,16 +7,24 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.text.AnnotatedString
+import appmonitor.desktop.designsystem.PALETTE_LIST
 import appmonitor.desktop.domain.AppearanceRepository
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.feature.traffic.ACTIONS
+import appmonitor.desktop.feature.traffic.PALETTE
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import javax.imageio.ImageIO
@@ -32,6 +40,20 @@ internal fun ComposeUiTest.awaitText(
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.awaitTag(tag: String) =
     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+
+/** Opens the palette from the title bar's "Actions" and runs its entry standing for [tag] (ADR-0206). */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.action(tag: String) {
+    onNodeWithTag(ACTIONS).performClick()
+    paletteEntry(tag).performClick()
+}
+
+/** The open palette's entry standing for [tag], scrolled into its list. */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.paletteEntry(tag: String): SemanticsNodeInteraction {
+    onNodeWithTag(PALETTE_LIST).performScrollToNode(hasTestTag(PALETTE + tag))
+    return onNodeWithTag(PALETTE + tag)
+}
 
 /** Keeps the last text copied, in place of the system clipboard. */
 internal class FakeClipboard : ClipboardManager {
@@ -63,6 +85,14 @@ internal fun ComposeUiTest.pick(
 
 private const val MENU_TRIES = 3
 private const val MENU_WAIT_MS = 4_000L
+
+/** Fails unless the request detail's tab named [label] is the open one. */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.assertTabOpen(label: String) {
+    val tab = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+    waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(tab).fetchSemanticsNodes().isNotEmpty() }
+    onNode(tab).assertIsSelected()
+}
 
 /** Opens the request detail's tab named [label]; the pick keeps it for the next request. */
 @OptIn(ExperimentalTestApi::class)

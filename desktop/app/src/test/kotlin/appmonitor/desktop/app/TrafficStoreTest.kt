@@ -8,7 +8,6 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.feature.traffic.REQUEST_LIST
-import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.Storage
@@ -64,10 +63,9 @@ class TrafficStoreTest {
 
                     // The live list starts empty; the stored run, ended, is one click away (ADR-0140).
                     awaitText("No requests yet")
-                    onNodeWithTag(RUNS).performClick()
                     onNodeWithText(" – ", substring = true).performClick()
                     awaitText("Pixel")
-                    onNodeWithText("Android 16 · disconnected").assertExists()
+                    onNodeWithText("Android 16 · disconnected", substring = true).assertExists()
                     awaitText(URL)
                     onNodeWithText(URL).performClick()
                     showTab("Headers")

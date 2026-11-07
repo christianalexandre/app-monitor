@@ -15,9 +15,9 @@ ADR-0133 chose Koin (Apache-2.0) for injection and JetBrains' multiplatform
 H2.2b brings both, with the first feature module, `desktop/feature/traffic`.
 Three things are left open:
 
-- **How definitions are declared.** mibo-smart-app declares them with
-  annotations: `feature/home/.../HomeModule.kt` is a `@Module
-  @Configuration @ComponentScan` class, and `HomeViewModel` is a
+- **How definitions are declared.** The owner's reference app declares them with
+  annotations: a feature's module is a `@Module
+  @Configuration @ComponentScan` class, and a view model is a
   `@KoinViewModel`, read by the Koin compiler plugin
   (`io.insert-koin.compiler.plugin` 1.2.1 beside Koin 4.2.2 in its
   `gradle/libs.versions.toml`). The compiler plugin is a Kotlin compiler
@@ -36,15 +36,15 @@ Three things are left open:
 
 Versions from Maven Central's `maven-metadata.xml` on 2026-10-25: Koin
 4.2.2 and `org.jetbrains.androidx.lifecycle` 2.11.0, the same as
-mibo-smart-app's catalog.
+the owner's reference app's catalog.
 
 ## Options
 
-1. **Annotations and the Koin compiler plugin**, as mibo-smart-app. No
+1. **Annotations and the Koin compiler plugin**, as the reference app. No
    definition list; one more compiler plugin to keep in step with Kotlin.
 2. **The Koin DSL** (`module { viewModel { … } }`), one `Module` value per
    feature, included by the app's module. Same library and runtime as
-   mibo-smart-app, written by hand; a constructor change is a one-line
+   the reference app, written by hand; a constructor change is a one-line
    edit in the module.
 3. **No container**: each screen builds its view model with
    `viewModel { … }`. Nothing to wire, but every repository travels down
@@ -52,7 +52,7 @@ mibo-smart-app's catalog.
 
 ## Decision
 
-Option 2, following mibo-smart-app's split (a module per feature, the
+Option 2, following the reference app's split (a module per feature, the
 shell wires them, `koinViewModel()` in the screen) without its compiler
 plugin.
 
