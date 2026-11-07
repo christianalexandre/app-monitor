@@ -195,7 +195,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it narrows ADR-0147's first tab.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a first
   pick opens Body and a picked tab survives the next pick; `app.png` read.
-- [ ] **H8.13 One title bar, the window's own (macOS).** The owner's second look (2026-11-07): the
+- [x] **H8.13 One title bar, the window's own (macOS).** (`feat/macos-unified-title-bar`, ADR-0213, DEBT-0132; AppKit took the properties in a real window, the buttons end at 61 pt inside a 72 dp inset; the drag, the double click and the buttons' 6 dp offset left to H8.6) The owner's second look (2026-11-07): the
   actions belong up beside "App Monitor", in the window's title bar. Today they sit in a second
   row under it.
   Option (b), picked by the owner on 2026-11-07 (PR #401): macOS only, on any JDK. The app

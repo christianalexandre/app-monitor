@@ -136,19 +136,25 @@ fun PaneDivider(
     }
 }
 
-/** The window's own bar over its panes (ADR-0205): [BarHeight.title] tall on the title bar's layer, ruled below. */
+/**
+ * The window's own bar over its panes (ADR-0205): [BarHeight.title] tall on the title bar's layer, ruled below, in the
+ * window's [LocalWindowBar] (ADR-0213).
+ */
 @Composable
 fun TitleBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val bar = LocalWindowBar.current
     Column(modifier.fillMaxWidth().background(AppMonitorTheme.colors.titleBar)) {
-        Row(
-            Modifier.fillMaxWidth().height(BarHeight.title).padding(horizontal = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content,
-        )
+        bar.area(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().height(BarHeight.title).padding(start = bar.buttonsInset + Spacing.md, end = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content,
+            )
+        }
         Divider()
     }
 }

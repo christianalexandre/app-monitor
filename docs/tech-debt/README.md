@@ -149,3 +149,4 @@ Rules:
 | [0129](0129-the-windows-gate-job-saves-no-gradle-cache.md) | The gate's Windows job saves no Gradle cache | A Windows job of `release-gate.yml` times out, or the gate's first step takes over 10 minutes because of it | Open |
 | [0130](0130-the-sidebar-and-status-bar-show-no-counts.md) | The sidebar and the status bar show no counts | The owner names a missing count in PLAN-0018 H8.6, or a PR adds a grouped count query to `desktop/storage/src/main/sqldelight` | Open |
 | [0131](0131-a-match-jumped-to-in-wrapped-json-lands-lower.md) | A match jumped to in wrapped JSON lands lower than its line | The owner reports a Body tab match out of view after "↓", or a PR changes the jump in `RequestDetail.kt` | Open |
+| [0132](0132-windows-and-linux-keep-two-title-bars.md) | Windows and Linux keep the system's title bar over the window's own | The owner runs the desktop on Windows, or a PR changes `MacTitleBar.kt` or the JDK the desktop runs on | Open |
