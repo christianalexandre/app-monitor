@@ -1,6 +1,7 @@
 package appmonitor.desktop.feature.traffic
 
 import appmonitor.desktop.designsystem.SyntaxKind
+import appmonitor.desktop.designsystem.matchesOf
 import appmonitor.desktop.ui.formatDuration
 import appmonitor.protocol.Protocol
 import appmonitor.v1.Header
@@ -15,21 +16,20 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTimedValue
 
 class BodyFormatTest {
-    private val json = Header("content-type", "application/json; charset=utf-8")
     private val binary = byteArrayOf(0x00, 0x7F, 0x80.toByte(), 0xFF.toByte()).toByteString()
 
     @Test
     fun `pretty prints json`() {
         val body = """{"name":"café","tags":[1,2]}""".encodeUtf8()
 
-        assertEquals(BodyFormat.Json, defaultFormat(listOf(json), decoded(body)))
+        assertEquals(BodyFormat.Json, defaultFormat(decoded(body)))
         assertEquals("{\n    \"name\": \"café\",\n    \"tags\": [\n        1,\n        2\n    ]\n}", render(decoded(body), BodyFormat.Json))
     }
 
     @Test
     fun `falls back to text, then hex`() {
-        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), decoded("not json".encodeUtf8())))
-        assertEquals(BodyFormat.Hex, defaultFormat(emptyList(), decoded(binary)))
+        assertEquals(BodyFormat.Text, defaultFormat(decoded("not json".encodeUtf8())))
+        assertEquals(BodyFormat.Hex, defaultFormat(decoded(binary)))
         assertEquals("Not valid UTF-8 text", render(decoded(binary), BodyFormat.Text))
         assertEquals("Not a JSON document", render(decoded("plain".encodeUtf8()), BodyFormat.Json))
         assertEquals("-1.5e3", render(decoded(" -1.5e3 ".encodeUtf8()), BodyFormat.Json))
@@ -50,7 +50,7 @@ class BodyFormatTest {
         assertEquals("Not a JSON document", render(decoded("""{"a": foo}""".encodeUtf8()), BodyFormat.Json))
         assertEquals("Not a JSON document", render(decoded("""[1, [true, nope]]""".encodeUtf8()), BodyFormat.Json))
         assertEquals("Not a JSON document", render(decoded("""{"n": 01}""".encodeUtf8()), BodyFormat.Json))
-        assertEquals(BodyFormat.Text, defaultFormat(listOf(json), decoded("""{"a": foo}""".encodeUtf8())))
+        assertEquals(BodyFormat.Text, defaultFormat(decoded("""{"a": foo}""".encodeUtf8())))
         assertEquals("{\n    \"a\": null\n}", render(decoded("""{"a": null}""".encodeUtf8()), BodyFormat.Json))
     }
 
@@ -70,8 +70,8 @@ class BodyFormatTest {
     fun `decodes and parses a body once for the default format and its rendering`() {
         val body = decoded("""{"a":1}""".encodeUtf8())
 
-        assertEquals(BodyFormat.Json, defaultFormat(listOf(json), body))
-        assertSame(body.prettyJson, render(body, BodyFormat.Json))
+        assertEquals(BodyFormat.Json, defaultFormat(body))
+        assertSame(body.prettyJson?.text, render(body, BodyFormat.Json))
         assertSame(body.text, render(body, BodyFormat.Text))
     }
 
@@ -142,7 +142,7 @@ class BodyFormatTest {
         val depth = 400
         val body = List(Protocol.MAX_BODY_BYTES / 2) { "1" }.joinToString(",", "[".repeat(depth), "]".repeat(depth)).encodeUtf8()
 
-        val (rendered, elapsed) = measureTimedValue { renderBody(listOf(json), decoded(body), null) }
+        val (rendered, elapsed) = measureTimedValue { renderBody(decoded(body), null) }
 
         assertEquals(BodyFormat.Json, rendered.format)
         val text = rendered.chunks.joinToString("\n")
@@ -177,5 +177,53 @@ class BodyFormatTest {
             spans,
         )
         assertEquals(listOf("\"open" to SyntaxKind.String), jsonSyntax("\"open").map { "\"open" to it.kind })
+    }
+
+    @Test
+    fun `opens as JSON whatever the content type says`() {
+        val body = """{"id":7}""".encodeUtf8()
+
+        assertEquals(BodyFormat.Json, defaultFormat(DecodedBody(body, listOf(Header("Content-Type", "text/plain")))))
+        assertEquals(BodyFormat.Json, defaultFormat(DecodedBody(body)))
+        assertEquals(BodyFormat.Text, defaultFormat(DecodedBody("id=7".encodeUtf8(), listOf(Header("Content-Type", "application/json")))))
+    }
+
+    @Test
+    fun `cuts a long string value in the JSON view only`() {
+        val long = "x".repeat(5_000)
+        val sent = """{"token":"$long","short":"ok"}"""
+        val body = decoded(sent.encodeUtf8())
+
+        val view = render(body, BodyFormat.Json)
+
+        assertTrue("\"token\": \"${"x".repeat(MAX_SHOWN_VALUE_CHARS)}… (${5_000 - MAX_SHOWN_VALUE_CHARS} more)\"," in view, view)
+        assertTrue("\"short\": \"ok\"" in view)
+        assertEquals(sent, render(body, BodyFormat.Text))
+        assertEquals(1, renderBody(body, null).cut.size)
+        assertEquals(emptyList(), renderBody(body, BodyFormat.Text).cut)
+    }
+
+    @Test
+    fun `never cuts inside an escape or a surrogate pair, nor a key`() {
+        val escaped = "a".repeat(MAX_SHOWN_VALUE_CHARS - 1) + "\\u00e9" + "b".repeat(50)
+        val emoji = "a".repeat(MAX_SHOWN_VALUE_CHARS - 1) + "😀" + "b".repeat(50)
+        val key = "k".repeat(300)
+
+        val view = render(decoded("""{"e":"$escaped","s":"$emoji","$key":1}""".encodeUtf8()), BodyFormat.Json)
+
+        assertTrue("${"a".repeat(MAX_SHOWN_VALUE_CHARS - 1)}\\u00e9… (50 more)\"" in view, view)
+        assertTrue("${"a".repeat(MAX_SHOWN_VALUE_CHARS - 1)}😀… (50 more)\"" in view, view)
+        assertTrue("\"$key\": 1" in view)
+    }
+
+    @Test
+    fun `counts matches left in the cut parts`() {
+        val body = decoded("""{"a":"${"x".repeat(MAX_SHOWN_VALUE_CHARS - 2)}needle${"y".repeat(100)}needle","b":"needle"}""".encodeUtf8())
+        val rendered = renderBody(body, null)
+
+        assertEquals(2, hiddenMatches(rendered.cut, "needle"), "one across the cut, one past it")
+        assertEquals(1, rendered.chunks.sumOf { matchesOf(it, "needle").size }, "the view shows only the short value's")
+        assertEquals(" · 2 in cut values", cutSummary(2))
+        assertEquals("", cutSummary(0))
     }
 }

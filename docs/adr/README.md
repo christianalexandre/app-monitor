@@ -225,3 +225,4 @@ Rules:
 | [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) | A sidebar, a title bar and a status bar around the traffic, the other screens behind "Actions" | Accepted |
 | [0206](0206-a-command-palette-replaces-the-actions-menu.md) | A ⌘K command palette replaces the title bar's "Actions" menu | Accepted |
 | [0207](0207-a-replays-note-on-every-tab-with-open.md) | A replay's note shows on every tab and opens the call it brought back | Accepted |
+| [0208](0208-a-body-opens-as-json-when-it-parses-and-long-values-are-cut.md) | A body opens as JSON whenever it parses, its lines wrap and long string values are cut | Accepted |

@@ -148,3 +148,4 @@ Rules:
 | [0128](0128-test-failures-whose-cause-was-not-proven.md) | Test failures whose cause was not proven | One of `BreakpointsUiTest.kt`, `LifecycleTest.kt`, `e2e_ios.sh`, or the iOS tests it names, fails again without a known cause | Open |
 | [0129](0129-the-windows-gate-job-saves-no-gradle-cache.md) | The gate's Windows job saves no Gradle cache | A Windows job of `release-gate.yml` times out, or the gate's first step takes over 10 minutes because of it | Open |
 | [0130](0130-the-sidebar-and-status-bar-show-no-counts.md) | The sidebar and the status bar show no counts | The owner names a missing count in PLAN-0018 H8.6, or a PR adds a grouped count query to `desktop/storage/src/main/sqldelight` | Open |
+| [0131](0131-a-match-jumped-to-in-wrapped-json-lands-lower.md) | A match jumped to in wrapped JSON lands lower than its line | The owner reports a Body tab match out of view after "↓", or a PR changes the jump in `RequestDetail.kt` | Open |

@@ -516,11 +516,18 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   after two seconds (ADR-0153). Above it, on every tab, the replay's note
   and its "Open" (SDD 12, ADR-0207). A body side's label row gives its size,
   its `Content-Type`, the Text / JSON / Hex control and the copy glyph. Bodies
-  open as JSON when the `Content-Type` says JSON and it parses as strict JSON
-  (no bare words at any depth), as text when it is UTF-8, else as hex; the
+  open as JSON whenever they parse as strict JSON (no bare words at any depth),
+  whatever the `Content-Type`, as text when they are UTF-8, else as hex
+  (ADR-0208); the
   user can switch with the Text / JSON / Hex control, the shown one filled. The chosen format belongs to the exchange: another
   exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
-  pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
+  pass, never re-encoded. The JSON view wraps its lines and never scrolls
+  sideways; Text and Hex do. In the JSON view a string value over 200
+  characters (`MAX_SHOWN_VALUE_CHARS`, keys never) shows its first 200 and
+  ends with `… (N more)`, never cut inside an escape or a surrogate pair; Text,
+  Hex, Copy and cURL keep it whole. The search finds what the view shows, and
+  its count adds "· N in cut values" for matches in the cut parts (ADR-0208).
+  A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
   body is rendered once per format. The hex dump is one linear pass.
   A truncated body shows "Truncated: N of M bytes shown" (or "original size

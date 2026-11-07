@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -100,6 +101,61 @@ class DetailTabsUiTest {
         }
 
     @Test
+    fun `a JSON body opens as JSON whatever its type, wraps, and cuts long values in the view only`() =
+        withStorage { storage ->
+            val token = "x".repeat(4_990) + "needle" + "y".repeat(4)
+            val note = List(25) { "word$it" }.joinToString(" ")
+            val sent = """{"token":"$token","note":"$note"}"""
+            val live = LiveTraffic()
+            live.record(
+                envelope(
+                    RequestStarted(
+                        request_id = "r1",
+                        method = "POST",
+                        url = URL,
+                        headers = listOf(Header("Content-Type", "text/plain")),
+                        body = sent.encodeUtf8(),
+                    ),
+                    1_000,
+                ),
+                envelope(
+                    ResponseReceived(request_id = "r1", status_code = 200, body = """{"ok":true}""".encodeUtf8()),
+                    1_120,
+                ),
+            )
+            val clipboard = FakeClipboard()
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent {
+                    CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                        AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live)
+                    }
+                }
+
+                awaitText(URL)
+                onNodeWithText(URL).performClick()
+                showTab("Body")
+                awaitText("\"token\": \"${"x".repeat(200)}… (4800 more)\"", substring = true)
+                awaitText("\"ok\": true", substring = true)
+                val root = onRoot().fetchSemanticsNode().boundsInRoot
+                for (part in listOf("… (4800 more)", "word24")) {
+                    val bounds = onNodeWithText(part, substring = true).fetchSemanticsNode().boundsInRoot
+                    assertTrue(bounds.right <= root.right, "$part runs past the window: $bounds")
+                }
+                screenshot("detail-body.png")
+
+                onNodeWithTag(COPY + DetailPart.RequestBody.name).performClick()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { clipboard.copied != null }
+                assertEquals(sent, clipboard.copied!!.text)
+
+                onNodeWithTag(DETAIL_SEARCH_OPEN).performClick()
+                onNodeWithTag(DETAIL_SEARCH).performTextInput("needle")
+                awaitText("No match · 1 in a cut value")
+                onNodeWithTag(DETAIL_SEARCH).performTextReplacement("word2")
+                awaitText("1 of 6")
+            }
+        }
+
+    @Test
     fun `each detail tab shows its part of the request and copies it`() =
         withStorage { storage ->
             val live = LiveTraffic()
@@ -161,7 +217,6 @@ class DetailTabsUiTest {
                 awaitText("{\n    \"id\": 7\n}")
                 assertEquals("{\"name\":\"a\"}", copy(DetailPart.RequestBody))
                 assertEquals("{\"id\":7}", copy(DetailPart.ResponseBody))
-                screenshot("detail-body.png")
 
                 showTab("Timing")
                 awaitText("120 ms")
