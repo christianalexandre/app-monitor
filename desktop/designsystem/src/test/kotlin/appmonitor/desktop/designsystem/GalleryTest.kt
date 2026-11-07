@@ -1,5 +1,7 @@
 package appmonitor.desktop.designsystem
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,13 +39,17 @@ class GalleryTest {
         listOf(false, true).forEach { dark ->
             var chosen: String? = null
             var tab = 0
-            runDesktopComposeUiTest(width = 1280, height = 960) {
+            runDesktopComposeUiTest(width = 1680, height = 1080) {
                 setContent {
                     AppMonitorTheme(dark) {
                         AppSurface { Gallery({ tab = it }) { chosen = it } }
                     }
                 }
-                TextRole.entries.forEach { onNodeWithText("Text in ${it.name}").assertExists() }
+                TextRole.entries.forEach {
+                    val shown = "Text in ${it.name}".let { text -> if (it == TextRole.Label) text.uppercase() else text }
+                    onNodeWithText(shown).assertExists()
+                }
+                LayerNames.forEach { onNodeWithText(it).assertExists() }
                 BadgeTone.entries.forEach { onNodeWithText(it.name).assertExists() }
                 onNodeWithText("2xx on").assertIsOn()
                 onNodeWithText("4xx off").assertIsOff()
@@ -50,6 +58,8 @@ class GalleryTest {
                 assertEquals("POST", chosen)
                 onNodeWithText("Headers").performClick()
                 assertEquals(1, tab)
+                onNodeWithText("Command palette").assertExists()
+                onNodeWithText("Search requests, actions, screens…").assertExists()
                 val corner = onRoot().captureToImage().toAwtImage().getRGB(1, 1) and 0xFFFFFF
                 val surface = (if (dark) DarkAppColors else LightAppColors).surface.toArgb() and 0xFFFFFF
                 assertEquals(surface, corner, "the surface's color")
@@ -87,9 +97,28 @@ private fun Gallery(
         }
         PaneDivider(onDrag = {})
         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-            Toolbar {
+            TitleBar {
+                IconButton(AppIcons.Sidebar, "Sidebar", onClick = {})
+                Text("Title bar", Modifier.weight(1f), role = TextRole.SmallStrong, secondary = true)
                 TextButton("Record", onClick = {})
                 TextButton("Clear", onClick = {})
+                IconButton(AppIcons.Gear, "Settings", onClick = {}, tooltip = true)
+                IconButton(AppIcons.Compare, "Compare runs", onClick = {}, enabled = false)
+            }
+            TooltipBubble("Settings ⌘,")
+            Column(Modifier.width(220.dp).background(AppMonitorTheme.colors.sidebar).padding(horizontal = Spacing.sm)) {
+                SidebarSection("Devices")
+                SidebarItem("All devices", onClick = {}, selected = true) { Text("12", role = TextRole.Caption, secondary = true) }
+                SidebarItem("Pixel 9", onClick = {}, sub = "Sample 1.0 · Android 16", dot = BadgeTone.Success)
+                SidebarItem("Recording", onClick = {}, sub = "since 15:57", icon = AppIcons.Record, iconTint = AppMonitorTheme.colors.error)
+                SidebarSection("Hosts") { IconButton(AppIcons.Check, "Hide every host", onClick = {}) }
+                SidebarItem("api.example.com", onClick = {}, icon = AppIcons.Check, iconTint = AppMonitorTheme.colors.primary)
+                SidebarItem("cdn.example.org", onClick = {}, icon = AppIcons.Globe, iconTint = AppMonitorTheme.colors.muted, dimmed = true)
+            }
+            Column(Modifier.padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                AppIcons.all.chunked(ICONS_PER_ROW).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) { row.forEach { (_, icon) -> Icon(icon) } }
+                }
             }
             Tabs(listOf("Summary", "Headers", "Body"), selected = 0, onSelect = onTab, Modifier.padding(horizontal = Spacing.lg))
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -101,6 +130,31 @@ private fun Gallery(
             }
             Box(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
                 MiddleEllipsisText("https://api.example.com/v1/orders/42/items?page=2")
+            }
+            Column(Modifier.width(220.dp).padding(horizontal = Spacing.lg)) {
+                PathText("/v1/items/42", "?include=tags")
+                PathText("/v1/orders/42/items/7/lines", "?page=2&sort=price")
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+                SegmentButton("All", selected = true, onClick = {})
+                SegmentButton("2xx", selected = false, onClick = {})
+                SegmentButton("Failed", selected = false, onClick = {})
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Segmented(listOf("Request", "Response", "Timing"), selected = 1, onSelect = {})
+                Segmented(listOf("Text", "JSON", "Hex"), selected = 1, onSelect = {}, small = true)
+                MenuButton(AppIcons.Ellipsis, "More actions", listOf(MenuAction("Copy as cURL", "copy") {}))
+            }
+            Box(Modifier.width(360.dp).padding(horizontal = Spacing.lg)) {
+                KeyValueTable(
+                    listOf("Content-Type" to "application/json", "X-Request-Id" to "42", "Cache-Control" to "no-store"),
+                    query = "json",
+                )
+            }
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("Secondary text", role = TextRole.Small, secondary = true)
+                Text("Warning text", role = TextRole.Small, warning = true)
+                Text("Error text", role = TextRole.Small, error = true)
             }
             Column(Modifier.padding(horizontal = Spacing.lg)) {
                 CodeText("content-type", role = TextRole.CodeCaption, muted = true)
@@ -120,25 +174,94 @@ private fun Gallery(
             }
             Box(Modifier.height(160.dp)) { EmptyState("Empty state", "What to do next") }
             Row(Modifier.padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                SearchField("", {}, "Search field", Modifier.weight(1f))
+                SearchField("", {}, "Search field", Modifier.weight(1f), shortcut = "⌘F")
                 SearchField("query", {}, "Search field", Modifier.weight(1f))
-                GlyphButton("↓", "Next", onClick = {})
+                IconButton(AppIcons.ChevronDown, "Next", onClick = {})
             }
-            Toast("Toast", Modifier.padding(horizontal = Spacing.lg))
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+                Toast("Toast")
+                Toast("Toast with an action", action = "Open")
+            }
             StatusBar {
-                Text("Listening on port 47474", Modifier.weight(1f), role = TextRole.Caption)
-                TextButton("Settings", onClick = {})
+                StatusDot(BadgeTone.Success)
+                Text("Listening :47474", role = TextRole.Caption, secondary = true)
+                StatusDot(BadgeTone.Error)
+                Text("Recording · 12 requests", role = TextRole.Caption, secondary = true)
             }
         }
         VerticalDivider()
-        Box(Modifier.weight(1f).fillMaxSize()) {
-            DialogCard(DialogWidth.Narrow) {
-                Text("Dialog card", role = TextRole.BodyStrong)
-                Text("Over an overlay that dims the window", role = TextRole.Caption)
-                DialogActions {
-                    TextButton("Cancel", onClick = {})
-                    TextButton("Confirm", onClick = {})
+        Tokens()
+        VerticalDivider()
+        Column(Modifier.weight(1f).fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                DialogCard(DialogWidth.Narrow) {
+                    Text("Dialog card", role = TextRole.BodyStrong)
+                    Text("Over an overlay that dims the window", role = TextRole.Caption)
+                    DialogActions {
+                        TextButton("Cancel", onClick = {})
+                        TextButton("Confirm", onClick = {})
+                    }
                 }
+            }
+            Box(Modifier.weight(1.4f).fillMaxWidth()) {
+                CommandPalette(
+                    "",
+                    {},
+                    listOf(
+                        PaletteGroup(
+                            "Requests",
+                            listOf(
+                                PaletteItem(
+                                    "/v1/events/batch",
+                                    "gallery-request",
+                                    AppIcons.Globe,
+                                    {},
+                                    sub = "POST · telemetry.example.net",
+                                ),
+                            ),
+                        ),
+                        PaletteGroup(
+                            "Actions",
+                            listOf(
+                                PaletteItem("Command palette", "gallery-record", AppIcons.Record, {}, shortcut = "⌘R"),
+                                PaletteItem("Copy as cURL", "gallery-curl", AppIcons.Copy, {}),
+                            ),
+                        ),
+                        PaletteGroup("Open", listOf(PaletteItem("Settings", "gallery-settings", AppIcons.Gear, {}, shortcut = "⌘,"))),
+                    ),
+                    onClose = {},
+                )
+            }
+        }
+    }
+}
+
+private val LayerNames = listOf("titleBar", "sidebar", "list", "surface", "statusBar", "border", "selected")
+
+/** Each layer's color with its name, and the bars' heights (ADR-0202). */
+@Composable
+private fun Tokens() {
+    val colors = AppMonitorTheme.colors
+    val layers =
+        listOf(colors.titleBar, colors.sidebar, colors.list, colors.surface, colors.statusBar, colors.border, colors.selected)
+    Column(Modifier.width(200.dp).padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text("Layers", role = TextRole.Label)
+        LayerNames.zip(layers).forEach { (name, color) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Box(
+                    Modifier
+                        .size(
+                            28.dp,
+                        ).border(1.dp, colors.border, RoundedCornerShape(Radius.medium))
+                        .background(color, RoundedCornerShape(Radius.medium)),
+                )
+                Text(name, role = TextRole.Small)
+            }
+        }
+        Text("Bars", Modifier.padding(top = Spacing.lg), role = TextRole.Label)
+        listOf("title" to BarHeight.title, "detail" to BarHeight.detail, "status" to BarHeight.status).forEach { (name, height) ->
+            Box(Modifier.fillMaxWidth().height(height).background(colors.statusBar), contentAlignment = Alignment.CenterStart) {
+                Text("$name ${height.value.toInt()} dp", Modifier.padding(horizontal = Spacing.md), role = TextRole.Caption)
             }
         }
     }
@@ -150,3 +273,5 @@ private fun androidx.compose.ui.test.ComposeUiTest.screenshot(name: String) {
     file.parentFile.mkdirs()
     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", file)
 }
+
+private const val ICONS_PER_ROW = 14

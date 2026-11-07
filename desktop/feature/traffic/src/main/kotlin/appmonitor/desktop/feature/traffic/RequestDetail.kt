@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -29,26 +28,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.AppIcons
 import appmonitor.desktop.designsystem.Badge
-import appmonitor.desktop.designsystem.BadgeTone
+import appmonitor.desktop.designsystem.BarHeight
 import appmonitor.desktop.designsystem.BlockEdge
 import appmonitor.desktop.designsystem.CodeBlock
 import appmonitor.desktop.designsystem.CodeText
 import appmonitor.desktop.designsystem.Divider
-import appmonitor.desktop.designsystem.GlyphButton
+import appmonitor.desktop.designsystem.IconButton
+import appmonitor.desktop.designsystem.KeyValueTable
+import appmonitor.desktop.designsystem.MenuAction
+import appmonitor.desktop.designsystem.MenuButton
 import appmonitor.desktop.designsystem.Placeholder
 import appmonitor.desktop.designsystem.SearchField
 import appmonitor.desktop.designsystem.Section
+import appmonitor.desktop.designsystem.Segmented
 import appmonitor.desktop.designsystem.Spacing
-import appmonitor.desktop.designsystem.Tabs
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
-import appmonitor.desktop.designsystem.TextField
 import appmonitor.desktop.designsystem.TextRole
 import appmonitor.desktop.designsystem.Toast
-import appmonitor.desktop.designsystem.ToggleChip
 import appmonitor.desktop.designsystem.lineHeightOf
 import appmonitor.desktop.designsystem.selectableItem
 import appmonitor.desktop.domain.CapturedBody
@@ -75,7 +77,11 @@ internal fun RequestDetail(
     onMoreFrames: () -> Unit,
     query: String,
     onQuery: (String) -> Unit,
+    device: String? = null,
+    onSaveAsIssue: () -> Unit = {},
+    onOpenReplayed: () -> Unit = {},
 ) {
+    var searching by remember { mutableStateOf(query.isNotBlank()) }
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
     val responseBody = rememberBodyView(exchange.responseHeaders, exchange.responseBody)
     // By id: the live list cuts the oldest frames, so an index would move to another one.
@@ -95,7 +101,11 @@ internal fun RequestDetail(
             withContext(Dispatchers.Default) {
                 val request = requestRendered?.chunks.orEmpty()
                 val response = responseRendered?.chunks.orEmpty()
-                Found(matchCounts(searchedTexts(exchange, request + response), query), bodyMatches(request, response, query))
+                Found(
+                    matchCounts(searchedTexts(exchange, request + response), query),
+                    bodyMatches(request, response, query),
+                    hiddenMatches(requestRendered?.cut.orEmpty() + responseRendered?.cut.orEmpty(), query),
+                )
             }
     }
     val counts = found.counts
@@ -112,74 +122,77 @@ internal fun RequestDetail(
     }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                Badge(
-                    statusOf(exchange),
-                    statusTone(exchange.error != null, exchange.grpcStatus, exchange.connection != null, exchange.statusCode),
-                    Modifier.padding(end = Spacing.sm),
-                )
-                SelectionContainer(Modifier.weight(1f)) {
-                    Text("${exchange.method ?: "—"} ${exchange.url ?: exchange.requestId}", role = TextRole.BodyStrong)
-                }
-                if (exchange.connection == null && exchange.url?.startsWith("ws") != true) {
-                    TextButton("Mock this", onClick = onMock, Modifier.testTag(MOCK_THIS))
-                    if (onReplay != null && exchange.captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY) {
-                        TextButton(replayLabelOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
-                    }
-                }
-            }
-            Tabs(
+            DetailBar(
+                exchange,
                 tabs.map { t -> counts[t]?.takeIf { it > 0 }?.let { "${t.label} · $it" } ?: t.label },
                 tabs.indexOf(tab),
                 { onTab(tabs[it]) },
-                Modifier.padding(horizontal = Spacing.lg),
+                onSearch = {
+                    searching = !searching
+                    if (!searching) onQuery("")
+                },
+                onMock,
+                onReplay,
+                onCopy,
+                onSaveAsIssue,
             )
-            Row(
-                Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SearchField(query, onQuery, "Search in this request", Modifier.weight(1f).testTag(DETAIL_SEARCH))
-                if (query.isNotBlank()) {
-                    val jumps = tab == DetailTab.Body && found.body.isNotEmpty()
-                    Text(
-                        if (jumps) "${current + 1} of ${found.body.size}" else matchSummary(counts.values.sum()),
-                        Modifier.testTag(DETAIL_MATCHES),
-                        role = TextRole.Caption,
-                    )
-                    if (jumps) {
-                        val size = found.body.size
-                        GlyphButton(
-                            "↑",
-                            "Previous match",
-                            onClick = { jumpTo((current - 1 + size) % size) },
-                            Modifier.testTag(PREVIOUS_MATCH),
+            Divider()
+            RequestLine(exchange, device, query, onCopy)
+            Divider()
+            if (searching || query.isNotBlank()) {
+                Row(
+                    Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SearchField(query, onQuery, "Search in this request", Modifier.weight(1f).testTag(DETAIL_SEARCH))
+                    if (query.isNotBlank()) {
+                        val jumps = tab == DetailTab.Body && found.body.isNotEmpty()
+                        Text(
+                            (if (jumps) "${current + 1} of ${found.body.size}" else matchSummary(counts.values.sum())) +
+                                cutSummary(found.hidden),
+                            Modifier.testTag(DETAIL_MATCHES),
+                            role = TextRole.Caption,
                         )
-                        GlyphButton("↓", "Next match", onClick = { jumpTo((current + 1) % size) }, Modifier.testTag(NEXT_MATCH))
+                        if (jumps) {
+                            val size = found.body.size
+                            IconButton(
+                                AppIcons.ChevronUp,
+                                "Previous match",
+                                onClick = { jumpTo((current - 1 + size) % size) },
+                                Modifier.testTag(PREVIOUS_MATCH),
+                            )
+                            IconButton(
+                                AppIcons.ChevronDown,
+                                "Next match",
+                                onClick = { jumpTo((current + 1) % size) },
+                                Modifier.testTag(NEXT_MATCH),
+                            )
+                        }
                     }
                 }
             }
             SelectionContainer(Modifier.weight(1f)) {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.lg).padding(bottom = Spacing.lg), state = list) {
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.xl).padding(bottom = Spacing.lg), state = list) {
                     when (tab) {
                         DetailTab.Summary -> {
-                            summary(exchange, detail.replayNote, query, onCopy, onShowOriginal)
+                            summary(exchange, query, onShowOriginal)
                         }
 
                         DetailTab.Headers -> {
                             item {
-                                CopyHeading(countedTitle("Request headers", exchange.requestHeaders), DetailPart.RequestHeaders, onCopy)
+                                CopyHeading(countedTitle("Request", exchange.requestHeaders), DetailPart.RequestHeaders, onCopy)
                                 Headers(exchange.requestHeaders, query)
-                                CopyHeading(countedTitle("Response headers", exchange.responseHeaders), DetailPart.ResponseHeaders, onCopy)
+                                CopyHeading(countedTitle("Response", exchange.responseHeaders), DetailPart.ResponseHeaders, onCopy)
                                 Headers(exchange.responseHeaders, query)
                             }
                         }
 
                         DetailTab.Body -> {
-                            item { CopyHeading("Request body", DetailPart.RequestBody, onCopy) }
+                            item { BodyHeading("Request", exchange.requestHeaders, requestBody, DetailPart.RequestBody, onCopy) }
                             val shown = found.body.getOrNull(current)
                             body(requestBody, query, shown?.takeIf { !it.response })
-                            item { CopyHeading("Response body", DetailPart.ResponseBody, onCopy) }
+                            item { BodyHeading("Response", exchange.responseHeaders, responseBody, DetailPart.ResponseBody, onCopy) }
                             body(responseBody, query, shown?.takeIf { it.response })
                             frames(exchange, openFrame, frameBody, query, { openFrame = if (it == openFrame) null else it }, onMoreFrames)
                         }
@@ -187,12 +200,7 @@ internal fun RequestDetail(
                         DetailTab.Timing -> {
                             item {
                                 CopyHeading("Timing", DetailPart.Timing, onCopy)
-                                timingOf(exchange).forEach { (name, value) ->
-                                    Row {
-                                        Text(name, Modifier.width(96.dp), role = TextRole.Caption)
-                                        CodeText(value, query = query)
-                                    }
-                                }
+                                KeyValueTable(timingOf(exchange), query = query)
                             }
                         }
 
@@ -211,30 +219,35 @@ internal fun RequestDetail(
                 }
             }
         }
-        detail.copyNote?.let { Toast(it, Modifier.align(Alignment.BottomCenter).padding(Spacing.lg).testTag(COPY_NOTE)) }
+        // ADR-0207: on every tab, above the copy note, until another request is picked.
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            detail.replayNote?.let {
+                Toast(
+                    it,
+                    Modifier.testTag(REPLAY_NOTE),
+                    action = detail.replayed?.let { "Open" },
+                    onAction = onOpenReplayed,
+                    actionModifier = Modifier.testTag(OPEN_REPLAYED),
+                )
+            }
+            detail.copyNote?.let { Toast(it, Modifier.testTag(COPY_NOTE)) }
+        }
     }
 }
 
 private fun LazyListScope.summary(
     exchange: HttpExchange,
-    replayNote: String?,
     query: String,
-    onCopy: (DetailPart) -> Unit,
     onShowOriginal: (Long) -> Unit,
 ) {
     item {
         Spacer(Modifier.height(Spacing.md))
-        Text(
-            listOfNotNull(
-                "Status ${statusOf(exchange)}",
-                exchange.durationMs?.let { "Duration ${formatDuration(it)}" },
-                layerOf(exchange.captureLayer),
-                exchange.mockRuleId?.let { mockedBy(exchange) },
-            ).joinToString(" · "),
-            role = TextRole.Caption,
-        )
         exchange.error?.let { CodeText(it, query = query, role = TextRole.Body, error = true) }
-        replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
+        exchange.mockRuleId?.let { Text(mockedBy(exchange), Modifier.testTag(MOCKED_BY), role = TextRole.Caption) }
         exchange.replayOf?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val original = exchange.replayOfId
@@ -247,17 +260,24 @@ private fun LazyListScope.summary(
                 }
             }
         }
-        exchange.url?.let {
-            CopyHeading("URL", DetailPart.Url, onCopy)
-            CodeBlock { CodeText(it, query = query) }
+        requestRowsOf(exchange).takeIf { it.isNotEmpty() }?.let { rows ->
+            TableLabel("Request")
+            KeyValueTable(rows, query = query)
         }
+        TableLabel("Response")
+        KeyValueTable(responseRowsOf(exchange), query = query)
         exchange.connection?.let { bytes ->
-            Section("Connection") {
-                Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
-                Text("Metadata only: no headers or body are captured at this layer", role = TextRole.Caption)
-            }
+            TableLabel("Connection")
+            Text("Sent ${countOf(bytes.sent)} · Received ${countOf(bytes.received)}", Modifier.testTag(CONNECTION_BYTES))
+            Text("Metadata only: no headers or body are captured at this layer", role = TextRole.Caption)
         }
     }
+}
+
+/** A section's small capital label over its table, spaced from what is above. */
+@Composable
+private fun TableLabel(text: String) {
+    Text(text, Modifier.padding(top = Spacing.lg, bottom = Spacing.sm), role = TextRole.Label)
 }
 
 private fun LazyListScope.frames(
@@ -285,39 +305,74 @@ private fun LazyListScope.frames(
     if (exchange.frames.size < exchange.framesKept) item { TextButton("Show more frames", onClick = onMoreFrames) }
 }
 
-/** A tab's heading with the copy action of its [part]. */
+/** A tab's small capital heading with the copy icon of its [part]. */
 @Composable
 private fun CopyHeading(
     title: String,
     part: DetailPart,
     onCopy: (DetailPart) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth().padding(top = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), role = TextRole.Heading)
-        TextButton("Copy", onClick = { onCopy(part) }, Modifier.testTag(COPY + part.name))
+    Row(Modifier.fillMaxWidth().padding(top = Spacing.lg, bottom = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), role = TextRole.Label)
+        CopyGlyph(part, onCopy)
     }
 }
 
-/** One header a row: its name small and muted above its value, a rule between rows, in the order sent. */
+@Composable
+private fun CopyGlyph(
+    part: DetailPart,
+    onCopy: (DetailPart) -> Unit,
+) {
+    IconButton(AppIcons.Copy, "Copy", onClick = { onCopy(part) }, Modifier.testTag(COPY + part.name))
+}
+
+/** A body side's heading: its label, size and `Content-Type`, its formats and the copy icon (ADR-0204). */
+@Composable
+private fun BodyHeading(
+    title: String,
+    headers: List<Header>,
+    view: BodyView,
+    part: DetailPart,
+    onCopy: (DetailPart) -> Unit,
+) {
+    val captured = view.captured
+    Row(
+        Modifier.fillMaxWidth().padding(top = Spacing.lg, bottom = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, role = TextRole.Label)
+        if (captured.bytes.size > 0) {
+            Text(listOfNotNull(bodySizeOf(captured), contentTypeOf(headers)).joinToString(" · "), role = TextRole.Caption, secondary = true)
+        }
+        Spacer(Modifier.weight(1f))
+        if (captured.bytes.size > 0) {
+            val formats = BodyFormat.entries
+            Segmented(
+                formats.map { it.label },
+                formats.indexOf(view.rendered?.format),
+                { view.choose(formats[it]) },
+                small = true,
+                role = Role.RadioButton,
+            )
+            CopyGlyph(part, onCopy)
+        }
+    }
+}
+
+/** The headers of one side as a key/value table, in the order sent. */
 @Composable
 private fun Headers(
     headers: List<Header>,
     query: String,
 ) {
-    if (headers.isEmpty()) Text("None", role = TextRole.Caption)
-    headers.forEachIndexed { index, header ->
-        if (index > 0) Divider()
-        Column(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
-            CodeText(header.name, query = query, role = TextRole.CodeCaption, muted = true)
-            CodeText(header.value_, query = query)
-        }
-    }
+    if (headers.isEmpty()) Text("None", role = TextRole.Caption) else KeyValueTable(headers.map { it.name to it.value_ }, query = query)
 }
 
 private fun countedTitle(
     title: String,
     headers: List<Header>,
-): String = if (headers.isEmpty()) title else "$title (${headers.size})"
+): String = if (headers.isEmpty()) title else "$title · ${headers.size}"
 
 /** One captured body and its rendering, which is null while it runs off the UI thread (ADR-0029). */
 private class BodyView(
@@ -335,7 +390,7 @@ private fun rememberBodyView(
     var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
     val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
         value = null
-        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
+        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(decoded, chosen) }
     }
     return BodyView(captured, rendered) { chosen = it }
 }
@@ -350,13 +405,6 @@ private fun LazyListScope.body(
         if (captured.truncated) Text(truncationNote(captured), role = TextRole.Caption)
         if (captured.bytes.size == 0 && !captured.truncated) Text("None", role = TextRole.Caption)
         view.rendered?.note?.let { Text(it, role = TextRole.Caption) }
-        if (captured.bytes.size > 0) {
-            Row(Modifier.padding(vertical = Spacing.xs), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                BodyFormat.entries.forEach { option ->
-                    ToggleChip(option.label, BadgeTone.Info, selected = option == view.rendered?.format, onToggle = { view.choose(option) })
-                }
-            }
-        }
     }
     if (captured.bytes.size == 0) return
     val rendered = view.rendered
@@ -366,12 +414,13 @@ private fun LazyListScope.body(
         val json = rendered.format == BodyFormat.Json
         itemsIndexed(rendered.chunks) { index, chunk ->
             CodeBlock(edgeOf(index, rendered.chunks.size)) {
+                // ADR-0208: JSON wraps, the other formats scroll sideways.
                 CodeText(
                     chunk,
-                    Modifier.horizontalScroll(rememberScrollState()),
+                    if (json) Modifier else Modifier.horizontalScroll(rememberScrollState()),
                     query = query,
                     syntax = if (json) remember(chunk) { jsonSyntax(chunk) } else emptyList(),
-                    softWrap = false,
+                    softWrap = json,
                     current = shown?.takeIf { it.chunk == index }?.inChunk,
                 )
             }
@@ -404,6 +453,7 @@ private fun FrameRow(
 private data class Found(
     val counts: Map<DetailTab, Int> = emptyMap(),
     val body: List<BodyMatch> = emptyList(),
+    val hidden: Int = 0,
 )
 
 // The Body tab's rows: per side a heading and a notes row, then its chunks (one "Rendering…" row while it renders).
@@ -414,6 +464,14 @@ private fun bodyRowOf(
 
 // Lines shown above a match jumped to.
 private const val CONTEXT_LINES = 3
+
+/** What the match count adds for matches in the JSON view's cut values (ADR-0208); empty without any. */
+internal fun cutSummary(hidden: Int): String =
+    when (hidden) {
+        0 -> ""
+        1 -> " · 1 in a cut value"
+        else -> " · $hidden in cut values"
+    }
 
 internal fun matchSummary(total: Int): String =
     when (total) {
@@ -476,17 +534,99 @@ private fun framePreview(frame: CapturedFrame): String? {
 
 private const val PREVIEW_BYTES = 512
 
-private fun layerOf(layer: CaptureLayer): String =
-    when (layer) {
-        CaptureLayer.CAPTURE_LAYER_PLATFORM -> "Platform layer"
-        CaptureLayer.CAPTURE_LAYER_ADAPTER -> "Adapter layer"
-        CaptureLayer.CAPTURE_LAYER_CONNECTION -> "Connection layer"
-        CaptureLayer.CAPTURE_LAYER_PROXY -> "Proxy layer"
-        CaptureLayer.CAPTURE_LAYER_UNSPECIFIED -> "Unknown layer"
-    }
-
 // ADR-0110 E.1: the device names the rule; a deleted one is left with its id.
 private fun mockedBy(exchange: HttpExchange): String =
     exchange.mockRuleName?.let { "Mocked by rule \"$it\"" } ?: "Mocked by deleted rule ${exchange.mockRuleId}"
 
 private fun countOf(bytes: Long?): String = bytes?.let { "$it B" } ?: "—"
+
+/** The detail's 38 dp bar (ADR-0204): `host › path`, the tabs, search, "Mock", "Replay" and "⋯". */
+@Composable
+private fun DetailBar(
+    exchange: HttpExchange,
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    onSearch: () -> Unit,
+    onMock: () -> Unit,
+    onReplay: (() -> Unit)?,
+    onCopy: (DetailPart) -> Unit,
+    onSaveAsIssue: () -> Unit,
+) {
+    val parts = exchange.url?.let(::urlPartsOf)
+    Row(
+        Modifier.fillMaxWidth().height(BarHeight.detail).padding(horizontal = Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            if (parts != null) {
+                Text(
+                    parts.host,
+                    Modifier.weight(1f, fill = false),
+                    role = TextRole.Small,
+                    secondary = true,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(" › ", role = TextRole.Caption, secondary = true)
+                Text(
+                    parts.path,
+                    Modifier.weight(1f, fill = false),
+                    role = TextRole.SmallStrong,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(exchange.requestId, role = TextRole.SmallStrong, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Segmented(labels, selected, onSelect)
+        IconButton(AppIcons.Search, "Search in this request", onClick = onSearch, Modifier.testTag(DETAIL_SEARCH_OPEN))
+        if (exchange.mockable) {
+            TextButton("Mock", onClick = onMock, Modifier.testTag(MOCK_THIS))
+            if (onReplay != null && exchange.replayable) {
+                TextButton(replayButtonOf(exchange.method), onClick = onReplay, Modifier.testTag(SEND_AGAIN))
+            }
+        }
+        MenuButton(
+            AppIcons.Ellipsis,
+            "More actions",
+            listOfNotNull(
+                MenuAction("Copy as cURL", COPY_CURL_ACTION) { onCopy(DetailPart.Curl) }.takeIf { exchange.connection == null },
+                MenuAction("Save as issue", SAVE_AS_ISSUE_ACTION, onSaveAsIssue),
+            ),
+            Modifier.testTag(MORE_ACTIONS),
+        )
+    }
+}
+
+/** Under the bar: the status, the method and the whole URL in small monospace, selectable, then the meta line. */
+@Composable
+private fun RequestLine(
+    exchange: HttpExchange,
+    device: String?,
+    query: String,
+    onCopy: (DetailPart) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.md)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+            Badge(
+                statusOf(exchange),
+                statusTone(exchange.error != null, exchange.grpcStatus, exchange.connection != null, exchange.statusCode),
+            )
+            exchange.method?.let { Text(it, role = TextRole.SmallStrong) }
+            SelectionContainer(Modifier.weight(1f)) {
+                CodeText(exchange.url ?: exchange.requestId, Modifier.testTag(DETAIL_URL), query = query)
+            }
+            if (exchange.url != null) CopyGlyph(DetailPart.Url, onCopy)
+        }
+        Text(metaOf(exchange, device), Modifier.padding(top = Spacing.xs).testTag(DETAIL_META), role = TextRole.Caption, secondary = true)
+    }
+}
+
+/** Whether the detail offers Mock: neither a connection nor a WebSocket. */
+internal val HttpExchange.mockable: Boolean get() = connection == null && url?.startsWith("ws") != true
+
+/** Whether the detail offers its replay button, the device able to send it again: a mockable call the proxy did not see. */
+internal val HttpExchange.replayable: Boolean get() = mockable && captureLayer != CaptureLayer.CAPTURE_LAYER_PROXY

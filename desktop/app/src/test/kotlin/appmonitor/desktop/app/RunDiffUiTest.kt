@@ -12,7 +12,6 @@ import appmonitor.desktop.feature.insights.DIFF_BASE
 import appmonitor.desktop.feature.insights.DIFF_RUN
 import appmonitor.desktop.feature.insights.DiffRow
 import appmonitor.desktop.feature.traffic.COMPARE_RUNS
-import appmonitor.desktop.feature.traffic.RUNS
 import appmonitor.desktop.storage.Storage
 import appmonitor.v1.RequestStarted
 import appmonitor.v1.ResponseReceived
@@ -101,8 +100,7 @@ class RunDiffUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
-                onNodeWithTag(RUNS).performClick()
-                onNodeWithTag(COMPARE_RUNS).performClick()
+                action(COMPARE_RUNS)
                 awaitText("2 added · 1 gone · 2 changed · 3 unchanged")
                 onNodeWithText("0.0 % → 50.0 %").assertExists()
                 onNodeWithText("GET api.example.com/gone").assertExists()

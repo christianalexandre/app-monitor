@@ -1,5 +1,6 @@
 package appmonitor.desktop.app
 
+import appmonitor.desktop.designsystem.WindowBar
 import appmonitor.desktop.domain.ThemeMode
 import com.sun.jna.Callback
 import com.sun.jna.NativeLibrary
@@ -62,6 +63,38 @@ class TitleBarScreenshots {
         }
     }
 
+    // ADR-0213: AppKit takes AWT's properties, and the window's buttons end inside the room the bar keeps for them.
+    @Test
+    fun theUnifiedTitleBarLeavesRoomForTheButtons() {
+        assumeTrue(System.getProperty("os.name").startsWith("Mac") && System.getProperty("os.arch") == "aarch64")
+        lateinit var frame: JFrame
+        SwingUtilities.invokeAndWait {
+            frame =
+                JFrame("App Monitor").apply {
+                    check(unifyTitleBar(rootPane))
+                    setSize(640, 200)
+                    isVisible = true
+                }
+        }
+        try {
+            Thread.sleep(SETTLE_MS)
+            onMainThread {
+                val window = windowOf(width = 640.0)
+                val mask = msgSend.invokeLong(arrayOf(window, selector("styleMask")))
+                assertTrue(mask and FULL_SIZE_CONTENT_VIEW != 0L, "style mask $mask")
+                assertEquals(1L, msgSend.invokeLong(arrayOf(window, selector("titleVisibility"))) and 0xff)
+                assertEquals(1, msgSend.invokeInt(arrayOf(window, selector("titlebarAppearsTransparent"))) and 0xff)
+                val zoomButton = msgSend.invokePointer(arrayOf(window, selector("standardWindowButton:"), ZOOM_BUTTON))
+                val zoomFrame = msgSend.invoke(Rect.ByValue::class.java, arrayOf(zoomButton, selector("frame"))) as Rect
+                val buttonsEnd = zoomFrame.x + zoomFrame.width
+                println("Zoom button frame: x=${zoomFrame.x} y=${zoomFrame.y} w=${zoomFrame.width} h=${zoomFrame.height}")
+                assertTrue(buttonsEnd < WindowBar.MacButtonsInset.value, "buttons end at $buttonsEnd")
+            }
+        } finally {
+            SwingUtilities.invokeAndWait { frame.dispose() }
+        }
+    }
+
     /** Picks [theme], checks the window took it; with Screen Recording allowed, the bar goes to [file] and its mean luminance, 0 to 255, returns. */
     private fun titleBarAfterPicking(
         theme: ThemeMode,
@@ -87,6 +120,13 @@ class TitleBarScreenshots {
     }
 
     private fun window() = send(send(send(cls("NSApplication"), "sharedApplication"), "windows"), "lastObject")
+
+    private fun windowOf(width: Double): Pointer? {
+        val windows = send(send(cls("NSApplication"), "sharedApplication"), "windows")
+        return (0L until msgSend.invokeLong(arrayOf(windows, selector("count"))))
+            .map { msgSend.invokePointer(arrayOf(windows, selector("objectAtIndex:"), it)) }
+            .single { (msgSend.invoke(Rect.ByValue::class.java, arrayOf(it, selector("frame"))) as Rect).width == width }
+    }
 
     private fun effectiveAppearanceName() = send(send(send(window(), "effectiveAppearance"), "name"), "UTF8String")?.getString(0)
 
@@ -156,5 +196,7 @@ class TitleBarScreenshots {
         const val PNG_TYPE = 4L
         const val INCLUDING_WINDOW = 8
         const val IGNORE_FRAMING = 1
+        const val FULL_SIZE_CONTENT_VIEW = 1L shl 15
+        const val ZOOM_BUTTON = 2L
     }
 }

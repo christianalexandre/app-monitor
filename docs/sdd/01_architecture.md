@@ -100,7 +100,7 @@ device                         AppMonitorServer
   lost N`. `TrafficStore` reads it with each envelope, so a new value reaches
   the sink (`TrafficSink.dropped`, SDD 09) in order with the report, and once
   when a lost count settles, with no envelope to carry it; the
-  devices pane names a session's counts once one is above zero, in the
+  sidebar names a session's counts once one is above zero, in the
   error color ("Dropped: 12 buffer full, 1 too large, lost unknown").
 - `DeviceSession.send(envelope)`: queues an envelope for the device on an
   accepted channel, written in order after `HelloAck` (SDD 12).
@@ -368,9 +368,10 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   shown while the source holds more than are read)
   again whenever its list row changes. A write failure shows
   "N events not saved: <error>" under the status.
-- Issues (ADR-0095, ADR-0096): each request row has a checkbox; "Save as
-  issue" (or "Save N as issue") in the toolbar takes the ticked requests,
-  from any session or run, or the selected one (live ones are saved to
+- Issues (ADR-0095, ADR-0096): each request row has a checkbox, shown on
+  hover or once ticked; ticked rows bring a bar under the list ("N marked",
+  "Save as issue", Save) whose "Save as issue" takes them, from any session
+  or run; with none ticked the palette's "Save as issue…" takes the selected one (ADR-0203, ADR-0206) (live ones are saved to
   "Saved" first, ADR-0143), and asks a title (the
   first request's method and URL by default), a note and comma-separated
   tags. "Issues" under the devices lists them newest first ("Open" or
@@ -441,57 +442,113 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `make fake-traffic` against the app waits up to 120 s for the approval the
   first time; its fixture `Hello` is always the same pair, so later runs are
   admitted with no dialog.
-- UI (ADR-0146): a toolbar over three panes (devices, requests of the
-  selected device, detail). "◂ Devices" hides the devices pane and
-  "▸ Devices" brings it back; the rule after the devices and after the
-  requests is dragged to resize them (devices 240–400 dp, requests from
-  360 dp, the detail at least 360 dp; the window keeps at least
-  1000 × 600 px); the hidden pane and both widths are kept across launches
-  in `ui.panes` (ADR-0153). The toolbar holds the run picker, Record /
-  "Stop recording", Save and Clear (live list only), "Save as issue", the
-  URL search and "Filters", which opens the filter sheet (method, status
-  classes, "Failed only", hosts, ADR-0148); Save's and
-  the HAR export's notes show under it. A status bar along the bottom
-  holds the server's status, what failed to be stored and the retention
-  warning, then the screens the window opens: Issues, Benchmarks, Mocks,
-  Breakpoints, Export HAR, Settings; it stays while the devices pane is
-  hidden (ADR-0151). A request row shows its status as a badge colored by class
-  (2xx green, 3xx blue, 4xx amber, 5xx, a failure or a gRPC error red,
-  pending or a socket neutral), the method, the URL cut in its middle,
-  "mocked" and "replay" badges, the start time to the millisecond (left
-  out while the list is under 560 dp) and the duration. An empty pane says why and what to do next: "No requests yet"
+- Name and icon (ADR-0211): the window, the Dock and the macOS menu bar say
+  "App Monitor", under `make desktop` too; the icon, rendered from
+  `desktop/app/icon/app-monitor.svg`, is the window's, the Dock's and the
+  packages'.
+- UI (ADR-0146, ADR-0205, ADR-0206, ADR-0210, ADR-0213): a 40 dp title bar over a sidebar, the requests
+  and the detail, then a 24 dp status bar. On macOS that bar is the window's
+  title bar: AWT lays the content under a transparent system title bar with
+  no title text, the bar keeps 72 dp for the system's buttons, its empty parts
+  move the window and a double click there zooms it. On Windows and Linux the
+  system's title bar stays over it (DEBT-0132). The title bar holds the
+  sidebar's toggle (also ⌘B, Ctrl+B off macOS), "App Monitor — <run>",
+  Record or Stop and Clear (live list only), the tools as icon buttons with
+  a tooltip of their name and shortcut (Save ⌘S on the live list, dimmed with
+  nothing ticked or picked; Export HAR ⌘E, Issues, Benchmarks, Compare runs,
+  dimmed under two recordings, Mocks, Breakpoints, Settings ⌘,), each running
+  what the palette's entry runs, folded into a "⋯" menu under 760 dp of bar past the system's buttons, then
+  "Actions ⌘K", which opens
+  the palette (also ⌘K, Ctrl+K off macOS; ⌘K, Esc or a click outside closes
+  it). The palette's field narrows four groups: Requests (the loaded rows
+  whose method and URL hold the text, one per method and path, five at most;
+  ↵ picks one), Actions (Record or Stop ⌘R and Clear on the live list, Save
+  ⌘S and "Save as issue…" for the ticked or picked rows, Mock, Replay and
+  "Copy as cURL" for the request shown, Export HAR ⌘E), Open (Issues,
+  Benchmarks, Mocks, Breakpoints, Compare runs with two recordings or more,
+  Settings ⌘,) and Devices ("Show <device>"); ↑ and ↓ move, ↵ runs. Each
+  entry runs what a button runs, and the shortcuts it lists work without it.
+  The window's icons are the design system's vector icons (`AppIcons`,
+  ADR-0209), on the bars' buttons and the palette's entries. The sidebar
+  has DEVICES ("All devices", each session with a
+  green dot while connected, its app, OS, drops and Disconnect, a refused
+  device with Reconnect), TRAFFIC (Live with the live icon, the recordings
+  newest first, the running one with a red record icon, the others with
+  its outline, the shown one renamed in place by a pencil, Saved with a
+  star) and HOSTS (each host with a check in the accent color while shown,
+  the globe in the muted color while hidden; a click hides a host or shows
+  it again, a host seen later shown (ADR-0214), hiding the last one shown
+  hides every host, and the label's
+  button hides every host or shows them all again), and a gear for the
+  settings; it shows no counts (DEBT-0130). The rule after the sidebar
+  and after the requests is dragged to resize them (sidebar 220–400 dp,
+  requests from 360 dp, the detail at least 360 dp; the window keeps at
+  least 1000 × 600 px); the hidden sidebar and both widths are kept across
+  launches in `ui.panes` (ADR-0153). Over the request list, its header holds
+  "Filter by URL" (⌘F, Ctrl+F off macOS) and the method, the status choices
+  All, 2xx, 3xx, 4xx, 5xx, Failed, one at a time, and the count ("N
+  requests", "N+" while the last page read is full, ADR-0203); Save's and
+  the HAR export's notes show under the title bar. The status bar holds the
+  server's status, the devices connected, the recording, MCP and the proxy,
+  what failed to be stored and the retention warning, then "Mocks (N to
+  confirm)" and "Breakpoints (N held)" while they wait, and the events
+  dropped. A request row is two lines (ADR-0203): the method, the
+  path with its query muted and the start time to the millisecond; then its
+  status as a badge colored by class (2xx green, 3xx blue, 4xx amber, 5xx, a
+  failure or a gRPC error red, pending or a socket neutral), the host or
+  the failure's message, "mocked" and "replay" badges, the device's
+  platform and the duration, amber over 2 s. Too narrow, the query is cut
+  first, then the path's start, so its end stays. An empty pane says why and what to do next: "No requests yet"
   (live, recording or a stored run, each with its hint), "No requests
   match" (a filter is set), "Select a request".
-- Request detail (ADR-0147): the method and URL, a copy note, "Mock this"
-  and "Send again" over five tabs: Summary (caption, error, replay link,
-  URL, connection bytes), Headers (request and response), Body (request
-  and response bodies, then WebSocket frames), Timing (started and ended
-  to the millisecond in this machine's zone, duration, frames: the
-  protocol carries no finer phase) and cURL. The tab picked stays for the
-  next request. Under the tabs, "Search in this request" highlights every
-  case-insensitive match in the shown tab and counts them per tab
-  ("Headers · 2", "2 matches"); cURL is highlighted but not counted, as it
-  repeats the others; the text stays while another request is picked
-  (ADR-0152). On the Body tab "N of M" with "↑" and "↓" walks the body
-  matches in reading order, request then response, scrolling to the
-  line of each; the current one is drawn stronger (ADR-0153). The search
-  field is one compact line with "×" to empty it, as is the toolbar's.
-  The detail's heading starts with the status badge the request row
-  shows; a request row leaves out `https://` (a plain `http://` stays). Headers show one per row, the name small and muted above the
-  value, in the order sent, each heading with its count. The URL, bodies
-  and cURL sit in a code block; a JSON body colors its keys, strings and
-  literals. Each part has "Copy": the URL, headers as `Name: value`
-  lines, a body whole as the device sent it, a gzip one opened (UTF-8,
-  else its hex dump, not the indented view), the timing lines, the cURL command; a note
-  at the pane's bottom says "Copied", "Nothing to copy" or why not, and
-  goes after two seconds (ADR-0153). The
-  detail caption reads "Status · Duration · <Layer> layer" ("Unknown layer"
-  when no `RequestStarted` or an older SDK sent it, ADR-0038). Bodies
-  open as JSON when the `Content-Type` says JSON and it parses as strict JSON
-  (no bare words at any depth), as text when it is UTF-8, else as hex; the
-  user can switch with the Text / JSON / Hex chips, the shown one lit. The chosen format belongs to the exchange: another
+- Request detail (ADR-0147, ADR-0204): a 38 dp bar holds `host › path`,
+  the five tabs as a segmented control, the search icon (shows or hides the search
+  field; hiding it empties it), "Mock", "Replay" and "⋯" (Copy as cURL,
+  Save as issue: what the list's "Save as issue" saves, the marked rows
+  or else the picked one). Under it the status badge, the method and the
+  whole URL in small monospace, selectable, with its copy icon, then a
+  meta line: duration, response size "↓" (its original size when cut),
+  the device's name while its session is in the window, the start time to
+  the millisecond, and "<Layer> layer" ("Unknown layer" when no
+  `RequestStarted` or an older SDK sent it, ADR-0038). Tabs: Summary
+  (error, "Mocked by …", the replay's link, a Request table of
+  host, path, query, method and scheme, a Response table of status or
+  failure, duration, body size and `Content-Type`, connection bytes),
+  Headers (a request and a response table), Body (request and response
+  bodies, then WebSocket frames), Timing (a table: started and ended to
+  the millisecond in this machine's zone, duration, frames: the protocol
+  carries no finer phase) and cURL. Tables are `KeyValueTable`s, keys
+  muted, every other row shaded, headers in the order sent. A first
+  pick opens Body (Summary for a connection layer exchange, which has
+  no Body); the tab picked stays for the next request (ADR-0212). "Search in this request" highlights
+  every case-insensitive match in the shown tab and counts them per tab
+  ("Headers · 2", "2 matches"); Summary counts its tables' values; cURL
+  is highlighted but not counted, as it repeats the others; the text
+  stays while another request is picked (ADR-0152). On the Body tab "N of
+  M" with "↑" and "↓" walks the body matches in reading order, request
+  then response, scrolling to the line of each; the current one is drawn
+  stronger (ADR-0153). A request row leaves out `https://` (a plain
+  `http://` stays). Bodies and cURL sit in a code block; a JSON body
+  colors its keys, strings and literals. Each section label has a copy
+  icon: the URL, headers as `Name: value` lines, a body whole as the
+  device sent it, a gzip one opened (UTF-8, else its hex dump, not the
+  indented view), the timing lines, the cURL command; a note at the
+  pane's bottom says "Copied", "Nothing to copy" or why not, and goes
+  after two seconds (ADR-0153). Above it, on every tab, the replay's note
+  and its "Open" (SDD 12, ADR-0207). A body side's label row gives its size,
+  its `Content-Type`, the Text / JSON / Hex control and the copy icon. Bodies
+  open as JSON whenever they parse as strict JSON (no bare words at any depth),
+  whatever the `Content-Type`, as text when they are UTF-8, else as hex
+  (ADR-0208); the
+  user can switch with the Text / JSON / Hex control, the shown one filled. The chosen format belongs to the exchange: another
   exchange with the same bytes opens in its own default. JSON is re-indented from the original text in one linear
-  pass, never re-encoded. A `DecodedBody` decodes UTF-8 and parses JSON at
+  pass, never re-encoded. The JSON view wraps its lines and never scrolls
+  sideways; Text and Hex do. In the JSON view a string value over 200
+  characters (`MAX_SHOWN_VALUE_CHARS`, keys never) shows its first 200 and
+  ends with `… (N more)`, never cut inside an escape or a surrogate pair; Text,
+  Hex, Copy and cURL keep it whole. The search finds what the view shows, and
+  its count adds "· N in cut values" for matches in the cut parts (ADR-0208).
+  A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
   body is rendered once per format. The hex dump is one linear pass.
   A truncated body shows "Truncated: N of M bytes shown" (or "original size

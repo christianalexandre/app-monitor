@@ -17,6 +17,7 @@ import appmonitor.desktop.feature.settings.PROXY_PASS_THROUGH_SAVE
 import appmonitor.desktop.feature.settings.PROXY_RESET_CA
 import appmonitor.desktop.feature.settings.PROXY_STATUS
 import appmonitor.desktop.feature.settings.PROXY_SWITCH
+import appmonitor.desktop.feature.traffic.SETTINGS_GEAR
 import appmonitor.desktop.proxy.ProxyRecording
 import appmonitor.desktop.storage.ExchangeFilter
 import appmonitor.desktop.storage.LiveTraffic
@@ -151,7 +152,7 @@ class ProxyWiringTest {
                     AppMonitorApp(storage, "Listening", appearance = TestAppearance, proxy = proxy)
                 }
 
-                onNodeWithText("Settings").performClick()
+                onNodeWithTag(SETTINGS_GEAR).performClick()
                 onNodeWithTag(
                     PROXY_STATUS,
                     useUnmergedTree = true,

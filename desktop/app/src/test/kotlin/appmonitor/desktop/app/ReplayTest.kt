@@ -3,6 +3,8 @@ package appmonitor.desktop.app
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -16,8 +18,10 @@ import appmonitor.desktop.domain.ReplayKey
 import appmonitor.desktop.domain.ReplaySent
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.feature.traffic.CONFIRM_REPLAY
+import appmonitor.desktop.feature.traffic.OPEN_REPLAYED
 import appmonitor.desktop.feature.traffic.REFUSE_REPLAY
 import appmonitor.desktop.feature.traffic.REPLAYED
+import appmonitor.desktop.feature.traffic.REPLAY_NOTE
 import appmonitor.desktop.feature.traffic.SEND_AGAIN
 import appmonitor.desktop.feature.traffic.SHOW_ORIGINAL
 import appmonitor.desktop.mcp.McpAccess
@@ -83,15 +87,47 @@ class ReplayTest {
                     device.send("RequestStarted", original.copy(request_id = "req-2", replay_of = "req-1"))
                     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllTagged(REPLAYED + "req-2") }
                     onNodeWithTag(REPLAYED + "req-2", useUnmergedTree = true).performClick()
+                    showTab("Summary")
                     awaitText("Replay of an earlier request")
                     screenshot("replay.png")
                     onNodeWithTag(SHOW_ORIGINAL).performClick()
-                    awaitText("Status 200", substring = true)
+                    waitUntil(timeoutMillis = TIMEOUT_MS) {
+                        onAllNodesWithText("Replay of an earlier request").fetchSemanticsNodes().isEmpty()
+                    }
 
                     onNodeWithTag(SEND_AGAIN).performClick()
                     device.next("ReplayRequest")
                     device.send("ReplayRefused", ReplayRefused("req-1", "no longer kept by the SDK"))
                     awaitText("The app did not send it again: no longer kept by the SDK")
+                }
+            }
+        }
+
+    @Test
+    fun `a replay from the body tab shows its note there and open picks the call it brought back`() =
+        withStorage { storage ->
+            withDevice(storage, INTERACTION) { store, device ->
+                device.send("RequestStarted", original)
+                device.send("ResponseReceived", ResponseReceived(request_id = "req-1", status_code = 200))
+                runDesktopComposeUiTest(width = 1280, height = 800) {
+                    device.await = { done -> waitUntil(timeoutMillis = TIMEOUT_MS, condition = done) }
+                    setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, replays = store.replays, live = list) }
+                    awaitText(original.url)
+                    onNodeWithText(original.url).performClick()
+                    showTab("Body")
+                    onNodeWithTag(SEND_AGAIN).performClick()
+                    assertEquals(ReplayRequest("req-1"), ReplayRequest.ADAPTER.decode(device.next("ReplayRequest").payload))
+                    awaitText("Sent to the app; its call shows as a replay")
+                    onNodeWithTag(REPLAY_NOTE).assertExists()
+
+                    device.send("RequestStarted", original.copy(request_id = "req-2", replay_of = "req-1"))
+                    waitUntil(timeoutMillis = TIMEOUT_MS) { onAllTagged(OPEN_REPLAYED) }
+                    awaitText("The app sent it again")
+                    screenshot("replay-arrived.png")
+                    onNodeWithTag(OPEN_REPLAYED, useUnmergedTree = true).performClick()
+                    showTab("Summary")
+                    awaitText("Replay of an earlier request")
+                    assertTrue(onAllNodesWithTag(REPLAY_NOTE).fetchSemanticsNodes().isEmpty(), "the note goes with the original")
                 }
             }
         }

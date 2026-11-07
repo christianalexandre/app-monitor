@@ -4,6 +4,22 @@ const val REQUEST_LIST = "requests"
 
 const val DETAIL_SEARCH = "detail-search"
 
+// The detail bar's search icon, which shows or hides the search field.
+const val DETAIL_SEARCH_OPEN = "detail-search-open"
+
+const val DETAIL_URL = "detail-url"
+
+const val DETAIL_META = "detail-meta"
+
+const val MOCKED_BY = "mocked-by"
+
+// The detail bar's "⋯" and the actions of its menu.
+const val MORE_ACTIONS = "more-actions"
+
+const val COPY_CURL_ACTION = "copy-curl-action"
+
+const val SAVE_AS_ISSUE_ACTION = "save-as-issue-action"
+
 const val DETAIL_MATCHES = "detail-matches"
 
 const val NEXT_MATCH = "next-match"
@@ -20,8 +36,6 @@ const val RUN_NAME = "run-name"
 
 const val SEARCH = "search"
 
-const val RUNS = "runs"
-
 const val ISSUES = "issues"
 
 const val MOCKS = "mocks"
@@ -35,6 +49,8 @@ const val EXPORT_HAR = "export-har"
 const val SAVE_AS_ISSUE = "save-as-issue"
 
 const val MARK = "mark-"
+
+const val MARKED_BAR = "marked-bar"
 
 const val COMPARE_RUNS = "compare-runs"
 
@@ -54,6 +70,8 @@ const val CURL = "curl"
 const val SEND_AGAIN = "send-again"
 
 const val REPLAY_NOTE = "replay-note"
+
+const val OPEN_REPLAYED = "open-replayed"
 
 const val SHOW_ORIGINAL = "show-original"
 
@@ -87,14 +105,41 @@ const val RECONNECT = "reconnect-"
 
 const val FILTERS = "filters"
 
-const val FILTERS_DONE = "filters-done"
+// The title bar's "Actions ⌘K", the sidebar's gear and its runs (RUN is a prefix with the run's id).
+const val ACTIONS = "actions"
 
-const val FILTER_RESET = "filter-reset"
+// The palette (ADR-0206): an entry's tag is PALETTE and the tag of the button it stands for, REQUEST or DEVICE with an id.
+const val PALETTE = "palette-"
 
-const val FAILED_ONLY = "failed-only"
+const val PALETTE_OPEN = "palette-open"
 
-// A status class chip's tag is this prefix and the class's first code, as `status-filter-400`.
+const val REQUEST = "request-"
+
+const val DEVICE = "device-"
+
+const val SETTINGS = "settings"
+
+const val SETTINGS_GEAR = "settings-gear"
+
+const val LIVE_RUN = "live-run"
+
+const val RUN = "run-"
+
+const val RENAME_RUN = "rename-run"
+
+const val STATUS_BAR = "status-bar"
+
+// A status choice's tag is this prefix and the class's first code, `all` or `failed`, as `status-filter-400`.
 const val STATUS_FILTER = "status-filter-"
 
 // A host row's tag is this prefix and the host.
 const val HOST_FILTER = "host-filter-"
+
+// HOSTS' button that hides every host or shows them all again.
+const val EVERY_HOST = "every-host"
+
+// A title bar tool's tag is this prefix and its palette tag (`save`, `issues`…), ADR-0210.
+const val TOOL = "tool-"
+
+// The title bar's "⋯" holding the tools under a narrow window.
+const val TOOLS_MENU = "tools-menu"

@@ -3,6 +3,7 @@ package appmonitor.desktop.designsystem
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -19,22 +20,24 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.Text as MaterialText
 
 /** The "×" of a [SearchField] that empties it. */
 const val SEARCH_CLEAR = "search-clear"
 
-/** A one-line search box as tall as a button row: [placeholder] while empty, "×" to empty it (ADR-0153). */
+/** A one-line search box as tall as a button row: [placeholder] and its [shortcut] while empty, "×" to empty it (ADR-0153). */
 @Composable
 fun SearchField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    shortcut: String? = null,
 ) {
     val colors = AppMonitorTheme.colors
-    val shape = RoundedCornerShape(Radius.small)
+    val shape = RoundedCornerShape(Radius.medium)
     val style = styleOf(TextRole.Small).copy(color = colors.onSurface)
     BasicTextField(
         value,
@@ -51,6 +54,9 @@ fun SearchField(
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) MaterialText(placeholder, color = colors.neutral, style = styleOf(TextRole.Small), maxLines = 1)
                     field()
+                }
+                if (value.isEmpty() && shortcut != null) {
+                    MaterialText(shortcut, color = colors.muted, style = styleOf(TextRole.Caption), maxLines = 1)
                 }
                 if (value.isNotEmpty()) {
                     MaterialText(
@@ -71,41 +77,37 @@ fun SearchField(
     )
 }
 
-/** A one-character button, as small as its [glyph]: "↑", "↓"; [description] is what a screen reader says. */
-@Composable
-fun GlyphButton(
-    glyph: String,
-    description: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    MaterialText(
-        glyph,
-        modifier
-            .clip(RoundedCornerShape(Radius.small))
-            .clickable(onClick = onClick)
-            .semantics {
-                role = Role.Button
-                contentDescription = description
-            }.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
-        color = AppMonitorTheme.colors.primary,
-        style = styleOf(TextRole.BodyStrong),
-    )
-}
-
-/** A short note over the content, in the inverse colors, for a moment: "Copied" (ADR-0153). */
+/**
+ * A short note over the content, in the inverse colors: "Copied" (ADR-0153); with [action], a link after the text that runs
+ * [onAction], as a replay's "Open" (ADR-0207).
+ */
 @Composable
 fun Toast(
     text: String,
     modifier: Modifier = Modifier,
+    action: String? = null,
+    onAction: () -> Unit = {},
+    actionModifier: Modifier = Modifier,
 ) {
     val colors = AppMonitorTheme.colors
-    Box(
+    Row(
         modifier
-            .background(colors.onSurface.copy(alpha = TOAST_ALPHA), RoundedCornerShape(Radius.small))
+            .background(colors.onSurface.copy(alpha = TOAST_ALPHA), RoundedCornerShape(Radius.medium))
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         MaterialText(text, color = colors.surface, style = styleOf(TextRole.SmallStrong))
+        if (action != null) {
+            MaterialText(
+                action,
+                actionModifier
+                    .clip(RoundedCornerShape(Radius.small))
+                    .clickable(role = Role.Button, onClick = onAction),
+                color = colors.surface,
+                style = styleOf(TextRole.SmallStrong).copy(textDecoration = TextDecoration.Underline),
+            )
+        }
     }
 }
 

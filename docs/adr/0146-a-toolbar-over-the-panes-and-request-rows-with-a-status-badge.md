@@ -25,11 +25,10 @@ end, the status as plain text and the duration.
 Evidence read:
 
 - The owner's references (`AGENTS.md`, "Desktop architecture
-  follows known references"): `mibo-smart-app`'s
-  `core/ui/designsystem/.../component/MiboTag.kt` (a short label on a
-  translucent background of its tone's color, one `MiboTagTone` enum),
-  `MiboEmptyState.kt` (a centred message in place of an empty result)
-  and `MiboTopBar.kt` (one bar, actions in a `RowScope`).
+  follows known references"): the owner's reference app has a tag (a
+  short label on a translucent background of its tone's color, one tone
+  enum), an empty state (a centred message in place of an empty result)
+  and a top bar (one bar, actions in a `RowScope`).
 - Compose Multiplatform 1.12.2's `ui-text-desktop` has
   `TextOverflow.MiddleEllipsis` (`javap` on `TextOverflow$Companion` in
   the Gradle cache), but the desktop draws it as an end ellipsis: the
@@ -54,8 +53,8 @@ Evidence read:
 
 Option 1.
 
-- **Toolbar** (`Toolbar` in `desktop/designsystem`, as `MiboTopBar`'s
-  actions row): run picker, Record / "Stop recording", Save, Clear (live
+- **Toolbar** (`Toolbar` in `desktop/designsystem`, as the reference's
+  top bar actions row): run picker, Record / "Stop recording", Save, Clear (live
   list only), "Save as issue", search, method, status, "Failed only".
   Save's and the export's notes go under it.
 - **Links**: Issues, Benchmarks, Mocks, Breakpoints, Export HAR,
@@ -63,7 +62,7 @@ Option 1.
 - **Row**: checkbox, status `Badge`, method, URL, "mocked" and "replay"
   badges, start time `HH:mm:ss.SSS` in the machine's zone, duration.
   The request pane takes 1.5 the width of the detail.
-- **Badge** (as `MiboTag`): `BadgeTone` Neutral, Success, Info, Warning,
+- **Badge** (as the reference's tag): `BadgeTone` Neutral, Success, Info, Warning,
   Error; the text in the tone's color, the background the same color at
   16 %; `AppColors` gains `success`, `info`, `warning`, `neutral`, each
   with a light and a dark value, Error reusing `error`. A status takes
@@ -74,7 +73,7 @@ Option 1.
   keeps the longest start and end around "…" that fit, by binary search
   (`middleCut`); the semantics keep the whole text, so tests and screen
   readers see the URL.
-- **`EmptyState`** (as `MiboEmptyState`): a title and a hint centred in
+- **`EmptyState`** (as the reference's empty state): a title and a hint centred in
   the pane. "No requests yet" says live, recording or stored run apart;
   "No requests match" asks to change the search or filters; the detail
   says "Select a request".

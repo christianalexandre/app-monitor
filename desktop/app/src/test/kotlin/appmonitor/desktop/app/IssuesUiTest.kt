@@ -16,7 +16,7 @@ import appmonitor.desktop.feature.insights.ISSUE_TITLE
 import appmonitor.desktop.feature.insights.SAVE_ISSUE
 import appmonitor.desktop.feature.traffic.ISSUES
 import appmonitor.desktop.feature.traffic.MARK
-import appmonitor.desktop.feature.traffic.RUNS
+import appmonitor.desktop.feature.traffic.MARKED_BAR
 import appmonitor.desktop.feature.traffic.SAVE_AS_ISSUE
 import appmonitor.desktop.storage.IssueSource
 import appmonitor.desktop.storage.IssueStatus
@@ -47,14 +47,14 @@ class IssuesUiTest {
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
-                onNodeWithTag(ISSUES).performClick()
+                action(ISSUES)
                 awaitText("Untagged")
                 pick("Tag: Any ▾", "checkout")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { !exists("Untagged") }
 
                 onNodeWithText("Close").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { !exists("Tagged") }
-                onNodeWithTag(ISSUES).performClick()
+                action(ISSUES)
 
                 awaitText("Untagged")
                 onNodeWithText("Tag: Any ▾").assertExists()
@@ -84,13 +84,12 @@ class IssuesUiTest {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
 
                 // Until the live list saves (PLAN-0013 H3.2), an issue links stored exchanges only.
-                onNodeWithTag(RUNS).performClick()
                 awaitText("Cart")
                 onNodeWithText("Cart").performClick()
                 awaitText("https://api.example.com/feed")
                 onNodeWithTag(MARK + "r1").performClick()
                 onNodeWithTag(MARK + "r2").performClick()
-                awaitText("Save 2 as issue")
+                awaitText("2 marked")
                 onNodeWithTag(SAVE_AS_ISSUE).performClick()
                 awaitText("2 requests")
                 onNodeWithText("POST https://api.example.com/cart").assertExists()
@@ -102,7 +101,7 @@ class IssuesUiTest {
                 awaitText("Open · checkout, flaky · 2 requests · in the window", substring = true)
                 onNodeWithText("Cart fails then succeeds").assertExists()
                 onNodeWithText("Open · backend · 1 request · by MCP", substring = true).assertExists()
-                onNodeWithText("Save as issue").assertExists()
+                onNodeWithTag(MARKED_BAR).assertDoesNotExist()
                 screenshot("issues.png")
 
                 pick("Tag: Any ▾", "checkout")
@@ -144,7 +143,7 @@ class IssuesUiTest {
                 )
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     setContent { AppMonitorApp(reopened, "Listening", appearance = TestAppearance) }
-                    onNodeWithTag(ISSUES).performClick()
+                    action(ISSUES)
                     awaitText("Cart fails then succeeds")
                 }
             } finally {
@@ -163,7 +162,7 @@ class IssuesUiTest {
 
                 runDesktopComposeUiTest(width = 1280, height = 800) {
                     setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
-                    onNodeWithTag(ISSUES).performClick()
+                    action(ISSUES)
                     awaitText("Feed times out")
                     onNodeWithText("Feed times out").performClick()
                     awaitText("Delete")

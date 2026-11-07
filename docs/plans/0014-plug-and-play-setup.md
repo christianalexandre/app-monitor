@@ -152,12 +152,12 @@ findings, none that normal use hits:
   - H4.5 found that AGP 9's built-in Kotlin 2.2 cannot compile against
     the SDK (DEBT-0108), and restored `make swift-sim`, broken since #309.
 - **Field test** (2026-10-30, `dev` at `19f771a`, run by the agent at the
-  owner's request): the owner's KMP app (Mibo: Ktor, the Tuya SDK on
+  owner's request): a real KMP app of the owner's (Ktor, a vendor SDK on
   OkHttp, Firebase, configurations `Dev` and `Prod`) set up from the
   README alone, two steps on Android and four on iOS; SDK and plugin
   from `publishToMavenLocal` as the README says, no init script.
   - Android, a Galaxy S10 (Android 12) on Wi-Fi with `make server`:
-    the app found the desktop by mDNS and sent the Tuya SDK's calls with
+    the app found the desktop by mDNS and sent the vendor SDK's calls with
     no code beyond the start. `devRelease` holds only the no-op stubs
     (`dexdump`: 8 classes, `AppMonitor` with an empty body; no
     `_appmonitor._tcp` string).
@@ -170,10 +170,10 @@ findings, none that normal use hits:
   - No setup log on either platform, as nothing was missing.
   - Found: Xcode kept the first `dev` commit (`19717d7`, #301) after the
     `Package.resolved` was deleted; the README now says how to update.
-  - iPhone 8, iOS 16.7.16, on Wi-Fi: Mibo `Dev` (signed by the app's
+  - iPhone 8, iOS 16.7.16, on Wi-Fi: the app's `Dev` (signed by the app's
     team, installed with `ios-deploy`) found the desktop by mDNS once the
-    owner turned the app's Local Network access back on; 25 calls (Tuya,
-    easy4ip, the app's API, Firebase) captured, each answered.
+    owner turned the app's Local Network access back on; 25 calls (two
+    vendors' APIs, the app's API, Firebase) captured, each answered.
   - Found on the iPhone, both fixed outside the plan: with Local Network
     off, iOS 16 fails the browse with `PolicyDenied` instead of waiting, so
     the SDK named the `Info.plist` keys, at a level Console hides (#319);

@@ -109,7 +109,7 @@ class MocksUiTest {
                         onNodeWithText("Recorded").performClick()
                         awaitText(URL)
                         onNodeWithText(URL).performClick()
-                        awaitText("Mock this")
+                        awaitTag(MOCK_THIS)
                         onNodeWithTag(MOCK_THIS).performClick()
                         awaitText("New mock rule")
                         onNodeWithText("GET /v1/items").assertExists()
@@ -166,7 +166,7 @@ class MocksUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
                 awaitText("Mocks (1 to confirm)")
-                onNodeWithTag(MOCKS).performClick()
+                action(MOCKS)
                 awaitText("orders offline")
                 onNodeWithText("From MCP: not sent until you confirm it").assertExists()
                 onNodeWithText("app · Any api.example.com/v1/orders/* → fails: offline · 1.50 s").assertExists()
@@ -192,7 +192,7 @@ class MocksUiTest {
 
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance) }
-                onNodeWithTag(MOCKS).performClick()
+                action(MOCKS)
                 awaitText("narrower")
                 onNodeWithTag(MOVE_MOCK_UP + wider).assertIsNotEnabled()
                 onNodeWithTag(MOVE_MOCK_DOWN + narrower).assertIsNotEnabled()

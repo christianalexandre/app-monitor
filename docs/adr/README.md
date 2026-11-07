@@ -166,9 +166,9 @@ Rules:
 | [0146](0146-a-toolbar-over-the-panes-and-request-rows-with-a-status-badge.md) | A toolbar over the panes, request rows with a status badge, the URL cut in its middle | Accepted |
 | [0147](0147-request-detail-tabs-with-copy-actions.md) | Request detail in tabs, each part copied as the device sent it | Accepted |
 | [0148](0148-a-filter-sheet-keeps-any-of-the-picked-status-classes-and-hosts.md) | A filter sheet keeps any of the picked status classes and hosts | Accepted |
-| [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Accepted |
+| [0149](0149-a-neutral-gray-and-muted-blue-palette-replaces-material-s-defaults.md) | A neutral gray and muted blue palette replaces Material's default colors | Superseded by [0202](0202-a-desktop-type-scale-and-the-mockup-s-layered-palette.md) |
 | [0150](0150-the-macos-title-bar-takes-the-stored-theme-at-launch.md) | The macOS title bar takes the stored theme at launch | Accepted |
-| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Accepted |
+| [0151](0151-panes-resize-by-dragging-and-the-devices-pane-hides.md) | Panes resize by dragging their rule, and the devices pane hides | Superseded by [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) |
 | [0152](0152-a-search-inside-the-request-and-code-blocks-for-its-texts.md) | A search inside the request, header rows, and code blocks with JSON colors | Accepted |
 | [0153](0153-field-test-polish-of-the-traffic-window.md) | Field test polish of the traffic window, the panes kept across launches | Accepted |
 | [0154](0154-the-ios-sample-builds-in-its-own-release-gate-job.md) | The iOS sample builds in its own release gate job | Accepted |
@@ -217,3 +217,18 @@ Rules:
 | [0197](0197-saving-again-counts-the-frames-received.md) | Saving an exchange again stores the frames received since, counted by the writer | Accepted |
 | [0198](0198-a-trigger-path-from-the-root-matches-only-there.md) | A DEBT trigger path that exists from the root matches only there | Accepted |
 | [0199](0199-a-gzip-body-opens-in-the-detail-before-its-formats.md) | A gzip body opens in the detail before its formats, bounded | Accepted |
+| [0200](0200-the-gate-fails-early-and-seeds-its-own-cache.md) | The release gate fails early and seeds its own cache | Accepted |
+| [0201](0201-a-test-holds-through-a-stalled-runner.md) | A test holds through a stalled runner, and iOS suites are repeated before a release | Accepted |
+| [0202](0202-a-desktop-type-scale-and-the-mockup-s-layered-palette.md) | A desktop type scale and the mockup's layered palette replace Material's type and ADR-0149's values | Accepted |
+| [0203](0203-two-line-request-rows-and-the-list-header.md) | Two-line request rows that keep the path's end, and the list's own header | Accepted |
+| [0204](0204-the-request-detail-as-the-mockup-a-bar-a-request-line-and-tables.md) | The request detail as the mockup, a bar, a request line and key/value tables | Accepted |
+| [0205](0205-a-sidebar-a-title-bar-and-a-status-bar-around-the-traffic.md) | A sidebar, a title bar and a status bar around the traffic, the other screens behind "Actions" | Accepted |
+| [0206](0206-a-command-palette-replaces-the-actions-menu.md) | A ⌘K command palette replaces the title bar's "Actions" menu | Accepted |
+| [0207](0207-a-replays-note-on-every-tab-with-open.md) | A replay's note shows on every tab and opens the call it brought back | Accepted |
+| [0208](0208-a-body-opens-as-json-when-it-parses-and-long-values-are-cut.md) | A body opens as JSON whenever it parses, its lines wrap and long string values are cut | Accepted |
+| [0209](0209-vector-icons-in-the-design-system-and-every-host-hidden.md) | Vector icons in the design system, and a filter that hides every host | Accepted |
+| [0210](0210-the-title-bar-holds-the-tools-folded-under-a-narrow-window.md) | The title bar holds the tools as icon buttons with tooltips, folded into "⋯" under a narrow window | Accepted |
+| [0211](0211-the-app-named-before-awt-starts-and-an-icon-rendered-from-one-svg.md) | The app is named before AWT starts, and its icon is rendered from one SVG | Accepted |
+| [0212](0212-the-detail-opens-on-body-and-settings-draws-a-cog.md) | The detail opens on Body, and Settings draws a cog | Accepted |
+| [0213](0213-on-macos-the-window-draws-its-own-title-bar.md) | On macOS the window draws its own title bar, through AWT's root pane properties | Accepted |
+| [0214](0214-a-hidden-host-is-listed-not-the-shown-ones.md) | A hidden host is listed, not the hosts shown | Accepted |

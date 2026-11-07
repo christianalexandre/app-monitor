@@ -1,18 +1,24 @@
 package appmonitor.desktop.app
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseInjectionScope
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.paneLayoutRepository
 import appmonitor.desktop.data.settingRepository
+import appmonitor.desktop.feature.traffic.ACTIONS
 import appmonitor.desktop.feature.traffic.BENCHMARKS
 import appmonitor.desktop.feature.traffic.BREAKPOINTS
 import appmonitor.desktop.feature.traffic.DEVICES_DIVIDER
@@ -22,6 +28,7 @@ import appmonitor.desktop.feature.traffic.ISSUES
 import appmonitor.desktop.feature.traffic.MOCKS
 import appmonitor.desktop.feature.traffic.REQUESTS_DIVIDER
 import appmonitor.desktop.feature.traffic.REQUEST_LIST
+import appmonitor.desktop.feature.traffic.SETTINGS
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.tools.fakeclient.Fixtures
 import kotlinx.coroutines.runBlocking
@@ -55,16 +62,27 @@ class PanesUiTest {
                 screenshot("panes.png")
 
                 onNodeWithTag(DEVICES_TOGGLE).performClick()
-                onNodeWithText("Devices").assertDoesNotExist()
+                onNodeWithText("DEVICES").assertDoesNotExist()
                 onNodeWithTag(DEVICES_DIVIDER).assertDoesNotExist()
                 assertEquals(0.dp, requests().left)
                 onNodeWithText("Listening").assertExists()
-                listOf(ISSUES, BENCHMARKS, MOCKS, BREAKPOINTS, EXPORT_HAR).forEach { onNodeWithTag(it).assertExists() }
-                onNodeWithText("Settings").assertExists()
                 screenshot("devices-hidden.png")
 
                 onNodeWithTag(DEVICES_TOGGLE).performClick()
-                onNodeWithText("Devices").assertExists()
+                onNodeWithText("DEVICES").assertExists()
+
+                fun commandB() =
+                    onRoot().performKeyInput {
+                        keyDown(Key.MetaLeft)
+                        pressKey(Key.B)
+                        keyUp(Key.MetaLeft)
+                    }
+                commandB()
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("DEVICES").fetchSemanticsNodes().isEmpty() }
+                commandB()
+                awaitText("DEVICES")
+                onNodeWithTag(ACTIONS).performClick()
+                listOf(ISSUES, BENCHMARKS, MOCKS, BREAKPOINTS, EXPORT_HAR, SETTINGS).forEach { paletteEntry(it).assertExists() }
             }
         }
 
@@ -87,7 +105,7 @@ class PanesUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, panes = reread) }
                 awaitTag(REQUEST_LIST)
-                onNodeWithText("Devices").assertDoesNotExist()
+                onNodeWithText("DEVICES").assertDoesNotExist()
                 val list = onNodeWithTag(REQUEST_LIST).getBoundsInRoot()
                 assertEquals(reread.layout.value.requestsWidth.dp, list.right - list.left)
             }

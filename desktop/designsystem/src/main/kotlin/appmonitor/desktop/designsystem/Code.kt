@@ -97,10 +97,10 @@ fun CodeBlock(
     val bottom = edge == BlockEdge.Only || edge == BlockEdge.Last
     val shape =
         RoundedCornerShape(
-            topStart = if (top) Radius.small else Radius.none,
-            topEnd = if (top) Radius.small else Radius.none,
-            bottomStart = if (bottom) Radius.small else Radius.none,
-            bottomEnd = if (bottom) Radius.small else Radius.none,
+            topStart = if (top) Radius.medium else Radius.none,
+            topEnd = if (top) Radius.medium else Radius.none,
+            bottomStart = if (bottom) Radius.medium else Radius.none,
+            bottomEnd = if (bottom) Radius.medium else Radius.none,
         )
     Box(
         modifier

@@ -148,7 +148,7 @@ does. The editor sends the name and the whole rule; "Turn on" and
   list when the active order changed (ADR-0180).
 - "New rule" opens an empty form for the first known app (any session,
   any run); a rule's app is fixed once made.
-- "Mock this", in a request's detail (not for a WebSocket or a
+- "Mock", in a request's detail bar (not for a WebSocket or a
   connection), opens a new rule filled from the exchange: the session's
   app id, method, host and path without the query, and the response's
   status, headers and stored body; a failed exchange without a response
@@ -207,13 +207,18 @@ first envelope to its end.
 | `answer(replay, send)` | drops it from `asked`; `send` true goes through `send` |
 | the session ends | forgets the session, its refusals and its asked replays |
 
-In the window, a request's detail has "Send again" beside "Mock this"
-(not for a WebSocket, a connection or the desktop's proxy). Its label reads
-"Send again: runs POST on the server again" for any method but `GET`,
-`HEAD` and `OPTIONS`. Under the summary it says what happened: "Sent to
+In the window, a request's detail bar has "Replay" beside "Mock" (not
+for a WebSocket, a connection or the desktop's proxy, ADR-0204). Its label
+reads "Replay: runs POST again" for any method but `GET`, `HEAD` and
+`OPTIONS`. A note at the detail's bottom, on every tab, above the copy
+note, says what happened until another request is picked: "Sent to
 the app; its call shows as a replay", "Not sent: the app's session ended,
 and a replay goes through the app", "Not sent: this app's SDK does not
-take replays", or "The app did not send it again: <reason>". A replay's
+take replays", or "The app did not send it again: <reason>". Once a call
+marked `replay_of` the request arrives in the same session and was not
+there when the replay was sent, it says "The app sent it again" with
+"Open", which picks that call as "Show original" does (ADR-0207). The
+search reads that session's calls to the same URL, up to 10 000. A replay's
 row is marked `replay`; its detail says "Replay of an earlier request"
 with "Show original", which clears the filter and opens it, or "Replay of
 a request no longer stored".
@@ -294,6 +299,7 @@ plus `resume_status_code`), sends them once to every session, logging
 | The replay messages round-trip, fixture bytes match on Kotlin and Swift | `RoundTripTest.replayMessages`, `FixtureTest`, Swift `FixtureTests` |
 | `replay_of` kept in every list reader, linked only within its session; a version-6 file migrates | `ReplayedExchangeTest` in `desktop/storage` |
 | "Send again" reaches a stand-in device; its replay marked, linked to the original; a refusal shown | `ReplayTest` in `desktop/app` (`replay.png`) |
+| A replay from the Body tab shows its note there; "Open" picks the call it brought back, not an earlier replay | `ReplayTest` (`replay-arrived.png`), `TrafficViewModelTest` |
 | No replay to a device without `interaction` or to an ended session; a new send clears a refusal | `ReplayTest` |
 | A device sends a kept request again and refuses an unknown one, with a module's reason; forgets them when the session ends | `MonitorClientReplayTest` in `sdk/core` |
 | OkHttp and Ktor send a call again through the app's client, every interceptor or plugin once, marked `replay_of`; a body sent only once refused | `ReplayTest` in `sdk/android-okhttp` and `sdk/ktor` |

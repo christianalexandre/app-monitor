@@ -2,17 +2,24 @@ package appmonitor.desktop.app
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.TrafficStore
@@ -34,20 +41,19 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
-import appmonitor.desktop.feature.traffic.FAILED_ONLY
-import appmonitor.desktop.feature.traffic.FILTERS
-import appmonitor.desktop.feature.traffic.FILTERS_DONE
-import appmonitor.desktop.feature.traffic.FILTER_RESET
+import appmonitor.desktop.feature.traffic.EVERY_HOST
 import appmonitor.desktop.feature.traffic.HOST_FILTER
 import appmonitor.desktop.feature.traffic.MARK
 import appmonitor.desktop.feature.traffic.RECORD
-import appmonitor.desktop.feature.traffic.RUNS
+import appmonitor.desktop.feature.traffic.RENAME_RUN
+import appmonitor.desktop.feature.traffic.RUN
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SAVE
 import appmonitor.desktop.feature.traffic.SAVED_RUN
 import appmonitor.desktop.feature.traffic.SAVE_NOTE
 import appmonitor.desktop.feature.traffic.SAVE_RUN_NAME
 import appmonitor.desktop.feature.traffic.SEARCH
+import appmonitor.desktop.feature.traffic.SETTINGS_GEAR
 import appmonitor.desktop.feature.traffic.STATUS_FILTER
 import appmonitor.desktop.mcp.McpAccess
 import appmonitor.desktop.server.AppMonitorServer
@@ -111,7 +117,7 @@ class AppMonitorAppTest {
                 setContent { AppMonitorApp(storage, "Listening on port 47474", appearance = TestAppearance, live = live) }
 
                 awaitText("Pixel 9 (emulator)")
-                onNodeWithText("Android 16 · disconnected").assertExists()
+                onNodeWithText("Android 16 · disconnected", substring = true).assertExists()
                 awaitText(URL)
                 onNodeWithText("POST").assertExists()
                 onNodeWithText("201").assertExists()
@@ -119,7 +125,7 @@ class AppMonitorAppTest {
 
                 onNodeWithText(URL).performClick()
                 awaitText("Adapter layer", substring = true)
-                onAllNodesWithText(URL, substring = true).assertCountEquals(3)
+                onAllNodesWithText(URL, substring = true).assertCountEquals(2)
                 showTab("Headers")
                 awaitText("application/json")
                 showTab("Body")
@@ -318,9 +324,9 @@ class AppMonitorAppTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, connections = connections, live = live) }
 
-                awaitText("Android 16 · connected")
+                awaitText("Disconnect")
                 onNodeWithText("Disconnect").performClick()
-                awaitText("Disconnected")
+                awaitText("Reconnect")
                 onNodeWithText("Disconnect").assertDoesNotExist()
                 onNodeWithText("Pixel").assertExists()
                 screenshot("disconnected.png")
@@ -364,7 +370,7 @@ class AppMonitorAppTest {
                 waitForIdle()
                 assertTrue(cornerLuminance() > 0.9, "light window")
 
-                onNodeWithText("Settings").performClick()
+                onNodeWithTag(SETTINGS_GEAR).performClick()
                 onNodeWithText("Theme: Light ▾").performClick()
                 onNodeWithText("Dark").performClick()
                 onNodeWithText("Close").performClick()
@@ -408,7 +414,7 @@ class AppMonitorAppTest {
                     )
                 }
 
-                onNodeWithText("Settings").performClick()
+                onNodeWithTag(SETTINGS_GEAR).performClick()
                 onNodeWithTag(MCP_STATUS, useUnmergedTree = true).assertTextEquals("Listening on http://127.0.0.1:47475/mcp")
                 onNodeWithText(claudeMcpAdd(47475, "/mcp", "3q2-7w")).assertExists()
                 onNodeWithText("Pixel — app.a").assertExists()
@@ -438,7 +444,7 @@ class AppMonitorAppTest {
                     setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live, mcp = controller) }
 
                     awaitText("Pixel")
-                    onNodeWithText("Settings").performClick()
+                    onNodeWithTag(SETTINGS_GEAR).performClick()
                     onNodeWithTag(MCP_STATUS, useUnmergedTree = true).assertTextContains("Port ${taken.localPort} in use", substring = true)
                     screenshot("mcp-port-taken.png")
                 }
@@ -461,7 +467,7 @@ class AppMonitorAppTest {
                 }
 
                 awaitText("Pixel")
-                onNodeWithText("Settings").performClick()
+                onNodeWithTag(SETTINGS_GEAR).performClick()
                 pick("Keep: 7 days ▾", "30 days")
                 pick("Up to: 1 GiB ▾", "2 GiB")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { storage.retention.value == RetentionSettings(30, 2L shl 30) }
@@ -506,11 +512,11 @@ class AppMonitorAppTest {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText("Galaxy")
-                onNodeWithText("Live ▾").assertExists()
+                onNodeWithText("App Monitor — Live").assertExists()
                 onNodeWithText("iPhone").assertDoesNotExist()
                 onNodeWithText("Pixel").assertDoesNotExist()
-                onNodeWithTag(RUNS).performClick()
-                onAllNodesWithText("Rename")[0].performClick()
+                onNodeWithTag(RUN + second).performClick()
+                onNodeWithTag(RENAME_RUN).performClick()
                 onNodeWithTag(RUN_NAME).performTextReplacement("Checkout on iPhone")
                 onNodeWithTag(SAVE_RUN_NAME).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { runBlocking { storage.runs() }.first { it.id == second }.name != null }
@@ -521,12 +527,11 @@ class AppMonitorAppTest {
                 onNodeWithText("Login on Pixel").performClick()
                 awaitText("Pixel")
                 onNodeWithText("iPhone").assertDoesNotExist()
-                onNodeWithText("Login on Pixel ▾").assertExists()
+                onNodeWithText("App Monitor — Login on Pixel").assertExists()
                 awaitText("https://a.example/login")
 
                 onNodeWithTag(CLEAR).assertDoesNotExist()
 
-                onNodeWithTag(RUNS).performClick()
                 onNodeWithText("New run").assertDoesNotExist()
                 onNodeWithText("Live").performClick()
                 awaitText("Galaxy")
@@ -586,7 +591,7 @@ class AppMonitorAppTest {
 
                 awaitText("https://a.example/before")
                 onNodeWithTag(RECORD).performClick()
-                awaitText("Stop recording")
+                awaitText("Stop")
                 runBlocking {
                     recorder.received("s1", request("r2", "during"))
                     recorder.connected("s2", HELLO.copy(device_id = "d2", device_name = "iPhone"), null)
@@ -602,10 +607,9 @@ class AppMonitorAppTest {
                 }
                 awaitText("https://a.example/after")
 
-                onNodeWithTag(RUNS).performClick()
-                onAllNodesWithText("Rename").assertCountEquals(1)
                 onNodeWithText("Live").assertExists()
-                onAllNodesWithText("Rename")[0].performClick()
+                onNodeWithTag(RUN + runBlocking { storage.runs() }.single().id).performClick()
+                onNodeWithTag(RENAME_RUN).performClick()
                 onNodeWithTag(RUN_NAME).performTextReplacement("Checkout")
                 onNodeWithTag(SAVE_RUN_NAME).performClick()
                 awaitText("Checkout")
@@ -640,14 +644,14 @@ class AppMonitorAppTest {
                 awaitText("https://a.example/keep")
                 onNodeWithTag(MARK + "r1").performClick()
                 onNodeWithTag(MARK + "r2").performClick()
-                onNodeWithText("Save 2").performClick()
+                onNodeWithText("2 marked").assertExists()
+                onNodeWithTag(SAVE).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(SAVE_NOTE).fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithText("Saved 2 to Saved").assertExists()
                 screenshot("saved.png")
 
-                onNodeWithTag(RUNS).performClick()
                 onNodeWithTag(SAVED_RUN).performClick()
-                awaitText("Saved ▾")
+                awaitText("App Monitor — Saved")
                 awaitText("https://a.example/also")
                 onNodeWithText("https://a.example/drop").assertDoesNotExist()
                 onNodeWithTag(SAVE).assertDoesNotExist()
@@ -661,7 +665,7 @@ class AppMonitorAppTest {
         }
 
     @Test
-    fun `the filter sheet narrows the request list by status class, host and method, and combines`() =
+    fun `the list header's status classes and the filter sheet narrow the request list, and combine`() =
         withStorage { storage ->
             val live = LiveTraffic()
 
@@ -687,44 +691,60 @@ class AppMonitorAppTest {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
                 awaitText(api("feed"))
+                onNodeWithText("4 requests").assertExists()
+                onRoot().performKeyInput {
+                    keyDown(Key.MetaLeft)
+                    pressKey(Key.F)
+                    keyUp(Key.MetaLeft)
+                }
+                onNodeWithTag(SEARCH).assertIsFocused()
                 onNodeWithTag(SEARCH).performTextReplacement("ITEMS")
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(api("login")).fetchSemanticsNodes().isEmpty() }
                 awaitText(shop)
                 awaitText(api("items/missing"))
                 onNodeWithText(api("feed")).assertDoesNotExist()
 
-                onNodeWithTag(FILTERS).performClick()
-                onNodeWithTag(HOST_FILTER + "api.example.com").assertExists()
-                onNodeWithTag(HOST_FILTER + "shop.example.com").assertExists()
                 onNodeWithTag(STATUS_FILTER + 400).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
                 awaitText(api("items/missing"))
-                onNodeWithTag(STATUS_FILTER + 400).assertIsOn()
+                onNodeWithTag(STATUS_FILTER + 400).assertIsSelected()
+                onNodeWithTag(STATUS_FILTER + "all").assertIsNotSelected()
+                onNodeWithText("1 request").assertExists()
                 screenshot("filters.png")
 
+                onNodeWithTag(HOST_FILTER + "api.example.com").assertExists()
+                onNodeWithTag(HOST_FILTER + "shop.example.com").assertExists()
                 onNodeWithText("Method: Any ▾").performClick()
                 onNodeWithText("POST").performClick()
-                onNodeWithTag(FILTERS_DONE).performClick()
                 awaitText("No requests match")
                 onNodeWithText("Change the search or the filters").assertExists()
-                onNodeWithText("Filters (2)").assertExists()
+                onNodeWithText("Method: POST ▾").performClick()
+                onNodeWithText("Any").performClick()
 
-                onNodeWithTag(FILTERS).performClick()
-                onNodeWithTag(FILTER_RESET).performClick()
-                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
-                onNodeWithTag(FILTERS_DONE).performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                onNodeWithTag(STATUS_FILTER + "all").performClick()
                 onNodeWithTag(SEARCH).performTextReplacement("")
                 awaitText(shop)
                 onNodeWithText(api("items/missing")).assertDoesNotExist()
                 onNodeWithText(api("login")).assertDoesNotExist()
 
-                onNodeWithTag(FILTERS).performClick()
-                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
-                onNodeWithTag(FAILED_ONLY).performClick()
-                onNodeWithTag(FILTERS_DONE).performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                onNodeWithTag(STATUS_FILTER + "failed").performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText(shop).fetchSemanticsNodes().isEmpty() }
                 awaitText(api("feed"))
-                onNodeWithText("Filters (1)").assertExists()
+                onNodeWithText("timeout").assertExists()
+                onNodeWithText("Method: Any ▾").assertExists()
+
+                onNodeWithTag(EVERY_HOST).performClick()
+                awaitText("No requests match")
+                onNodeWithText(api("feed")).assertDoesNotExist()
+                onNodeWithTag(EVERY_HOST).performClick()
+                awaitText(api("feed"))
+                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                awaitText("No requests match")
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                awaitText(api("feed"))
             }
         }
 
@@ -756,10 +776,12 @@ class AppMonitorAppTest {
                 onNodeWithText("https://a.example/json").performClick()
                 showTab("Body")
                 awaitText("{\n    \"a\": 1\n}")
+                onNodeWithText("Text").performClick()
+                awaitText("{\"a\":1}")
 
                 onNodeWithText("https://a.example/text").performClick()
-                awaitText("{\"a\":1}")
-                onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+                awaitText("{\n    \"a\": 1\n}")
+                onNodeWithText("{\"a\":1}").assertDoesNotExist()
             }
         }
 
