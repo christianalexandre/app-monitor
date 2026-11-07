@@ -69,6 +69,8 @@ class FilterMatchTest {
                     same(ExchangeFilter(hosts = setOf("cdn.example.org", "slow.example.net")), listOf("gone", "timeout")),
                     same(ExchangeFilter(failedOnly = true), listOf("timeout")),
                     same(ExchangeFilter(noHost = true), emptyList()),
+                    same(ExchangeFilter(hiddenHosts = setOf("cdn.example.org")), all - "gone"),
+                    same(ExchangeFilter(hiddenHosts = setOf("cdn.example.org", "nowhere.example")), all - "gone"),
                     same(ExchangeFilter(deviceId = "iphone"), listOf("bad-url", "no-status", "grpc", "frame-first")),
                     same(ExchangeFilter(appId = "other", statusClasses = setOf(StatusClass.SUCCESS)), listOf("grpc")),
                     same(ExchangeFilter(deviceId = "nobody"), emptyList()),

@@ -55,7 +55,7 @@ record of how the milestone was actually built once it is done.
 | [0015](0015-release-readiness.md) | H5 | Release readiness — what publishing makes expensive | Done |
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
-| [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Active |
+| [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 
 ## Roadmap
 

@@ -70,7 +70,8 @@ data class Exchange(
 
 /**
  * What the exchange list is narrowed to; every null, false or empty field matches all. [statusClasses] and [hosts]
- * keep the rows of any one of them; [noHost] keeps none, every host hidden (ADR-0209).
+ * keep the rows of any one of them; [hiddenHosts] drops the rows of each, so a host seen later shows (ADR-0214);
+ * [noHost] keeps none, every host hidden (ADR-0209).
  */
 data class ExchangeFilter(
     val text: String? = null,
@@ -83,6 +84,7 @@ data class ExchangeFilter(
     val runId: Long? = null,
     val sessionId: Long? = null,
     val noHost: Boolean = false,
+    val hiddenHosts: Set<String> = emptySet(),
 )
 
 /** A status code's hundreds: [from] to [from] + 99. */

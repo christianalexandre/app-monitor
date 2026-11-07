@@ -477,7 +477,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   its outline, the shown one renamed in place by a pencil, Saved with a
   star) and HOSTS (each host with a check in the accent color while shown,
   the globe in the muted color while hidden; a click hides a host or shows
-  it again, hiding the last one shown hides every host, and the label's
+  it again, a host seen later shown (ADR-0214), hiding the last one shown
+  hides every host, and the label's
   button hides every host or shows them all again), and a gear for the
   settings; it shows no counts (DEBT-0130). The rule after the sidebar
   and after the requests is dragged to resize them (sidebar 220–400 dp,

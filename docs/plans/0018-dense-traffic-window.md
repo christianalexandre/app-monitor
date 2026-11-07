@@ -1,10 +1,10 @@
 ---
 id: PLAN-0018
 title: A dense traffic window, as the owner's mockup
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H8
 started: 2026-11-06
-finished:
+finished: 2026-11-07
 ---
 
 # PLAN-0018 — A dense traffic window, as the owner's mockup (H8)
@@ -228,12 +228,47 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   replaced.
   Accept: `docs/screenshots/<name>-*.png` regenerated from a live session; `make check` green.
 
+- [x] **H8.R1 A hidden host leaves the others shown.** (`fix/hidden-hosts-denylist`, ADR-0214) The H8
+  milestone review's finding 1: hiding a host in the sidebar picked every other one, so a host
+  seen after that, and every row without a host, left the list while the sidebar showed them
+  checked. The filter lists the hidden hosts instead.
+  Accept: `./gradlew :desktop:storage:test :desktop:feature:traffic:test`, with a test that a
+  host seen after one was hidden shows, and `FilterMatchTest` running the hidden hosts on the
+  store and the live list.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+### H8 milestone review
+
+`code-review` at `medium` of `c293236..7eafe78` (#386 to #403): a static read of the diff, 118
+files, no Gradle test run by it. Nine findings, one that normal use hits, each then read in the
+code here. Findings 2 to 7 are correctness findings left open, so this PR waits for the owner.
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | Hiding a sidebar host picks every other one, so a host seen later and rows without a host leave the list. | Yes: hide a noisy host, then use the app; read in `withHost` and `Search.kt` | H8.R1 |
+| 2 | `sendAgain` sends nothing, silently, when the pick changes before its first read; two quick clicks send twice. | No: a pick inside one store read | DEBT-0133 |
+| 3 | A Replay from a stopped recording awaits its arrival in that recording, so the note never says it came back. | No: the call is sent, only the note's second state is lost | DEBT-0133 |
+| 4 | `replaysOf` reads up to 10,000 exchanges at each store change while a replay is awaited. | No: a cost, not measured | DEBT-0133 |
+| 5 | The header's `more` reads `limit` outside its combine, and says `200+` for exactly one page. | No: one wrong `+` | DEBT-0133 |
+| 6 | A `text/plain` `42` opens as JSON, and every UTF-8 body goes through the parser. | The first half is ADR-0208's choice (owner, 2026-11-07: JSON whenever it parses), rejected; the cost is DEBT-0133 | DEBT-0133 |
+| 7 | `indentJson` copies a string token whole, so a huge object key passes `MAX_RENDERED_CHARS`. | No: a crafted key | DEBT-0133 |
+| 8 | `contentTypeOf` takes the last `Content-Type` line, the decoding the first. | No: a repeated header | DEBT-0133 |
+| 9 | `TrafficState`'s KDoc names the filter sheet that H8.4 removed. | No: a comment | Fixed in H8.R1 |
+
+- **Shipped**: H8.1 the type scale and palette (#386). H8.2 two-line rows and the list header
+  (#389). H8.3 the detail as the mockup (#390). H8.4 sidebar, title and status bars (#391).
+  H8.5 the ⌘K palette (#392). H8.7 the replay's note on every tab (#394). H8.8 JSON first, long
+  values cut (#395). H8.9 vector icons and every host hidden (#396). H8.10 the title bar's tools
+  (#397). H8.11 the app's name and icon (#398). H8.12 Body first and the cog (#400). H8.13 the
+  macOS title bar (#402). H8.6 the window in use, live screenshots (#403). H8.R1 hidden hosts
+  listed (this PR). Plan PRs #393, #399 and #401; #387 and #388 kept private names out.
+- **Decisions**: ADR-0202 to ADR-0214.
+- **Debt**: Created DEBT-0130 (no counts), DEBT-0131 (a jumped match in wrapped JSON),
+  DEBT-0132 (two title bars on Windows and Linux), DEBT-0133 (this review). None paid.
+- **Deviations**: the owner's looks added H8.7 to H8.13 and moved H8.6 last; H8.4 kept an
+  "Actions" menu until H8.5; H8.13 took option (b), macOS only, picked by the owner (#401); H8.6
+  had simulator screenshots only, the emulator closed. H8.R1 added by the review.
+- **Lessons**: the owner's looks at the real window found what tests and screenshots did not
+  (a missing glyph, the Settings icon, the replay's note); a plan that changes a window should
+  put the owner's first look after its second or third task, not at its end.
