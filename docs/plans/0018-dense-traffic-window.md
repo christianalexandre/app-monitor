@@ -113,7 +113,83 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:designsystem:test :desktop:feature:traffic:test
   :desktop:app:test`, with a test that types, moves and runs an action and one that opens a
   screen; a `palette.png` screenshot (and its `-dark` twin) read.
+- [ ] **H8.7 Replay answers on every tab.** The owner's first look at the window (2026-11-07):
+  "Replay does not seem to do anything". The desktop sends `ReplayRequest`, but its note ("Sent
+  to the app…", "Not sent: …", a refusal) only shows on the Summary tab, and the replayed call
+  lands at the end of the list unpicked.
+  - The note shows on every tab, as the copy note does, at the detail's bottom.
+  - Once the replayed call arrives, the note says so and offers "Open", which picks it.
+  - Reproduce first: on a simulator or an emulator, check that a Replay from the Body tab
+    reaches the app and comes back as a replay. If it does not, fix that in this task.
+  ADR in this task.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a
+  Replay from the Body tab shows the note and that "Open" picks the replayed call;
+  `make e2e-ios` or `make e2e-android` green.
+- [ ] **H8.8 JSON first, and long values cut.** The owner (2026-11-07): the default view is
+  JSON whatever the headers say.
+  - A body opens as JSON whenever its text parses as strict JSON, whatever its `Content-Type`.
+    Otherwise it opens as Text when it is UTF-8, and as Hex for anything else.
+  - The JSON view never scrolls sideways: its lines wrap.
+  - In the JSON view only, a string value over 200 characters is cut and ends with
+    `… (N more)`. Text, Hex, Copy and cURL keep the whole value.
+  The search inside the request finds what the view shows. Its count says when a match is in
+  a cut part.
+  SDD 01's "open as JSON when the `Content-Type` says JSON" changes in this task.
+  ADR in this task.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`:
+  - `text/plain` and missing-`Content-Type` JSON bodies open as JSON;
+  - a 5,000-character value is cut in the view and whole in Copy;
+  - `detail-body.png` is read with no sideways scroll.
+- [ ] **H8.9 Vector icons and the sidebar's refinements.** The window's icons are Unicode
+  glyphs (`◧`, `▯`, `⌕`, `⧉`…). Some are missing from the font (the "show sidebar" toggle draws
+  a broken square) and others are tiny.
+  - `desktop/designsystem` gets vector icons (`ImageVector`, 16 × 16 strokes) drawn from the
+    mockup's SVGs: sidebar, live, record, saved star, globe, check, search, copy, gear, trash,
+    save, issue, chart, mask, pause, export, replay, ellipsis, bolt, phone, android and filter.
+    The icons are in the gallery, and every glyph button in the window uses them.
+  - Sidebar rows:
+    - Live has the live icon;
+    - the recording has a red record icon;
+    - a stored run has the record outline;
+    - Saved has the star.
+  - A host row shows a check in the accent color when the host is shown, and the globe in the
+    tertiary color when it is hidden.
+  - The HOSTS label has an icon button that hides every host, and shows them all again when
+    every host is hidden.
+  - The copy and search icons in the detail are at least 14 dp, as the bar's other icons are.
+  ADR in this task.
+  Accept: `./gradlew :desktop:designsystem:test :desktop:feature:traffic:test
+  :desktop:app:test`, with the gallery and `devices.png`, `devices-hidden.png`, `filters.png`
+  and `detail-*.png` read; a test for hosts all off and back on.
+- [ ] **H8.10 A fuller title bar.** The owner (2026-11-07): besides the palette, the title bar
+  holds the actions and the tools.
+  - After Record/Stop and Clear, icon buttons for Save (⌘S), Export HAR (⌘E), Issues,
+    Benchmarks, Compare runs, Mock rules, Breakpoints and Settings (⌘,), then
+    "Actions ⌘K".
+  - Each button has a tooltip with its name and its shortcut. Each runs what the palette's
+    entry runs.
+  - Under a narrow window, the tools fold into the "⋯" menu, so the title never overlaps
+    them.
+  ADR in this task: it narrows ADR-0205's title bar.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that each
+  button opens what the palette opens; `app.png` read at 1280 and at the window's minimum
+  width.
+- [ ] **H8.11 The app's name and icon.**
+  - The window, the Dock and the macOS menu bar say "App Monitor" under `make desktop` too.
+    Today the menu says `MainKt`.
+  - The app gets an original icon:
+    - a rounded-square tile in the mockup's muted blue, with a white mark of a signal passing
+      between a phone and a window;
+    - its SVG source is in the repository;
+    - the PNG, ICNS and ICO built from it are wired into the window and into
+      `nativeDistributions` for macOS, Windows and Linux.
+  - Nothing in it comes from another product's icon.
+  ADR in this task.
+  Accept: `make desktop` shows "App Monitor" in the menu bar and the icon in the Dock,
+  screenshot read; `./gradlew :desktop:app:packageDmg` builds with the icon; `make check`.
 - [!] **H8.6 The window in use.** The owner's task, run with the owner and not by `/next`.
+  The owner's first look (2026-11-07) became H8.7 to H8.11; this task closes after them, with
+  the owner's second look.
   `./gradlew :desktop:app:liveScreenshots` from the field test app or the samples, on a
   simulator and an emulator. The owner compares the window with the mockup, and the
   differences the owner names are fixed in this task. The README's desktop screenshot is
