@@ -455,12 +455,18 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   Benchmarks, Mocks, Breakpoints, Compare runs with two recordings or more,
   Settings ⌘,) and Devices ("Show <device>"); ↑ and ↓ move, ↵ runs. Each
   entry runs what a button runs, and the shortcuts it lists work without it.
-  The sidebar has DEVICES ("All devices", each session with a
+  The window's icons are the design system's vector icons (`AppIcons`,
+  ADR-0209), on the bars' buttons and the palette's entries. The sidebar
+  has DEVICES ("All devices", each session with a
   green dot while connected, its app, OS, drops and Disconnect, a refused
-  device with Reconnect), TRAFFIC (Live, the recordings newest first, the
-  running one with a red dot and the shown one renamed in place by "✎",
-  Saved) and HOSTS (a click hides a host or shows it again), and a gear for
-  the settings; it shows no counts (DEBT-0130). The rule after the sidebar
+  device with Reconnect), TRAFFIC (Live with the live icon, the recordings
+  newest first, the running one with a red record icon, the others with
+  its outline, the shown one renamed in place by a pencil, Saved with a
+  star) and HOSTS (each host with a check in the accent color while shown,
+  the globe in the muted color while hidden; a click hides a host or shows
+  it again, hiding the last one shown hides every host, and the label's
+  button hides every host or shows them all again), and a gear for the
+  settings; it shows no counts (DEBT-0130). The rule after the sidebar
   and after the requests is dragged to resize them (sidebar 220–400 dp,
   requests from 360 dp, the detail at least 360 dp; the window keeps at
   least 1000 × 600 px); the hidden sidebar and both widths are kept across
@@ -482,11 +488,11 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   (live, recording or a stored run, each with its hint), "No requests
   match" (a filter is set), "Select a request".
 - Request detail (ADR-0147, ADR-0204): a 38 dp bar holds `host › path`,
-  the five tabs as a segmented control, "⌕" (shows or hides the search
+  the five tabs as a segmented control, the search icon (shows or hides the search
   field; hiding it empties it), "Mock", "Replay" and "⋯" (Copy as cURL,
   Save as issue: what the list's "Save as issue" saves, the marked rows
   or else the picked one). Under it the status badge, the method and the
-  whole URL in small monospace, selectable, with its copy glyph, then a
+  whole URL in small monospace, selectable, with its copy icon, then a
   meta line: duration, response size "↓" (its original size when cut),
   the device's name while its session is in the window, the start time to
   the millisecond, and "<Layer> layer" ("Unknown layer" when no
@@ -509,13 +515,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   stronger (ADR-0153). A request row leaves out `https://` (a plain
   `http://` stays). Bodies and cURL sit in a code block; a JSON body
   colors its keys, strings and literals. Each section label has a copy
-  glyph: the URL, headers as `Name: value` lines, a body whole as the
+  icon: the URL, headers as `Name: value` lines, a body whole as the
   device sent it, a gzip one opened (UTF-8, else its hex dump, not the
   indented view), the timing lines, the cURL command; a note at the
   pane's bottom says "Copied", "Nothing to copy" or why not, and goes
   after two seconds (ADR-0153). Above it, on every tab, the replay's note
   and its "Open" (SDD 12, ADR-0207). A body side's label row gives its size,
-  its `Content-Type`, the Text / JSON / Hex control and the copy glyph. Bodies
+  its `Content-Type`, the Text / JSON / Hex control and the copy icon. Bodies
   open as JSON whenever they parse as strict JSON (no bare words at any depth),
   whatever the `Content-Type`, as text when they are UTF-8, else as hex
   (ADR-0208); the

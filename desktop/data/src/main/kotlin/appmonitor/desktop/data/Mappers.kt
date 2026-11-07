@@ -123,6 +123,7 @@ internal fun ExchangeFilter.toStored(): StoredExchangeFilter =
         appId = appId,
         runId = runId,
         sessionId = sessionId,
+        noHost = noHost,
     )
 
 internal fun StatusClass.toStored(): StoredStatusClass = StoredStatusClass.valueOf(name)

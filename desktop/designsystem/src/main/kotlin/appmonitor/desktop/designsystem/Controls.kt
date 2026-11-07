@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
@@ -78,17 +79,17 @@ class MenuAction(
     val onClick: () -> Unit,
 )
 
-/** A [GlyphButton] that opens a menu of [actions], as "⋯" for what does not fit a bar. */
+/** An [IconButton] that opens a menu of [actions], as "⋯" for what does not fit a bar. */
 @Composable
 fun MenuButton(
-    glyph: String,
+    icon: ImageVector,
     description: String,
     actions: List<MenuAction>,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        GlyphButton(glyph, description, onClick = { open = true })
+        IconButton(icon, description, onClick = { open = true })
         DropdownMenu(open, onDismissRequest = { open = false }) {
             actions.forEach { action ->
                 DropdownMenuItem(

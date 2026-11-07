@@ -41,6 +41,7 @@ import appmonitor.desktop.feature.settings.MCP_SWITCH
 import appmonitor.desktop.feature.settings.claudeMcpAdd
 import appmonitor.desktop.feature.traffic.ALL_DEVICES
 import appmonitor.desktop.feature.traffic.CLEAR
+import appmonitor.desktop.feature.traffic.EVERY_HOST
 import appmonitor.desktop.feature.traffic.HOST_FILTER
 import appmonitor.desktop.feature.traffic.MARK
 import appmonitor.desktop.feature.traffic.RECORD
@@ -733,6 +734,17 @@ class AppMonitorAppTest {
                 awaitText(api("feed"))
                 onNodeWithText("timeout").assertExists()
                 onNodeWithText("Method: Any ▾").assertExists()
+
+                onNodeWithTag(EVERY_HOST).performClick()
+                awaitText("No requests match")
+                onNodeWithText(api("feed")).assertDoesNotExist()
+                onNodeWithTag(EVERY_HOST).performClick()
+                awaitText(api("feed"))
+                onNodeWithTag(HOST_FILTER + "shop.example.com").performClick()
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                awaitText("No requests match")
+                onNodeWithTag(HOST_FILTER + "api.example.com").performClick()
+                awaitText(api("feed"))
             }
         }
 

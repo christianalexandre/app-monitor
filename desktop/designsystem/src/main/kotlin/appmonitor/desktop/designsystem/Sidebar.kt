@@ -23,23 +23,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** A sidebar section's label: "DEVICES", "TRAFFIC", "HOSTS" (ADR-0205). */
+/** A sidebar section's label: "DEVICES", "TRAFFIC", "HOSTS" (ADR-0205), then [trailing] at its end, as HOSTS' toggle. */
 @Composable
 fun SidebarSection(
     label: String,
     modifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
-    Text(label, modifier.padding(start = Spacing.md, top = Spacing.lg, bottom = Spacing.xs), role = TextRole.Label)
+    Row(
+        modifier.fillMaxWidth().padding(start = Spacing.md, top = Spacing.lg, bottom = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), role = TextRole.Label)
+        trailing()
+    }
 }
 
 /**
- * A sidebar row: an optional [dot] in a tone, the [label] and its [sub] line, then [trailing]; painted as selected while
+ * A sidebar row: an optional [icon] in [iconTint] or [dot] in a tone, the [label] and its [sub] line, then [trailing]; painted as selected while
  * [selected], faded while [dimmed] (a hidden host), lit while hovered (ADR-0205).
  */
 @Composable
@@ -50,6 +58,8 @@ fun SidebarItem(
     selected: Boolean = false,
     sub: String? = null,
     dot: BadgeTone? = null,
+    icon: ImageVector? = null,
+    iconTint: Color? = null,
     dimmed: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
@@ -75,6 +85,8 @@ fun SidebarItem(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = if (sub == null) Alignment.CenterVertically else Alignment.Top,
     ) {
+        val lead = Modifier.padding(top = if (sub == null) Spacing.none else Spacing.xxs)
+        if (icon != null) Icon(icon, lead, size = IconSize.small, tint = iconTint ?: colors.neutral)
         if (dot != null) Box(Modifier.padding(top = if (sub == null) Spacing.none else Spacing.xs)) { StatusDot(dot) }
         Column(Modifier.weight(1f)) {
             Text(

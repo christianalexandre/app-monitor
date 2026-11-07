@@ -39,7 +39,7 @@ class GalleryTest {
         listOf(false, true).forEach { dark ->
             var chosen: String? = null
             var tab = 0
-            runDesktopComposeUiTest(width = 1680, height = 960) {
+            runDesktopComposeUiTest(width = 1680, height = 1080) {
                 setContent {
                     AppMonitorTheme(dark) {
                         AppSurface { Gallery({ tab = it }) { chosen = it } }
@@ -98,7 +98,7 @@ private fun Gallery(
         PaneDivider(onDrag = {})
         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             TitleBar {
-                GlyphButton("◧", "Sidebar", onClick = {})
+                IconButton(AppIcons.Sidebar, "Sidebar", onClick = {})
                 Text("Title bar", Modifier.weight(1f), role = TextRole.SmallStrong, secondary = true)
                 TextButton("Record", onClick = {})
                 TextButton("Clear", onClick = {})
@@ -107,7 +107,15 @@ private fun Gallery(
                 SidebarSection("Devices")
                 SidebarItem("All devices", onClick = {}, selected = true) { Text("12", role = TextRole.Caption, secondary = true) }
                 SidebarItem("Pixel 9", onClick = {}, sub = "Sample 1.0 · Android 16", dot = BadgeTone.Success)
-                SidebarItem("api.example.com", onClick = {}, dimmed = true)
+                SidebarItem("Recording", onClick = {}, sub = "since 15:57", icon = AppIcons.Record, iconTint = AppMonitorTheme.colors.error)
+                SidebarSection("Hosts") { IconButton(AppIcons.Check, "Hide every host", onClick = {}) }
+                SidebarItem("api.example.com", onClick = {}, icon = AppIcons.Check, iconTint = AppMonitorTheme.colors.primary)
+                SidebarItem("cdn.example.org", onClick = {}, icon = AppIcons.Globe, iconTint = AppMonitorTheme.colors.muted, dimmed = true)
+            }
+            Column(Modifier.padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                AppIcons.all.chunked(ICONS_PER_ROW).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) { row.forEach { (_, icon) -> Icon(icon) } }
+                }
             }
             Tabs(listOf("Summary", "Headers", "Body"), selected = 0, onSelect = onTab, Modifier.padding(horizontal = Spacing.lg))
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -132,7 +140,7 @@ private fun Gallery(
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Segmented(listOf("Request", "Response", "Timing"), selected = 1, onSelect = {})
                 Segmented(listOf("Text", "JSON", "Hex"), selected = 1, onSelect = {}, small = true)
-                MenuButton("⋯", "More actions", listOf(MenuAction("Copy as cURL", "copy") {}))
+                MenuButton(AppIcons.Ellipsis, "More actions", listOf(MenuAction("Copy as cURL", "copy") {}))
             }
             Box(Modifier.width(360.dp).padding(horizontal = Spacing.lg)) {
                 KeyValueTable(
@@ -165,7 +173,7 @@ private fun Gallery(
             Row(Modifier.padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                 SearchField("", {}, "Search field", Modifier.weight(1f), shortcut = "⌘F")
                 SearchField("query", {}, "Search field", Modifier.weight(1f))
-                GlyphButton("↓", "Next", onClick = {})
+                IconButton(AppIcons.ChevronDown, "Next", onClick = {})
             }
             Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                 Toast("Toast")
@@ -199,16 +207,24 @@ private fun Gallery(
                     listOf(
                         PaletteGroup(
                             "Requests",
-                            listOf(PaletteItem("/v1/events/batch", "gallery-request", "↗", {}, sub = "POST · telemetry.example.net")),
+                            listOf(
+                                PaletteItem(
+                                    "/v1/events/batch",
+                                    "gallery-request",
+                                    AppIcons.Globe,
+                                    {},
+                                    sub = "POST · telemetry.example.net",
+                                ),
+                            ),
                         ),
                         PaletteGroup(
                             "Actions",
                             listOf(
-                                PaletteItem("Command palette", "gallery-record", "●", {}, shortcut = "⌘R"),
-                                PaletteItem("Copy as cURL", "gallery-curl", "$", {}),
+                                PaletteItem("Command palette", "gallery-record", AppIcons.Record, {}, shortcut = "⌘R"),
+                                PaletteItem("Copy as cURL", "gallery-curl", AppIcons.Copy, {}),
                             ),
                         ),
-                        PaletteGroup("Open", listOf(PaletteItem("Settings", "gallery-settings", "⚙", {}, shortcut = "⌘,"))),
+                        PaletteGroup("Open", listOf(PaletteItem("Settings", "gallery-settings", AppIcons.Gear, {}, shortcut = "⌘,"))),
                     ),
                     onClose = {},
                 )
@@ -254,3 +270,5 @@ private fun androidx.compose.ui.test.ComposeUiTest.screenshot(name: String) {
     file.parentFile.mkdirs()
     ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", file)
 }
+
+private const val ICONS_PER_ROW = 14

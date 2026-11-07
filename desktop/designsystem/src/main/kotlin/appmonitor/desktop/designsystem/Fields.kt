@@ -77,28 +77,6 @@ fun SearchField(
     )
 }
 
-/** A one-character button, as small as its [glyph]: "↑", "↓"; [description] is what a screen reader says. */
-@Composable
-fun GlyphButton(
-    glyph: String,
-    description: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    MaterialText(
-        glyph,
-        modifier
-            .clip(RoundedCornerShape(Radius.medium))
-            .clickable(onClick = onClick)
-            .semantics {
-                role = Role.Button
-                contentDescription = description
-            }.padding(horizontal = Spacing.sm, vertical = Spacing.xxs),
-        color = AppMonitorTheme.colors.primary,
-        style = styleOf(TextRole.BodyStrong),
-    )
-}
-
 /**
  * A short note over the content, in the inverse colors: "Copied" (ADR-0153); with [action], a link after the text that runs
  * [onAction], as a replay's "Open" (ADR-0207).
