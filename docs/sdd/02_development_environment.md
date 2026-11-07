@@ -245,7 +245,10 @@ jpackage from the JDK 21 toolchain (the Compose plugin downloads WiX for
 `io.github.christianalexandre.appmonitor.desktop`, Linux package
 `app-monitor` and the Windows `upgradeUuid` are ADR-0055's; the bundled
 runtime adds the modules `./gradlew :desktop:app:suggestRuntimeModules`
-prints, so rerun it after adding a dependency. The packages are **unsigned
+prints, so rerun it after adding a dependency. The icon is
+`desktop/app/icon/app-monitor.svg`; `./gradlew :desktop:app:appIcons`
+renders it to the committed ICNS, ICO and PNG the packages, the window and
+the Dock use (ADR-0211). The packages are **unsigned
 build proof**, not releases: macOS Gatekeeper and Windows SmartScreen block
 them until the user overrides (ADR-0055). The app inside listens on 47474
 like `make desktop`.

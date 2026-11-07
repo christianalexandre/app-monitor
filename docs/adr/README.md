@@ -228,3 +228,4 @@ Rules:
 | [0208](0208-a-body-opens-as-json-when-it-parses-and-long-values-are-cut.md) | A body opens as JSON whenever it parses, its lines wrap and long string values are cut | Accepted |
 | [0209](0209-vector-icons-in-the-design-system-and-every-host-hidden.md) | Vector icons in the design system, and a filter that hides every host | Accepted |
 | [0210](0210-the-title-bar-holds-the-tools-folded-under-a-narrow-window.md) | The title bar holds the tools as icon buttons with tooltips, folded into "⋯" under a narrow window | Accepted |
+| [0211](0211-the-app-named-before-awt-starts-and-an-icon-rendered-from-one-svg.md) | The app is named before AWT starts, and its icon is rendered from one SVG | Accepted |
