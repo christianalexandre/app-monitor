@@ -187,9 +187,36 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task.
   Accept: `make desktop` shows "App Monitor" in the menu bar and the icon in the Dock,
   screenshot read; `./gradlew :desktop:app:packageDmg` builds with the icon; `make check`.
+- [ ] **H8.12 Body first, and the gear for Settings.** The owner's second look (2026-11-07).
+  - Picking a request opens its detail on the Body tab, not Summary.
+  - A tab the developer picks still stays across picks, as ADR-0147 has it.
+  - The title bar's Settings button draws the gear icon, not the light/dark one.
+  - Check that every other title bar button's icon matches its name.
+  ADR in this task: it narrows ADR-0147's first tab.
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a first
+  pick opens Body and a picked tab survives the next pick; `app.png` read.
+- [ ] **H8.13 One title bar, the window's own.** The owner's second look (2026-11-07): the
+  actions belong up beside "App Monitor", in the window's title bar. Today they sit in a second
+  row under it.
+  - On macOS and Windows the traffic row moves into the native title bar, through the JBR API
+    the build already has (`WindowDecorations`' custom title bar). Left to right:
+    - the system's window buttons, with their space kept;
+    - the sidebar toggle;
+    - "App Monitor — <run>" centred;
+    - Record/Stop, Clear, the tools and "Actions ⌘K".
+  - The empty parts of the bar still drag and double-click the window. The buttons take
+    clicks.
+  - ADR-0178's appearance still applies.
+  - Where the JBR API is missing (Linux, or another JDK), the window keeps today's native title
+    bar and the row under it.
+  - The window's minimum width and the "⋯" fold (ADR-0210) still hold.
+  ADR in this task: it narrows ADR-0205 and ADR-0210.
+  Accept: `./gradlew :desktop:app:test`; `./gradlew :desktop:app:titleBarScreenshots` on macOS,
+  `docs/screenshots/title-bar-*.png` read with the buttons in the bar; `make check`. The drag is
+  for the owner's look in H8.6.
 - [!] **H8.6 The window in use.** The owner's task, run with the owner and not by `/next`.
-  The owner's first look (2026-11-07) became H8.7 to H8.11; this task closes after them, with
-  the owner's second look.
+  The owner's first look (2026-11-07) became H8.7 to H8.11, the second H8.12 and H8.13; this
+  task closes after them, with the owner's next look.
   `./gradlew :desktop:app:liveScreenshots` from the field test app or the samples, on a
   simulator and an emulator. The owner compares the window with the mockup, and the
   differences the owner names are fixed in this task. The README's desktop screenshot is
