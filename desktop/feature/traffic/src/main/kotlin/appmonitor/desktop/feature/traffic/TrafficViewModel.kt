@@ -22,11 +22,13 @@ import appmonitor.desktop.ui.titleOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -92,7 +94,8 @@ data class TrafficState(
 
 /**
  * The picked request [id] of [appId], read again whenever its row changes; null [exchange] while it loads, null [id] once
- * gone. [curl] is the cURL tab's command, or why there is none, null while it loads or another tab is shown.
+ * gone. [curl] is the cURL tab's command, or why there is none, null while it loads or another tab is shown. [replayed] is
+ * the call a replay sent from here brought back, once it arrives (ADR-0207).
  */
 data class DetailState(
     val id: Long? = null,
@@ -100,6 +103,7 @@ data class DetailState(
     val exchange: HttpExchange? = null,
     val copyNote: String? = null,
     val replayNote: String? = null,
+    val replayed: Long? = null,
     val canReplay: Boolean = false,
     val tab: DetailTab = DetailTab.Summary,
     val curl: Result<String>? = null,
@@ -142,6 +146,7 @@ class TrafficViewModel(
     private var noteShown: Job? = null
     private val tab = MutableStateFlow(DetailTab.Summary)
     private val sent = MutableStateFlow<ReplaySent?>(null)
+    private val awaited = MutableStateFlow<AwaitedReplay?>(null)
     private val saveNote = MutableStateFlow<String?>(null)
 
     private val runs =
@@ -195,6 +200,28 @@ class TrafficViewModel(
 
     private val refused = replays?.refused ?: MutableStateFlow(emptyMap())
 
+    // ADR-0207: the first replay of the request not there when it was sent, then that one only.
+    private val replayed =
+        awaited
+            .transformLatest { awaited ->
+                emit(null)
+                if (awaited == null) return@transformLatest
+                val found =
+                    replaysOf(awaited.filter, awaited.requestId)
+                        .map { ids ->
+                            ids.firstOrNull { it !in awaited.before }
+                        }.first { it != null }
+                emit(found)
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private fun replaysOf(
+        filter: ExchangeFilter,
+        requestId: String,
+    ): Flow<List<Long>> =
+        traffic.observeExchanges(filter, REPLAY_SEARCH_LIMIT).map { rows ->
+            rows.filter { it.replayOf == requestId }.map { it.id }
+        }
+
     private val curl =
         combine(picked, tab) { id, tab -> id.takeIf { tab == DetailTab.Curl } }
             .distinctUntilChanged()
@@ -205,10 +232,16 @@ class TrafficViewModel(
 
     // The sessions are an input, so a request picked before they load gets its app once they do.
     private val detail =
-        combine(combine(exchange, picked, ::Pair), copyNote, sent, refused, combine(sessions, pickedSession, ::Pair)) {
+        combine(
+            combine(exchange, picked, ::Pair),
+            copyNote,
+            combine(sent, replayed, ::Pair),
+            refused,
+            combine(sessions, pickedSession, ::Pair),
+        ) {
             (read, id),
             copyNote,
-            sent,
+            (sent, replayed),
             refused,
             (sessions, pickedId),
             ->
@@ -223,7 +256,9 @@ class TrafficViewModel(
                 copyNote = copyNote,
                 replayNote =
                     shown?.let { refused[ReplayKey(sessionId, it.requestId)] }?.let { "The app did not send it again: $it" }
+                        ?: replayed?.let { REPLAY_ARRIVED }
                         ?: sent?.let(::noteOf),
+                replayed = replayed,
                 canReplay = replays != null,
             )
         }.combine(combine(tab, curl, ::Pair)) { detail, (tab, curl) -> detail.copy(tab = tab, curl = curl) }
@@ -252,6 +287,7 @@ class TrafficViewModel(
                 frameLimit.value = TrafficRepository.PAGE_SIZE
                 copyNote.value = null
                 sent.value = null
+                awaited.value = null
             }
         }
     }
@@ -404,13 +440,27 @@ class TrafficViewModel(
         }
     }
 
+    /** Asks the picked request's app to send it again; [DetailState.replayed] then names the call it brings back. */
     fun sendAgain() {
         val replays = replays ?: return
-        val requestId =
+        val shown =
             exchange.value.second
-                ?.takeIf { it.id == picked.value }
-                ?.requestId ?: return
-        sent.value = replays.send(pickedSessionOf()?.serverSessionId.orEmpty(), requestId)
+                ?.takeIf { it.id == picked.value } ?: return
+        val session = pickedSessionOf()
+        val filter = ExchangeFilter(text = shown.url, runId = runs.value.shownRunId, sessionId = session?.id)
+        viewModelScope.launch {
+            // Read before sending, so a replay that comes back at once is not taken for an earlier one.
+            val before = if (session == null) emptySet() else replaysOf(filter, shown.requestId).first().toSet()
+            if (picked.value != shown.id) return@launch
+            val answer = replays.send(session?.serverSessionId.orEmpty(), shown.requestId)
+            awaited.value = if (answer == ReplaySent.SENT && session != null) AwaitedReplay(filter, shown.requestId, before) else null
+            sent.value = answer
+        }
+    }
+
+    /** Picks the call the last replay brought back, if it came. */
+    fun openReplayed() {
+        replayed.value?.let(::showOriginal)
     }
 
     /** After "Clear all data": the live list, nothing picked or marked. */
@@ -423,6 +473,17 @@ class TrafficViewModel(
         marked.value = emptyMap()
     }
 }
+
+private data class AwaitedReplay(
+    val filter: ExchangeFilter,
+    val requestId: String,
+    val before: Set<Long>,
+)
+
+// How many calls to one URL in one session the search for a replay reads (ADR-0207).
+internal const val REPLAY_SEARCH_LIMIT = 10_000L
+
+internal const val REPLAY_ARRIVED = "The app sent it again"
 
 /** The live list's title (ADR-0140 A). */
 internal const val LIVE = "Live"

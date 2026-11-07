@@ -167,7 +167,10 @@ private fun Gallery(
                 SearchField("query", {}, "Search field", Modifier.weight(1f))
                 GlyphButton("↓", "Next", onClick = {})
             }
-            Toast("Toast", Modifier.padding(horizontal = Spacing.lg))
+            Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+                Toast("Toast")
+                Toast("Toast with an action", action = "Open")
+            }
             StatusBar {
                 StatusDot(BadgeTone.Success)
                 Text("Listening :47474", role = TextRole.Caption, secondary = true)

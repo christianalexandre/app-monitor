@@ -491,7 +491,7 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   the device's name while its session is in the window, the start time to
   the millisecond, and "<Layer> layer" ("Unknown layer" when no
   `RequestStarted` or an older SDK sent it, ADR-0038). Tabs: Summary
-  (error, "Mocked by …", the replay note and link, a Request table of
+  (error, "Mocked by …", the replay's link, a Request table of
   host, path, query, method and scheme, a Response table of status or
   failure, duration, body size and `Content-Type`, connection bytes),
   Headers (a request and a response table), Body (request and response
@@ -513,7 +513,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   device sent it, a gzip one opened (UTF-8, else its hex dump, not the
   indented view), the timing lines, the cURL command; a note at the
   pane's bottom says "Copied", "Nothing to copy" or why not, and goes
-  after two seconds (ADR-0153). A body side's label row gives its size,
+  after two seconds (ADR-0153). Above it, on every tab, the replay's note
+  and its "Open" (SDD 12, ADR-0207). A body side's label row gives its size,
   its `Content-Type`, the Text / JSON / Hex control and the copy glyph. Bodies
   open as JSON when the `Content-Type` says JSON and it parses as strict JSON
   (no bare words at any depth), as text when it is UTF-8, else as hex; the

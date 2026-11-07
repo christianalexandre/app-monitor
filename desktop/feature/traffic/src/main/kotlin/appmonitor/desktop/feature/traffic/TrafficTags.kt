@@ -71,6 +71,8 @@ const val SEND_AGAIN = "send-again"
 
 const val REPLAY_NOTE = "replay-note"
 
+const val OPEN_REPLAYED = "open-replayed"
+
 const val SHOW_ORIGINAL = "show-original"
 
 const val CONNECTION_BYTES = "connection-bytes"

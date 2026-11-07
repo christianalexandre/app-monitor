@@ -78,6 +78,7 @@ internal fun RequestDetail(
     onQuery: (String) -> Unit,
     device: String? = null,
     onSaveAsIssue: () -> Unit = {},
+    onOpenReplayed: () -> Unit = {},
 ) {
     var searching by remember { mutableStateOf(query.isNotBlank()) }
     val requestBody = rememberBodyView(exchange.requestHeaders, exchange.requestBody)
@@ -164,7 +165,7 @@ internal fun RequestDetail(
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.xl).padding(bottom = Spacing.lg), state = list) {
                     when (tab) {
                         DetailTab.Summary -> {
-                            summary(exchange, detail.replayNote, query, onShowOriginal)
+                            summary(exchange, query, onShowOriginal)
                         }
 
                         DetailTab.Headers -> {
@@ -207,13 +208,28 @@ internal fun RequestDetail(
                 }
             }
         }
-        detail.copyNote?.let { Toast(it, Modifier.align(Alignment.BottomCenter).padding(Spacing.lg).testTag(COPY_NOTE)) }
+        // ADR-0207: on every tab, above the copy note, until another request is picked.
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            detail.replayNote?.let {
+                Toast(
+                    it,
+                    Modifier.testTag(REPLAY_NOTE),
+                    action = detail.replayed?.let { "Open" },
+                    onAction = onOpenReplayed,
+                    actionModifier = Modifier.testTag(OPEN_REPLAYED),
+                )
+            }
+            detail.copyNote?.let { Toast(it, Modifier.testTag(COPY_NOTE)) }
+        }
     }
 }
 
 private fun LazyListScope.summary(
     exchange: HttpExchange,
-    replayNote: String?,
     query: String,
     onShowOriginal: (Long) -> Unit,
 ) {
@@ -221,7 +237,6 @@ private fun LazyListScope.summary(
         Spacer(Modifier.height(Spacing.md))
         exchange.error?.let { CodeText(it, query = query, role = TextRole.Body, error = true) }
         exchange.mockRuleId?.let { Text(mockedBy(exchange), Modifier.testTag(MOCKED_BY), role = TextRole.Caption) }
-        replayNote?.let { Text(it, Modifier.testTag(REPLAY_NOTE), role = TextRole.Caption) }
         exchange.replayOf?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val original = exchange.replayOfId

@@ -221,6 +221,7 @@ fun TrafficScreen(
                                                 ?.hello
                                                 ?.device_name,
                                         onSaveAsIssue = links.onSaveAsIssue,
+                                        onOpenReplayed = viewModel::openReplayed,
                                     )
                                 } ?: Placeholder("Loading…")
                             }
