@@ -226,3 +226,4 @@ Rules:
 | [0206](0206-a-command-palette-replaces-the-actions-menu.md) | A ⌘K command palette replaces the title bar's "Actions" menu | Accepted |
 | [0207](0207-a-replays-note-on-every-tab-with-open.md) | A replay's note shows on every tab and opens the call it brought back | Accepted |
 | [0208](0208-a-body-opens-as-json-when-it-parses-and-long-values-are-cut.md) | A body opens as JSON whenever it parses, its lines wrap and long string values are cut | Accepted |
+| [0209](0209-vector-icons-in-the-design-system-and-every-host-hidden.md) | Vector icons in the design system, and a filter that hides every host | Accepted |

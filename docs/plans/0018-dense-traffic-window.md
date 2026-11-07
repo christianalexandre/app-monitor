@@ -140,7 +140,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   - `text/plain` and missing-`Content-Type` JSON bodies open as JSON;
   - a 5,000-character value is cut in the view and whole in Copy;
   - `detail-body.png` is read with no sideways scroll.
-- [ ] **H8.9 Vector icons and the sidebar's refinements.** The window's icons are Unicode
+- [x] **H8.9 Vector icons and the sidebar's refinements.** (`feat/vector-icons`, ADR-0209; the palette's entries got icons too, and the host filter a `noHost` flag so every host can be hidden) The window's icons are Unicode
   glyphs (`◧`, `▯`, `⌕`, `⧉`…). Some are missing from the font (the "show sidebar" toggle draws
   a broken square) and others are tiny.
   - `desktop/designsystem` gets vector icons (`ImageVector`, 16 × 16 strokes) drawn from the

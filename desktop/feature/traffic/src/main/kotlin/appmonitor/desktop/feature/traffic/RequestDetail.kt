@@ -31,13 +31,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.AppIcons
 import appmonitor.desktop.designsystem.Badge
 import appmonitor.desktop.designsystem.BarHeight
 import appmonitor.desktop.designsystem.BlockEdge
 import appmonitor.desktop.designsystem.CodeBlock
 import appmonitor.desktop.designsystem.CodeText
 import appmonitor.desktop.designsystem.Divider
-import appmonitor.desktop.designsystem.GlyphButton
+import appmonitor.desktop.designsystem.IconButton
 import appmonitor.desktop.designsystem.KeyValueTable
 import appmonitor.desktop.designsystem.MenuAction
 import appmonitor.desktop.designsystem.MenuButton
@@ -155,13 +156,18 @@ internal fun RequestDetail(
                         )
                         if (jumps) {
                             val size = found.body.size
-                            GlyphButton(
-                                "↑",
+                            IconButton(
+                                AppIcons.ChevronUp,
                                 "Previous match",
                                 onClick = { jumpTo((current - 1 + size) % size) },
                                 Modifier.testTag(PREVIOUS_MATCH),
                             )
-                            GlyphButton("↓", "Next match", onClick = { jumpTo((current + 1) % size) }, Modifier.testTag(NEXT_MATCH))
+                            IconButton(
+                                AppIcons.ChevronDown,
+                                "Next match",
+                                onClick = { jumpTo((current + 1) % size) },
+                                Modifier.testTag(NEXT_MATCH),
+                            )
                         }
                     }
                 }
@@ -299,7 +305,7 @@ private fun LazyListScope.frames(
     if (exchange.frames.size < exchange.framesKept) item { TextButton("Show more frames", onClick = onMoreFrames) }
 }
 
-/** A tab's small capital heading with the copy glyph of its [part]. */
+/** A tab's small capital heading with the copy icon of its [part]. */
 @Composable
 private fun CopyHeading(
     title: String,
@@ -317,10 +323,10 @@ private fun CopyGlyph(
     part: DetailPart,
     onCopy: (DetailPart) -> Unit,
 ) {
-    GlyphButton(COPY_GLYPH, "Copy", onClick = { onCopy(part) }, Modifier.testTag(COPY + part.name))
+    IconButton(AppIcons.Copy, "Copy", onClick = { onCopy(part) }, Modifier.testTag(COPY + part.name))
 }
 
-/** A body side's heading: its label, size and `Content-Type`, its formats and the copy glyph (ADR-0204). */
+/** A body side's heading: its label, size and `Content-Type`, its formats and the copy icon (ADR-0204). */
 @Composable
 private fun BodyHeading(
     title: String,
@@ -576,7 +582,7 @@ private fun DetailBar(
             }
         }
         Segmented(labels, selected, onSelect)
-        GlyphButton("⌕", "Search in this request", onClick = onSearch, Modifier.testTag(DETAIL_SEARCH_OPEN))
+        IconButton(AppIcons.Search, "Search in this request", onClick = onSearch, Modifier.testTag(DETAIL_SEARCH_OPEN))
         if (exchange.mockable) {
             TextButton("Mock", onClick = onMock, Modifier.testTag(MOCK_THIS))
             if (onReplay != null && exchange.replayable) {
@@ -584,7 +590,7 @@ private fun DetailBar(
             }
         }
         MenuButton(
-            "⋯",
+            AppIcons.Ellipsis,
             "More actions",
             listOfNotNull(
                 MenuAction("Copy as cURL", COPY_CURL_ACTION) { onCopy(DetailPart.Curl) }.takeIf { exchange.connection == null },
@@ -618,9 +624,6 @@ private fun RequestLine(
         Text(metaOf(exchange, device), Modifier.padding(top = Spacing.xs).testTag(DETAIL_META), role = TextRole.Caption, secondary = true)
     }
 }
-
-// The copy glyph of a detail's part.
-private const val COPY_GLYPH = "⧉"
 
 /** Whether the detail offers Mock: neither a connection nor a WebSocket. */
 internal val HttpExchange.mockable: Boolean get() = connection == null && url?.startsWith("ws") != true

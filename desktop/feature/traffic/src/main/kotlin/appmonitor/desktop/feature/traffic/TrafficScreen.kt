@@ -45,6 +45,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import appmonitor.desktop.designsystem.AppIcons
 import appmonitor.desktop.designsystem.AppMonitorTheme
 import appmonitor.desktop.designsystem.Badge
 import appmonitor.desktop.designsystem.BadgeTone
@@ -52,7 +53,7 @@ import appmonitor.desktop.designsystem.Checkbox
 import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.EmptyState
-import appmonitor.desktop.designsystem.GlyphButton
+import appmonitor.desktop.designsystem.IconButton
 import appmonitor.desktop.designsystem.MenuAction
 import appmonitor.desktop.designsystem.MenuButton
 import appmonitor.desktop.designsystem.PaneDivider
@@ -246,8 +247,8 @@ private fun TrafficTitleBar(
 ) {
     val live = state.runs.shownRunId == null
     TitleBar {
-        GlyphButton(
-            if (sidebarShown) "◧" else "▢",
+        IconButton(
+            AppIcons.Sidebar,
             (if (sidebarShown) "Hide the sidebar " else "Show the sidebar ") + SHORTCUT_PREFIX + "B",
             onClick = onSidebar,
             Modifier.testTag(DEVICES_TOGGLE),
@@ -281,7 +282,8 @@ private fun Sidebar(
     viewModel: TrafficViewModel,
     modifier: Modifier,
 ) {
-    Column(modifier.background(AppMonitorTheme.colors.sidebar)) {
+    val colors = AppMonitorTheme.colors
+    Column(modifier.background(colors.sidebar)) {
         LazyColumn(Modifier.weight(1f).padding(horizontal = Spacing.sm)) {
             item { SidebarSection("Devices") }
             item {
@@ -312,14 +314,29 @@ private fun Sidebar(
             }
             item { SidebarSection("Traffic") }
             item { RunItems(state.runs, viewModel) }
-            item { SidebarSection("Hosts") }
+            item {
+                SidebarSection("Hosts") {
+                    if (state.hosts.isNotEmpty()) {
+                        val off = state.filter.noHost
+                        IconButton(
+                            if (off) AppIcons.Globe else AppIcons.Check,
+                            if (off) "Show every host" else "Hide every host",
+                            onClick = { viewModel.setFilter(state.filter.withEveryHost(shown = off)) },
+                            Modifier.testTag(EVERY_HOST),
+                            tint = colors.muted,
+                        )
+                    }
+                }
+            }
             if (state.hosts.isEmpty()) item { SidebarNote("No host in this list yet") }
             items(state.hosts, key = { "host-$it" }) { host ->
-                val hidden = state.filter.hosts.isNotEmpty() && host !in state.filter.hosts
+                val hidden = state.filter.hides(host)
                 SidebarItem(
                     host,
                     { viewModel.setFilter(state.filter.withHost(host, shown = hidden, state.hosts)) },
                     Modifier.testTag(HOST_FILTER + host),
+                    icon = if (hidden) AppIcons.Globe else AppIcons.Check,
+                    iconTint = if (hidden) colors.muted else colors.primary,
                     dimmed = hidden,
                 )
             }
@@ -330,7 +347,7 @@ private fun Sidebar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Spacer(Modifier.weight(1f))
-            GlyphButton("⚙", "Settings", onClick = links.onSettings, Modifier.testTag(SETTINGS_GEAR))
+            IconButton(AppIcons.Gear, "Settings", onClick = links.onSettings, Modifier.testTag(SETTINGS_GEAR))
         }
     }
 }
@@ -392,7 +409,7 @@ private fun RunItems(
     var editing by remember { mutableStateOf<Long?>(null) }
     var draft by remember { mutableStateOf("") }
     Column {
-        SidebarItem(LIVE, { viewModel.showRun(null) }, Modifier.testTag(LIVE_RUN), selected = shownRunId == null)
+        SidebarItem(LIVE, { viewModel.showRun(null) }, Modifier.testTag(LIVE_RUN), selected = shownRunId == null, icon = AppIcons.Live)
         runs.recordings.forEach { run ->
             if (run.id == editing) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
@@ -410,10 +427,11 @@ private fun RunItems(
                     Modifier.testTag(RUN + run.id),
                     selected = shown,
                     sub = spanOf(run, recording = run.id == runs.recording),
-                    dot = if (run.id == runs.recording) BadgeTone.Error else null,
+                    icon = if (run.id == runs.recording) AppIcons.Record else AppIcons.RecordOutline,
+                    iconTint = if (run.id == runs.recording) AppMonitorTheme.colors.error else null,
                 ) {
                     if (shown) {
-                        GlyphButton("✎", "Rename", onClick = {
+                        IconButton(AppIcons.Pencil, "Rename", onClick = {
                             draft = run.name.orEmpty()
                             editing = run.id
                         }, Modifier.testTag(RENAME_RUN))
@@ -423,7 +441,13 @@ private fun RunItems(
         }
         if (runs.recordings.isEmpty()) SidebarNote("Record stores what the devices send until Stop")
         runs.saved?.let { saved ->
-            SidebarItem(titleOf(saved), { viewModel.showRun(saved.id) }, Modifier.testTag(SAVED_RUN), selected = saved.id == shownRunId)
+            SidebarItem(
+                titleOf(saved),
+                { viewModel.showRun(saved.id) },
+                Modifier.testTag(SAVED_RUN),
+                selected = saved.id == shownRunId,
+                icon = AppIcons.Star,
+            )
         }
     }
 }
@@ -472,21 +496,28 @@ private fun StatusText(
 
 /**
  * The filter with [host] shown or hidden among [hosts]: the store keeps the hosts picked, none keeping all (ADR-0148), so
- * hiding one picks every other one and showing the last hidden one picks none again. The last host shown stays shown.
+ * hiding one picks every other one, showing the last hidden one picks none again, and hiding the last one shown hides
+ * every host (ADR-0209).
  */
 internal fun ExchangeFilter.withHost(
     host: String,
     shown: Boolean,
     hosts: List<String>,
 ): ExchangeFilter {
-    val picked = this.hosts.ifEmpty { hosts.toSet() }
+    val picked = if (noHost) emptySet() else this.hosts.ifEmpty { hosts.toSet() }
     val next = if (shown) picked + host else picked - host
     return when {
-        next.isEmpty() -> this
-        next.containsAll(hosts) -> copy(hosts = emptySet())
-        else -> copy(hosts = next)
+        next.isEmpty() -> withEveryHost(shown = false)
+        next.containsAll(hosts) -> withEveryHost(shown = true)
+        else -> copy(hosts = next, noHost = false)
     }
 }
+
+/** The filter with every host shown, or every host hidden (ADR-0209). */
+internal fun ExchangeFilter.withEveryHost(shown: Boolean): ExchangeFilter = copy(hosts = emptySet(), noHost = !shown)
+
+/** Whether this filter hides [host] from the list. */
+internal fun ExchangeFilter.hides(host: String): Boolean = noHost || (hosts.isNotEmpty() && host !in hosts)
 
 @Composable
 private fun RequestList(

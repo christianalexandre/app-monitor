@@ -4,7 +4,7 @@ const val REQUEST_LIST = "requests"
 
 const val DETAIL_SEARCH = "detail-search"
 
-// The detail bar's search glyph, which shows or hides the search field.
+// The detail bar's search icon, which shows or hides the search field.
 const val DETAIL_SEARCH_OPEN = "detail-search-open"
 
 const val DETAIL_URL = "detail-url"
@@ -134,3 +134,6 @@ const val STATUS_FILTER = "status-filter-"
 
 // A host row's tag is this prefix and the host.
 const val HOST_FILTER = "host-filter-"
+
+// HOSTS' button that hides every host or shows them all again.
+const val EVERY_HOST = "every-host"

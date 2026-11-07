@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -56,11 +57,11 @@ const val PALETTE_FIELD = "palette-field"
 
 const val PALETTE_LIST = "palette-list"
 
-/** One row of a [CommandPalette]: a [glyph], its [label] and [sub] line, the [shortcut] that runs it without the palette. */
+/** One row of a [CommandPalette]: an [icon], its [label] and [sub] line, the [shortcut] that runs it without the palette. */
 class PaletteItem(
     val label: String,
     val tag: String,
-    val glyph: String,
+    val icon: ImageVector,
     val onRun: () -> Unit,
     val sub: String? = null,
     val shortcut: String? = null,
@@ -151,7 +152,7 @@ fun CommandPalette(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MaterialText("⌕", color = colors.muted, style = styleOf(TextRole.Title))
+                Icon(AppIcons.Search, size = IconSize.large, tint = colors.muted)
                 BasicTextField(
                     query,
                     onQueryChange,
@@ -246,10 +247,10 @@ private fun PaletteRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(GLYPH_BOX).clip(RoundedCornerShape(Radius.medium)).background(colors.border.copy(alpha = CHIP_ALPHA)),
+            Modifier.size(ICON_BOX).clip(RoundedCornerShape(Radius.medium)).background(colors.border.copy(alpha = CHIP_ALPHA)),
             contentAlignment = Alignment.Center,
         ) {
-            MaterialText(item.glyph, color = colors.neutral, style = styleOf(TextRole.Small), maxLines = 1)
+            Icon(item.icon)
         }
         Column(Modifier.weight(1f)) {
             Text(item.label, role = if (lit) TextRole.BodyStrong else TextRole.Body, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -281,5 +282,5 @@ fun KeyHint(
 private val PALETTE_TOP = 90.dp
 private val PALETTE_WIDTH = 560.dp
 private val PALETTE_LIST_HEIGHT = 380.dp
-private val GLYPH_BOX = 24.dp
+private val ICON_BOX = 24.dp
 private const val CHIP_ALPHA = 0.6f

@@ -10,7 +10,8 @@ import appmonitor.v1.ResponseReceived
 
 /**
  * What the exchange list is narrowed to; a null, false or empty field matches all. [text] is a substring of the URL,
- * host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them.
+ * host included, case-insensitive for ASCII; [statusClasses] and [hosts] keep the rows of any one of them; [noHost]
+ * keeps none (ADR-0209).
  */
 data class ExchangeFilter(
     val text: String? = null,
@@ -22,6 +23,7 @@ data class ExchangeFilter(
     val appId: String? = null,
     val runId: Long? = null,
     val sessionId: Long? = null,
+    val noHost: Boolean = false,
 )
 
 /** A status code's hundreds: [from] to [from] + 99. */
@@ -91,6 +93,7 @@ internal class SearchQuery<T : Any>(
             where += filter.hosts.joinToString(", ", "exchanges.host IN (", ")") { "?" }
             filter.hosts.forEach { host -> binds += { bindString(it, host) } }
         }
+        if (filter.noHost) where += "0"
         if (filter.failedOnly) where += "exchanges.failed = 1"
         filter.text?.takeIf { it.isNotEmpty() }?.let { text ->
             where += "exchanges.url LIKE ? ESCAPE '\\'"
@@ -138,6 +141,7 @@ internal fun ExchangeFilter.liveMatcher(): (StoredExchange, Hello?) -> Boolean {
             (method == null || row.method == method) &&
             (statusClasses.isEmpty() || statusClasses.any { row.statusCode?.minus(it.from) in 0..99 }) &&
             (hosts.isEmpty() || row.host in hosts) &&
+            !noHost &&
             (!failedOnly || row.failed) &&
             (lowered == null || row.url?.asciiLowercase()?.contains(lowered) == true)
     }

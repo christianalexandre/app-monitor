@@ -3,10 +3,12 @@ package appmonitor.desktop.feature.traffic
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import appmonitor.desktop.designsystem.AppIcons
 import appmonitor.desktop.designsystem.CommandPalette
 import appmonitor.desktop.designsystem.PaletteGroup
 import appmonitor.desktop.designsystem.PaletteItem
 import appmonitor.desktop.domain.appLabel
+import appmonitor.v1.Platform
 
 /** What the window's palette and its shortcuts run (ADR-0206): each one a button or a menu of the window runs too. */
 internal class TrafficCommands(
@@ -45,7 +47,7 @@ internal class TrafficCommands(
                 PaletteItem(
                     parts.path,
                     PALETTE + REQUEST + row.id,
-                    "↗",
+                    AppIcons.Globe,
                     { viewModel.selectRequest(row.id) },
                     sub = "${row.method ?: "—"} · ${parts.host}",
                 )
@@ -58,13 +60,7 @@ internal class TrafficCommands(
                         PaletteItem(
                             it,
                             PALETTE + RECORD,
-                            if (state.runs.recording ==
-                                null
-                            ) {
-                                "●"
-                            } else {
-                                "■"
-                            },
+                            if (state.runs.recording == null) AppIcons.Record else AppIcons.Stop,
                             { record() },
                             shortcut = SHORTCUT_PREFIX + "R",
                         )
@@ -72,28 +68,36 @@ internal class TrafficCommands(
                 PaletteItem(
                     if (state.marked.isEmpty()) "Save" else "Save marked requests",
                     PALETTE + SAVE,
-                    "↓",
+                    AppIcons.Save,
                     { save() },
                     shortcut =
                         SHORTCUT_PREFIX + "S",
                 ).takeIf { live && chosen },
-                PaletteItem("Save as issue…", PALETTE + SAVE_AS_ISSUE, "!", links.onSaveAsIssue).takeIf { chosen },
-                exchange?.takeIf { it.mockable }?.let { PaletteItem("Mock this request…", PALETTE + MOCK_THIS, "≈", { links.onMock(it) }) },
+                PaletteItem("Save as issue…", PALETTE + SAVE_AS_ISSUE, AppIcons.Issue, links.onSaveAsIssue).takeIf { chosen },
+                exchange?.takeIf { it.mockable }?.let {
+                    PaletteItem(
+                        "Mock this request…",
+                        PALETTE + MOCK_THIS,
+                        AppIcons.Mask,
+                        { links.onMock(it) },
+                    )
+                },
                 exchange
                     ?.takeIf { state.detail.canReplay && it.replayable }
-                    ?.let { PaletteItem(replayButtonOf(it.method), PALETTE + SEND_AGAIN, "↻", viewModel::sendAgain) },
-                exchange?.takeIf { it.connection == null }?.let { PaletteItem("Copy as cURL", PALETTE + CURL, "$", copyCurl) },
-                PaletteItem("Export HAR…", PALETTE + EXPORT_HAR, "⇪", links.onExportHar, shortcut = SHORTCUT_PREFIX + "E"),
-                PaletteItem("Clear live list", PALETTE + CLEAR, "×", viewModel::clear).takeIf { live },
+                    ?.let { PaletteItem(replayButtonOf(it.method), PALETTE + SEND_AGAIN, AppIcons.Replay, viewModel::sendAgain) },
+                exchange?.takeIf { it.connection == null }?.let { PaletteItem("Copy as cURL", PALETTE + CURL, AppIcons.Copy, copyCurl) },
+                PaletteItem("Export HAR…", PALETTE + EXPORT_HAR, AppIcons.Export, links.onExportHar, shortcut = SHORTCUT_PREFIX + "E"),
+                PaletteItem("Clear live list", PALETTE + CLEAR, AppIcons.Trash, viewModel::clear).takeIf { live },
             ).filter { matches(it.label, query) }
         val open =
             listOfNotNull(
-                PaletteItem("Issues", PALETTE + ISSUES, "!", links.onIssues),
-                PaletteItem("Benchmarks", PALETTE + BENCHMARKS, "≡", links.onBenchmarks),
-                PaletteItem(links.mocksLabel, PALETTE + MOCKS, "≈", links.onMocks),
-                PaletteItem(links.breakpointsLabel, PALETTE + BREAKPOINTS, "‖", links.onBreakpoints),
-                PaletteItem("Compare runs", PALETTE + COMPARE_RUNS, "⇄", links.onCompareRuns).takeIf { state.runs.recordings.size > 1 },
-                PaletteItem("Settings", PALETTE + SETTINGS, "⚙", links.onSettings, shortcut = SHORTCUT_PREFIX + ","),
+                PaletteItem("Issues", PALETTE + ISSUES, AppIcons.Issue, links.onIssues),
+                PaletteItem("Benchmarks", PALETTE + BENCHMARKS, AppIcons.Chart, links.onBenchmarks),
+                PaletteItem(links.mocksLabel, PALETTE + MOCKS, AppIcons.Mask, links.onMocks),
+                PaletteItem(links.breakpointsLabel, PALETTE + BREAKPOINTS, AppIcons.Pause, links.onBreakpoints),
+                PaletteItem("Compare runs", PALETTE + COMPARE_RUNS, AppIcons.RecordOutline, links.onCompareRuns)
+                    .takeIf { state.runs.recordings.size > 1 },
+                PaletteItem("Settings", PALETTE + SETTINGS, AppIcons.Gear, links.onSettings, shortcut = SHORTCUT_PREFIX + ","),
             ).filter { matches(it.label, query) }
         val devices =
             state.sessions
@@ -102,7 +106,7 @@ internal class TrafficCommands(
                     PaletteItem(
                         "Show ${hello.device_name}",
                         PALETTE + DEVICE + session.id,
-                        "▯",
+                        if (hello.platform == Platform.PLATFORM_ANDROID) AppIcons.Android else AppIcons.Phone,
                         { viewModel.selectSession(session.id) },
                         sub = "${hello.appLabel} · ${hello.os_version}",
                     )
