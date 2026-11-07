@@ -525,29 +525,29 @@ private fun StatusText(
 }
 
 /**
- * The filter with [host] shown or hidden among [hosts]: the store keeps the hosts picked, none keeping all (ADR-0148), so
- * hiding one picks every other one, showing the last hidden one picks none again, and hiding the last one shown hides
- * every host (ADR-0209).
+ * The filter with [host] shown or hidden among [hosts]: the hidden ones are listed, so a host seen later shows
+ * (ADR-0214), and hiding the last one shown hides every host (ADR-0209).
  */
 internal fun ExchangeFilter.withHost(
     host: String,
     shown: Boolean,
     hosts: List<String>,
 ): ExchangeFilter {
-    val picked = if (noHost) emptySet() else this.hosts.ifEmpty { hosts.toSet() }
-    val next = if (shown) picked + host else picked - host
+    val hidden = if (noHost) hosts.toSet() else hosts.filterTo(mutableSetOf()) { hides(it) }
+    val next = if (shown) hidden - host else hidden + host
     return when {
-        next.isEmpty() -> withEveryHost(shown = false)
-        next.containsAll(hosts) -> withEveryHost(shown = true)
-        else -> copy(hosts = next, noHost = false)
+        next.isEmpty() -> withEveryHost(shown = true)
+        next.containsAll(hosts) -> withEveryHost(shown = false)
+        else -> copy(hosts = emptySet(), hiddenHosts = next, noHost = false)
     }
 }
 
 /** The filter with every host shown, or every host hidden (ADR-0209). */
-internal fun ExchangeFilter.withEveryHost(shown: Boolean): ExchangeFilter = copy(hosts = emptySet(), noHost = !shown)
+internal fun ExchangeFilter.withEveryHost(shown: Boolean): ExchangeFilter =
+    copy(hosts = emptySet(), hiddenHosts = emptySet(), noHost = !shown)
 
 /** Whether this filter hides [host] from the list. */
-internal fun ExchangeFilter.hides(host: String): Boolean = noHost || (hosts.isNotEmpty() && host !in hosts)
+internal fun ExchangeFilter.hides(host: String): Boolean = noHost || host in hiddenHosts || (hosts.isNotEmpty() && host !in hosts)
 
 @Composable
 private fun RequestList(

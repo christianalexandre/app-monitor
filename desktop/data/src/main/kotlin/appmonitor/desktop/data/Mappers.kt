@@ -124,6 +124,7 @@ internal fun ExchangeFilter.toStored(): StoredExchangeFilter =
         runId = runId,
         sessionId = sessionId,
         noHost = noHost,
+        hiddenHosts = hiddenHosts,
     )
 
 internal fun StatusClass.toStored(): StoredStatusClass = StoredStatusClass.valueOf(name)

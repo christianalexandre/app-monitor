@@ -71,7 +71,7 @@ data class RunsState(
 
 /**
  * The shown list's sessions, the first [rows] [filter] matches of the picked [session] (every device's when null), [more]
- * when the store may hold others, the picked [row], its [detail], [marked] (ADR-0095 A.1), [disconnected] (ADR-0144); [hosts] for the filter sheet.
+ * when the store may hold others, the picked [row], its [detail], [marked] (ADR-0095 A.1), [disconnected] (ADR-0144); [hosts] for the sidebar's Hosts.
  */
 data class TrafficState(
     val runs: RunsState = RunsState(),
@@ -180,7 +180,7 @@ class TrafficViewModel(
     private val hosts =
         combine(runs.map { it.shownRunId }.distinctUntilChanged(), session.map { it?.id }.distinctUntilChanged(), ::Pair)
             .flatMapLatest { (run, id) -> traffic.observeHosts(run, id).onStart { emit(emptyList()) } }
-            .combine(filter) { hosts, filter -> (hosts + filter.hosts).distinct().sorted() }
+            .combine(filter) { hosts, filter -> (hosts + filter.hosts + filter.hiddenHosts).distinct().sorted() }
 
     private val row =
         combine(rows, selectedRequest) { rows, id -> rows.firstOrNull { it.id == id } }

@@ -200,6 +200,40 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `a host hidden in the sidebar leaves a host seen later shown`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value =
+                listOf(exchange(1, session = 10, host = "a.example"), exchange(2, session = 10, host = "b.example"))
+            val viewModel = viewModel()
+            val hidden =
+                viewModel.state.value.filter
+                    .withHost("b.example", shown = false, viewModel.state.value.hosts)
+            viewModel.setFilter(hidden)
+            assertEquals(
+                listOf(1L),
+                viewModel.state.value.rows
+                    .map { it.id },
+            )
+
+            traffic.exchanges.value += exchange(3, session = 10, host = "c.example")
+            assertEquals(
+                listOf(1L, 3L),
+                viewModel.state.value.rows
+                    .map { it.id },
+            )
+            assertEquals(listOf("a.example", "b.example", "c.example"), viewModel.state.value.hosts)
+            assertTrue(
+                viewModel.state.value.filter
+                    .hides("b.example"),
+            )
+            assertFalse(
+                viewModel.state.value.filter
+                    .hides("c.example"),
+            )
+        }
+
+    @Test
     fun `show original reads an original past the loaded pages`() =
         runTest {
             val last = TrafficRepository.PAGE_SIZE + 5
@@ -535,6 +569,7 @@ class TrafficViewModelTest {
                 list
                     .filter { it.sessionId in shown && (filter.method == null || it.method == filter.method) }
                     .filter { filter.hosts.isEmpty() || it.host in filter.hosts }
+                    .filter { it.host == null || it.host !in filter.hiddenHosts }
                     .filter { filter.text?.let { text -> text in it.url.orEmpty() } ?: true }
                     .take(limit.toInt())
             }
