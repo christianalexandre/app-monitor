@@ -195,35 +195,29 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it narrows ADR-0147's first tab.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a first
   pick opens Body and a picked tab survives the next pick; `app.png` read.
-- [!] **H8.13 One title bar, the window's own.** (`docs/title-bar-blocked`; waiting for the
-  owner, 2026-11-07.) The JBR API is on the classpath (`org.jetbrains.runtime:jbr-api:1.9.0`
-  through Compose, `:desktop:app:dependencies`), but the app runs and is packaged on the JDK that
-  runs Gradle, Zulu 21 here, which has no `com/jetbrains/JBR` class (`jimage list`). So
-  `JBR.isAvailable()` is false and the task would ship the fallback everywhere. The owner picks:
-  (a) run and package the desktop on the JetBrains Runtime (a Gradle toolchain with vendor
-  `JETBRAINS`, GPLv2 with the Classpath Exception like Zulu), the task as written; or (b) macOS
-  only, on any JDK, through AWT's `apple.awt.fullWindowContent` and
-  `apple.awt.transparentTitleBar` (present in Zulu 21), with Windows keeping two rows for now.
-  Either way the loop cannot read `title-bar-*.png`: it has no Screen Recording (DEBT-0124).
-  The owner's second look (2026-11-07): the
+- [ ] **H8.13 One title bar, the window's own (macOS).** The owner's second look (2026-11-07): the
   actions belong up beside "App Monitor", in the window's title bar. Today they sit in a second
   row under it.
-  - On macOS and Windows the traffic row moves into the native title bar, through the JBR API
-    the build already has (`WindowDecorations`' custom title bar). Left to right:
+  Option (b), picked by the owner on 2026-11-07 (PR #401): macOS only, on any JDK. The app
+  does not move to the JetBrains Runtime, whose JBR API is on the classpath but whose classes
+  Zulu 21 lacks.
+  - On macOS the window sets AWT's `apple.awt.fullWindowContent` and
+    `apple.awt.transparentTitleBar`, hides the system title text, and the traffic row is drawn
+    in the title bar's place. Left to right:
     - the system's window buttons, with their space kept;
     - the sidebar toggle;
     - "App Monitor — <run>" centred;
     - Record/Stop, Clear, the tools and "Actions ⌘K".
-  - The empty parts of the bar still drag and double-click the window. The buttons take
-    clicks.
+  - The bar's empty parts drag the window (Compose's `WindowDraggableArea`), and a double click
+    there zooms it, as the system's title bar does. The buttons take clicks.
   - ADR-0178's appearance still applies.
-  - Where the JBR API is missing (Linux, or another JDK), the window keeps today's native title
-    bar and the row under it.
+  - Windows and Linux keep today's native title bar and the row under it. A DEBT records it,
+    with the trigger "the owner runs the desktop on Windows".
   - The window's minimum width and the "⋯" fold (ADR-0210) still hold.
   ADR in this task: it narrows ADR-0205 and ADR-0210.
-  Accept: `./gradlew :desktop:app:test`; `./gradlew :desktop:app:titleBarScreenshots` on macOS,
-  `docs/screenshots/title-bar-*.png` read with the buttons in the bar; `make check`. The drag is
-  for the owner's look in H8.6.
+  Accept: `./gradlew :desktop:app:test`, with a test that the macOS properties are set only on
+  macOS; `make check`. The loop cannot read a real window (DEBT-0124): the bar, its drag and
+  its double click are for the owner's look in H8.6.
 - [!] **H8.6 The window in use.** The owner's task, run with the owner and not by `/next`.
   The owner's first look (2026-11-07) became H8.7 to H8.11, the second H8.12 and H8.13; this
   task closes after them, with the owner's next look.
