@@ -54,6 +54,7 @@ import appmonitor.desktop.designsystem.Choice
 import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.EmptyState
 import appmonitor.desktop.designsystem.IconButton
+import appmonitor.desktop.designsystem.LocalWindowBar
 import appmonitor.desktop.designsystem.MenuAction
 import appmonitor.desktop.designsystem.MenuButton
 import appmonitor.desktop.designsystem.PaneDivider
@@ -238,7 +239,7 @@ fun TrafficScreen(
 
 /**
  * The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, the tools, then "Actions ⌘K" for the palette; under
- * [TOOLS_FOLD] the tools fold into a "⋯" menu (ADR-0210).
+ * [TOOLS_FOLD] of bar past the window's buttons the tools fold into a "⋯" menu (ADR-0210, ADR-0213).
  */
 @Composable
 private fun TrafficTitleBar(
@@ -252,7 +253,7 @@ private fun TrafficTitleBar(
 ) {
     val live = commands.live
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val folded = maxWidth < TOOLS_FOLD
+        val folded = maxWidth - LocalWindowBar.current.buttonsInset < TOOLS_FOLD
         TitleBar {
             IconButton(
                 AppIcons.Sidebar,

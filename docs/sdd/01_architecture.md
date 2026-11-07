@@ -446,14 +446,18 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   "App Monitor", under `make desktop` too; the icon, rendered from
   `desktop/app/icon/app-monitor.svg`, is the window's, the Dock's and the
   packages'.
-- UI (ADR-0146, ADR-0205, ADR-0206, ADR-0210): a 40 dp title bar over a sidebar, the requests
-  and the detail, then a 24 dp status bar. The title bar holds the
+- UI (ADR-0146, ADR-0205, ADR-0206, ADR-0210, ADR-0213): a 40 dp title bar over a sidebar, the requests
+  and the detail, then a 24 dp status bar. On macOS that bar is the window's
+  title bar: AWT lays the content under a transparent system title bar with
+  no title text, the bar keeps 72 dp for the system's buttons, its empty parts
+  move the window and a double click there zooms it. On Windows and Linux the
+  system's title bar stays over it (DEBT-0132). The title bar holds the
   sidebar's toggle (also ⌘B, Ctrl+B off macOS), "App Monitor — <run>",
   Record or Stop and Clear (live list only), the tools as icon buttons with
   a tooltip of their name and shortcut (Save ⌘S on the live list, dimmed with
   nothing ticked or picked; Export HAR ⌘E, Issues, Benchmarks, Compare runs,
   dimmed under two recordings, Mocks, Breakpoints, Settings ⌘,), each running
-  what the palette's entry runs, folded into a "⋯" menu under 760 dp, then
+  what the palette's entry runs, folded into a "⋯" menu under 760 dp of bar past the system's buttons, then
   "Actions ⌘K", which opens
   the palette (also ⌘K, Ctrl+K off macOS; ⌘K, Esc or a click outside closes
   it). The palette's field narrows four groups: Requests (the loaded rows
