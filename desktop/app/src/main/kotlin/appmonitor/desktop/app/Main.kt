@@ -61,6 +61,7 @@ import kotlin.system.exitProcess
 import kotlin.time.Duration
 
 fun main() {
+    nameApp()
     val directory = dataDirectory()
     lateinit var server: AppMonitorServer
     val (storage, approvals, access, appearance, panes, desktopId) =
@@ -80,6 +81,7 @@ fun main() {
         }
     // ADR-0150: read by AWT once, before the first window; set after that it does nothing.
     System.setProperty(MAC_APPEARANCE, macAppearanceOf(appearance.theme.value))
+    showDockIcon()
     val live = LiveTraffic()
     val recorder = Recorder(live, storage)
     val store = TrafficStore(storage, recorder)
@@ -109,7 +111,8 @@ fun main() {
                     awaitApplication {
                         Window(
                             onCloseRequest = ::exitApplication,
-                            title = "App Monitor",
+                            title = APP_NAME,
+                            icon = appIconPainter(),
                             state = rememberWindowState(width = 1280.dp, height = 800.dp),
                         ) {
                             // ADR-0151: narrower, the panes' minimums would squeeze the detail to nothing.
@@ -227,8 +230,9 @@ internal suspend fun stopAll(
 }
 
 private suspend fun showDataDirectoryInUse(directory: String) {
+    showDockIcon()
     awaitApplication {
-        Window(onCloseRequest = ::exitApplication, title = "App Monitor") { DataDirectoryInUse(directory) }
+        Window(onCloseRequest = ::exitApplication, title = APP_NAME, icon = appIconPainter()) { DataDirectoryInUse(directory) }
     }
 }
 
@@ -237,8 +241,9 @@ private suspend fun showStorageFailure(
     failure: Exception,
 ) {
     failure.printStackTrace()
+    showDockIcon()
     awaitApplication {
-        Window(onCloseRequest = ::exitApplication, title = "App Monitor") {
+        Window(onCloseRequest = ::exitApplication, title = APP_NAME, icon = appIconPainter()) {
             StorageUnavailable(file, failure.message ?: failure.toString()) { clearDataFiles(Path.of(file)) }
         }
     }

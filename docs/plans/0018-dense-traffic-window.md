@@ -174,7 +174,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that each
   button opens what the palette opens; `app.png` read at 1280 and at the window's minimum
   width.
-- [ ] **H8.11 The app's name and icon.**
+- [x] **H8.11 The app's name and icon.** (`feat/app-name-and-icon`, ADR-0211; the Dock icon not seen in a screenshot, screen capture denied to the loop: left to H8.6's look)
   - The window, the Dock and the macOS menu bar say "App Monitor" under `make desktop` too.
     Today the menu says `MainKt`.
   - The app gets an original icon:

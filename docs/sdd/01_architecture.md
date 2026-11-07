@@ -442,6 +442,10 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   `make fake-traffic` against the app waits up to 120 s for the approval the
   first time; its fixture `Hello` is always the same pair, so later runs are
   admitted with no dialog.
+- Name and icon (ADR-0211): the window, the Dock and the macOS menu bar say
+  "App Monitor", under `make desktop` too; the icon, rendered from
+  `desktop/app/icon/app-monitor.svg`, is the window's, the Dock's and the
+  packages'.
 - UI (ADR-0146, ADR-0205, ADR-0206, ADR-0210): a 40 dp title bar over a sidebar, the requests
   and the detail, then a 24 dp status bar. The title bar holds the
   sidebar's toggle (also ⌘B, Ctrl+B off macOS), "App Monitor — <run>",

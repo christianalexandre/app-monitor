@@ -45,14 +45,18 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "Network monitor and debug toolkit for mobile apps"
             vendor = "Christian Alexandre"
+            // ADR-0211: rendered from icon/app-monitor.svg by `appIcons`.
             macOS {
+                iconFile = file("icon/app-monitor.icns")
                 bundleID = "io.github.christianalexandre.appmonitor.desktop"
             }
             windows {
+                iconFile = file("icon/app-monitor.ico")
                 upgradeUuid = "8f77d24f-b78d-495b-80a0-9139348c95b8"
                 menuGroup = "App Monitor"
             }
             linux {
+                iconFile = file("src/main/resources/app-monitor.png")
                 packageName = "app-monitor"
             }
         }
@@ -68,6 +72,7 @@ tasks.test {
 tasks.test {
     exclude("**/LiveDeviceScreenshots*")
     exclude("**/TitleBarScreenshots*")
+    exclude("**/AppIconExport*")
 }
 
 // Needs a device running the sample (ADR-0031).
@@ -102,4 +107,20 @@ tasks.register<Test>("titleBarScreenshots") {
     filter.includeTestsMatching("appmonitor.desktop.app.TitleBarScreenshots")
     outputs.upToDateWhen { false }
     systemProperty("titleBarScreenshotDir", rootProject.file("docs/screenshots").absolutePath)
+}
+
+// ADR-0211: run by hand after editing icon/app-monitor.svg; commit what it writes.
+tasks.register<Test>("appIcons") {
+    description = "Renders icon/app-monitor.svg to the PNG, ICNS and ICO files the app and its packages use."
+    group = "build"
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter.includeTestsMatching("appmonitor.desktop.app.AppIconExport")
+    outputs.upToDateWhen { false }
+    systemProperty("appIconDir", file("icon").absolutePath)
+    systemProperty("appIconPng", file("src/main/resources/app-monitor.png").absolutePath)
 }
