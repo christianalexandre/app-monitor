@@ -187,7 +187,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task.
   Accept: `make desktop` shows "App Monitor" in the menu bar and the icon in the Dock,
   screenshot read; `./gradlew :desktop:app:packageDmg` builds with the icon; `make check`.
-- [ ] **H8.12 Body first, and the gear for Settings.** The owner's second look (2026-11-07).
+- [x] **H8.12 Body first, and the gear for Settings.** (`feat/body-first-and-settings-gear`, ADR-0212; the gear was the mockup's sun, redrawn as a cog everywhere it shows; the other icons matched) The owner's second look (2026-11-07).
   - Picking a request opens its detail on the Body tab, not Summary.
   - A tab the developer picks still stays across picks, as ADR-0147 has it.
   - The title bar's Settings button draws the gear icon, not the light/dark one.

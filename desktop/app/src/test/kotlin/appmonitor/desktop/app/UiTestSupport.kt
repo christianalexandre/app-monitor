@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -84,6 +85,14 @@ internal fun ComposeUiTest.pick(
 
 private const val MENU_TRIES = 3
 private const val MENU_WAIT_MS = 4_000L
+
+/** Fails unless the request detail's tab named [label] is the open one. */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeUiTest.assertTabOpen(label: String) {
+    val tab = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+    waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(tab).fetchSemanticsNodes().isNotEmpty() }
+    onNode(tab).assertIsSelected()
+}
 
 /** Opens the request detail's tab named [label]; the pick keeps it for the next request. */
 @OptIn(ExperimentalTestApi::class)

@@ -44,6 +44,7 @@ class MockedExchangeUiTest {
                 onNodeWithTag(MOCKED + "m", useUnmergedTree = true).assertExists()
                 onNodeWithTag(MOCKED + "n", useUnmergedTree = true).assertDoesNotExist()
                 onNodeWithText("https://api.example.com/v1/items").performClick()
+                showTab("Summary")
                 awaitText("Mocked by rule \"items down\"")
                 awaitText("5 ms · ", substring = true)
                 screenshot("mocked.png")

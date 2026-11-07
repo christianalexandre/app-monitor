@@ -87,6 +87,7 @@ class ReplayTest {
                     device.send("RequestStarted", original.copy(request_id = "req-2", replay_of = "req-1"))
                     waitUntil(timeoutMillis = TIMEOUT_MS) { onAllTagged(REPLAYED + "req-2") }
                     onNodeWithTag(REPLAYED + "req-2", useUnmergedTree = true).performClick()
+                    showTab("Summary")
                     awaitText("Replay of an earlier request")
                     screenshot("replay.png")
                     onNodeWithTag(SHOW_ORIGINAL).performClick()
