@@ -173,7 +173,7 @@ fun TrafficScreen(
             .focusable(),
     ) {
         Column(Modifier.fillMaxSize()) {
-            TrafficTitleBar(state, viewModel, sidebarShown, toggleSidebar, openPalette)
+            TrafficTitleBar(state, links, commands, viewModel, sidebarShown, toggleSidebar, openPalette)
             val notes = listOfNotNull(state.runs.saveNote?.let { it to SAVE_NOTE }, links.exportNote?.let { it to EXPORT_NOTE })
             notes.forEach { (note, tag) ->
                 Text(note, Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xxs).testTag(tag), role = TextRole.Caption)
@@ -236,41 +236,70 @@ fun TrafficScreen(
     }
 }
 
-/** The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, then "Actions ⌘K" for the palette (ADR-0206). */
+/**
+ * The sidebar's toggle (⌘B), what is shown, Record or Stop and Clear, the tools, then "Actions ⌘K" for the palette; under
+ * [TOOLS_FOLD] the tools fold into a "⋯" menu (ADR-0210).
+ */
 @Composable
 private fun TrafficTitleBar(
     state: TrafficState,
+    links: TrafficLinks,
+    commands: TrafficCommands,
     viewModel: TrafficViewModel,
     sidebarShown: Boolean,
     onSidebar: () -> Unit,
     onPalette: () -> Unit,
 ) {
-    val live = state.runs.shownRunId == null
-    TitleBar {
-        IconButton(
-            AppIcons.Sidebar,
-            (if (sidebarShown) "Hide the sidebar " else "Show the sidebar ") + SHORTCUT_PREFIX + "B",
-            onClick = onSidebar,
-            Modifier.testTag(DEVICES_TOGGLE),
-        )
-        Text(
-            "App Monitor — ${state.runs.title}",
-            Modifier.weight(1f),
-            role = TextRole.SmallStrong,
-            secondary = true,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (live) {
-            if (state.runs.recording == null) {
-                TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
-            } else {
-                TextButton("Stop", onClick = viewModel::stop, Modifier.testTag(RECORD))
+    val live = commands.live
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val folded = maxWidth < TOOLS_FOLD
+        TitleBar {
+            IconButton(
+                AppIcons.Sidebar,
+                (if (sidebarShown) "Hide the sidebar " else "Show the sidebar ") + SHORTCUT_PREFIX + "B",
+                onClick = onSidebar,
+                Modifier.testTag(DEVICES_TOGGLE),
+                tooltip = true,
+            )
+            Text(
+                "App Monitor — ${state.runs.title}",
+                Modifier.weight(1f),
+                role = TextRole.SmallStrong,
+                secondary = true,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (live) {
+                if (state.runs.recording == null) {
+                    TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
+                } else {
+                    TextButton("Stop", onClick = viewModel::stop, Modifier.testTag(RECORD))
+                }
+                TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
             }
-            TextButton("Clear", onClick = viewModel::clear, Modifier.testTag(CLEAR))
+            val tools = commands.tools()
+            if (folded) {
+                MenuButton(
+                    AppIcons.Ellipsis,
+                    "Tools",
+                    tools.filter { it.enabled }.map { MenuAction(it.name, TOOL + it.tag, it.onClick) },
+                    Modifier.testTag(TOOLS_MENU),
+                )
+            } else {
+                tools.forEach { tool ->
+                    IconButton(
+                        tool.icon,
+                        tool.name,
+                        onClick = tool.onClick,
+                        Modifier.testTag(TOOL + tool.tag),
+                        tooltip = true,
+                        enabled = tool.enabled,
+                    )
+                }
+            }
+            TextButton("Actions ${SHORTCUT_PREFIX}K", onClick = onPalette, Modifier.testTag(ACTIONS))
         }
-        TextButton("Actions ${SHORTCUT_PREFIX}K", onClick = onPalette, Modifier.testTag(ACTIONS))
     }
 }
 
@@ -717,6 +746,9 @@ private val CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS", Locale.ROOT).wit
 
 // ADR-0151, ADR-0205: the bounds a drag keeps each pane in, the widths at launch are PaneLayout's; the detail the rest.
 private val SIDEBAR_MIN = 220.dp
+
+// Under the window's minimum width (1000), where the tools leave the title under 200 dp: they take a "⋯" (ADR-0210).
+private val TOOLS_FOLD = 760.dp
 private val SIDEBAR_MAX = 400.dp
 private val REQUESTS_MIN = 360.dp
 private val DETAIL_MIN = 360.dp
