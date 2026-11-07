@@ -113,7 +113,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:designsystem:test :desktop:feature:traffic:test
   :desktop:app:test`, with a test that types, moves and runs an action and one that opens a
   screen; a `palette.png` screenshot (and its `-dark` twin) read.
-- [ ] **H8.7 Replay answers on every tab.** The owner's first look at the window (2026-11-07):
+- [x] **H8.7 Replay answers on every tab.** (`feat/replay-note-on-every-tab`, ADR-0207; reproduced: the replay was sent from every tab, `make e2e-ios` and the Body tab's `ReplayTest`, only its note was missing) The owner's first look at the window (2026-11-07):
   "Replay does not seem to do anything". The desktop sends `ReplayRequest`, but its note ("Sent
   to the app…", "Not sent: …", a refusal) only shows on the Summary tab, and the replayed call
   lands at the end of the list unpicked.

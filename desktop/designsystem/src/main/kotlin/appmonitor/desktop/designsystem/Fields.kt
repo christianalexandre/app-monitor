@@ -3,6 +3,7 @@ package appmonitor.desktop.designsystem
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.Text as MaterialText
 
@@ -97,19 +99,37 @@ fun GlyphButton(
     )
 }
 
-/** A short note over the content, in the inverse colors, for a moment: "Copied" (ADR-0153). */
+/**
+ * A short note over the content, in the inverse colors: "Copied" (ADR-0153); with [action], a link after the text that runs
+ * [onAction], as a replay's "Open" (ADR-0207).
+ */
 @Composable
 fun Toast(
     text: String,
     modifier: Modifier = Modifier,
+    action: String? = null,
+    onAction: () -> Unit = {},
+    actionModifier: Modifier = Modifier,
 ) {
     val colors = AppMonitorTheme.colors
-    Box(
+    Row(
         modifier
             .background(colors.onSurface.copy(alpha = TOAST_ALPHA), RoundedCornerShape(Radius.medium))
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         MaterialText(text, color = colors.surface, style = styleOf(TextRole.SmallStrong))
+        if (action != null) {
+            MaterialText(
+                action,
+                actionModifier
+                    .clip(RoundedCornerShape(Radius.small))
+                    .clickable(role = Role.Button, onClick = onAction),
+                color = colors.surface,
+                style = styleOf(TextRole.SmallStrong).copy(textDecoration = TextDecoration.Underline),
+            )
+        }
     }
 }
 

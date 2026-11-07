@@ -251,6 +251,53 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `a replay names the call it brought back, not an earlier one, and open picks it`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            val earlier = exchange(2, session = 10).copy(requestId = "req-2", replayOf = "req-1", url = "https://example.com/1")
+            traffic.exchanges.value = listOf(exchange(1, session = 10), earlier)
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            viewModel.selectTab(DetailTab.Body)
+            viewModel.sendAgain()
+            assertEquals("Sent to the app; its call shows as a replay", viewModel.state.value.detail.replayNote)
+            assertNull(viewModel.state.value.detail.replayed, "the replay sent before is not this one")
+            traffic.exchanges.update {
+                it +
+                    exchange(3, session = 10).copy(requestId = "req-3", replayOf = "req-1", url = "https://example.com/1")
+            }
+            assertEquals(3L, viewModel.state.value.detail.replayed)
+            assertEquals("The app sent it again", viewModel.state.value.detail.replayNote)
+            traffic.exchanges.update {
+                it +
+                    exchange(4, session = 10).copy(requestId = "req-4", replayOf = "req-1", url = "https://example.com/1")
+            }
+            assertEquals(3L, viewModel.state.value.detail.replayed, "the first one back stays")
+            viewModel.openReplayed()
+            assertEquals(3L, viewModel.state.value.detail.id)
+            assertEquals(DetailTab.Body, viewModel.state.value.detail.tab)
+            assertNull(viewModel.state.value.detail.replayNote)
+            assertNull(viewModel.state.value.detail.replayed)
+        }
+
+    @Test
+    fun `a replay not sent waits for no call`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value = listOf(exchange(1, session = 10))
+            replays.answer = ReplaySent.SESSION_ENDED
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            viewModel.sendAgain()
+            traffic.exchanges.update {
+                it +
+                    exchange(2, session = 10).copy(requestId = "req-2", replayOf = "req-1", url = "https://example.com/1")
+            }
+            assertNull(viewModel.state.value.detail.replayed)
+            assertEquals("Not sent: the app's session ended, and a replay goes through the app", viewModel.state.value.detail.replayNote)
+        }
+
+    @Test
     fun `each tab's copy action copies its part and the tab stays for the next request`() =
         runTest {
             traffic.sessions.value = listOf(session(10))
@@ -440,6 +487,7 @@ class TrafficViewModelTest {
                 list
                     .filter { it.sessionId in shown && (filter.method == null || it.method == filter.method) }
                     .filter { filter.hosts.isEmpty() || it.host in filter.hosts }
+                    .filter { filter.text?.let { text -> text in it.url.orEmpty() } ?: true }
                     .take(limit.toInt())
             }
         }
@@ -493,6 +541,7 @@ class TrafficViewModelTest {
 
     private class FakeReplays : ReplayRepository {
         val sent = mutableListOf<Pair<String, String>>()
+        var answer = ReplaySent.SENT
         override val refused = MutableStateFlow(emptyMap<ReplayKey, String>())
 
         override fun send(
@@ -500,7 +549,7 @@ class TrafficViewModelTest {
             requestId: String,
         ): ReplaySent {
             sent += sessionId to requestId
-            return ReplaySent.SENT
+            return answer
         }
     }
 }
