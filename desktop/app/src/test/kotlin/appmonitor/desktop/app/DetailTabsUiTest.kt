@@ -197,6 +197,8 @@ class DetailTabsUiTest {
 
                 awaitText(URL)
                 onNodeWithText(URL).performClick()
+                assertTabOpen("Body")
+                showTab("Summary")
                 awaitText("Content-Type")
                 onNodeWithTag(DETAIL_META).assertTextContains("120 ms · 8 B ↓ · ", substring = true)
                 awaitText("page=2")

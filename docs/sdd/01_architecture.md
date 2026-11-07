@@ -513,8 +513,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   bodies, then WebSocket frames), Timing (a table: started and ended to
   the millisecond in this machine's zone, duration, frames: the protocol
   carries no finer phase) and cURL. Tables are `KeyValueTable`s, keys
-  muted, every other row shaded, headers in the order sent. The tab
-  picked stays for the next request. "Search in this request" highlights
+  muted, every other row shaded, headers in the order sent. A first
+  pick opens Body (Summary for a connection layer exchange, which has
+  no Body); the tab picked stays for the next request (ADR-0212). "Search in this request" highlights
   every case-insensitive match in the shown tab and counts them per tab
   ("Headers · 2", "2 matches"); Summary counts its tables' values; cURL
   is highlighted but not counted, as it repeats the others; the text

@@ -26,7 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** The window's icons: 16 × 16 strokes, 1.25 wide, round ends, drawn from the mockup's SVGs and tinted where shown (ADR-0209). */
+/** The window's icons: 16 × 16 strokes, 1.25 wide, round ends, drawn from the mockup's SVGs and tinted where shown (ADR-0209, ADR-0212). */
 object AppIcons {
     val Sidebar by icon {
         stroke(rect(1.5f, 2.5f, 13f, 11f, 2f))
@@ -60,10 +60,12 @@ object AppIcons {
         stroke("M11 5 V3.5 A1 1 0 0 0 10 2.5 H3.5 a1 1 0 0 0 -1 1 V10 a1 1 0 0 0 1 1 H5")
     }
     val Gear by icon {
-        stroke(circle(8f, 8f, 2.5f))
         stroke(
-            "M8 1.5 v2 M8 12.5 v2 M1.5 8 h2 M12.5 8 h2 M3.6 3.6 l1.4 1.4 M11 11 l1.4 1.4 M3.6 12.4 l1.4 -1.4 M11 5 l1.4 -1.4",
+            "M6.6 3.4 L6.8 1.7 H9.2 L9.4 3.4 L10.3 3.8 L11.6 2.7 L13.3 4.4 L12.2 5.7 L12.6 6.6 L14.3 6.8 V9.2 L12.6 9.4 " +
+                "L12.2 10.3 L13.3 11.6 L11.6 13.3 L10.3 12.2 L9.4 12.6 L9.2 14.3 H6.8 L6.6 12.6 L5.7 12.2 L4.4 13.3 " +
+                "L2.7 11.6 L3.8 10.3 L3.4 9.4 L1.7 9.2 V6.8 L3.4 6.6 L3.8 5.7 L2.7 4.4 L4.4 2.7 L5.7 3.8 Z",
         )
+        stroke(circle(8f, 8f, 2f))
     }
     val Trash by icon { stroke("M3 4.5 h10 M6.5 4.5 V3 h3 v1.5 M4.5 4.5 l0.6 9 h5.8 l0.6 -9") }
     val Save by icon { stroke("M4 2.5 h8 v11 L8 10.5 l-4 3 z") }

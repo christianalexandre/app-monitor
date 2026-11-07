@@ -333,13 +333,26 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `a first pick opens Body and a picked tab survives the next pick`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10))
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            assertEquals(DetailTab.Body, viewModel.state.value.detail.tab)
+            viewModel.selectTab(DetailTab.Headers)
+            viewModel.selectRequest(2)
+            assertEquals(DetailTab.Headers, viewModel.state.value.detail.tab)
+        }
+
+    @Test
     fun `each tab's copy action copies its part and the tab stays for the next request`() =
         runTest {
             traffic.sessions.value = listOf(session(10))
             traffic.exchanges.value = listOf(exchange(1, session = 10), exchange(2, session = 10))
             val viewModel = viewModel()
             viewModel.selectRequest(1)
-            assertEquals(DetailTab.Summary, viewModel.state.value.detail.tab)
+            assertEquals(DetailTab.Body, viewModel.state.value.detail.tab)
             assertNull(viewModel.state.value.detail.curl)
             var copied: String? = null
             viewModel.copy(DetailPart.Url) { copied = it }

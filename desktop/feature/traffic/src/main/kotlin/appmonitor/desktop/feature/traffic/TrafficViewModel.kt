@@ -105,7 +105,7 @@ data class DetailState(
     val replayNote: String? = null,
     val replayed: Long? = null,
     val canReplay: Boolean = false,
-    val tab: DetailTab = DetailTab.Summary,
+    val tab: DetailTab = DetailTab.Body,
     val curl: Result<String>? = null,
 )
 
@@ -144,7 +144,7 @@ class TrafficViewModel(
     private val frameLimit = MutableStateFlow(TrafficRepository.PAGE_SIZE)
     private val copyNote = MutableStateFlow<String?>(null)
     private var noteShown: Job? = null
-    private val tab = MutableStateFlow(DetailTab.Summary)
+    private val tab = MutableStateFlow(DetailTab.Body) // ADR-0212
     private val sent = MutableStateFlow<ReplaySent?>(null)
     private val awaited = MutableStateFlow<AwaitedReplay?>(null)
     private val saveNote = MutableStateFlow<String?>(null)

@@ -57,7 +57,8 @@ which cuts long JSON values in the view and keeps them whole in Copy, reworks it
 change, and touched `BodyFormat.kt` in `indentJson` and `defaultFormat` only, not `hexDump` or
 the parse: items 2 to 4 now wait for a PR that changes `textOf` in `DetailTabs.kt`, Copy's
 thread in `TrafficViewModel.kt`, `hexDump` or the parse in `prettyJsonOrNull`
-(re-triggered 2026-11-07, ADR-0208).
+(re-triggered 2026-11-07, ADR-0208). H8.12's PR changed only the detail's first tab in
+`TrafficViewModel.kt`, not Copy's thread (ADR-0212).
 
 ## How it was paid
 

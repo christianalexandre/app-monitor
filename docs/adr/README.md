@@ -229,3 +229,4 @@ Rules:
 | [0209](0209-vector-icons-in-the-design-system-and-every-host-hidden.md) | Vector icons in the design system, and a filter that hides every host | Accepted |
 | [0210](0210-the-title-bar-holds-the-tools-folded-under-a-narrow-window.md) | The title bar holds the tools as icon buttons with tooltips, folded into "⋯" under a narrow window | Accepted |
 | [0211](0211-the-app-named-before-awt-starts-and-an-icon-rendered-from-one-svg.md) | The app is named before AWT starts, and its icon is rendered from one SVG | Accepted |
+| [0212](0212-the-detail-opens-on-body-and-settings-draws-a-cog.md) | The detail opens on Body, and Settings draws a cog | Accepted |
