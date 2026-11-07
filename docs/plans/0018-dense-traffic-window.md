@@ -218,7 +218,8 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:app:test`, with a test that the macOS properties are set only on
   macOS; `make check`. The loop cannot read a real window (DEBT-0124): the bar, its drag and
   its double click are for the owner's look in H8.6.
-- [!] **H8.6 The window in use.** The owner's task, run with the owner and not by `/next`.
+- [x] **H8.6 The window in use.** (`test/live-screenshots-after-the-sidebar`; the owner's third look,
+  2026-11-07: "ficou melhor". Simulator screenshots only: the emulator was closed.) The owner's task, run with the owner and not by `/next`.
   The owner's first look (2026-11-07) became H8.7 to H8.11, the second H8.12 and H8.13; this
   task closes after them, with the owner's next look.
   `./gradlew :desktop:app:liveScreenshots` from the field test app or the samples, on a
