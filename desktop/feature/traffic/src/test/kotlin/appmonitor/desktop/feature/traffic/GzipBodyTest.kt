@@ -26,7 +26,7 @@ class GzipBodyTest {
     fun `a gzip body opens before the formats`() {
         val body = DecodedBody(gzip("""{"a":"café"}"""), listOf(encoded, json))
 
-        assertEquals(BodyFormat.Json, defaultFormat(listOf(encoded, json), body))
+        assertEquals(BodyFormat.Json, defaultFormat(body))
         assertEquals("{\n    \"a\": \"café\"\n}", render(body, BodyFormat.Json))
         assertEquals("""{"a":"café"}""", render(body, BodyFormat.Text))
         assertTrue(render(body, BodyFormat.Hex).startsWith("00000000  7b 22 61"))
@@ -65,7 +65,7 @@ class GzipBodyTest {
         val bomb = gzip(ByteArray(MAX_OPENED_BYTES * 2))
         assertTrue(bomb.size <= Protocol.MAX_BODY_BYTES, "bomb is ${bomb.size} bytes")
 
-        val (rendered, elapsed) = measureTimedValue { renderBody(listOf(encoded), DecodedBody(bomb, listOf(encoded)), null) }
+        val (rendered, elapsed) = measureTimedValue { renderBody(DecodedBody(bomb, listOf(encoded)), null) }
 
         assertEquals(BodyFormat.Text, rendered.format)
         assertEquals(MAX_OPENED_BYTES, rendered.chunks.sumOf { it.length })
@@ -80,7 +80,7 @@ class GzipBodyTest {
     fun `binary at the bound renders as hex in bounded time`() {
         val binary = gzip(Random(7).nextBytes(MAX_OPENED_BYTES))
 
-        val (rendered, elapsed) = measureTimedValue { renderBody(listOf(encoded), DecodedBody(binary, listOf(encoded)), null) }
+        val (rendered, elapsed) = measureTimedValue { renderBody(DecodedBody(binary, listOf(encoded)), null) }
 
         assertEquals(BodyFormat.Hex, rendered.format)
         assertTrue(rendered.note!!.endsWith("$MAX_OPENED_BYTES shown"), rendered.note)
@@ -108,7 +108,7 @@ class GzipBodyTest {
 
         val body = DecodedBody(whole.substring(0, whole.size / 2), listOf(encoded, json))
 
-        assertEquals(BodyFormat.Text, defaultFormat(listOf(encoded, json), body))
+        assertEquals(BodyFormat.Text, defaultFormat(body))
         assertTrue(body.text!!.startsWith("""{"items":[0,1,2"""))
     }
 

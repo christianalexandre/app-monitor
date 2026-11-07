@@ -764,10 +764,12 @@ class AppMonitorAppTest {
                 onNodeWithText("https://a.example/json").performClick()
                 showTab("Body")
                 awaitText("{\n    \"a\": 1\n}")
+                onNodeWithText("Text").performClick()
+                awaitText("{\"a\":1}")
 
                 onNodeWithText("https://a.example/text").performClick()
-                awaitText("{\"a\":1}")
-                onNodeWithText("{\n    \"a\": 1\n}").assertDoesNotExist()
+                awaitText("{\n    \"a\": 1\n}")
+                onNodeWithText("{\"a\":1}").assertDoesNotExist()
             }
         }
 

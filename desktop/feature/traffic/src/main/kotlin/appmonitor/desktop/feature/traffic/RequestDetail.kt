@@ -100,7 +100,11 @@ internal fun RequestDetail(
             withContext(Dispatchers.Default) {
                 val request = requestRendered?.chunks.orEmpty()
                 val response = responseRendered?.chunks.orEmpty()
-                Found(matchCounts(searchedTexts(exchange, request + response), query), bodyMatches(request, response, query))
+                Found(
+                    matchCounts(searchedTexts(exchange, request + response), query),
+                    bodyMatches(request, response, query),
+                    hiddenMatches(requestRendered?.cut.orEmpty() + responseRendered?.cut.orEmpty(), query),
+                )
             }
     }
     val counts = found.counts
@@ -144,7 +148,8 @@ internal fun RequestDetail(
                     if (query.isNotBlank()) {
                         val jumps = tab == DetailTab.Body && found.body.isNotEmpty()
                         Text(
-                            if (jumps) "${current + 1} of ${found.body.size}" else matchSummary(counts.values.sum()),
+                            (if (jumps) "${current + 1} of ${found.body.size}" else matchSummary(counts.values.sum())) +
+                                cutSummary(found.hidden),
                             Modifier.testTag(DETAIL_MATCHES),
                             role = TextRole.Caption,
                         )
@@ -379,7 +384,7 @@ private fun rememberBodyView(
     var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
     val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
         value = null
-        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(headers, decoded, chosen) }
+        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(decoded, chosen) }
     }
     return BodyView(captured, rendered) { chosen = it }
 }
@@ -403,12 +408,13 @@ private fun LazyListScope.body(
         val json = rendered.format == BodyFormat.Json
         itemsIndexed(rendered.chunks) { index, chunk ->
             CodeBlock(edgeOf(index, rendered.chunks.size)) {
+                // ADR-0208: JSON wraps, the other formats scroll sideways.
                 CodeText(
                     chunk,
-                    Modifier.horizontalScroll(rememberScrollState()),
+                    if (json) Modifier else Modifier.horizontalScroll(rememberScrollState()),
                     query = query,
                     syntax = if (json) remember(chunk) { jsonSyntax(chunk) } else emptyList(),
-                    softWrap = false,
+                    softWrap = json,
                     current = shown?.takeIf { it.chunk == index }?.inChunk,
                 )
             }
@@ -441,6 +447,7 @@ private fun FrameRow(
 private data class Found(
     val counts: Map<DetailTab, Int> = emptyMap(),
     val body: List<BodyMatch> = emptyList(),
+    val hidden: Int = 0,
 )
 
 // The Body tab's rows: per side a heading and a notes row, then its chunks (one "Rendering…" row while it renders).
@@ -451,6 +458,14 @@ private fun bodyRowOf(
 
 // Lines shown above a match jumped to.
 private const val CONTEXT_LINES = 3
+
+/** What the match count adds for matches in the JSON view's cut values (ADR-0208); empty without any. */
+internal fun cutSummary(hidden: Int): String =
+    when (hidden) {
+        0 -> ""
+        1 -> " · 1 in a cut value"
+        else -> " · $hidden in cut values"
+    }
 
 internal fun matchSummary(total: Int): String =
     when (total) {

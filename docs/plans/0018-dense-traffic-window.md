@@ -125,7 +125,7 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a
   Replay from the Body tab shows the note and that "Open" picks the replayed call;
   `make e2e-ios` or `make e2e-android` green.
-- [ ] **H8.8 JSON first, and long values cut.** The owner (2026-11-07): the default view is
+- [x] **H8.8 JSON first, and long values cut.** (`feat/json-first-long-values-cut`, ADR-0208, DEBT-0131) The owner (2026-11-07): the default view is
   JSON whatever the headers say.
   - A body opens as JSON whenever its text parses as strict JSON, whatever its `Content-Type`.
     Otherwise it opens as Text when it is UTF-8, and as Hex for anything else.
