@@ -195,7 +195,17 @@ updates the SDD it changes in its own PR (ADR-0094). The `Hold` before M10 stays
   ADR in this task: it narrows ADR-0147's first tab.
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a test that a first
   pick opens Body and a picked tab survives the next pick; `app.png` read.
-- [ ] **H8.13 One title bar, the window's own.** The owner's second look (2026-11-07): the
+- [!] **H8.13 One title bar, the window's own.** (`docs/title-bar-blocked`; waiting for the
+  owner, 2026-11-07.) The JBR API is on the classpath (`org.jetbrains.runtime:jbr-api:1.9.0`
+  through Compose, `:desktop:app:dependencies`), but the app runs and is packaged on the JDK that
+  runs Gradle, Zulu 21 here, which has no `com/jetbrains/JBR` class (`jimage list`). So
+  `JBR.isAvailable()` is false and the task would ship the fallback everywhere. The owner picks:
+  (a) run and package the desktop on the JetBrains Runtime (a Gradle toolchain with vendor
+  `JETBRAINS`, GPLv2 with the Classpath Exception like Zulu), the task as written; or (b) macOS
+  only, on any JDK, through AWT's `apple.awt.fullWindowContent` and
+  `apple.awt.transparentTitleBar` (present in Zulu 21), with Windows keeping two rows for now.
+  Either way the loop cannot read `title-bar-*.png`: it has no Screen Recording (DEBT-0124).
+  The owner's second look (2026-11-07): the
   actions belong up beside "App Monitor", in the window's title bar. Today they sit in a second
   row under it.
   - On macOS and Windows the traffic row moves into the native title bar, through the JBR API
