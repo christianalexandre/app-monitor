@@ -92,7 +92,7 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 
 | macOS | Linux | Windows |
 | --- | --- | --- |
-| ![The desktop on macOS](docs/screenshots/simulator-traffic.png) | ![The desktop on Linux](docs/screenshots/desktop-linux.png) | ![The desktop on Windows](docs/screenshots/desktop-windows.png) |
+| ![The desktop on macOS](docs/screenshots/desktop-macos.png) | ![The desktop on Linux](docs/screenshots/desktop-linux.png) | ![The desktop on Windows](docs/screenshots/desktop-windows.png) |
 
 ## Roadmap
 
