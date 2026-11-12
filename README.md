@@ -88,6 +88,12 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
 | Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals, MCP server on `127.0.0.1` — M1, M5, M6 |
 
+### The desktop on each OS
+
+| macOS | Linux | Windows |
+| --- | --- | --- |
+| ![The desktop on macOS](docs/screenshots/simulator-traffic.png) | ![The desktop on Linux](docs/screenshots/desktop-linux.png) | Coming soon |
+
 ## Roadmap
 
 | Milestone | Delivers |
