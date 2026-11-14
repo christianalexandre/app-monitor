@@ -56,7 +56,7 @@ them:
   Accept: `make publish-dry-run` signs with a throwaway key made by the
   script, checks every file's `.asc`, the javadoc and sources jars, the
   plugin marker's POM, and fails on a missing one; `make check` green.
-- [ ] **M10.2 One version, checked.** A script reads the version from
+- [x] **M10.2 One version, checked.** (`build/one-version-checked`) A script reads the version from
   `gradle.properties` and fails unless the tag, the plugin's SDK version
   (ADR-0157) and the version each SDK sends in `Hello` (`SDK_VERSION` in
   `sdk/core`, `sdkVersion` in `sdk/ios`, both `0.1.0-dev` today) agree; a `-SNAPSHOT` or `-dev`
