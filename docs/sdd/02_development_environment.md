@@ -335,6 +335,16 @@ Signing reads `APPMONITOR_SIGNING_KEY` (ASCII-armored secret key) and
 (`appmonitor.maven-central`, ADR-0215); without them nothing is signed, so
 `publishToMavenLocal` and the tests need no key.
 
+## One version
+
+`VERSION_NAME` in `gradle.properties` (Kotlin artifacts and the Gradle
+plugin's SDK version), `SDK_VERSION` in `sdk/core`'s `Platform.kt` and
+`sdkVersion` in `sdk/ios`'s `Device.swift` (each SDK's `Hello`) hold the
+same version: `X.Y.Z-SNAPSHOT` on `dev`, plain `X.Y.Z` on a release branch
+(ADR-0054, ADR-0216). `scripts/version_check.sh` fails when they differ;
+`--release X.Y.Z` also fails when the tag differs or the version has a
+suffix. `make scripts-test` runs it on the repository.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin

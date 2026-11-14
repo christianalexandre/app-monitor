@@ -233,3 +233,4 @@ Rules:
 | [0213](0213-on-macos-the-window-draws-its-own-title-bar.md) | On macOS the window draws its own title bar, through AWT's root pane properties | Accepted |
 | [0214](0214-a-hidden-host-is-listed-not-the-shown-ones.md) | A hidden host is listed, not the hosts shown | Accepted |
 | [0215](0215-maven-central-through-maven-publish-signing-and-the-portal-bundle-api.md) | Maven Central through maven-publish, Gradle signing and the Portal's bundle API | Accepted |
+| [0216](0216-one-version-in-three-places-checked-by-a-script.md) | One version in three places, checked by a script; a release needs a matching X.Y.Z tag | Accepted |

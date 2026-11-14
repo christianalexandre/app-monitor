@@ -6,7 +6,7 @@ internal expect fun platformLog(message: String)
 internal expect val CONNECT_FAILURE_HINT: String
 
 /** `Hello.sdk_version` of this build. */
-internal const val SDK_VERSION: String = "0.1.0-dev"
+internal const val SDK_VERSION: String = "0.1.0-SNAPSHOT"
 
 /** `Hello.sdk_name` of `sdk/core` (ADR-0077). */
 internal const val SDK_NAME: String = "kotlin"
