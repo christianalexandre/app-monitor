@@ -345,6 +345,33 @@ same version: `X.Y.Z-SNAPSHOT` on `dev`, plain `X.Y.Z` on a release branch
 `--release X.Y.Z` also fails when the tag differs or the version has a
 suffix. `make scripts-test` runs it on the repository.
 
+## Publishing a release
+
+`.github/workflows/publish.yml` (job `central`, macOS, ADR-0217) runs on a
+pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
+`scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
+signs with the release key and checks every file. `scripts/central_upload.sh
+build/maven-dry-run` zips the repository (no `maven-metadata.xml`) into
+`build/central-bundle.zip`, posts it to the Central Portal with
+`publishingType=AUTOMATIC` and polls until `PUBLISHED`; on `FAILED` it
+prints the Portal's errors. Last, a GitHub Release with the tag's section
+of `CHANGELOG.md`, or GitHub's generated notes. SwiftPM needs nothing
+beyond the tag.
+
+Repository secrets, read only on a tag run:
+
+| Secret | What |
+| --- | --- |
+| `APPMONITOR_SIGNING_KEY` | ASCII-armored GPG secret key; its public part on `keyserver.ubuntu.com` and `keys.openpgp.org` |
+| `APPMONITOR_SIGNING_PASSWORD` | its passphrase |
+| `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | a Central Portal user token, namespace `io.github.christianalexandre` |
+
+A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
+`central_upload.sh`, `version_check.sh` or the publishing conventions runs
+the same job dry. It uses a throwaway key and no secret, and keeps the
+bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
+--bundle-only` builds the bundle locally.
+
 ## CI
 
 `.github/workflows/ci.yml` runs `make check` on `ubuntu-latest` with Temurin

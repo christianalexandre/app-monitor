@@ -1,0 +1,86 @@
+name: Publish
+
+# ADR-0217: an X.Y.Z tag on main publishes; a PR that changes the publication runs it dry.
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+  pull_request:
+    branches: [dev]
+    paths:
+      - .github/workflows/publish.yml
+      - scripts/publish_dry_run.sh
+      - scripts/central_upload.sh
+      - scripts/version_check.sh
+      - build-logic/src/main/kotlin/appmonitor.maven-central.gradle.kts
+      - build-logic/src/main/kotlin/appmonitor.publish.gradle.kts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  central:
+    runs-on: macos-latest # ADR-0058: the iOS klibs
+    timeout-minutes: 60
+    permissions:
+      contents: write # the GitHub Release
+    env:
+      RELEASE: ${{ github.ref_type == 'tag' }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Version
+        run: |
+          if [[ "$RELEASE" == true ]]; then
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
+              { echo "::error::tag $TAG is not on main"; exit 1; }
+            scripts/version_check.sh --release "$TAG"
+          else
+            scripts/version_check.sh
+          fi
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic # ADR-0012
+      - name: Signed repository, checked
+        env:
+          APPMONITOR_SIGNING_KEY: ${{ github.ref_type == 'tag' && secrets.APPMONITOR_SIGNING_KEY || '' }}
+          APPMONITOR_SIGNING_PASSWORD: ${{ github.ref_type == 'tag' && secrets.APPMONITOR_SIGNING_PASSWORD || '' }}
+        run: make publish-dry-run
+      - name: Upload to Maven Central
+        if: env.RELEASE == 'true'
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: scripts/central_upload.sh build/maven-dry-run
+      - name: Bundle only
+        if: env.RELEASE != 'true'
+        run: scripts/central_upload.sh build/maven-dry-run --bundle-only
+      - name: Central bundle
+        if: env.RELEASE != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: central-bundle
+          path: build/central-bundle.zip
+          if-no-files-found: error
+          retention-days: 7
+      - name: GitHub Release
+        if: env.RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$(awk -v v="## $TAG" 'index($0, v) == 1 {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
+          if [[ -n "$notes" ]]; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
