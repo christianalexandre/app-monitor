@@ -235,3 +235,4 @@ Rules:
 | [0215](0215-maven-central-through-maven-publish-signing-and-the-portal-bundle-api.md) | Maven Central through maven-publish, Gradle signing and the Portal's bundle API | Accepted |
 | [0216](0216-one-version-in-three-places-checked-by-a-script.md) | One version in three places, checked by a script; a release needs a matching X.Y.Z tag | Accepted |
 | [0217](0217-the-publish-workflow-signs-in-ci-and-uploads-automatic.md) | The publish workflow signs on a main tag and uploads with publishingType AUTOMATIC; PRs run it dry | Accepted |
+| [0218](0218-published-coordinates-consumers-and-the-ios-klib-floor.md) | Consumers of the published coordinates, and a Kotlin floor for iOS klibs equal to the build's | Accepted |
