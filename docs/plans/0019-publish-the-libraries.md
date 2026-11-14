@@ -46,7 +46,7 @@ them:
 
 ## Tasks
 
-- [ ] **M10.1 Artifacts Central accepts.** Every publication the dry-run
+- [x] **M10.1 Artifacts Central accepts.** (`build/sign-for-central`) Every publication the dry-run
   makes (ADR-0058: protocol, core, okhttp, ktor, the three no-ops, each
   target) plus the Gradle plugin and its marker get a signature, a sources
   jar and a javadoc jar, and the POM Central requires. The upload path
@@ -74,7 +74,8 @@ them:
 - [ ] **M10.4 Consumers of the published coordinates.** A script, given a
   version, builds a throwaway Android app that applies only the plugin from
   `mavenCentral()` (debug with the SDK, release without, as the TestKit
-  consumer of ADR-0126), a KMP one on `appmonitor-ktor`, and a SwiftPM one
+  consumer of ADR-0126), a KMP one on `appmonitor-ktor` with an
+  `iosSimulatorArm64` target on Kotlin 2.2 (DEBT-0117), and a SwiftPM one
   resolving the repository's URL at the tag, in debug and release. Before
   `0.1.0` exists it runs against `mavenLocal` and a local tag, so it is
   proven before the upload. Accept: the script green against

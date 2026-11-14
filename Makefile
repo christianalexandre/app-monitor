@@ -78,7 +78,7 @@ e2e-kmp-android: ## KMP sample on a booted emulator against the headless server,
 e2e-kmp-ios: ## KMP sample on an iPhone simulator with the Swift SDK, each exchange once (SIM_DEVICE)
 	@scripts/e2e_kmp.sh ios
 
-publish-dry-run: ## SDKs to build/maven-dry-run, POMs checked; SwiftPM consumer in debug and release (ADR-0058)
+publish-dry-run: ## SDKs and Gradle plugin to build/maven-dry-run, signed and checked as Central does; SwiftPM consumer (ADR-0058, ADR-0215)
 	@scripts/publish_dry_run.sh
 
 swift-proto: ## Regenerate sdk/ios protobuf types from protocol/proto (ADR-0160)
