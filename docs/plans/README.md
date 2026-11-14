@@ -56,28 +56,32 @@ record of how the milestone was actually built once it is done.
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
+| [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
-### Hold — the owner's go before M10
+### Hold — the owner tests `0.1.0` before M11
 
-The owner ran the SDKs in a real app (2026-10-30), which asked for
-[PLAN-0014](0014-plug-and-play-setup.md) (H4), then H5 to H7; a second run
-(2026-11-06) asked for [PLAN-0018](0018-dense-traffic-window.md) (H8). The loop
-does not plan past this section: reaching it is **stop: waiting for the
-owner**, who removes it when the backlog is ready to publish.
+[PLAN-0019](0019-publish-the-libraries.md) (M10) publishes the libraries;
+the owner then installs `0.1.0` in a real project before the desktop app
+is distributed (owner, 2026-11-13). The loop does not plan past this
+section: reaching it is **stop: waiting for the owner**, who removes it
+when the libraries are good.
 
-### M10 — Distribution
+### M11 — Desktop distribution
 
 Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
-owner's, with the steps to let them run (ADR-0055: no signing cost), Maven
-Central, SwiftPM tags, docs site, README with GIFs. The Gradle plugin that
-swaps the SDK for its no-ops in release builds, published with the SDK
-(ADR-0093); its TestKit consumer then resolves the published
-`appmonitor-okhttp` too, the module names of ADR-0126 A.1.
+owner's, with the steps to let them run (ADR-0055: no signing cost), at the
+libraries' `X.Y.Z` tag.
+
+### M12 — The repository's front page
+
+The README rewritten for someone who has never seen the project, with
+GIFs; installation and contribution guides (`CONTRIBUTING.md`); a docs
+site.
 
 ### Later — readable bodies
 

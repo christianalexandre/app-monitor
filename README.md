@@ -108,7 +108,9 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md) | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md) | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | [M9 — Interaction](docs/plans/0010-interaction.md) | Mocks, breakpoints, replay, OkHttp injection by the Gradle plugin |
-| M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
+| [M10 — Libraries](docs/plans/0019-publish-the-libraries.md) | Maven Central, Gradle plugin and SwiftPM at one `X.Y.Z` tag |
+| M11 — Desktop distribution | Unsigned packages, Homebrew tap |
+| M12 — Front page | README with GIFs, installation and contribution guides, docs site |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
