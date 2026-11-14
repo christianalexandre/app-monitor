@@ -335,6 +335,30 @@ Signing reads `APPMONITOR_SIGNING_KEY` (ASCII-armored secret key) and
 (`appmonitor.maven-central`, ADR-0215); without them nothing is signed, so
 `publishToMavenLocal` and the tests need no key.
 
+## Consumers of the published coordinates
+
+`scripts/consumers_check.sh [--local] [VERSION]` (ADR-0218) builds three
+throwaway apps in `build/consumers/` that install the SDK as the README
+says:
+
+- **Android**: AGP from the catalog and only the plugin, plus OkHttp; it
+  assembles debug and release, and fails unless the debug runtime
+  classpath resolves `appmonitor-okhttp` and the release one only the
+  no-ops;
+- **KMP**: the plugin on a Kotlin Multiplatform module with CIO and
+  `install(AppMonitorKtor)`, JVM and (macOS) `iosSimulatorArm64`; it
+  links debug and release frameworks on `CONSUMER_KOTLIN`, by default the
+  `major.minor.0` of the build's Kotlin, the oldest compiler that reads the
+  iOS klibs;
+- **SwiftPM** (macOS): the repository's URL with *Up to Next Minor* from
+  the version, built in debug and release, and the resolved version
+  checked.
+
+`--local` first publishes the SDK and the plugin to `~/.m2` and tags `HEAD`
+in a scratch bare clone (`build/consumers/local-origin/app-monitor.git`),
+so it runs before anything is uploaded; without it the consumers read
+Maven Central and GitHub.
+
 ## One version
 
 `VERSION_NAME` in `gradle.properties` (Kotlin artifacts and the Gradle

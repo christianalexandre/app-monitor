@@ -74,7 +74,7 @@ them:
   without secrets. The secrets' names are in SDD 02 and the owner's setup
   steps in the PR. Accept: the dry-run dispatched on the branch, green;
   `scripts/ruleset_check.sh` green.
-- [ ] **M10.4 Consumers of the published coordinates.** A script, given a
+- [x] **M10.4 Consumers of the published coordinates.** (`test/published-consumers`) A script, given a
   version, builds a throwaway Android app that applies only the plugin from
   `mavenCentral()` (debug with the SDK, release without, as the TestKit
   consumer of ADR-0126), a KMP one on `appmonitor-ktor` with an

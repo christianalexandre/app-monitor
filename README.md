@@ -365,7 +365,10 @@ captures. Nothing to install in `commonMain`, nothing to start in `iosMain`
 ([ADR-0158](docs/adr/0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md)).
 
 With another engine (CIO, Java, …), apply the plugin in the module that
-builds the `HttpClient` too, which adds `appmonitor-ktor`, and install it:
+builds the `HttpClient` too, which adds `appmonitor-ktor`, and install it.
+Its iOS klibs need Kotlin 2.4 or newer in that module: a Kotlin compiler
+reads no klib built by a newer one
+([ADR-0218](docs/adr/0218-published-coordinates-consumers-and-the-ios-klib-floor.md)).
 
 ```kotlin
 val client = HttpClient(CIO) {
