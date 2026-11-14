@@ -67,7 +67,7 @@ read only in the steps of a tag run.
 - A release is: the owner merges `release/x.y.z` → `main`, then pushes the
   tag; the rest is the workflow. Central keeps a published version
   forever, so a wrong one is fixed by the next version.
-- A PR touching the publication's files gains a macOS job (≈5 min), not
+- A PR touching the publication's files gains a macOS job (≈9 min on its first run), not
   required by the `dev` ruleset.
 - `scripts/central_upload.sh` is tested against a stub Portal in
   `make scripts-test`; the real Portal is first reached by the `0.1.0` tag.
