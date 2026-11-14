@@ -1,14 +1,32 @@
 #!/usr/bin/env bash
-# SDK publication dry-run (ADR-0054, ADR-0058): the Kotlin SDKs to build/maven-dry-run
-# with complete POMs, then a throwaway SwiftPM app resolves the root Package.swift by
-# path and builds in debug and release (macOS with swift only); prints the files.
+# SDK publication dry-run (ADR-0054, ADR-0058, ADR-0215): the Kotlin SDKs and the Gradle
+# plugin to build/maven-dry-run, signed with a throwaway key, checked as Maven Central
+# checks them; then a throwaway SwiftPM app resolves the root Package.swift by path and
+# builds in debug and release (macOS with swift only); prints the files.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-repo=build/maven-dry-run
+command -v gpg >/dev/null 2>&1 || {
+  echo "publish: needs gpg (macOS: brew install gnupg; Debian: apt install gnupg)" >&2
+  exit 1
+}
+GNUPGHOME="$PWD/build/throwaway-gnupg"
+export GNUPGHOME
+repo="${PUBLISH_REPO:-build/maven-dry-run}"
 group_dir="$repo/io/github/christianalexandre"
-rm -rf "$repo"
-./gradlew -q publishAllPublicationsToDryRunRepository
+# --check-only checks an existing repository signed by the last run's key, without Gradle.
+if [[ "${1:-}" != --check-only ]]; then
+  rm -rf "$GNUPGHOME"
+  mkdir -p -m 700 "$GNUPGHOME"
+  gpg --batch --quiet --passphrase '' --quick-gen-key 'App Monitor dry-run <dry-run@invalid>' ed25519 sign 1d 2>/dev/null
+  APPMONITOR_SIGNING_KEY="$(gpg --batch --armor --export-secret-keys)"
+  APPMONITOR_SIGNING_PASSWORD=''
+  export APPMONITOR_SIGNING_KEY APPMONITOR_SIGNING_PASSWORD
+  rm -rf "$repo"
+  ./gradlew -q publishAllPublicationsToDryRunRepository
+  ./gradlew -q -p gradle-plugin publishAllPublicationsToDryRunRepository "-Pappmonitor.mavenRepo=$PWD/$repo"
+  unset APPMONITOR_SIGNING_KEY APPMONITOR_SIGNING_PASSWORD
+fi
 
 # Artifact base, then the targets it publishes besides its root (ADR-0062 C.1 and E.1).
 artifacts=(
@@ -19,6 +37,8 @@ artifacts=(
   "appmonitor-core-no-op jvm android ios"
   "appmonitor-okhttp-no-op jvm android"
   "appmonitor-ktor-no-op jvm android ios"
+  "appmonitor-gradle-plugin"
+  "appmonitor/io.github.christianalexandre.appmonitor.gradle.plugin"
 )
 expected=()
 for entry in "${artifacts[@]}"; do
@@ -47,6 +67,15 @@ for artifact in "${expected[@]}"; do
       fail=1
     fi
   done
+  # ADR-0215: Central refuses a component without sources and javadoc unless it is a POM.
+  if ! grep -q '<packaging>pom</packaging>' "$pom"; then
+    for classifier in sources javadoc; do
+      if [[ -z "$(find "$(dirname "$pom")" -name "*-$classifier.jar")" ]]; then
+        echo "publish: $artifact has no $classifier jar" >&2
+        fail=1
+      fi
+    done
+  fi
   # ADR-0072: a release build that swaps in a no-op pulls no real SDK artifact.
   if [[ "$artifact" == *-no-op* ]]; then
     leaked="$(sed -n 's|.*<artifactId>\(appmonitor-[^<]*\)</artifactId>.*|\1|p' "$pom" | grep -v -- '-no-op' || true)"
@@ -56,7 +85,27 @@ for artifact in "${expected[@]}"; do
     fi
   fi
 done
+# ADR-0215: every file signed by the key, with the md5 and sha1 Central requires.
+signed=0
+while IFS= read -r file; do
+  for suffix in asc md5 sha1; do
+    if [[ ! -f "$file.$suffix" ]]; then
+      echo "publish: ${file#"$group_dir"/} has no .$suffix" >&2
+      fail=1
+    fi
+  done
+  if [[ -f "$file.asc" ]]; then
+    if gpg --batch --quiet --verify "$file.asc" "$file" 2>/dev/null; then
+      signed=$((signed + 1))
+    else
+      echo "publish: ${file#"$group_dir"/}.asc does not verify" >&2
+      fail=1
+    fi
+  fi
+done < <(find "$repo" -type f ! -name 'maven-metadata.xml*' ! -name '*.asc' ! -name '*.md5' ! -name '*.sha1' ! -name '*.sha256' ! -name '*.sha512')
 [[ $fail -eq 0 ]] || exit 1
+echo "publish: $signed files signed and verified"
+[[ "${1:-}" != --check-only ]] || exit 0
 echo "publish: Maven files in $repo"
 find "$repo" -type f \( -name '*.jar' -o -name '*.aar' -o -name '*.klib' -o -name '*.pom' -o -name '*.module' \) |
   sed "s|^$group_dir/||" | sort
