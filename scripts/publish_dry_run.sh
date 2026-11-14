@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SDK publication dry-run (ADR-0054, ADR-0058, ADR-0215): the Kotlin SDKs and the Gradle
-# plugin to build/maven-dry-run, signed with a throwaway key, checked as Maven Central
-# checks them; then a throwaway SwiftPM app resolves the root Package.swift by path and
+# plugin to build/maven-dry-run, signed with a throwaway key or APPMONITOR_SIGNING_KEY,
+# checked as Maven Central checks them; then a throwaway SwiftPM app resolves the root Package.swift by path and
 # builds in debug and release (macOS with swift only); prints the files.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -18,9 +18,14 @@ group_dir="$repo/io/github/christianalexandre"
 if [[ "${1:-}" != --check-only ]]; then
   rm -rf "$GNUPGHOME"
   mkdir -p -m 700 "$GNUPGHOME"
-  gpg --batch --quiet --passphrase '' --quick-gen-key 'App Monitor dry-run <dry-run@invalid>' ed25519 sign 1d 2>/dev/null
-  APPMONITOR_SIGNING_KEY="$(gpg --batch --armor --export-secret-keys)"
-  APPMONITOR_SIGNING_PASSWORD=''
+  # ADR-0217: the publish workflow brings the release key; anywhere else a throwaway one signs.
+  if [[ -n "${APPMONITOR_SIGNING_KEY:-}" ]]; then
+    printf '%s\n' "$APPMONITOR_SIGNING_KEY" | gpg --batch --quiet --import 2>/dev/null
+  else
+    gpg --batch --quiet --passphrase '' --quick-gen-key 'App Monitor dry-run <dry-run@invalid>' ed25519 sign 1d 2>/dev/null
+    APPMONITOR_SIGNING_KEY="$(gpg --batch --armor --export-secret-keys)"
+    APPMONITOR_SIGNING_PASSWORD=''
+  fi
   export APPMONITOR_SIGNING_KEY APPMONITOR_SIGNING_PASSWORD
   rm -rf "$repo"
   ./gradlew -q publishAllPublicationsToDryRunRepository

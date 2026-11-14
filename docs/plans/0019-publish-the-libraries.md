@@ -39,10 +39,13 @@ Owner decisions this plan follows (2026-11-13):
 Tasks that upload stop at `[!]` until these exist; the rest does not need
 them:
 
-- A Central Portal account (central.sonatype.com) with the namespace
-  `io.github.christianalexandre` verified.
-- A GPG key for signing, its public part on a key server.
-- Repository secrets for the publish workflow; M10.3 names them.
+- [x] A Central Portal account (central.sonatype.com) with the namespace
+  `io.github.christianalexandre` verified, and a user token (2026-11-14).
+- [x] A GPG key for signing, its public part on `keyserver.ubuntu.com` and
+  `keys.openpgp.org` (2026-11-14).
+- [x] Repository secrets `APPMONITOR_SIGNING_KEY`,
+  `APPMONITOR_SIGNING_PASSWORD`, `MAVEN_CENTRAL_USERNAME`,
+  `MAVEN_CENTRAL_PASSWORD` (2026-11-14; SDD 02 *Publishing a release*).
 
 ## Tasks
 
@@ -63,7 +66,7 @@ them:
   version never publishes. `dev` keeps `X.Y.Z-SNAPSHOT`; the release PR
   drops the suffix. Accept: the script's bash test in `make scripts-test`
   (a matching tag, a mismatching one, a snapshot refused).
-- [ ] **M10.3 The publish workflow.** `.github/workflows/publish.yml` runs
+- [x] **M10.3 The publish workflow.** (`ci/publish-workflow`) `.github/workflows/publish.yml` runs
   on a pushed `X.Y.Z` tag that is on `main`: M10.2's check, then the
   upload on macOS (the iOS klibs need it, ADR-0058), then a GitHub Release
   with the notes of that version. SwiftPM needs nothing beyond the tag. A
