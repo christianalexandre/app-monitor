@@ -147,6 +147,7 @@ fun main() {
                                     proxy = proxy,
                                     heldCalls = store.heldCalls,
                                     replays = store.replays,
+                                    monitor = store.pause,
                                     appearance = appearance,
                                     panes = panes,
                                     live = live,

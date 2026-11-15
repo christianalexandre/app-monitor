@@ -272,6 +272,7 @@ private fun TrafficTitleBar(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            state.paused?.let { paused -> MonitorSwitch(paused, viewModel::togglePause) }
             if (live) {
                 if (state.runs.recording == null) {
                     TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
@@ -580,6 +581,7 @@ private fun RequestList(
                 when {
                     state.filter != ExchangeFilter() -> EmptyState("No requests match", "Change the search or the filters")
                     state.runs.shownRunId != null -> EmptyState("No requests yet", "This run holds no request")
+                    state.runs.shownRunId == null && state.paused == true -> EmptyState("Paused", "New requests show here once you resume")
                     state.runs.recording != null -> EmptyState("No requests yet", "Recording: every request that starts is stored")
                     else -> EmptyState("No requests yet", "Requests of every connected device show here as they happen")
                 }
@@ -629,6 +631,31 @@ private fun FollowNewest(
         val atTop = list.firstVisibleItemIndex == 0 || list.firstVisibleItemIndex == arrived
         if (arrived > 0 && atTop && list.firstVisibleItemScrollOffset == 0) list.scrollToItem(0)
     }
+}
+
+/** ADR-0222: "Live" or "Paused" beside a dot, and the button that pauses or resumes the monitor. */
+@Composable
+private fun MonitorSwitch(
+    paused: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(Modifier.testTag(MONITOR_STATE), verticalAlignment = Alignment.CenterVertically) {
+        StatusDot(if (paused) BadgeTone.Neutral else BadgeTone.Success)
+        Text(
+            if (paused) "Paused" else "Live",
+            Modifier.padding(start = Spacing.xs),
+            role = TextRole.Small,
+            secondary = true,
+            maxLines = 1,
+        )
+    }
+    IconButton(
+        if (paused) AppIcons.Play else AppIcons.Pause,
+        if (paused) "Resume the monitor" else "Pause the monitor",
+        onClick = onToggle,
+        Modifier.testTag(MONITOR_SWITCH),
+        tooltip = true,
+    )
 }
 
 /** The URL filter (⌘F) and the method, the status classes and how many requests are listed, over the list (ADR-0203, ADR-0205). */

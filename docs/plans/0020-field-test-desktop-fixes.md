@@ -44,7 +44,7 @@ Owner decisions this plan follows (2026-11-15):
   Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, with a
   test that a new exchange lands first, and the `live.png` screenshot with
   the newest on top.
-- [ ] **H9.2 Pause and resume the monitor.** A status dot ("Live" /
+- [x] **H9.2 Pause and resume the monitor.** (`feat/pause-the-monitor`) A status dot ("Live" /
   "Paused") with ▶/⏸ in the title bar's tools. While paused, exchanges from
   every device are neither listed nor stored, a recording included.
   Sessions, approvals, mocks and breakpoints keep working. Resuming starts
