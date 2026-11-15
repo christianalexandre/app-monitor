@@ -357,7 +357,8 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   its rows where they are. The title bar's "Live" / "Paused" switch
   (ADR-0222) pauses the monitor: requests that start while paused are left
   out of the list and of a recording, and sessions, mocks and breakpoints go
-  on. Above the request list, on the live list only: "Record" / "Stop
+  on. Beside it, "Mocking" / "Not mocking" (ADR-0223) takes every mock rule
+  back from the devices, or sends them again. Above the request list, on the live list only: "Record" / "Stop
   recording" (ADR-0142), "Save" (or "Save N") which stores the ticked
   requests, or the selected one, in "Saved" and says how many it saved
   (ADR-0143), and "Clear", which empties the live list. The picker opens

@@ -5,10 +5,10 @@ import org.koin.dsl.module
 
 /**
  * Needs a `RunRepository`, a `TrafficRepository` and an `ExportRepository`; a `ReplayRepository`, an
- * `AskedReplayRepository`, an `ApprovalRepository`, a `DeviceConnectionRepository`, a `PaneLayoutRepository` and a `MonitorRepository` are optional.
+ * `AskedReplayRepository`, an `ApprovalRepository`, a `DeviceConnectionRepository`, a `PaneLayoutRepository`, a `MonitorRepository` and a `MockRepository` are optional.
  */
 val trafficModule =
     module {
-        viewModel { TrafficViewModel(get(), get(), get(), getOrNull(), getOrNull(), getOrNull(), getOrNull()) }
+        viewModel { TrafficViewModel(get(), get(), get(), getOrNull(), getOrNull(), getOrNull(), getOrNull(), getOrNull()) }
         viewModel { DecisionsViewModel(getOrNull(), getOrNull()) }
     }

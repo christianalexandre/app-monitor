@@ -7,6 +7,8 @@ import appmonitor.protocol.Protocol
 import appmonitor.v1.Envelope
 import appmonitor.v1.MockRule
 import appmonitor.v1.MockRules
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Sends [session] its app's active rules once, then again on every change, until cancelled (ADR-0113). */
 internal suspend fun pushMocks(
@@ -14,7 +16,10 @@ internal suspend fun pushMocks(
     session: DeviceSession,
     clock: () -> Long = System::currentTimeMillis,
 ) {
-    storage.observeActiveMocks(session.hello.app_id).collect { rules -> session.send(mockRulesEnvelope(rules, clock())) }
+    // ADR-0223: switched off, every device gets an empty rule set; its app's rules wait in the store.
+    combine(storage.observeActiveMocks(session.hello.app_id), storage.observeMocking()) { rules, on -> if (on) rules else emptyList() }
+        .distinctUntilChanged()
+        .collect { rules -> session.send(mockRulesEnvelope(rules, clock())) }
 }
 
 /** [rules] as one envelope within [Protocol.MAX_FRAME_BYTES]: the first rule that does not fit and the ones after it are left out. */

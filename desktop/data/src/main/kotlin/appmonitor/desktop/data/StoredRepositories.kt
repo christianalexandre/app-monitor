@@ -140,6 +140,10 @@ internal class StoredMockRepository(
 ) : MockRepository {
     override fun observeMocks(): Flow<List<Mock>> = storage.observeMocks().map { mocks -> mocks.map { it.toDomain() } }
 
+    override fun observeMocking(): Flow<Boolean> = storage.observeMocking()
+
+    override suspend fun setMocking(on: Boolean) = storage.setSetting(Storage.MOCKING_KEY, on.toString())
+
     override suspend fun mocks(): List<Mock> = storage.mocks().map { it.toDomain() }
 
     override suspend fun create(

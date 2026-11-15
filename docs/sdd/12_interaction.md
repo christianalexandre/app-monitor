@@ -237,6 +237,14 @@ label. Nothing is sent before "Send again" (ADR-0005).
 order while the envelope fits `Protocol.MAX_FRAME_BYTES`; the first that
 does not, and every one after it, are left out (ADR-0113 C.1).
 
+The title bar's "Mocking" / "Not mocking" switch (ADR-0223) is the
+`mocks.enabled` setting, on until switched off and kept across launches.
+Off, `pushMocks` sends every session an empty `MockRules`, so no device
+answers a call from a rule. Each rule, its own switch and its order stay
+in the store. On, each session gets its app's active rules again. A rule
+`create_mock` makes while mocking is off still waits for its confirmation,
+and reaches a device only once mocking is back on.
+
 ### A mocked exchange
 
 The SDK captures a mocked call as usual, with `RequestStarted.mock_rule_id`

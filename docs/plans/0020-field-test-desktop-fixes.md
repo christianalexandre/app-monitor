@@ -52,13 +52,14 @@ Owner decisions this plan follows (2026-11-15):
   Accept: `:desktop:app:test` with a stand-in device: exchanges sent while
   paused never appear, those after resume do; the `paused.png`
   screenshot.
-- [ ] **H9.3 Mocking on and off.** A status dot ("Mocking" / "Not mocking")
+- [x] **H9.3 Mocking on and off.** (`feat/mocking-on-off`) A status dot ("Mocking" / "Not mocking")
   with ▶/■. Off sends an empty rule set to every connected device and to new
   sessions. On sends the enabled rules. The rule list and each rule's switch
   are kept, and the state is kept across restarts. ADR for where the switch
   lives (settings) and what an MCP `create_mock` does while it is off.
   Accept: `:desktop:app:test`: rules pushed to a stand-in device turn off and
-  back on; `:desktop:feature:mocks:test` for the view model.
+  back on; the title bar's switch both ways. The switch lives in the traffic
+  view model beside the monitor's, not in the mocks feature.
 - [ ] **H9.4 A cut value opens with a click.** In the JSON view, clicking a
   value cut by ADR-0208 shows it whole, wrapped, and clicking again folds it.
   Search counts and walks an opened value as shown text. Copy, Text and Hex

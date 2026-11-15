@@ -273,6 +273,7 @@ private fun TrafficTitleBar(
                 overflow = TextOverflow.Ellipsis,
             )
             state.paused?.let { paused -> MonitorSwitch(paused, viewModel::togglePause) }
+            state.mocking?.let { mocking -> MockingSwitch(mocking, viewModel::toggleMocking) }
             if (live) {
                 if (state.runs.recording == null) {
                     TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
@@ -654,6 +655,31 @@ private fun MonitorSwitch(
         if (paused) "Resume the monitor" else "Pause the monitor",
         onClick = onToggle,
         Modifier.testTag(MONITOR_SWITCH),
+        tooltip = true,
+    )
+}
+
+/** ADR-0223: "Mocking" or "Not mocking" beside a dot, and the button that sends the rules to the devices or takes them back. */
+@Composable
+private fun MockingSwitch(
+    on: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(Modifier.testTag(MOCKING_STATE), verticalAlignment = Alignment.CenterVertically) {
+        StatusDot(if (on) BadgeTone.Warning else BadgeTone.Neutral)
+        Text(
+            if (on) "Mocking" else "Not mocking",
+            Modifier.padding(start = Spacing.xs),
+            role = TextRole.Small,
+            secondary = true,
+            maxLines = 1,
+        )
+    }
+    IconButton(
+        if (on) AppIcons.Stop else AppIcons.Play,
+        if (on) "Stop mocking" else "Start mocking",
+        onClick = onToggle,
+        Modifier.testTag(MOCKING_SWITCH),
         tooltip = true,
     )
 }
