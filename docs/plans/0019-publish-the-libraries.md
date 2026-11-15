@@ -83,20 +83,22 @@ them:
   `0.1.0` exists it runs against `mavenLocal` and a local tag, so it is
   proven before the upload. Accept: the script green against
   `mavenLocal` and a local tag; its command in AGENTS.md.
-- [ ] **M10.5 Installation from the published version.** The README's
-  *Installation* drops *Until it is published*: the plugin line on
+- [ ] **M10.6 Release `0.1.0`.** The release PR `dev` → `main` with the
+  version `0.1.0`, the release gate green on it; `CHANGELOG.md`'s `0.1.0`
+  section is the GitHub Release's notes. The owner merges and tags. The
+  loop opens the PR and stops (owner-only merge); after the tag M10.4's
+  script runs against `0.1.0`, then the owner's field test in a real app. Accept: the workflow's run green, the Central artifacts and
+  the SwiftPM tag resolving, M10.4's script green against `0.1.0`.
+- [ ] **M10.5 Installation from the published version.** Moved after
+  M10.6 by the owner (2026-11-15): the README's text comes from testing
+  `0.1.0` in a real app, and it is rewritten section by section with the
+  owner. *Installation* drops *Until it is published*: the plugin line on
   Android, the coordinates on KMP, the package URL and an *Up to Next
   Minor Version* rule from `0.1.0` on iOS. ADR-0162 is superseded. SDD 02
   gets *Cutting a release*: version bump PR, release PR, the owner's merge,
-  the tag, the workflow, and how to check the Central deployment. A
-  `CHANGELOG.md` starts with `0.1.0`. Accept: `make docs-check` green; each
-  README step matches what M10.4's consumers do.
-- [ ] **M10.6 Release `0.1.0`.** The release PR `dev` → `main` with the
-  version `0.1.0`, the release gate green on it; the owner merges and
-  tags. The loop opens the PR and stops (owner-only merge); after the tag
-  the owner runs M10.4's script against `0.1.0` and the field test in a
-  real app. Accept: the workflow's run green, the Central artifacts and
-  the SwiftPM tag resolving, M10.4's script green against `0.1.0`.
+  the tag, the workflow, and how to check the Central deployment.
+  `CHANGELOG.md` already starts with `0.1.0` (M10.6). Accept: `make
+  docs-check` green; each README step matches what M10.4's consumers do.
 
 ## Outcome
 
