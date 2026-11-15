@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # Usage: consumers_check.sh [--local] [VERSION]
-# Apps outside this build install the SDK as the README says (ADR-0218): an Android app applying
-# only the plugin (debug with the SDK, release with the no-ops), a KMP module on appmonitor-ktor
-# with jvm and, on macOS, iosSimulatorArm64 on the oldest Kotlin that reads its klibs, and a
-# SwiftPM package at the tag, debug and release. --local publishes to ~/.m2 and tags a scratch
-# clone first. CONSUMER_KOTLIN picks the KMP module's Kotlin.
+# Android, KMP and SwiftPM apps install the SDK as the guides say (ADR-0218). --local publishes
+# to ~/.m2 and tags a scratch clone first; CONSUMER_KOTLIN picks the KMP module's Kotlin.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root="$PWD"

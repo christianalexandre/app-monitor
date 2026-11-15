@@ -26,8 +26,6 @@ jobs:
   central:
     runs-on: macos-latest # ADR-0058: the iOS klibs
     timeout-minutes: 60
-    permissions:
-      contents: write # the GitHub Release
     env:
       RELEASE: ${{ github.ref_type == 'tag' }}
       TAG: ${{ github.ref_name }}
@@ -73,8 +71,20 @@ jobs:
           path: build/central-bundle.zip
           if-no-files-found: error
           retention-days: 7
+
+  # The only write token, and only on a tag: a PR's dry run runs the PR's own scripts.
+  release:
+    needs: central
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
       - name: GitHub Release
-        if: env.RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
