@@ -225,7 +225,7 @@ one line and exit 1. See ADR-0010.
   WebSocket and background tasks included (SDD 07, ADR-0043, ADR-0045,
   ADR-0046). Masking and the body limit run on the device, against the
   shared `protocol/fixtures/masking.json` vector (ADR-0036). Debug builds
-  need the local network keys, which the Run Script pasted from the README
+  need the local network keys, which the Run Script pasted from the iOS guide
   (`sdk/ios/scripts/add_local_network_keys.sh`) adds (ADR-0155).
 - **Android / KMP**: `sdk/core` in KMP (JVM, Android `minSdk` 24, `iosArm64`
   and `iosSimulatorArm64`; Kotlin/Native specifics in SDD 04, ADR-0066 to

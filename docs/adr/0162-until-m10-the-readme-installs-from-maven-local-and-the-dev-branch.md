@@ -1,9 +1,9 @@
 ---
 id: ADR-0162
 title: Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing
-status: Accepted
+status: Superseded
 date: 2026-10-30
-superseded_by:
+superseded_by: ADR-0220
 ---
 
 # ADR-0162 — Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing

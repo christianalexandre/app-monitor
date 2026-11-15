@@ -264,8 +264,8 @@ and the sessions. `hdiutil detach build/live/dmg` afterwards.
 
 ## MCP clients against real traffic
 
-The setup a developer follows is the README's *Ask your AI agent (MCP)*
-(ADR-0091). To check every tool against a sample's traffic stored by
+The setup a developer follows is `docs/guide/mcp.md`
+(ADR-0091, ADR-0220). To check every tool against a sample's traffic stored by
 `make desktop`, with no clicks:
 
 1. A store with the device approved: `liveScreenshots` with
@@ -280,7 +280,7 @@ The setup a developer follows is the README's *Ask your AI agent (MCP)*
 4. MCP Inspector (`npx @modelcontextprotocol/inspector --cli <url> --header
    "Authorization: Bearer <token>" --method tools/call --tool-name <tool>
    --tool-arg key=value`), or Claude Code without touching its own
-   configuration: the README's `.mcp.json` saved as `build/<dir>/mcp.json`,
+   configuration: the MCP guide's `.mcp.json` saved as `build/<dir>/mcp.json`,
    then `APPMONITOR_MCP_TOKEN=<token> claude -p --strict-mcp-config
    --mcp-config build/<dir>/mcp.json --allowedTools mcp__app-monitor "<question>"`.
 5. A SIGTERM to the app's `java` process stops it and closes the run; the
@@ -339,7 +339,7 @@ Signing reads `APPMONITOR_SIGNING_KEY` (ASCII-armored secret key) and
 
 `scripts/consumers_check.sh [--local] [VERSION]` (ADR-0218) builds three
 throwaway apps in `build/consumers/` that install the SDK as the README
-says:
+and `docs/guide/` say:
 
 - **Android**: AGP from the catalog and only the plugin, plus OkHttp; it
   assembles debug and release, and fails unless the debug runtime
@@ -395,6 +395,71 @@ A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
 the same job dry. It uses a throwaway key and no secret, and keeps the
 bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
 --bundle-only` builds the bundle locally.
+
+## Cutting a release
+
+Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
+`X.Y.Z-SNAPSHOT`.
+
+1. **Release PR.** Cut `release/X.Y.Z` from `origin/dev`. Drop `-SNAPSHOT` in
+   `gradle.properties`, `SDK_VERSION` (`sdk/core`) and `sdkVersion`
+   (`sdk/ios`), and add the version's section to `CHANGELOG.md` if `dev` has
+   not. `scripts/version_check.sh --release X.Y.Z` must pass. Open the PR to
+   `main` from `.github/PULL_REQUEST_TEMPLATE/release.md`, without
+   auto-merge. The release gate runs on it.
+2. **The owner merges it** with a merge commit.
+3. **Tag `main`:** `git tag X.Y.Z origin/main && git push origin X.Y.Z`. No
+   `v` prefix: the workflow takes `X.Y.Z` only.
+4. **`Publish` runs** (*Publishing a release* above). It is green once
+   the Portal reports `PUBLISHED` and the GitHub Release exists, with the
+   version's `CHANGELOG.md` section as notes. The artifacts reach
+   `repo1.maven.org` a few minutes later. Check them under
+   `https://repo1.maven.org/maven2/io/github/christianalexandre/`, or in the
+   Portal's *Deployments*.
+5. **Consumers:** `scripts/consumers_check.sh X.Y.Z`, run in a worktree at
+   the tag, so its versions are the release's.
+6. **Back-merge:** a PR from `main` to `dev`, merged with a merge commit
+   (ADR-0219). Then a PR on `dev` moves the three versions to the next
+   `-SNAPSHOT`.
+
+Maven Central's free tier counts files per calendar month; one release is
+near the limit (DEBT-0135).
+
+## An unreleased SDK in an app
+
+To try `dev`'s SDK in an app outside this repository before it is released,
+publish it to `~/.m2`, once per update of the clone:
+
+```sh
+./gradlew publishToMavenLocal
+./gradlew -p gradle-plugin publishToMavenLocal
+```
+
+Then let the app's `settings.gradle.kts` read it, in both blocks, and use
+`dev`'s version (`VERSION_NAME`, `X.Y.Z-SNAPSHOT`) for the plugin:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        google()
+        mavenCentral()
+    }
+}
+```
+
+On iOS, add the package with the *Branch* rule, `dev` (XcodeGen
+`branch: dev`). Xcode keeps the `dev` commit it resolved first, even after
+`Package.resolved` is deleted: *File → Packages → Update to Latest Package
+Versions* takes the newer one.
 
 ## CI
 

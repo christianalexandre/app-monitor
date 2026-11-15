@@ -32,14 +32,16 @@ run() {
   plutil -p "$work/Info.plist"
 }
 
-# The README carries the script inline (ADR-0155): its block must be the file, line for line.
-readme_script() {
-  awk '/^ *```sh appmonitor-run-script$/ {on = 1; next} on && /^ *```$/ {exit} on {sub(/^   /, ""); print}' README.md
+# The iOS guide carries the script inline (ADR-0155): its block must be the file, line for line.
+guide=docs/guide/ios.md
+guide_script() {
+  awk '/^ *```sh appmonitor-run-script$/ {on = 1; n = index($0, "`") - 1; next}
+       on && /^ *```$/ {exit} on {print substr($0, n + 1)}' "$guide"
 }
-if diff -u <(cat "$script") <(readme_script) >/dev/null; then
-  echo "ok   README block is the script"
+if diff -u <(cat "$script") <(guide_script) >/dev/null; then
+  echo "ok   $guide block is the script"
 else
-  echo "FAIL README block differs from $script"
+  echo "FAIL $guide block differs from $script"
   fails=$((fails + 1))
 fi
 

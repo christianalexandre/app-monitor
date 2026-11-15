@@ -76,13 +76,13 @@ first one written (ADR-0078).
 On a device both the TCP connection and `NWBrowser` need
 `NSLocalNetworkUsageDescription` and `NSBonjourServices` containing
 `_appmonitor._tcp` (ADR-0036 E). The app's last Run Script phase, pasted
-from the README, adds them to the built `Info.plist` (ADR-0155). It reads
+from `docs/guide/ios.md` (ADR-0220), adds them to the built `Info.plist` (ADR-0155). It reads
 build settings only: a configuration whose `EXCLUDED_SOURCE_FILE_NAMES`
 matches `AppMonitor.o`, the name Xcode compares, is left as is. Any other links the SDK and
 fails the build when `SWIFT_OPTIMIZATION_LEVEL` is not `-Onone`, unless
 `APPMONITOR_ALLOW_OPTIMIZED = YES`; otherwise it gets the keys. It adds the
 usage text only when absent (`APPMONITOR_LOCAL_NETWORK_USAGE` overrides
-the default) and appends the service only when missing. The README block
+the default) and appends the service only when missing. The guide's block
 is `sdk/ios/scripts/add_local_network_keys.sh` line for line
 (`scripts/test_add_local_network_keys.sh` checks it). With
 `ENABLE_USER_SCRIPT_SANDBOXING`, the phase declares
