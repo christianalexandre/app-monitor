@@ -645,6 +645,10 @@ class Storage private constructor(
     fun observeActiveMocks(appId: String): Flow<List<MockRule>> =
         observe(database.mockQueries.activeOf(appId) { id, rule -> MockRule.ADAPTER.decode(rule).copy(id = id) }).distinctUntilChanged()
 
+    /** Whether mock rules reach the devices (ADR-0223): on unless [MOCKING_KEY] says `false`, again after each commit. */
+    fun observeMocking(): Flow<Boolean> =
+        observe(database.settingQueries.valueOf(MOCKING_KEY)).map { it.firstOrNull() != "false" }.distinctUntilChanged()
+
     /** Every breakpoint, by app id, then in match order. */
     suspend fun breakpoints(): List<StoredBreakpoint> = read(emptyList()) { breakpointQueries.all().executeAsList().map { it.toStored() } }
 
@@ -838,6 +842,8 @@ class Storage private constructor(
     }
 
     companion object {
+        const val MOCKING_KEY = "mocks.enabled"
+
         const val FILE_NAME = "appmonitor.db"
         const val PAGE_SIZE = 200L
         const val MAX_QUEUE_BYTES = 64L * 1024 * 1024

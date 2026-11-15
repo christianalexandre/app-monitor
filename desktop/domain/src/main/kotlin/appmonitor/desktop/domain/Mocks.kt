@@ -4,6 +4,7 @@ import appmonitor.protocol.Protocol
 import appmonitor.v1.MockRule
 import com.squareup.wire.ProtoAdapter
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /** Which way a rule or a breakpoint moves in its app's match order (ADR-0180). */
 enum class RuleMove {
@@ -85,6 +86,11 @@ interface MockRepository {
     )
 
     suspend fun delete(id: Long)
+
+    /** ADR-0223: whether rules reach the devices at all, on until switched off, kept across launches. */
+    fun observeMocking(): Flow<Boolean> = flowOf(true)
+
+    suspend fun setMocking(on: Boolean) {}
 }
 
 /** How many of [rules], from the first, one `MockRules` envelope holds (ADR-0113 C.1); the window marks the others. */
