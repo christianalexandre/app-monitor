@@ -151,3 +151,4 @@ Rules:
 | [0131](0131-a-match-jumped-to-in-wrapped-json-lands-lower.md) | A match jumped to in wrapped JSON lands lower than its line | The owner reports a Body tab match out of view after "↓", or a PR changes the jump in `RequestDetail.kt` | Open |
 | [0132](0132-windows-and-linux-keep-two-title-bars.md) | Windows and Linux keep the system's title bar over the window's own | The owner runs the desktop on Windows, or a PR changes `MacTitleBar.kt` or the JDK the desktop runs on | Open |
 | [0133](0133-h8-review-findings.md) | Findings of the H8 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
+| [0134](0134-kmp-sample-runall-lost-on-early-relaunch.md) | The KMP sample's runAll is lost when Android relaunches its activity at start | A second `e2e-kmp-android` failure with every call "no RequestStarted", or the next PR that changes the KMP sample's `MainActivity.kt` | Open |
