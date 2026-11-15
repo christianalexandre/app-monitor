@@ -378,8 +378,10 @@ signs with the release key and checks every file. `scripts/central_upload.sh
 build/maven-dry-run` zips the repository (no `maven-metadata.xml`) into
 `build/central-bundle.zip`, posts it to the Central Portal with
 `publishingType=AUTOMATIC` and polls until `PUBLISHED`; on `FAILED` it
-prints the Portal's errors. Last, a GitHub Release with the tag's section
-of `CHANGELOG.md`, or GitHub's generated notes. SwiftPM needs nothing
+prints the Portal's errors. Last, the `release` job creates the GitHub
+Release with the tag's section of `CHANGELOG.md`, or GitHub's generated
+notes. It is the only job with a write token, and runs only on a tag: a
+pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
 beyond the tag.
 
 Repository secrets, read only on a tag run:
