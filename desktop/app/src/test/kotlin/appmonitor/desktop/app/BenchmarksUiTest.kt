@@ -3,7 +3,9 @@ package appmonitor.desktop.app
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -14,6 +16,7 @@ import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.data.benchmarkRepository
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.feature.insights.BENCHMARK_COLUMN
+import appmonitor.desktop.feature.insights.BENCHMARK_LIST
 import appmonitor.desktop.feature.insights.BY_DEVICE
 import appmonitor.desktop.feature.insights.BY_DEVICE_COLUMN
 import appmonitor.desktop.feature.insights.BY_DEVICE_LIST
@@ -94,10 +97,10 @@ class BenchmarksUiTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
-                awaitText("https://api.example.com/search?q=1")
+                awaitText("https://cdn.example.org/feed")
                 action(BENCHMARKS)
                 awaitText("203 requests read")
-                onNodeWithText("198 ms").assertExists()
+                onNode(hasText("198 ms") and hasAnyAncestor(hasTestTag(BENCHMARK_LIST)), useUnmergedTree = true).assertExists()
                 onNodeWithText("2xx 190 · 5xx 10").assertExists()
                 onNodeWithTag(BENCHMARK_COLUMN + BenchmarkColumn.P99.name).performClick()
                 awaitText("p99 ▼")

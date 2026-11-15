@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -571,6 +572,7 @@ private fun RequestList(
         }
     }
     LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) viewModel.loadMore() }
+    FollowNewest(list, exchanges)
     Column(modifier) {
         ListHeader(state, viewModel, search)
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -607,6 +609,25 @@ private fun RequestList(
                 if (state.runs.shownRunId == null) TextButton("Save", onClick = viewModel::save, Modifier.testTag(SAVE))
             }
         }
+    }
+}
+
+/**
+ * ADR-0221: rows arriving above a list shown from its top stay in view; read further down, the rows on screen stay put, as
+ * the list keeps its first visible row by key.
+ */
+@Composable
+private fun FollowNewest(
+    list: LazyListState,
+    exchanges: List<Exchange>,
+) {
+    var newest by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(exchanges.firstOrNull()?.id) {
+        val before = newest
+        newest = exchanges.firstOrNull()?.id
+        val arrived = exchanges.indexOfFirst { it.id == before }
+        val atTop = list.firstVisibleItemIndex == 0 || list.firstVisibleItemIndex == arrived
+        if (arrived > 0 && atTop && list.firstVisibleItemScrollOffset == 0) list.scrollToItem(0)
     }
 }
 

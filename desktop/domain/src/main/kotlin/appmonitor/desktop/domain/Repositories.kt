@@ -32,7 +32,7 @@ interface TrafficRepository {
     /** The sessions of run [runId], or of every run when null, again after each change. */
     fun observeSessions(runId: Long?): Flow<List<Session>>
 
-    /** The first [limit] exchanges [filter] matches in arrival order, again after each change. */
+    /** The newest [limit] exchanges [filter] matches, newest first (ADR-0221), again after each change. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = PAGE_SIZE,

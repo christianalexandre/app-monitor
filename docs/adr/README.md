@@ -238,3 +238,4 @@ Rules:
 | [0218](0218-published-coordinates-consumers-and-the-ios-klib-floor.md) | Consumers of the published coordinates, and a Kotlin floor for iOS klibs equal to the build's | Accepted |
 | [0219](0219-main-merges-back-into-dev-after-a-release.md) | main merges back into dev after a release, with a merge commit | Accepted |
 | [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) | The README is for app developers, and docs/guide holds the details | Accepted |
+| [0221](0221-the-newest-request-on-top.md) | The newest request on top of every request list | Accepted |

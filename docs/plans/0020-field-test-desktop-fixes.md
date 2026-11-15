@@ -36,7 +36,7 @@ Owner decisions this plan follows (2026-11-15):
 
 ## Tasks
 
-- [ ] **H9.1 The newest exchange on top.** The live list, a recording and a
+- [x] **H9.1 The newest exchange on top.** (`feat/newest-exchange-on-top`) The live list, a recording and a
   saved run list newest first. When the list is scrolled away from the top,
   a new exchange does not move what the developer is reading. The ⌘K
   palette, the search's next and previous, and the keyboard follow the new

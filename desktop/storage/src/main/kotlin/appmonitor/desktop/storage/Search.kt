@@ -48,6 +48,7 @@ internal class SearchQuery<T : Any>(
     afterId: Long,
     limit: Long,
     columns: String,
+    newestFirst: Boolean = false,
     mapper: (SqlCursor) -> T,
 ) : Query<T>(mapper) {
     private val sql: String
@@ -114,7 +115,10 @@ internal class SearchQuery<T : Any>(
                 filter.sessionId != null || sessionWhere.isNotEmpty() -> " INDEXED BY exchanges_session_ref_id_url"
                 else -> " INDEXED BY exchanges_id_url"
             }
-        sql = "SELECT $columns FROM exchanges$index WHERE ${where.joinToString(" AND ")} ORDER BY exchanges.id LIMIT ?"
+        sql =
+            "SELECT $columns FROM exchanges$index WHERE ${where.joinToString(
+                " AND ",
+            )} ORDER BY exchanges.id${if (newestFirst) " DESC" else ""} LIMIT ?"
         binders = binds
     }
 
@@ -161,7 +165,8 @@ internal fun exchangeSearch(
     filter: ExchangeFilter,
     afterId: Long,
     limit: Long,
-) = SearchQuery(driver, filter, afterId, limit, COLUMNS, ::toStoredExchange)
+    newestFirst: Boolean = false,
+) = SearchQuery(driver, filter, afterId, limit, COLUMNS, newestFirst, ::toStoredExchange)
 
 /** The exchanges [filter] matches with their stored body sizes, a missing body counted as 0; a connection's byte counts. */
 internal fun exchangeSizeSearch(

@@ -690,11 +690,11 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): List<ExchangeSizes> = read(emptyList()) { exchangeSizeSearch(driver, filter, afterId, limit).executeAsList() }
 
-    /** The first [limit] exchanges [filter] matches, again after each commit that changes an exchange or a session. */
+    /** The newest [limit] exchanges [filter] matches, newest first (ADR-0221), again after each commit that changes one. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = PAGE_SIZE,
-    ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit))
+    ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit, newestFirst = true))
 
     /** The hosts of session [sessionId], else of run [runId], else of every stored exchange, sorted, again after each commit. */
     fun observeHosts(
@@ -707,7 +707,10 @@ class Storage private constructor(
             else -> observe(database.exchangeQueries.hosts())
         }
 
-    internal fun searchPlan(filter: ExchangeFilter): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE).plan()
+    internal fun searchPlan(
+        filter: ExchangeFilter,
+        newestFirst: Boolean = false,
+    ): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE, newestFirst).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =
         read(emptyList()) { sessionQueries.ofRun(runId).executeAsList().map { it.toStored() } }
