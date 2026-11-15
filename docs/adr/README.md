@@ -232,3 +232,7 @@ Rules:
 | [0212](0212-the-detail-opens-on-body-and-settings-draws-a-cog.md) | The detail opens on Body, and Settings draws a cog | Accepted |
 | [0213](0213-on-macos-the-window-draws-its-own-title-bar.md) | On macOS the window draws its own title bar, through AWT's root pane properties | Accepted |
 | [0214](0214-a-hidden-host-is-listed-not-the-shown-ones.md) | A hidden host is listed, not the hosts shown | Accepted |
+| [0215](0215-maven-central-through-maven-publish-signing-and-the-portal-bundle-api.md) | Maven Central through maven-publish, Gradle signing and the Portal's bundle API | Accepted |
+| [0216](0216-one-version-in-three-places-checked-by-a-script.md) | One version in three places, checked by a script; a release needs a matching X.Y.Z tag | Accepted |
+| [0217](0217-the-publish-workflow-signs-in-ci-and-uploads-automatic.md) | The publish workflow signs on a main tag and uploads with publishingType AUTOMATIC; PRs run it dry | Accepted |
+| [0218](0218-published-coordinates-consumers-and-the-ios-klib-floor.md) | Consumers of the published coordinates, and a Kotlin floor for iOS klibs equal to the build's | Accepted |

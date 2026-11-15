@@ -3,8 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     `java-gradle-plugin`
-    `maven-publish`
     id("appmonitor.kotlin-jvm")
+    id("appmonitor.maven-central")
 }
 
 // AGP 9 runs on JDK 17 and later.
@@ -27,6 +27,8 @@ gradlePlugin {
         create("appMonitor") {
             id = "io.github.christianalexandre.appmonitor"
             implementationClass = "appmonitor.gradle.AppMonitorPlugin"
+            displayName = "App Monitor"
+            description = "Adds the App Monitor SDK to an Android app's debug builds and its no-ops to the release ones"
         }
     }
 }
@@ -52,11 +54,12 @@ val generateSdkVersion by tasks.registering {
 }
 kotlin.sourceSets.main { kotlin.srcDir(generateSdkVersion) }
 
-// ADR-0162: `publishToMavenLocal` until M10 publishes the plugin with the SDK.
+// ADR-0093 E.1, ADR-0215: published with the SDK, at its version.
 group = "io.github.christianalexandre"
 version = sdkVersion.get()
-publishing.publications.withType<MavenPublication>().matching { it.name == "pluginMaven" }.configureEach {
-    artifactId = "appmonitor-gradle-plugin"
+publishing.publications.withType<MavenPublication>().configureEach {
+    if (name == "pluginMaven") artifactId = "appmonitor-gradle-plugin"
+    pom.description.set("App Monitor Gradle plugin: the SDK in an Android app's debug builds, its no-ops in the release ones")
 }
 
 // The app's own AGP and KGP are the ones at run time; the functional tests put these on the plugin's classpath.

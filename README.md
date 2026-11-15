@@ -88,6 +88,12 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | KMP | `sdk/ktor` + `sdk/core` (Android, `iosArm64`, `iosSimulatorArm64`; Ktor 3.6+) | Ktor `HttpClient` calls and WebSocket frames | works on the emulator and the simulator, unpublished — M4 |
 | Desktop | macOS · Linux · Windows | — | SQLite history in named runs, search, retention, remembered approvals, MCP server on `127.0.0.1` — M1, M5, M6 |
 
+### The desktop on each OS
+
+| macOS | Linux | Windows |
+| --- | --- | --- |
+| ![The desktop on macOS](docs/screenshots/desktop-macos.png) | ![The desktop on Linux](docs/screenshots/desktop-linux.png) | ![The desktop on Windows](docs/screenshots/desktop-windows.png) |
+
 ## Roadmap
 
 | Milestone | Delivers |
@@ -102,7 +108,9 @@ Design details: [architecture](docs/sdd/01_architecture.md) and the
 | [M7 — Insights](docs/plans/0008-issues-benchmarks-export.md) | Issues, p50/p95/p99 per endpoint, run diffs, HAR and cURL export |
 | [M8 — iOS deep capture](docs/plans/0009-ios-deep-capture.md) | gRPC adapters, connection metadata, desktop MITM proxy mode |
 | [M9 — Interaction](docs/plans/0010-interaction.md) | Mocks, breakpoints, replay, OkHttp injection by the Gradle plugin |
-| M10 — Distribution | Unsigned packages, Homebrew tap, Maven Central, SwiftPM |
+| [M10 — Libraries](docs/plans/0019-publish-the-libraries.md) | Maven Central, Gradle plugin and SwiftPM at one `X.Y.Z` tag |
+| M11 — Desktop distribution | Unsigned packages, Homebrew tap |
+| M12 — Front page | README with GIFs, installation and contribution guides, docs site |
 
 Scope per milestone: [roadmap](docs/plans/README.md#roadmap).
 
@@ -357,7 +365,10 @@ captures. Nothing to install in `commonMain`, nothing to start in `iosMain`
 ([ADR-0158](docs/adr/0158-a-kmp-app-on-ios-is-captured-by-the-swift-sdk-alone.md)).
 
 With another engine (CIO, Java, …), apply the plugin in the module that
-builds the `HttpClient` too, which adds `appmonitor-ktor`, and install it:
+builds the `HttpClient` too, which adds `appmonitor-ktor`, and install it.
+Its iOS klibs need Kotlin 2.4 or newer in that module: a Kotlin compiler
+reads no klib built by a newer one
+([ADR-0218](docs/adr/0218-published-coordinates-consumers-and-the-ios-klib-floor.md)).
 
 ```kotlin
 val client = HttpClient(CIO) {

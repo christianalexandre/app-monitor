@@ -1,10 +1,10 @@
 ---
 id: DEBT-0117
 title: No KMP app's iOS target on Kotlin 2.2 was compiled against the SDK's klibs
-status: Open
+status: Paid
 date: 2026-10-31
-trigger: "M10's plan is written, or a KMP app on Kotlin 2.2 reports a klib error from `appmonitor-ktor` or `appmonitor-core`"
-paid_date:
+trigger: "PLAN-0019 M10.4's PR, or a KMP app on Kotlin 2.2 reports a klib error from `appmonitor-ktor` or `appmonitor-core`"
+paid_date: 2026-11-14
 ---
 
 # DEBT-0117 — No KMP app's iOS target on Kotlin 2.2 was compiled against the SDK's klibs
@@ -26,10 +26,18 @@ Kotlin/Native 2.2 toolchain downloaded on every dry-run machine.
 
 ## Trigger
 
-M10's plan is written, or a KMP app on Kotlin 2.2 reports a klib error
-from `appmonitor-ktor` or `appmonitor-core`. Then add an
-`iosSimulatorArm64` consumer on Kotlin 2.2 to `scripts/publish_dry_run.sh`.
+PLAN-0019 M10.4's PR, or a KMP app on Kotlin 2.2 reports a klib error
+from `appmonitor-ktor` or `appmonitor-core`. Then give M10.4's KMP
+consumer an `iosSimulatorArm64` target on Kotlin 2.2.
+
+Re-triggered on 2026-11-14 (M10.1): PLAN-0019 was written, and M10.4
+already builds a KMP consumer on `appmonitor-ktor`, so the iOS target on
+Kotlin 2.2 goes there instead of in a second consumer.
 
 ## How it was paid
 
-> Filled when closing.
+Measured in PLAN-0019 M10.4 by `scripts/consumers_check.sh` (ADR-0218):
+Kotlin 2.2.0 and 2.3.20 refuse the iOS klibs (ABI 2.4.0, built by
+2.4.21), 2.4.0 compiles and links them, and no compiler option lowers a
+klib's ABI. The README now gives KMP apps on a non-Darwin engine on iOS a
+Kotlin 2.4 floor; the consumer checks it on every run.

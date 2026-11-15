@@ -122,7 +122,9 @@ always work from `origin/dev`, never `git switch dev`.
 - Mark the task `[x]` in the active plan. Note deviations (task split,
   added, reordered) as you go — they feed the plan's *Outcome*.
 - Commit (Conventional Commits, no attribution trailers), push, then follow
-  `.claude/commands/pr.md` to open the PR to `dev`.
+  `.claude/commands/pr.md` to open the PR to `dev`. Its title passes
+  `scripts/pr_title_check.sh` before `gh pr create`: CI's `conventions` job
+  runs the same script, and a failed title holds the auto-merge.
 - `gh pr merge --auto --squash --delete-branch`, then
   `git switch --detach origin/dev`, and end the iteration (8): the next one
   waits for the merge (step 1, ADR-0094). Do not watch CI here. Close-plan

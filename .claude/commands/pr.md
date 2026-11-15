@@ -14,7 +14,11 @@ Open a pull request for the current branch, following
    `.github/PULL_REQUEST_TEMPLATE/<type>.md`; `dev → main` uses `release.md`.
    Missing template → `.github/pull_request_template.md`.
 4. Title: Conventional Commits, `type(scope): summary`, ≤ 72 chars, derived
-   from the commits (`git log --oneline <base>..HEAD`).
+   from the commits (`git log --oneline <base>..HEAD`). The summary starts
+   lowercase: `H8.7 …` fails, `the H8.7 …` passes. Run
+   `scripts/pr_title_check.sh "<title>"`, the same check as CI's
+   `conventions` job; rewrite the title until it prints `pr-title-check: ok`.
+   Any later `gh pr edit --title` goes through it too.
 5. Body: fill **every** section of the template from the diff
    (`git diff <base>...HEAD`) and from what was really run in this session.
    Sections that do not apply say `N/A` with a reason. Remove the HTML

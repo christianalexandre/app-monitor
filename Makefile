@@ -30,6 +30,8 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_swift_proto_gen.sh
 	@scripts/test_ruleset_check.sh
 	@scripts/test_trailer_check.sh
+	@scripts/test_version_check.sh
+	@scripts/test_central_upload.sh
 	@scripts/ruleset_check.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.
@@ -78,7 +80,7 @@ e2e-kmp-android: ## KMP sample on a booted emulator against the headless server,
 e2e-kmp-ios: ## KMP sample on an iPhone simulator with the Swift SDK, each exchange once (SIM_DEVICE)
 	@scripts/e2e_kmp.sh ios
 
-publish-dry-run: ## SDKs to build/maven-dry-run, POMs checked; SwiftPM consumer in debug and release (ADR-0058)
+publish-dry-run: ## SDKs and Gradle plugin to build/maven-dry-run, signed and checked as Central does; SwiftPM consumer (ADR-0058, ADR-0215)
 	@scripts/publish_dry_run.sh
 
 swift-proto: ## Regenerate sdk/ios protobuf types from protocol/proto (ADR-0160)

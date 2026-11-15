@@ -306,21 +306,95 @@ with `make desktop` running:
 
 ## SDK publication dry-run
 
-`make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058) publishes
-`sdk/core`, `sdk/android-okhttp`, `sdk/ktor`, their no-op twins and the
-`protocol` they depend on to `build/maven-dry-run`, group
-`io.github.christianalexandre`, artifacts `appmonitor-core`,
-`appmonitor-okhttp`, `appmonitor-ktor`, `appmonitor-core-no-op`,
-`appmonitor-okhttp-no-op`, `appmonitor-ktor-no-op`, `appmonitor-protocol`
-with their `-jvm` and `-android` variants, and `-iosarm64` and
-`-iossimulatorarm64` for all but the OkHttp ones (ADR-0054, ADR-0062),
-version `VERSION_NAME` from `gradle.properties`; it fails when a POM lacks
-name, description, URL, license, developer or SCM, or when a no-op POM
-depends on an `appmonitor-*` artifact that is not a no-op (ADR-0072). On macOS it then builds
-`build/spm-consumer`, a throwaway executable that adds the root
-`Package.swift` by path, in debug and release, and prints the binary size
-and `SwiftProtobuf` symbol count, 0 for the `AppMonitor` product (ADR-0160). ≈35 s cold. Nothing is
-uploaded anywhere: Central and tags are M10.
+`make publish-dry-run` (`scripts/publish_dry_run.sh`, ADR-0058, ADR-0215)
+publishes `sdk/core`, `sdk/android-okhttp`, `sdk/ktor`, their no-op twins,
+the `protocol` they depend on and the Gradle plugin with its marker to
+`build/maven-dry-run`, group `io.github.christianalexandre`, artifacts
+`appmonitor-core`, `appmonitor-okhttp`, `appmonitor-ktor`,
+`appmonitor-core-no-op`, `appmonitor-okhttp-no-op`, `appmonitor-ktor-no-op`,
+`appmonitor-protocol` with their `-jvm` and `-android` variants, and
+`-iosarm64` and `-iossimulatorarm64` for all but the OkHttp ones (ADR-0054,
+ADR-0062), plus `appmonitor-gradle-plugin` and the marker
+`io.github.christianalexandre.appmonitor.gradle.plugin`, version
+`VERSION_NAME` from `gradle.properties`. It signs them with a throwaway
+ed25519 key it makes in `build/throwaway-gnupg` (needs `gpg`; `brew install
+gnupg` on a Mac) and fails, as Maven Central would, when a POM lacks name,
+description, URL, license, developer or SCM, a non-`pom` component lacks
+its sources or javadoc jar, a file lacks its `.asc`, `.md5` or `.sha1`, or
+a signature does not verify; also when a no-op POM depends on an
+`appmonitor-*` artifact that is not a no-op (ADR-0072).
+`PUBLISH_REPO=<dir> scripts/publish_dry_run.sh --check-only` runs those
+checks alone on an existing repository signed by the last run's key. On
+macOS it then builds `build/spm-consumer`, a throwaway executable that adds
+the root `Package.swift` by path, in debug and release, and prints the
+binary size and `SwiftProtobuf` symbol count, 0 for the `AppMonitor`
+product (ADR-0160). ≈55 s warm. Nothing is uploaded anywhere.
+
+Signing reads `APPMONITOR_SIGNING_KEY` (ASCII-armored secret key) and
+`APPMONITOR_SIGNING_PASSWORD` from the environment
+(`appmonitor.maven-central`, ADR-0215); without them nothing is signed, so
+`publishToMavenLocal` and the tests need no key.
+
+## Consumers of the published coordinates
+
+`scripts/consumers_check.sh [--local] [VERSION]` (ADR-0218) builds three
+throwaway apps in `build/consumers/` that install the SDK as the README
+says:
+
+- **Android**: AGP from the catalog and only the plugin, plus OkHttp; it
+  assembles debug and release, and fails unless the debug runtime
+  classpath resolves `appmonitor-okhttp` and the release one only the
+  no-ops;
+- **KMP**: the plugin on a Kotlin Multiplatform module with CIO and
+  `install(AppMonitorKtor)`, JVM and (macOS) `iosSimulatorArm64`; it
+  links debug and release frameworks on `CONSUMER_KOTLIN`, by default the
+  `major.minor.0` of the build's Kotlin, the oldest compiler that reads the
+  iOS klibs;
+- **SwiftPM** (macOS): the repository's URL with *Up to Next Minor* from
+  the version, built in debug and release, and the resolved version
+  checked.
+
+`--local` first publishes the SDK and the plugin to `~/.m2` and tags `HEAD`
+in a scratch bare clone (`build/consumers/local-origin/app-monitor.git`),
+so it runs before anything is uploaded; without it the consumers read
+Maven Central and GitHub.
+
+## One version
+
+`VERSION_NAME` in `gradle.properties` (Kotlin artifacts and the Gradle
+plugin's SDK version), `SDK_VERSION` in `sdk/core`'s `Platform.kt` and
+`sdkVersion` in `sdk/ios`'s `Device.swift` (each SDK's `Hello`) hold the
+same version: `X.Y.Z-SNAPSHOT` on `dev`, plain `X.Y.Z` on a release branch
+(ADR-0054, ADR-0216). `scripts/version_check.sh` fails when they differ;
+`--release X.Y.Z` also fails when the tag differs or the version has a
+suffix. `make scripts-test` runs it on the repository.
+
+## Publishing a release
+
+`.github/workflows/publish.yml` (job `central`, macOS, ADR-0217) runs on a
+pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
+`scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
+signs with the release key and checks every file. `scripts/central_upload.sh
+build/maven-dry-run` zips the repository (no `maven-metadata.xml`) into
+`build/central-bundle.zip`, posts it to the Central Portal with
+`publishingType=AUTOMATIC` and polls until `PUBLISHED`; on `FAILED` it
+prints the Portal's errors. Last, a GitHub Release with the tag's section
+of `CHANGELOG.md`, or GitHub's generated notes. SwiftPM needs nothing
+beyond the tag.
+
+Repository secrets, read only on a tag run:
+
+| Secret | What |
+| --- | --- |
+| `APPMONITOR_SIGNING_KEY` | ASCII-armored GPG secret key; its public part on `keyserver.ubuntu.com` and `keys.openpgp.org` |
+| `APPMONITOR_SIGNING_PASSWORD` | its passphrase |
+| `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | a Central Portal user token, namespace `io.github.christianalexandre` |
+
+A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
+`central_upload.sh`, `version_check.sh` or the publishing conventions runs
+the same job dry. It uses a throwaway key and no secret, and keeps the
+bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
+--bundle-only` builds the bundle locally.
 
 ## CI
 
