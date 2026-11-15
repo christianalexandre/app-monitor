@@ -57,6 +57,7 @@ record of how the milestone was actually built once it is done.
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 | [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
+| [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Active |
 
 ## Roadmap
 
@@ -67,9 +68,10 @@ the plan sharpens it.
 
 [PLAN-0019](0019-publish-the-libraries.md) (M10) publishes the libraries;
 the owner then installs `0.1.0` in a real project before the desktop app
-is distributed (owner, 2026-11-13). The loop does not plan past this
-section: reaching it is **stop: waiting for the owner**, who removes it
-when the libraries are good.
+is distributed (owner, 2026-11-13). What that test asks for is planned as
+it comes: [PLAN-0020](0020-field-test-desktop-fixes.md) (H9). The loop does
+not plan past this section: reaching it is **stop: waiting for the owner**,
+who removes it when the libraries are good.
 
 ### M11 — Desktop distribution
 
