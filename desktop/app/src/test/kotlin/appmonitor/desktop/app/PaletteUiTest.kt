@@ -51,14 +51,14 @@ class PaletteUiTest {
                 screenshot("palette.png")
 
                 onNodeWithTag(PALETTE_FIELD).performTextInput("v1/")
-                awaitLit("/v1/items")
-                onNodeWithTag(PALETTE_FIELD).performKeyInput { pressKey(Key.DirectionDown) }
                 awaitLit("/v1/me")
+                onNodeWithTag(PALETTE_FIELD).performKeyInput { pressKey(Key.DirectionDown) }
+                awaitLit("/v1/items")
                 onNodeWithTag(PALETTE_FIELD).performKeyInput { pressKey(Key.Enter) }
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(PALETTE_OPEN).fetchSemanticsNodes().isEmpty() }
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithText("Select a request").fetchSemanticsNodes().isEmpty() }
                 awaitTag(DETAIL_URL)
-                onNodeWithTag(DETAIL_URL, useUnmergedTree = true).assertTextEquals("https://api.example.com/v1/me")
+                onNodeWithTag(DETAIL_URL, useUnmergedTree = true).assertTextEquals("https://api.example.com/v1/items?page=2")
 
                 onNodeWithTag(ACTIONS).performClick()
                 onNodeWithTag(PALETTE_FIELD).performTextInput("record")

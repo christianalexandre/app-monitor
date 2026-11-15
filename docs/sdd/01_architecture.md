@@ -352,7 +352,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   not stored (SDD 09). The device list shows its sessions, oldest first,
   "connected" until they end, under "All devices"; "All devices" (the
   default) lists every device's requests in one list, a device only its
-  own. Above the request list, on the live list only: "Record" / "Stop
+  own. Every request list puts the newest on top (ADR-0221): a list shown
+  from its top keeps a new request in view, and one read further down keeps
+  its rows where they are. Above the request list, on the live list only: "Record" / "Stop
   recording" (ADR-0142), "Save" (or "Save N") which stores the ticked
   requests, or the selected one, in "Saved" and says how many it saved
   (ADR-0143), and "Clear", which empties the live list. The picker opens

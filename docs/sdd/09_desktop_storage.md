@@ -409,8 +409,9 @@ goes to `LiveTraffic` first; then:
   connection, not one per statement (ADR-0085).
 - Lists are pages by key, never by `OFFSET`: exchanges of a run or session
   ordered by `id`, `PAGE_SIZE` 200, the next page `WHERE id > :last`. The
-  window observes the first N rows (`observeExchanges`, N grown by
-  a page as the list nears its end), the runs newest first (`observeRuns`)
+  window observes the newest N rows, newest first (`observeExchanges`,
+  `ORDER BY id DESC` through the same indexes, ADR-0221; N grown by a page
+  as the list nears its end), the runs newest first (`observeRuns`)
   and the sessions of one run or of all (`observeSessions(runId)`)
   through SQLDelight's `Query` listeners (`coroutines-extensions`), which
   re-run them after each commit, conflated so a burst of batches is one

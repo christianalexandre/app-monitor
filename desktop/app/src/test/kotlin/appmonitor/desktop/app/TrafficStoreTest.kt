@@ -92,14 +92,14 @@ class TrafficStoreTest {
             runDesktopComposeUiTest(width = 1280, height = 800) {
                 setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
 
-                awaitText("https://a.example/0")
+                awaitText("https://a.example/449")
                 // An index past the rows read so far is refused, so each one waits for the page before it.
                 listOf(199, 399, 449).forEach { index ->
                     waitUntil(
                         timeoutMillis = TIMEOUT_MS,
                     ) { runCatching { onNodeWithTag(REQUEST_LIST).performScrollToIndex(index) }.isSuccess }
                 }
-                awaitText("https://a.example/449")
+                awaitText("https://a.example/0")
             }
         }
 

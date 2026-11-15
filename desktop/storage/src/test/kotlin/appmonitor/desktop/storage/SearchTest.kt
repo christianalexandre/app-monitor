@@ -197,6 +197,10 @@ class SearchTest {
             cases.forEach { (filter, index) ->
                 val plan = storage.searchPlan(filter)
                 assertTrue(plan.any { "SEARCH exchanges USING INDEX $index" in it }, "$filter: $plan")
+                // ADR-0221: the list reads newest first, through the same index and with no more sorting than in arrival order.
+                val newest = storage.searchPlan(filter, newestFirst = true)
+                assertTrue(newest.any { "SEARCH exchanges USING INDEX $index" in it }, "$filter newest first: $newest")
+                assertEquals(plan.count { "TEMP B-TREE" in it }, newest.count { "TEMP B-TREE" in it }, "$filter newest first: $newest")
             }
         }
 

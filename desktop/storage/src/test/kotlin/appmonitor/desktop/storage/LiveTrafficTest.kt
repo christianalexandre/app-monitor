@@ -21,7 +21,7 @@ class LiveTrafficTest {
     ) = ResponseReceived(request_id = requestId, status_code = status, body = body.encodeUtf8())
 
     @Test
-    fun twoDevicesShowInOneListInArrivalOrder() =
+    fun twoDevicesShowInOneListNewestFirst() =
         runBlocking {
             val live = LiveTraffic { 5_000 }
             live.connected("s1", hello("d1"), "10.0.0.2")
@@ -31,12 +31,12 @@ class LiveTrafficTest {
             live.received("s1", envelope(response("a", 200, "[]"), 1_250))
 
             val rows = live.observeExchanges(ExchangeFilter()).first()
-            assertEquals(listOf("a", "b"), rows.map { it.requestId })
+            assertEquals(listOf("b", "a"), rows.map { it.requestId })
             assertTrue(rows.all { LiveTraffic.isLive(it.id) })
             val sessions = live.sessions()
             assertEquals(listOf("d1", "d2"), sessions.map { it.hello.device_id })
             assertEquals(listOf(LiveTraffic.NO_RUN, LiveTraffic.NO_RUN), sessions.map { it.runId })
-            assertEquals(sessions[0].id, rows[0].sessionId)
+            assertEquals(sessions[1].id, rows[0].sessionId)
             assertEquals(listOf("b"), live.searchExchanges(ExchangeFilter(deviceId = "d2")).map { it.requestId })
             assertEquals(listOf("a"), live.searchExchanges(ExchangeFilter(sessionId = sessions[0].id)).map { it.requestId })
             assertEquals(emptyList(), live.searchExchanges(ExchangeFilter(runId = 1)))
