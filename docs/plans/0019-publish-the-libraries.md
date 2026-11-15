@@ -83,12 +83,22 @@ them:
   `0.1.0` exists it runs against `mavenLocal` and a local tag, so it is
   proven before the upload. Accept: the script green against
   `mavenLocal` and a local tag; its command in AGENTS.md.
-- [ ] **M10.6 Release `0.1.0`.** The release PR `dev` → `main` with the
+- [x] **M10.6 Release `0.1.0`.** (`release/0.1.0`, #415) The release PR `dev` → `main` with the
   version `0.1.0`, the release gate green on it; `CHANGELOG.md`'s `0.1.0`
   section is the GitHub Release's notes. The owner merges and tags. The
   loop opens the PR and stops (owner-only merge); after the tag M10.4's
   script runs against `0.1.0`, then the owner's field test in a real app. Accept: the workflow's run green, the Central artifacts and
   the SwiftPM tag resolving, M10.4's script green against `0.1.0`.
+  Done 2026-11-15:
+  - The release gate passed after rerunning `e2e-kmp-android`, whose sample
+    lost `runAll` on a relaunch (DEBT-0134).
+  - The owner had the agent merge #415 and push the tag.
+  - `Publish` passed: the Portal reported `PUBLISHED`, and the GitHub Release
+    was created.
+  - `scripts/consumers_check.sh 0.1.0` passed against Central and the GitHub
+    tag.
+  - Then the back-merge `main` → `dev` (#418, ADR-0219) and `dev` on
+    `0.1.1-SNAPSHOT`.
 - [ ] **M10.5 Installation from the published version.** Moved after
   M10.6 by the owner (2026-11-15): the README's text comes from testing
   `0.1.0` in a real app, and it is rewritten section by section with the
@@ -96,7 +106,8 @@ them:
   Android, the coordinates on KMP, the package URL and an *Up to Next
   Minor Version* rule from `0.1.0` on iOS. ADR-0162 is superseded. SDD 02
   gets *Cutting a release*: version bump PR, release PR, the owner's merge,
-  the tag, the workflow, and how to check the Central deployment.
+  the tag, the workflow, how to check the Central deployment, the
+  back-merge `main` → `dev` and the next `-SNAPSHOT` (ADR-0219).
   `CHANGELOG.md` already starts with `0.1.0` (M10.6). Accept: `make
   docs-check` green; each README step matches what M10.4's consumers do.
 
