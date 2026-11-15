@@ -9,8 +9,7 @@ and ADR-0096 (issues), ADR-0114 (`create_mock`, rules left pending, ADR-0110 F.1
 `desktop/domain`'s repositories `desktop/app` hands it (`McpRepositories`,
 `SettingRepository`, ADR-0133, ADR-0138), so `desktop/mcp`'s main code
 does not depend on `desktop/storage` (SDD 09); it writes only
-through `save_issue`, `create_mock` and the two settings below; `replay_request` leaves its replay to `desktop/app`. Client setup: the README's *Ask your AI
-agent (MCP)*; the live check against a sample's traffic: SDD 02.
+through `save_issue`, `create_mock` and the two settings below; `replay_request` leaves its replay to `desktop/app`. Client setup: `docs/guide/mcp.md`; the live check against a sample's traffic: SDD 02.
 
 ## How it works
 

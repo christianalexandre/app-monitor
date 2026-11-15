@@ -179,7 +179,7 @@ Rules:
 | [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
 | [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |
 | [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) | KMP release binaries link the no-ops at their link task, and dynamic features hold no SDK | Accepted |
-| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Accepted |
+| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Superseded by [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) |
 | [0163](0163-grpc-core-leaves-the-ios-end-to-end-for-a-gate-job-of-its-own.md) | gRPC-Core leaves the iOS sample and end to end for a release gate job of its own | Accepted |
 | [0164](0164-one-lan-address-filter-in-desktop-server.md) | One LAN address filter, in `desktop/server`, without tunnels | Accepted |
 | [0165](0165-hello-carries-the-app-name-the-options-set.md) | Hello carries the app name the options set, and the desktop shows it before the app id | Accepted |
@@ -237,3 +237,4 @@ Rules:
 | [0217](0217-the-publish-workflow-signs-in-ci-and-uploads-automatic.md) | The publish workflow signs on a main tag and uploads with publishingType AUTOMATIC; PRs run it dry | Accepted |
 | [0218](0218-published-coordinates-consumers-and-the-ios-klib-floor.md) | Consumers of the published coordinates, and a Kotlin floor for iOS klibs equal to the build's | Accepted |
 | [0219](0219-main-merges-back-into-dev-after-a-release.md) | main merges back into dev after a release, with a merge commit | Accepted |
+| [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) | The README is for app developers, and docs/guide holds the details | Accepted |

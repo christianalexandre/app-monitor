@@ -99,7 +99,7 @@ them:
     tag.
   - Then the back-merge `main` → `dev` (#418, ADR-0219) and `dev` on
     `0.1.1-SNAPSHOT`.
-- [ ] **M10.5 Installation from the published version.** Moved after
+- [x] **M10.5 Installation from the published version.** (`docs/readme-for-users`) Moved after
   M10.6 by the owner (2026-11-15): the README's text comes from testing
   `0.1.0` in a real app, and it is rewritten section by section with the
   owner. *Installation* drops *Until it is published*: the plugin line on
@@ -110,6 +110,8 @@ them:
   back-merge `main` → `dev` and the next `-SNAPSHOT` (ADR-0219).
   `CHANGELOG.md` already starts with `0.1.0` (M10.6). Accept: `make
   docs-check` green; each README step matches what M10.4's consumers do.
+  Done 2026-11-15, widened by the owner: the README became a front page for
+  app developers, and every detail moved to `docs/guide/` (ADR-0220).
 
 ## Outcome
 
