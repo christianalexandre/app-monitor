@@ -143,3 +143,5 @@ const val TOOL = "tool-"
 
 // The title bar's "⋯" holding the tools under a narrow window.
 const val TOOLS_MENU = "tools-menu"
+const val MONITOR_STATE = "monitor-state"
+const val MONITOR_SWITCH = "monitor-switch"

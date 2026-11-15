@@ -27,6 +27,7 @@ import appmonitor.desktop.domain.DeviceConnectionRepository
 import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.McpRepository
+import appmonitor.desktop.domain.MonitorRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.RunRepository
@@ -82,6 +83,7 @@ internal fun AppMonitorApp(
     replays: Replays? = null,
     appearance: AppearanceRepository? = null,
     panes: PaneLayoutRepository? = null,
+    monitor: MonitorRepository? = null,
     live: LiveTraffic = remember { LiveTraffic() },
     runRepository: RunRepository = remember(storage) { storage.runRepository() },
     traffic: TrafficRepository = remember(storage, live) { storage.trafficRepository(live) },
@@ -101,6 +103,7 @@ internal fun AppMonitorApp(
             proxy,
             appearance,
             panes,
+            monitor,
         ) {
             koinApplication {
                 modules(
@@ -118,6 +121,7 @@ internal fun AppMonitorApp(
                         proxy,
                         appearance,
                         panes,
+                        monitor,
                     ),
                 )
             }

@@ -239,3 +239,4 @@ Rules:
 | [0219](0219-main-merges-back-into-dev-after-a-release.md) | main merges back into dev after a release, with a merge commit | Accepted |
 | [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) | The README is for app developers, and docs/guide holds the details | Accepted |
 | [0221](0221-the-newest-request-on-top.md) | The newest request on top of every request list | Accepted |
+| [0222](0222-the-monitor-pauses-the-list-not-the-server.md) | The monitor's pause leaves out what starts, and keeps the server and the sessions | Accepted |
