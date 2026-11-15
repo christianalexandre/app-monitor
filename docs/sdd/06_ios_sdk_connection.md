@@ -100,6 +100,15 @@ sandboxing off, this phase's stamp alone is enough too. Measured
 2026-10-29, Xcode 26.6, outside `/tmp`, which the sandbox lets any phase
 write.
 
+With sandboxing off, the `Info.plist` as this phase's output fails on its
+own. Xcode's step that processes the `Info.plist` and the phase both
+produce it, so the build stops with "Multiple commands produce". This
+happened even when the app's other phase that edits the plist declared no
+output. The stamp alone builds, and the keys land in the plist. So
+`docs/guide/ios.md` gives one set of files per sandboxing setting.
+Measured 2026-11-15, Xcode 26.5 SDK, in the field-test app's Dev and Prod
+configurations for the simulator.
+
 ### Resources and their owners
 
 | Resource | Owner | Lives |

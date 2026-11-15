@@ -96,23 +96,33 @@ fi
 echo "AppMonitor: local network keys in $plist"
 ```
 
-Under `ENABLE_USER_SCRIPT_SANDBOXING` (on in new Xcode projects), the phase
-needs these files, or the sandbox denies the write:
+The phase's files depend on the target's `ENABLE_USER_SCRIPT_SANDBOXING`
+build setting:
 
-```text
-Input files:   $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
-Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
-               $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
-```
+- **Sandboxing on** (the default in new Xcode projects): declare the
+  `Info.plist` as input and output, or the sandbox denies the write:
+
+  ```text
+  Input files:   $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+  Output files:  $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+                 $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+  ```
+
+- **Sandboxing off:** the stamp is the only output. With the `Info.plist`
+  as an output too, Xcode stops with `Multiple commands produce
+  '…/Info.plist'`.
+
+  ```text
+  Input files:   $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+  Output files:  $(DERIVED_FILE_DIR)/appmonitor-local-network-keys.stamp
+  ```
 
 If the app already has a script phase that edits the built `Info.plist`
 (a build number, for one) and declares it as an output, Xcode stops with
 `invalid task … with mutable output but no other virtual output node` or
 `Multiple commands produce '…/Info.plist'`. Give that phase an output of
 its own beside the `Info.plist`, a stamp such as
-`$(DERIVED_FILE_DIR)/build-number.stamp`; this works with sandboxing on or
-off. With sandboxing off, dropping the `Info.plist` from this phase's
-output files and keeping the stamp works too.
+`$(DERIVED_FILE_DIR)/build-number.stamp`.
 
 On the simulator the desktop is reached on `127.0.0.1` without the local
 network keys, but the Run Script is still the one check that fails a
