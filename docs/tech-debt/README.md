@@ -152,3 +152,4 @@ Rules:
 | [0132](0132-windows-and-linux-keep-two-title-bars.md) | Windows and Linux keep the system's title bar over the window's own | The owner runs the desktop on Windows, or a PR changes `MacTitleBar.kt` or the JDK the desktop runs on | Open |
 | [0133](0133-h8-review-findings.md) | Findings of the H8 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
 | [0134](0134-kmp-sample-runall-lost-on-early-relaunch.md) | The KMP sample's runAll is lost when Android relaunches its activity at start | A second `e2e-kmp-android` failure with every call "no RequestStarted", or the next PR that changes the KMP sample's `MainActivity.kt` | Open |
+| [0135](0135-central-bundle-over-the-monthly-file-count.md) | A release sends 1,068 files to Maven Central, over the free monthly file count | The `release/1.0.0` branch, a release refused for the file count, or the next PR that changes `scripts/central_upload.sh` | Open |
