@@ -18,6 +18,7 @@ Version: <!-- x.y.z -->
 
 ## After merge
 
-- [ ] Tag `vX.Y.Z` on `main`
-- [ ] GitHub Release with packages
-- [ ] SDKs published (Maven Central, SwiftPM tag)
+- [ ] Tag `X.Y.Z` on `main` (no `v`): `git tag X.Y.Z origin/main && git push origin X.Y.Z`
+- [ ] `Publish` workflow green: SDKs on Maven Central, GitHub Release (ADR-0217)
+- [ ] `scripts/consumers_check.sh X.Y.Z` green
+- [ ] Back-merge PR `main` → `dev`, merge commit, then `dev` on the next `-SNAPSHOT` (ADR-0219)
