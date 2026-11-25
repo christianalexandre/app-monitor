@@ -215,7 +215,7 @@ class TrafficViewModel(
                 val found =
                     replaysOf(awaited.filter, awaited.requestId)
                         .map { ids ->
-                            ids.firstOrNull { it !in awaited.before }
+                            ids.filter { it !in awaited.before }.minOrNull()
                         }.first { it != null }
                 emit(found)
             }.stateIn(viewModelScope, SharingStarted.Eagerly, null)

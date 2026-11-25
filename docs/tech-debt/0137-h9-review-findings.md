@@ -3,7 +3,7 @@ id: DEBT-0137
 title: Findings of the H9 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-25
-trigger: "The next PR that touches a file its items name: `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficScreen.kt` (`FollowNewest`, the paused empty state), `TrafficViewModel.kt` (`replaysOf`, `replayed`), `RequestDetail.kt` (the cut values' links), `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/MonitorPause.kt`; or the owner reporting a list that jumps, a replay's \"Open\" on the wrong call, a cut value that does not open, a slow list with large bodies, or a selection lost in an opened value"
+trigger: "The next PR that touches a file its items name: `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/TrafficScreen.kt` (`FollowNewest`, the paused empty state), `desktop/app/src/main/kotlin/appmonitor/desktop/app/store/MonitorPause.kt`; or the owner reporting a list that jumps or a slow list with large bodies"
 paid_date:
 ---
 
@@ -17,10 +17,10 @@ here (PLAN-0020, *H9 milestone review*); none was run end to end:
 1. `TrafficScreen.kt` `FollowNewest`: `atTop` also accepts `firstVisibleItemIndex == arrived`.
    If the effect runs before the list has measured the new rows, a list scrolled exactly
    `arrived` rows down with offset 0 is taken as at the top and jumps there (ADR-0221).
-2. `TrafficViewModel.kt` `replayed`: `replaysOf` reads the list newest first since ADR-0221, so
+2. *Paid in H9.R1.* `TrafficViewModel.kt` `replayed`: `replaysOf` reads the list newest first since ADR-0221, so
    `firstOrNull` of the new replays is the latest one. When two replays of one request arrive
    before the flow emits, "Open" picks the second.
-3. `RequestDetail.kt`: the chunk's `CodeLink`s are remembered by their spans and capture the
+3. *Paid in H9.R2, reproduced by its test.* `RequestDetail.kt`: the chunk's `CodeLink`s are remembered by their spans and capture the
    `toggle` of the `opened` state that built them. A new `opened` with equal spans (clicking
    JSON while JSON is already the default) and a chunk item that is not disposed in between
    leaves links that write to a dead state.
@@ -28,7 +28,7 @@ here (PLAN-0020, *H9 milestone review*); none was run end to end:
    to read its request id, even when the monitor was never paused. Ingest decodes it again.
 5. `TrafficStore.kt`: breakpoints and replays see an envelope before the pause filter. A call
    held while paused has no row, and a replay asked before pausing never brings back "Open".
-6. `Code.kt` / `RequestDetail.kt`: the link covers the whole opened value, so a click to place
+6. *Paid in H9.R3 (ADR-0225).* `Code.kt` / `RequestDetail.kt`: the link covers the whole opened value, so a click to place
    the selection inside it (a double click on a word) folds it.
 7. `TrafficScreen.kt`: while recording and paused, an empty list says "Paused", not that the
    recording takes nothing either; `shownRunId == null` there is redundant.

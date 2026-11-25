@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -174,12 +175,22 @@ class DetailTabsUiTest {
 
                 onNodeWithTag(DETAIL_SEARCH).performTextReplacement("needle")
                 clickText("… (4800 more)")
-                awaitText("\"token\": \"$token\"", substring = true)
+                awaitText("\"token\": (fold) \"$token\"", substring = true)
                 awaitText("1 of 1")
                 screenshot("detail-body.png")
                 clickText(token.take(300))
+                Thread.sleep(500)
+                waitForIdle()
+                assertTrue(
+                    onAllNodesWithText("… (4800 more)", substring = true).fetchSemanticsNodes().isEmpty(),
+                    "a click inside stays open",
+                )
+                clickText("(fold)")
                 awaitText("… (4800 more)", substring = true)
                 awaitText("No match · 1 in a cut value")
+                onAllNodesWithText("JSON")[0].performClick()
+                clickText("… (4800 more)")
+                awaitText("1 of 1")
             }
         }
 
