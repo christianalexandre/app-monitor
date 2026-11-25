@@ -15,7 +15,9 @@ paid_date:
 line number times the code line height (ADR-0153). Since ADR-0208 the JSON
 view wraps its lines, so every wrapped line above the match in the same chunk
 adds a row the offset does not count: the match shows lower than three lines
-under the top, and with many wrapped lines it can fall under the pane.
+under the top, and with many wrapped lines it can fall under the pane. A value
+opened with a click (ADR-0224) wraps into many rows, so a match below it in
+the same chunk drifts the most.
 
 ## Why it was accepted
 

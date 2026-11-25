@@ -23,24 +23,30 @@ internal enum class BodyFormat(
 
 private val JSON_LITERAL = Regex("true|false|null|-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?")
 
-/** Indented JSON, or null when [text] is not a JSON document. */
-private fun prettyJsonOrNull(text: String): PrettyJson? =
+/** Whether [text] is a JSON document. */
+private fun isJson(text: String): Boolean =
     try {
-        if (Json.parseToJsonElement(text).isStrictJson()) indentJson(text) else null
+        Json.parseToJsonElement(text).isStrictJson()
     } catch (_: SerializationException) {
-        null
+        false
     }
 
-/** Indented JSON as the view shows it, and the string values it [cut] past [MAX_SHOWN_VALUE_CHARS]. */
+/** Indented JSON as the view shows it, and the string values over [MAX_SHOWN_VALUE_CHARS] it [cut] or showed opened. */
 internal class PrettyJson(
     val text: String,
     val cut: List<CutValue>,
 )
 
-/** A string value's text as sent, between its quotes, of which the view shows the first [shown] characters. */
+/**
+ * A string value's text as sent, between its quotes, of which the view shows the first [shown] characters, or all of it
+ * when [opened]; the view's text holds it, quotes included, from [start] until [end].
+ */
 internal class CutValue(
     val value: String,
     val shown: Int,
+    val start: Int = 0,
+    val end: Int = 0,
+    val opened: Boolean = false,
 )
 
 /** Characters of a string value the JSON view shows before `… (N more)` (ADR-0208); Text, Hex, Copy and cURL keep it whole. */
@@ -59,8 +65,11 @@ private fun JsonElement.isStrictJson(): Boolean {
     return true
 }
 
-// Re-indents without re-encoding: numbers and escapes keep the device's exact text.
-private fun indentJson(text: String): PrettyJson {
+// Re-indents without re-encoding: numbers and escapes keep the device's exact text. [opened] holds indexes into the cut list.
+private fun indentJson(
+    text: String,
+    opened: Set<Int>,
+): PrettyJson {
     val out = StringBuilder()
     val cut = ArrayList<CutValue>()
     var depth = 0
@@ -76,8 +85,18 @@ private fun indentJson(text: String): PrettyJson {
                 val value = text.substring(index + 1, end)
                 val shown = value.shownLength()
                 if (shown < value.length && text.nextSignificant(end + 1) != ':') {
-                    out.append('"').append(value, 0, shown).append("… (${value.length - shown} more)\"")
-                    cut += CutValue(value, shown)
+                    val start = out.length
+                    val open = cut.size in opened
+                    if (open) {
+                        out.append(
+                            text,
+                            index,
+                            end + 1,
+                        )
+                    } else {
+                        out.append('"').append(value, 0, shown).append("… (${value.length - shown} more)\"")
+                    }
+                    cut += CutValue(value, shown, start, out.length, open)
                 } else {
                     out.append(text, index, end + 1)
                 }
@@ -187,25 +206,62 @@ internal class DecodedBody(
     val bytes: ByteString get() = opened.bytes
     val note: String? get() = opened.note
     val text: String? by lazy { utf8OrNull(if (opened.partial) bytes.withoutCutCharacter() else bytes) }
-    val prettyJson: PrettyJson? by lazy { text?.let(::prettyJsonOrNull) }
+    val prettyJson: PrettyJson? by lazy { text?.takeIf(::isJson)?.let { indentJson(it, emptySet()) } }
+
+    /** [prettyJson] with the cut values at [opened] indexes of its cut list shown whole. */
+    fun prettyJson(opened: Set<Int>): PrettyJson? = if (opened.isEmpty()) prettyJson else prettyJson?.let { indentJson(text!!, opened) }
 }
 
-/** A body rendered as [format], split into [chunks] so the UI lays out only the visible ones. */
+/**
+ * A body rendered as [format], split into [chunks] so the UI lays out only the visible ones; [cutSpans] holds, per chunk,
+ * where each value of [cut] sits in it.
+ */
 internal data class RenderedBody(
     val format: BodyFormat,
     val chunks: List<String>,
     val note: String? = null,
     val cut: List<CutValue> = emptyList(),
+    val cutSpans: List<List<CutSpan>> = emptyList(),
 )
 
-/** Renders [body] as [format], or as its [defaultFormat] when null; slow on large bodies, so off the UI thread. */
+/** The value at [index] of [RenderedBody.cut] from [start] until [end] of one chunk. */
+internal data class CutSpan(
+    val index: Int,
+    val start: Int,
+    val end: Int,
+)
+
+/**
+ * Renders [body] as [format], or as its [defaultFormat] when null, with the cut values at [opened] indexes shown whole;
+ * slow on large bodies, so off the UI thread.
+ */
 internal fun renderBody(
     body: DecodedBody,
     format: BodyFormat?,
+    opened: Set<Int> = emptySet(),
 ): RenderedBody {
     val chosen = format ?: defaultFormat(body)
-    val cut = if (chosen == BodyFormat.Json) body.prettyJson?.cut.orEmpty() else emptyList()
-    return RenderedBody(chosen, chunked(render(body, chosen)), body.note, cut)
+    val cut = if (chosen == BodyFormat.Json) body.prettyJson(opened)?.cut.orEmpty() else emptyList()
+    val rendered = render(body, chosen, opened)
+    val chunks = chunked(rendered)
+    return RenderedBody(chosen, chunks, body.note, cut, cutSpansOf(rendered, chunks, cut))
+}
+
+// A chunk starts where the previous one ended, past the line break [chunked] dropped there, if any.
+private fun cutSpansOf(
+    rendered: String,
+    chunks: List<String>,
+    cut: List<CutValue>,
+): List<List<CutSpan>> {
+    if (cut.isEmpty()) return emptyList()
+    var start = 0
+    return chunks.map { chunk ->
+        val end = start + chunk.length
+        val spans = cut.withIndex().filter { (_, value) -> value.start < end && value.end > start }
+        val inChunk = spans.map { (index, value) -> CutSpan(index, maxOf(value.start, start) - start, minOf(value.end, end) - start) }
+        start = if (end < rendered.length && rendered[end] == '\n') end + 1 else end
+        inChunk
+    }
 }
 
 /**
@@ -250,20 +306,21 @@ internal fun defaultFormat(body: DecodedBody): BodyFormat =
         else -> BodyFormat.Hex
     }
 
-/** How many matches of [query] are in the parts of [cut] values the JSON view leaves out. */
+/** How many matches of [query] are in the parts of [cut] values the JSON view leaves out; an opened one shows them. */
 internal fun hiddenMatches(
     cut: List<CutValue>,
     query: String,
-): Int = cut.sumOf { value -> matchesOf(value.value, query).count { it.last >= value.shown } }
+): Int = cut.filterNot { it.opened }.sumOf { value -> matchesOf(value.value, query).count { it.last >= value.shown } }
 
-/** [body] rendered as [format]; formats that do not apply say so instead of failing. */
+/** [body] rendered as [format], the cut values at [opened] indexes whole; formats that do not apply say so instead of failing. */
 internal fun render(
     body: DecodedBody,
     format: BodyFormat,
+    opened: Set<Int> = emptySet(),
 ): String =
     when (format) {
         BodyFormat.Text -> body.text ?: "Not valid UTF-8 text"
-        BodyFormat.Json -> body.prettyJson?.text ?: "Not a JSON document"
+        BodyFormat.Json -> body.prettyJson(opened)?.text ?: "Not a JSON document"
         BodyFormat.Hex -> hexDump(body.bytes)
     }
 

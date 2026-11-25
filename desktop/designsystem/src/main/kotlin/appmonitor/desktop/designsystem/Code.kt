@@ -10,8 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.material.Text as MaterialText
 
@@ -23,6 +26,13 @@ data class SyntaxSpan(
     val start: Int,
     val end: Int,
     val kind: SyntaxKind,
+)
+
+/** A part of a [CodeText]'s text from [start] until [end] that runs [onClick] when clicked, underlined under the pointer. */
+data class CodeLink(
+    val start: Int,
+    val end: Int,
+    val onClick: () -> Unit,
 )
 
 /** Where a piece of a code block sits; the block's first and last pieces carry its rounded corners and padding. */
@@ -46,7 +56,7 @@ fun matchesOf(
 
 /**
  * Monospaced [text]: [syntax] in its colors, each [query] match on the highlight color and the [current] one (its index
- * among them) stronger, all of it [muted] or [error] when asked (ADR-0152).
+ * among them) stronger, all of it [muted] or [error] when asked (ADR-0152); [links] answer a click.
  */
 @Composable
 fun CodeText(
@@ -59,13 +69,17 @@ fun CodeText(
     error: Boolean = false,
     softWrap: Boolean = true,
     current: Int? = null,
+    links: List<CodeLink> = emptyList(),
 ) {
     val colors = AppMonitorTheme.colors
     val annotated =
-        remember(text, query, syntax, colors, current) {
+        remember(text, query, syntax, colors, current, links) {
             buildAnnotatedString {
                 append(text)
                 syntax.forEach { addStyle(SpanStyle(color = colorOf(it.kind, colors)), it.start, it.end) }
+                links.forEachIndexed { index, link ->
+                    addLink(LinkAnnotation.Clickable("link$index", LINK_STYLES) { link.onClick() }, link.start, link.end)
+                }
                 matchesOf(text, query).forEachIndexed { index, match ->
                     val background = if (index == current) colors.highlightCurrent else colors.highlight
                     addStyle(SpanStyle(background = background), match.first, match.last + 1)
@@ -116,6 +130,8 @@ fun CodeBlock(
         content()
     }
 }
+
+private val LINK_STYLES = TextLinkStyles(hoveredStyle = SpanStyle(textDecoration = TextDecoration.Underline))
 
 private fun colorOf(
     kind: SyntaxKind,
