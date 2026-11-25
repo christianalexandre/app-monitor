@@ -1,10 +1,10 @@
 ---
 id: PLAN-0020
 title: What the 0.1.0 field test asks of the desktop
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: H9
 started: 2026-11-15
-finished:
+finished: 2026-11-25
 ---
 
 # PLAN-0020 — What the 0.1.0 field test asks of the desktop (H9)
@@ -68,12 +68,56 @@ Owner decisions this plan follows (2026-11-15):
   value opened, searched and folded; the `detail-body.png` screenshot with
   one value opened.
 
+- [x] **H9.R1 "Open" names the first replay back.** (`fix/h9-review-findings`) Review finding
+  2: since H9.1 lists newest first, two replays of one request back in one store read made
+  "Open" pick the second. The earliest new one is taken.
+  Accept: `./gradlew :desktop:feature:traffic:test`, with two replays listed newest first in one
+  read naming the first.
+- [x] **H9.R2 A cut value opens after the format is picked again.** (`fix/h9-review-findings`)
+  Review finding 3: clicking JSON while it was already the default view left the chunk's links
+  on a dead state, so `… (N more)` did nothing. The toggle is kept with the state it writes.
+  Accept: `./gradlew :desktop:app:test`, opening a value after clicking JSON, a step that fails
+  without the fix.
+- [x] **H9.R3 Only the markers are links.** (`fix/h9-review-findings`) Review finding 6: the
+  whole opened value was the link, so selecting inside it folded it. `… (N more)` opens it,
+  `(fold)` before it folds it (ADR-0225).
+  Accept: `./gradlew :desktop:feature:traffic:test :desktop:app:test`, a click inside an opened
+  value leaving it open, `(fold)` folding it; `detail-body.png` with `(fold)`.
+
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+### H9 milestone review
+
+`code-review` at `medium` of `ce4ea7b..894fb65` (#426 to #429): a static read of the diff, 48
+files, no Gradle test run by it. Eight findings, none that normal use hits, each then read in
+the code here. The owner picked findings 2, 3 and 6 to fix before the close (2026-11-25): H9.R1
+to H9.R3. Finding 3 was then reproduced by a window test, so it was hit after all. Finding 1 is
+a correctness finding left open; the owner merges this PR.
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | `FollowNewest` takes a list scrolled exactly `arrived` rows down as at the top, if its effect runs before the layout, and jumps. | No: needs that timing and an offset of exactly 0 | DEBT-0137 |
+| 2 | A replay's "Open" picks the latest of two replays that arrive in one store read, since the list is newest first. | No: two replays inside one read; fixed at the owner's ask | H9.R1 |
+| 3 | The cut values' links keep the `toggle` of a dead `opened` state when it is recreated with equal spans. | No: needs a click on the format already shown; another request recreates the detail (`key(picked)`); then reproduced by clicking JSON while it is the default view | H9.R2 |
+| 4 | The pause filter decodes every network envelope to read its request id, paused or not. | No: a cost, not measured | DEBT-0137 |
+| 5 | Breakpoints and replays see envelopes the pause skips: a held call without a row, a replay whose "Open" never comes. | No: needs a pause between asking and receiving | DEBT-0137 |
+| 6 | A click inside an opened value folds it, so a click to select there is lost. | No: a selection gesture; fixed at the owner's ask | H9.R3 |
+| 7 | Recording and paused, the empty list says "Paused" only. | No: a caption | DEBT-0137 |
+| 8 | A `TrafficModule.kt` KDoc line over the line length. | Rejected: `make check`'s `spotlessCheck` passed it | — |
+
+- **Shipped**: H9.1 the newest request on top (#426). H9.2 the monitor paused and resumed from
+  the title bar (#427). H9.3 mocking switched off and on for every device (#428). H9.4 a cut
+  JSON value opened and folded with a click (#429). H9.R1 to H9.R3, three review findings
+  fixed, and the close (this PR). Plan PR #425.
+- **Decisions**: ADR-0221 to ADR-0225.
+- **Debt**: Created DEBT-0137 (this review). DEBT-0131 notes the opened values; DEBT-0127 and
+  DEBT-0133 re-triggered by H9.4. None paid.
+- **Deviations**: H9.3's switch lives in the traffic view model beside the monitor's, so its
+  test is the app's UI test, not `:desktop:feature:mocks:test`. H9.R1 to H9.R3 added by the
+  review, at the owner's pick; H9.R3 moved `(fold)` before the value once a test showed it out of
+  view after a long one. The first close PR (#430) gave way to this one.
+  After H9.4 the owner weighed freeing ADR-0168's pin (a device on several desktops) and kept it
+  (2026-11-25).
+- **Lessons**: all four asks came from the owner using the desktop on a real app, and each
+  fitted one PR with no SDK change; the next field test findings can be planned the same way,
+  desktop and SDK apart, so a desktop fix never waits on a library release.

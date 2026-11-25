@@ -57,7 +57,7 @@ record of how the milestone was actually built once it is done.
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 | [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
-| [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Active |
+| [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Done |
 
 ## Roadmap
 

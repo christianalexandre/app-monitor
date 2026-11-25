@@ -320,6 +320,23 @@ class TrafficViewModelTest {
         }
 
     @Test
+    fun `two replays back in one read, listed newest first as the store does, name the first`() =
+        runTest {
+            traffic.sessions.value = listOf(session(10))
+            traffic.exchanges.value = listOf(exchange(1, session = 10))
+            val viewModel = viewModel()
+            viewModel.selectRequest(1)
+            viewModel.sendAgain()
+            traffic.exchanges.update {
+                listOf(
+                    exchange(4, session = 10).copy(requestId = "req-4", replayOf = "req-1", url = "https://example.com/1"),
+                    exchange(3, session = 10).copy(requestId = "req-3", replayOf = "req-1", url = "https://example.com/1"),
+                ) + it
+            }
+            assertEquals(3L, viewModel.state.value.detail.replayed)
+        }
+
+    @Test
     fun `a replay names the call it brought back, not an earlier one, and open picks it`() =
         runTest {
             traffic.sessions.value = listOf(session(10))

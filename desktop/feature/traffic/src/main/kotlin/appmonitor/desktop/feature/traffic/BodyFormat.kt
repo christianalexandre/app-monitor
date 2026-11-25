@@ -39,7 +39,7 @@ internal class PrettyJson(
 
 /**
  * A string value's text as sent, between its quotes, of which the view shows the first [shown] characters, or all of it
- * when [opened]; the view's text holds it, quotes included, from [start] until [end].
+ * when [opened]; its marker, `… (N more)` or the [FOLD] before it, sits from [start] until [end] of the view's text.
  */
 internal class CutValue(
     val value: String,
@@ -51,6 +51,9 @@ internal class CutValue(
 
 /** Characters of a string value the JSON view shows before `… (N more)` (ADR-0208); Text, Hex, Copy and cURL keep it whole. */
 internal const val MAX_SHOWN_VALUE_CHARS = 200
+
+/** What precedes an opened value in the JSON view, the part a click folds (ADR-0225). */
+internal const val FOLD = "(fold)"
 
 // The parser accepts bare words as primitives at any depth; JSON only has quoted strings and these literals.
 private fun JsonElement.isStrictJson(): Boolean {
@@ -85,18 +88,12 @@ private fun indentJson(
                 val value = text.substring(index + 1, end)
                 val shown = value.shownLength()
                 if (shown < value.length && text.nextSignificant(end + 1) != ':') {
-                    val start = out.length
                     val open = cut.size in opened
-                    if (open) {
-                        out.append(
-                            text,
-                            index,
-                            end + 1,
-                        )
-                    } else {
-                        out.append('"').append(value, 0, shown).append("… (${value.length - shown} more)\"")
-                    }
+                    if (!open) out.append('"').append(value, 0, shown)
+                    val start = out.length
+                    out.append(if (open) FOLD else "… (${value.length - shown} more)")
                     cut += CutValue(value, shown, start, out.length, open)
+                    if (open) out.append(' ').append(text, index, end + 1) else out.append('"')
                 } else {
                     out.append(text, index, end + 1)
                 }

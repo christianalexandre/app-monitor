@@ -552,8 +552,9 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   sideways; Text and Hex do. In the JSON view a string value over 200
   characters (`MAX_SHOWN_VALUE_CHARS`, keys never) shows its first 200 and
   ends with `… (N more)`, never cut inside an escape or a surrogate pair; Text,
-  Hex, Copy and cURL keep it whole. A click on a cut value opens it whole,
-  wrapped, and another folds it (`CodeLink` on the chunk's `CodeText`); the
+  Hex, Copy and cURL keep it whole. A click on `… (N more)` opens the value
+  whole, wrapped, as `"key": (fold) "value"`, and a click on `(fold)` folds it
+  (`CodeLink` on the chunk's `CodeText`, the marker only, ADR-0225); the
   opened values are an input of the rendering, kept per body side until the
   format or the request changes (ADR-0224). The search finds what the view
   shows, an opened value included, and its count adds "· N in cut values"

@@ -398,7 +398,9 @@ private fun rememberBodyView(
         renderedFor.value = decoded to chosen
         if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(decoded, chosen, opened) }
     }
-    return BodyView(captured, rendered, { chosen = it }, { index -> opened = if (index in opened) opened - index else opened + index })
+    // Kept with the state it writes, so a chunk's links never hold the toggle of a state no longer read.
+    val toggle: (Int) -> Unit = remember(decoded, chosen) { { index -> opened = if (index in opened) opened - index else opened + index } }
+    return BodyView(captured, rendered, { chosen = it }, toggle)
 }
 
 private fun LazyListScope.body(
@@ -420,7 +422,7 @@ private fun LazyListScope.body(
         val json = rendered.format == BodyFormat.Json
         itemsIndexed(rendered.chunks) { index, chunk ->
             val spans = rendered.cutSpans.getOrNull(index).orEmpty()
-            val links = remember(spans) { spans.map { span -> CodeLink(span.start, span.end) { view.toggle(span.index) } } }
+            val links = remember(spans, view.toggle) { spans.map { span -> CodeLink(span.start, span.end) { view.toggle(span.index) } } }
             CodeBlock(edgeOf(index, rendered.chunks.size)) {
                 // ADR-0208: JSON wraps, the other formats scroll sideways.
                 CodeText(
