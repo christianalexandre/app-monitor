@@ -3,7 +3,7 @@ id: DEBT-0127
 title: Findings of the H7 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-04
-trigger: "The next PR that touches a file its items name: `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/GzipBody.kt`, `desktop/feature/mocks/src/main/kotlin/appmonitor/desktop/feature/mocks/MocksScreen.kt`, `scripts/e2e_android.sh`; for items 2 to 4, a PR that changes `textOf` in `DetailTabs.kt`, Copy's thread in `TrafficViewModel.kt`, `hexDump` or the parse in `prettyJsonOrNull`"
+trigger: "The next PR that touches a file its items name: `desktop/storage/src/main/kotlin/appmonitor/desktop/storage/DataDirectoryLock.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/GzipBody.kt`, `desktop/feature/mocks/src/main/kotlin/appmonitor/desktop/feature/mocks/MocksScreen.kt`, `scripts/e2e_android.sh`; for items 2 to 4, a PR that changes `textOf` in `DetailTabs.kt`, Copy's thread in `TrafficViewModel.kt`, `hexDump` or the parse in `isJson`"
 paid_date:
 ---
 
@@ -22,7 +22,7 @@ paid_date:
    thread, the cost ADR-0199 accepted, with the rendered `DecodedBody` thrown away.
 3. `BodyFormat.kt`: `hexDump` has no bound on its output: 16 MiB opened is about 82 MB of text,
    chunked and rescanned by each search keystroke.
-4. `BodyFormat.kt`: `prettyJsonOrNull` catches `SerializationException` only, over up to 16 MiB
+4. `BodyFormat.kt`: `isJson` (was `prettyJsonOrNull`) catches `SerializationException` only, over up to 16 MiB
    of inflated text; deep nesting could raise an `OutOfMemoryError` in the render coroutine.
 5. `GzipBody.kt`: `GZIPInputStream` reads an `IOException` in a later member's header as the
    stream's end, so a body cut or corrupted there is captioned as opened, not cut or broken. A
@@ -58,7 +58,9 @@ change, and touched `BodyFormat.kt` in `indentJson` and `defaultFormat` only, no
 the parse: items 2 to 4 now wait for a PR that changes `textOf` in `DetailTabs.kt`, Copy's
 thread in `TrafficViewModel.kt`, `hexDump` or the parse in `prettyJsonOrNull`
 (re-triggered 2026-11-07, ADR-0208). H8.12's PR changed only the detail's first tab in
-`TrafficViewModel.kt`, not Copy's thread (ADR-0212).
+`TrafficViewModel.kt`, not Copy's thread (ADR-0212). H9.4's PR split
+`prettyJsonOrNull` into `isJson` and the indent, the same parse and catch, and left `hexDump`
+and Copy as they were: items 2 to 4 still wait (ADR-0224).
 
 ## How it was paid
 

@@ -60,7 +60,7 @@ Owner decisions this plan follows (2026-11-15):
   Accept: `:desktop:app:test`: rules pushed to a stand-in device turn off and
   back on; the title bar's switch both ways. The switch lives in the traffic
   view model beside the monitor's, not in the mocks feature.
-- [ ] **H9.4 A cut value opens with a click.** In the JSON view, clicking a
+- [x] **H9.4 A cut value opens with a click.** (`feat/open-cut-json-value`) In the JSON view, clicking a
   value cut by ADR-0208 shows it whole, wrapped, and clicking again folds it.
   Search counts and walks an opened value as shown text. Copy, Text and Hex
   are unchanged.

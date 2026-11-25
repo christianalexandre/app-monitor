@@ -2,15 +2,20 @@ package appmonitor.desktop.app
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.text.TextLayoutResult
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.designsystem.SEARCH_CLEAR
 import appmonitor.desktop.feature.traffic.COPY
@@ -37,6 +42,21 @@ import java.util.zip.GZIPOutputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
+// Clicks the first character of [part] where the text holding it laid it out.
+@OptIn(ExperimentalTestApi::class)
+private fun ComposeUiTest.clickText(part: String) {
+    val node = onNodeWithText(part, substring = true)
+    val layouts = ArrayList<TextLayoutResult>()
+    node.fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!(layouts)
+    val layout = layouts.single()
+    val box =
+        layout.getBoundingBox(
+            layout.layoutInput.text.text
+                .indexOf(part),
+        )
+    node.performMouseInput { click(box.center) }
+}
 
 @OptIn(ExperimentalTestApi::class)
 class DetailTabsUiTest {
@@ -101,7 +121,7 @@ class DetailTabsUiTest {
         }
 
     @Test
-    fun `a JSON body opens as JSON whatever its type, wraps, and cuts long values in the view only`() =
+    fun `a JSON body opens as JSON whatever its type, wraps, cuts long values in the view only, and opens one with a click`() =
         withStorage { storage ->
             val token = "x".repeat(4_990) + "needle" + "y".repeat(4)
             val note = List(25) { "word$it" }.joinToString(" ")
@@ -141,7 +161,6 @@ class DetailTabsUiTest {
                     val bounds = onNodeWithText(part, substring = true).fetchSemanticsNode().boundsInRoot
                     assertTrue(bounds.right <= root.right, "$part runs past the window: $bounds")
                 }
-                screenshot("detail-body.png")
 
                 onNodeWithTag(COPY + DetailPart.RequestBody.name).performClick()
                 waitUntil(timeoutMillis = TIMEOUT_MS) { clipboard.copied != null }
@@ -152,6 +171,15 @@ class DetailTabsUiTest {
                 awaitText("No match · 1 in a cut value")
                 onNodeWithTag(DETAIL_SEARCH).performTextReplacement("word2")
                 awaitText("1 of 6")
+
+                onNodeWithTag(DETAIL_SEARCH).performTextReplacement("needle")
+                clickText("… (4800 more)")
+                awaitText("\"token\": \"$token\"", substring = true)
+                awaitText("1 of 1")
+                screenshot("detail-body.png")
+                clickText(token.take(300))
+                awaitText("… (4800 more)", substring = true)
+                awaitText("No match · 1 in a cut value")
             }
         }
 

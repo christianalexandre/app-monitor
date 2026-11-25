@@ -241,3 +241,4 @@ Rules:
 | [0221](0221-the-newest-request-on-top.md) | The newest request on top of every request list | Accepted |
 | [0222](0222-the-monitor-pauses-the-list-not-the-server.md) | The monitor's pause leaves out what starts, and keeps the server and the sessions | Accepted |
 | [0223](0223-mocking-switches-off-for-every-device-and-keeps-the-rules.md) | Mocking switches off for every device and keeps the rules | Accepted |
+| [0224](0224-a-cut-json-value-opens-in-place-with-a-click.md) | A cut JSON value opens in place with a click, as part of the body's rendering | Accepted |

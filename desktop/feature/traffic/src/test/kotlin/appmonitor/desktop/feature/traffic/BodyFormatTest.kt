@@ -226,4 +226,56 @@ class BodyFormatTest {
         assertEquals(" · 2 in cut values", cutSummary(2))
         assertEquals("", cutSummary(0))
     }
+
+    @Test
+    fun `an opened value shows whole and its matches count as shown, folding it cuts it again`() {
+        val long = "x".repeat(MAX_SHOWN_VALUE_CHARS) + "needle" + "y".repeat(300)
+        val sent = """{"a":"$long","b":"${"z".repeat(300)}"}"""
+        val body = decoded(sent.encodeUtf8())
+
+        val opened = renderBody(body, null, setOf(0))
+
+        val text = opened.chunks.joinToString("\n")
+        assertTrue("\"a\": \"$long\"," in text, text)
+        assertTrue("\"b\": \"${"z".repeat(MAX_SHOWN_VALUE_CHARS)}… (100 more)\"" in text, text)
+        assertEquals(listOf(true, false), opened.cut.map { it.opened })
+        assertEquals(0, hiddenMatches(opened.cut, "needle"))
+        assertEquals(1, opened.chunks.sumOf { matchesOf(it, "needle").size })
+        assertEquals(1, hiddenMatches(renderBody(body, null).cut, "needle"))
+        assertEquals(renderBody(body, null), renderBody(body, null, emptySet()))
+        assertEquals(sent, render(body, BodyFormat.Text, setOf(0)))
+    }
+
+    @Test
+    fun `each cut value is placed in its chunk, quotes included, across a chunk boundary too`() {
+        val fillers = (1..CHUNK_LINES).joinToString(",") { "\"k$it\":$it" }
+        val long = "v".repeat(CHUNK_CHARS + 500)
+        val body = decoded("""{$fillers,"first":"${"a".repeat(300)}","last":"$long"}""".encodeUtf8())
+
+        for (opened in listOf(emptySet(), setOf(1))) {
+            val rendered = renderBody(body, null, opened)
+            val placed =
+                rendered.cutSpans.flatMapIndexed { chunk, spans ->
+                    spans.map { it.index to rendered.chunks[chunk].substring(it.start, it.end) }
+                }
+            val joined = placed.groupBy({ it.first }, { it.second }).mapValues { it.value.joinToString("") }
+            assertEquals(rendered.chunks.size, rendered.cutSpans.size)
+            assertEquals("\"${"a".repeat(MAX_SHOWN_VALUE_CHARS)}… (100 more)\"", joined[0])
+            val last =
+                if (opened.isEmpty()) {
+                    "\"${"v".repeat(
+                        MAX_SHOWN_VALUE_CHARS,
+                    )}… (${long.length - MAX_SHOWN_VALUE_CHARS} more)\""
+                } else {
+                    "\"$long\""
+                }
+            assertEquals(last, joined[1], "opened = $opened")
+        }
+        assertTrue(
+            renderBody(body, null, setOf(1)).cutSpans.count { spans ->
+                spans.any { it.index == 1 }
+            } > 1,
+            "the opened value spans two chunks",
+        )
+    }
 }

@@ -3,7 +3,7 @@ id: DEBT-0133
 title: Findings of the H8 milestone review that normal use does not hit
 status: Open # Open | Paid | Dropped
 date: 2026-11-07
-trigger: "The next PR that touches a file its items name: `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/BodyFormat.kt`, `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/DetailTabs.kt`; for items 1 to 4, a PR that changes `sendAgain`, `replaysOf` or the list's `more` in `TrafficViewModel.kt`"
+trigger: "For item 5, a PR that changes `defaultFormat` or `isJson` in `BodyFormat.kt`; for item 6, one that changes `MAX_RENDERED_CHARS` or its check in `indentJson`; for item 7, the next PR that touches `DetailTabs.kt`; for items 1 to 4, a PR that changes `sendAgain`, `replaysOf` or the list's `more` in `TrafficViewModel.kt`; any of them when the owner reports a body slow to open"
 paid_date:
 ---
 
@@ -42,7 +42,11 @@ repeated.
 
 The next PR that touches `BodyFormat.kt` or `DetailTabs.kt` in
 `desktop/feature/traffic/src/main/kotlin/appmonitor/desktop/feature/traffic/`, or that changes
-`sendAgain`, `replaysOf` or `more` in its `TrafficViewModel.kt`.
+`sendAgain`, `replaysOf` or `more` in its `TrafficViewModel.kt`. H9.4's PR touched
+`BodyFormat.kt` to open a cut value whole (ADR-0224) and left `defaultFormat`, the parse and the
+bound's check as they were; an opened value is copied whole like item 6's key, within the
+body's own 16 MiB. Items 5 and 6 now wait for a change to what they name, or for the owner
+reporting a body slow to open (re-triggered 2026-11-25).
 
 ## How it was paid
 
