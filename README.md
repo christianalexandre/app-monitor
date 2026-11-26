@@ -70,18 +70,26 @@ flowchart LR
 
 ## Getting started
 
-### 1. Run the desktop app
+### 1. Install the desktop app
 
-Desktop packages are not published yet. Until they are, run it from the
-repository, with JDK 21:
+From `1.0.0`, on macOS (Apple silicon):
 
 ```sh
-git clone https://github.com/christianalexandre/app-monitor
-cd app-monitor
-make desktop
+brew install --cask christianalexandre/tap/app-monitor
 ```
 
-More in the [desktop guide](docs/guide/desktop.md).
+On Windows:
+
+```powershell
+scoop bucket add christianalexandre https://github.com/christianalexandre/homebrew-tap
+scoop install christianalexandre/app-monitor
+```
+
+On Linux, the `.deb` or `.rpm` of the
+[latest release](https://github.com/christianalexandre/app-monitor/releases/latest). The
+packages are not signed, so the first launch asks once; the
+[desktop guide](docs/guide/desktop.md) says how, and how to run it from the repository
+instead.
 
 ### 2. Add the SDK to your app
 

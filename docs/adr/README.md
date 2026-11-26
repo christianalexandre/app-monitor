@@ -246,3 +246,4 @@ Rules:
 | [0226](0226-the-advertised-addresses-follow-the-machine.md) | The advertised addresses follow the machine's, checked every five seconds | Accepted |
 | [0227](0227-desktop-packages-built-per-os-on-each-release.md) | The desktop's packages are built per OS on each release, named for the tap and the bucket | Accepted |
 | [0228](0228-the-desktop-reads-its-latest-github-release.md) | The desktop reads its latest GitHub Release and shows a newer version | Accepted |
+| [0229](0229-homebrew-cask-and-scoop-manifest-from-one-tap.md) | A Homebrew cask and a Scoop manifest, written to one repository by the release | Accepted |
