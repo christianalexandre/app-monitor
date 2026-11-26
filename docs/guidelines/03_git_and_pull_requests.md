@@ -22,7 +22,7 @@ How work leaves and comes back to `dev`.
 | `build` | Gradle, SwiftPM, packaging |
 | `ci` | GitHub Actions |
 | `chore` | Tooling, config, repo housekeeping |
-| `release` | `release/x.y.z`, only for the `dev → main` PR when a version bump commit is needed |
+| `release` | `release/x.y.z` (SDKs) or `release/desktop-x.y.z` (desktop, ADR-0232), only for the `dev → main` PR when a version bump commit is needed |
 
 `make branch-check` validates the current branch name.
 

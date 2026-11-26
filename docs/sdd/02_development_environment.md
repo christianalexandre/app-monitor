@@ -371,11 +371,22 @@ same version: `X.Y.Z-SNAPSHOT` on `dev`, plain `X.Y.Z` on a release branch
 `--release X.Y.Z` also fails when the tag differs or the version has a
 suffix. `make scripts-test` runs it on the repository.
 
+The desktop app has its own version, `DESKTOP_VERSION_NAME` in
+`gradle.properties`, released at a `desktop-X.Y.Z` tag; its major equals
+`VERSION_NAME`'s, and only a major release moves both (ADR-0232).
+`version_check.sh` fails on another major, and `--release desktop-X.Y.Z`
+checks the tag against `DESKTOP_VERSION_NAME`. The packages' version, the
+`-Dappmonitor.version` the app reports and the cask's and manifest's version
+come from it.
+
 ## Publishing a release
 
-`.github/workflows/publish.yml` (job `central`, macOS, ADR-0217) runs on a
-pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
-`scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
+`.github/workflows/publish.yml` runs on a pushed tag of either kind
+(ADR-0217, ADR-0232). Its `version` job refuses a tag whose commit is not on
+`main` and runs `scripts/version_check.sh --release <tag>`. An `X.Y.Z` tag
+then runs `central` and a GitHub Release with no packages; a `desktop-X.Y.Z`
+tag runs `desktop`, then a GitHub Release titled *Desktop X.Y.Z* with the
+packages, then `tap`. In the job `central` (macOS), `make publish-dry-run`
 signs with the release key and checks every file. `scripts/central_upload.sh
 build/maven-dry-run` zips the repository into `build/central-bundle.zip`,
 without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
@@ -393,9 +404,11 @@ that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
 `.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
 (ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
 section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
-packages. Then the `tap` job writes the Homebrew cask, the Scoop manifest and
-their README (`scripts/tap_manifests.sh <tag> build/desktop-packages
-build/tap`) and pushes them to `christianalexandre/homebrew-tap` with
+packages; the notes are the `CHANGELOG.md` section headed `## X.Y.Z` or
+`## Desktop X.Y.Z`. Then the `tap` job writes the Homebrew cask, the Scoop
+manifest and their README (`scripts/tap_manifests.sh X.Y.Z
+build/desktop-packages build/tap`, downloads under `desktop-X.Y.Z`, updates
+found from `desktop-` tags only) and pushes them to `christianalexandre/homebrew-tap` with
 `HOMEBREW_TAP_TOKEN`, a token for that repository only (ADR-0229). `release`
 is the only job with this repository's write token, and runs only on a tag: a
 pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
@@ -444,6 +457,11 @@ Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
 6. **Back-merge:** a PR from `main` to `dev`, merged with a merge commit
    (ADR-0219). Then a PR on `dev` moves the three versions to the next
    `-SNAPSHOT`.
+
+A desktop release is the same, with `release/desktop-X.Y.Z`,
+`DESKTOP_VERSION_NAME` without its suffix, a `## Desktop X.Y.Z` section and
+the tag `desktop-X.Y.Z` (ADR-0232). Nothing reaches Maven Central and step 5
+does not apply; before announcing it, install each package from the release.
 
 Maven Central's free tier counts files per calendar month; one release is
 near the limit (DEBT-0135).

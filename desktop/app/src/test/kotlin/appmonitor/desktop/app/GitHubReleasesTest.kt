@@ -11,15 +11,18 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-// ADR-0228: one unauthenticated GET; the release's tag and page, or null on anything else.
+// ADR-0228, ADR-0232: one unauthenticated GET of the list; the newest desktop release's version and page, or null on anything else.
 class GitHubReleasesTest {
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     private val headers = CopyOnWriteArrayList<Map<String, String>>()
     private var status = 200
-    private var body = """{"tag_name":"1.1.0","html_url":"https://github.com/x/y/releases/tag/1.1.0","draft":false}"""
+    private var body =
+        """[{"tag_name":"1.2.0","html_url":"https://github.com/x/y/releases/tag/1.2.0","draft":false,"prerelease":false},
+           {"tag_name":"desktop-1.1.0","html_url":"https://github.com/x/y/releases/tag/desktop-1.1.0","draft":false,"prerelease":false},
+           {"tag_name":"desktop-1.0.1","html_url":"https://github.com/x/y/releases/tag/desktop-1.0.1","draft":false,"prerelease":false}]"""
 
     init {
-        server.createContext("/latest") { exchange ->
+        server.createContext("/releases") { exchange ->
             headers += exchange.requestHeaders.mapValues { it.value.joinToString() }.mapKeys { it.key.lowercase() }
             val bytes = body.toByteArray()
             exchange.sendResponseHeaders(status, bytes.size.toLong())
@@ -28,15 +31,15 @@ class GitHubReleasesTest {
         server.start()
     }
 
-    private val releases = GitHubReleases("http://127.0.0.1:${server.address.port}/latest", version = "1.0.0")
+    private val releases = GitHubReleases("http://127.0.0.1:${server.address.port}/releases", version = "1.0.0")
 
     @AfterTest
     fun stop() = server.stop(0)
 
     @Test
-    fun `the latest release is read, with the headers GitHub asks for and nothing else about the machine`() =
+    fun `the newest desktop release is read, past an SDK release, with the headers GitHub asks for and nothing else`() =
         runBlocking {
-            assertEquals(AvailableUpdate("1.1.0", "https://github.com/x/y/releases/tag/1.1.0"), releases.latest())
+            assertEquals(AvailableUpdate("1.1.0", "https://github.com/x/y/releases/tag/desktop-1.1.0"), releases.latest())
             val sent = headers.single()
             assertEquals("AppMonitor/1.0.0", sent["user-agent"])
             assertEquals("application/vnd.github+json", sent["accept"])
@@ -52,7 +55,12 @@ class GitHubReleasesTest {
             status = 200
             body = "<html>"
             assertNull(releases.latest())
-            body = """{"html_url":"x"}"""
+            body = """[{"html_url":"x"}]"""
+            assertNull(releases.latest())
+            body = """[{"tag_name":"1.2.0","html_url":"x"}]"""
+            assertNull(releases.latest())
+            body =
+                """[{"tag_name":"desktop-1.2.0","html_url":"x","draft":true},{"tag_name":"desktop-1.3.0","html_url":"y","prerelease":true}]"""
             assertNull(releases.latest())
         }
 
@@ -60,6 +68,6 @@ class GitHubReleasesTest {
     fun `an unreachable host is null`() =
         runBlocking {
             server.stop(0)
-            assertNull(GitHubReleases("http://127.0.0.1:${server.address.port}/latest").latest())
+            assertNull(GitHubReleases("http://127.0.0.1:${server.address.port}/releases").latest())
         }
 }

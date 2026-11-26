@@ -1,8 +1,10 @@
 # Changelog
 
 Every SDK ships the same version at the same `X.Y.Z` tag (ADR-0054,
-ADR-0216). The publish workflow uses a version's section as its GitHub
-Release notes (ADR-0217).
+ADR-0216). The desktop app has its own version, at `desktop-X.Y.Z` tags, on
+the SDKs' major (ADR-0232); its sections are headed `Desktop X.Y.Z`. The
+publish workflow uses a version's section as its GitHub Release notes
+(ADR-0217).
 
 ## 1.0.0
 

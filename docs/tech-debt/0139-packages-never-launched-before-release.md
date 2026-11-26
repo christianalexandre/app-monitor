@@ -3,7 +3,7 @@ id: DEBT-0139
 title: The desktop's packages are never launched before they are released
 status: Open
 date: 2026-11-26
-trigger: The next PR that changes the `desktop` job of `.github/workflows/publish.yml`, or a released package that does not start
+trigger: The `release/desktop-1.1.0` branch is cut, or a released package that does not start
 paid_date:
 ---
 
@@ -25,8 +25,12 @@ the `1.0.1` fix needs.
 
 ## Trigger
 
-The next PR that changes the `desktop` job of `.github/workflows/publish.yml`, or a released
-package that does not start for another reason.
+The `release/desktop-1.1.0` branch is cut, or a released package that does not start for
+another reason.
+
+Re-triggered on 2026-11-26: ADR-0232's PR changed the `desktop` job's conditions only, not
+how it builds. `desktop-1.0.1`'s packages are installed and opened by hand on each OS
+before it is announced (SDD 02, *Cutting a release*).
 
 ## How it was paid
 
