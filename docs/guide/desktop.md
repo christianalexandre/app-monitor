@@ -2,8 +2,25 @@
 
 ## Install it
 
-From `1.0.0`, each [release](https://github.com/christianalexandre/app-monitor/releases)
-attaches the desktop's packages:
+From `1.0.0`, with a package manager:
+
+```sh
+# macOS (Apple silicon), Homebrew
+brew install --cask christianalexandre/tap/app-monitor
+```
+
+```powershell
+# Windows, Scoop
+scoop bucket add christianalexandre https://github.com/christianalexandre/homebrew-tap
+scoop install christianalexandre/app-monitor
+```
+
+`brew upgrade --cask app-monitor` and `scoop update app-monitor` take the next release. Both
+come from [christianalexandre/homebrew-tap](https://github.com/christianalexandre/homebrew-tap),
+written by the release.
+
+Or download from the [release](https://github.com/christianalexandre/app-monitor/releases);
+each one attaches the desktop's packages:
 
 | OS | Package |
 | --- | --- |
@@ -14,7 +31,7 @@ attaches the desktop's packages:
 The packages are not signed by Apple or Microsoft, so each system asks once before the first
 run:
 
-- **macOS.** Drag *App Monitor* to *Applications* and open it. macOS says it cannot check
+- **macOS.** Drag *App Monitor* to *Applications*, or install it with Homebrew, and open it. macOS says it cannot check
   the app; close that message. Then open *System Settings → Privacy & Security*, scroll to
   *Security*, click *Open Anyway* next to *App Monitor*, and confirm. Since macOS 15,
   Control-click → *Open* no longer skips the check

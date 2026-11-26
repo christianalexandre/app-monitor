@@ -51,7 +51,7 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   package built locally per OS at hand, opened.
   Done without a change to `scripts/version_check.sh`: the version comes from `VERSION_NAME`
   itself, and jpackage refuses a `0.x` on macOS (ADR-0227).
-- [ ] **M11.3 Homebrew and Scoop from `homebrew-tap`.** The publish workflow writes
+- [x] **M11.3 Homebrew and Scoop from `homebrew-tap`.** (`feat/homebrew-and-scoop`) The publish workflow writes
   `Casks/app-monitor.rb` and `bucket/app-monitor.json` (version, URLs, SHA-256) to
   `christianalexandre/homebrew-tap` once the release has its packages. The guide gives
   `brew install --cask christianalexandre/tap/app-monitor` and the `scoop bucket add` /
@@ -59,6 +59,10 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   Accept: `brew style` and `brew audit --cask` on the generated cask; the Scoop manifest checked
   against Scoop's schema; a script test for both generators. Without the repository or the
   token: stop and ask the owner.
+  Done after M11.4, once the owner had the repository and the token. `brew style`, `brew
+  audit --cask --strict`, and an install from a local tap with the `.dmg` built here, all
+  passed. The Scoop schema check was not run: fetching and running its validator from npm was
+  refused in the session, and Scoop needs Windows. M11.5 checks both on the owner's machine.
 - [x] **M11.4 A newer version, noticed.** (`feat/update-notice`) The desktop reads the repository's latest GitHub
   Release at launch and once a day. A newer version shows in the status bar with its link,
   and a Settings switch, on by default, turns the check off. No telemetry: one unauthenticated

@@ -387,7 +387,11 @@ that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
 `.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
 (ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
 section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
-packages. It is the only job with a write token, and runs only on a tag: a
+packages. Then the `tap` job writes the Homebrew cask, the Scoop manifest and
+their README (`scripts/tap_manifests.sh <tag> build/desktop-packages
+build/tap`) and pushes them to `christianalexandre/homebrew-tap` with
+`HOMEBREW_TAP_TOKEN`, a token for that repository only (ADR-0229). `release`
+is the only job with this repository's write token, and runs only on a tag: a
 pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
 beyond the tag.
 
@@ -398,11 +402,12 @@ Repository secrets, read only on a tag run:
 | `APPMONITOR_SIGNING_KEY` | ASCII-armored GPG secret key; its public part on `keyserver.ubuntu.com` and `keys.openpgp.org` |
 | `APPMONITOR_SIGNING_PASSWORD` | its passphrase |
 | `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | a Central Portal user token, namespace `io.github.christianalexandre` |
+| `HOMEBREW_TAP_TOKEN` | a fine-grained token, *Contents: write* on `christianalexandre/homebrew-tap` only; when it expires, the `tap` job fails at its push and a new token plus a re-run fixes it |
 
 A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
 `central_upload.sh`, `version_check.sh`, the publishing conventions,
 `gradle.properties`, a published module's build file, `desktop/app/build.gradle.kts` or
-`desktop_packages.sh` runs the same jobs dry,
+`desktop_packages.sh` or `tap_manifests.sh` runs the same jobs dry,
 the packages kept as `desktop-<os>` artifacts. It uses a throwaway key and no secret, and keeps the
 bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
 --bundle-only` builds the bundle locally.
