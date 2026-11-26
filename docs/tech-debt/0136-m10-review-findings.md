@@ -18,7 +18,8 @@ None of them is hit by a normal release:
    `CHANGELOG.md` heading by prefix. A tag `0.1.1` would also take a
    `## 0.1.10` or `## 0.1.1-rc1` section. Today nothing re-releases an old
    version, and `version_check.sh` refuses suffixes.
-2. **`scripts/central_upload.sh`:** when the timeout (30 min) passes after an
+2. *Paid in the `1.0.1` follow-up (ADR-0231):* `PUBLISHING` ends the wait, and a version
+   `repo1.maven.org` serves is not uploaded again. **`scripts/central_upload.sh`:** when the timeout (30 min) passes after an
    `AUTOMATIC` upload, the job fails while the Portal goes on publishing.
    No GitHub Release is created, and a rerun uploads a version Central
    already has. `0.1.0` was `PUBLISHED` in under 3 minutes.
@@ -57,7 +58,8 @@ The next PR that touches a file its items name: `.github/workflows/publish.yml`,
 
 M11.1's PR touched `central_upload.sh` for the bundle's checksums (DEBT-0135) and paid item 3.
 Item 2 is re-triggered: a release whose upload passes the 30-minute timeout, or a change to
-the script's wait loop (2026-11-26). The other items keep their files.
+the script's wait loop (2026-11-26). It fired on `1.0.0` (about two hours in `PUBLISHING`) and
+is paid by ADR-0231. The other items keep their files.
 
 ## How it was paid
 

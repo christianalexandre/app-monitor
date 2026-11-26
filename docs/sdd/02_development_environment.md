@@ -380,9 +380,13 @@ signs with the release key and checks every file. `scripts/central_upload.sh
 build/maven-dry-run` zips the repository into `build/central-bundle.zip`,
 without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
 (712 files for the `0.1.x` modules, under Central's free monthly count,
-DEBT-0135). It posts the bundle to the Central Portal with
-`publishingType=AUTOMATIC` and polls until `PUBLISHED`. On `FAILED`, or an
-upload the Portal refuses, it prints the Portal's answer. Beside it, the
+DEBT-0135). When `repo1.maven.org` already serves the bundle's first `.pom`,
+it uploads nothing and passes, so a rerun goes on to the next jobs. Otherwise it
+posts the bundle to the Central Portal with `publishingType=AUTOMATIC` and
+polls until `PUBLISHING` or `PUBLISHED`: `PUBLISHING` means the bundle passed
+validation, and Central took about two hours from there for `1.0.0`
+(ADR-0231). On `FAILED`, or an upload the Portal refuses, it prints the
+Portal's answer. Beside it, the
 `desktop` job runs on macOS, Windows and Linux. Each one runs
 `scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
 that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
@@ -429,9 +433,10 @@ Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
 3. **Tag `main`:** `git tag X.Y.Z origin/main && git push origin X.Y.Z`. No
    `v` prefix: the workflow takes `X.Y.Z` only.
 4. **`Publish` runs** (*Publishing a release* above). It is green once
-   the Portal reports `PUBLISHED` and the GitHub Release exists, with the
-   version's `CHANGELOG.md` section as notes. The artifacts reach
-   `repo1.maven.org` a few minutes later. Check them under
+   the Portal reports `PUBLISHING` or `PUBLISHED` and the GitHub Release
+   exists, with the version's `CHANGELOG.md` section as notes. The artifacts
+   reach `repo1.maven.org` from minutes (`0.1.0`) to about two hours
+   (`1.0.0`) later (ADR-0231). Check them under
    `https://repo1.maven.org/maven2/io/github/christianalexandre/`, or in the
    Portal's *Deployments*.
 5. **Consumers:** `scripts/consumers_check.sh X.Y.Z`, run in a worktree at

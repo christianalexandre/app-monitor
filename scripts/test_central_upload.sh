@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 work="$PWD/build/test-central-upload"
 rm -rf "$work"
 mkdir -p "$work/repo/io/github/x/a/1.0.0"
-touch "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.asc" \
+touch "$work/repo/io/github/x/a/1.0.0/a-1.0.0.pom" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.asc" \
   "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.md5" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha1" \
   "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha256" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha512" \
   "$work/repo/io/github/x/a/maven-metadata.xml" "$work/repo/io/github/x/a/maven-metadata.xml.md5"
@@ -19,6 +19,10 @@ import http.server, os, sys
 final, log = sys.argv[1], sys.argv[2]
 polls = []
 class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        with open(log, "a") as f:
+            f.write(f"GET {self.path}\n")
+        self.send_response(200 if final == "ALREADY" else 404); self.end_headers()
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         with open(log, "a") as f:
@@ -43,7 +47,7 @@ run() { # final state → exit code of the script
   python3 "$work/stub.py" "$1" "$log" &
   pid=$!
   for _ in $(seq 50); do [[ -s "$log.port" ]] && break; sleep 0.1; done
-  CENTRAL_URL="http://127.0.0.1:$(cat "$log.port")" CENTRAL_POLL_SECONDS=0 \
+  CENTRAL_URL="http://127.0.0.1:$(cat "$log.port")" CENTRAL_REPO_URL="http://127.0.0.1:$(cat "$log.port")/maven2" CENTRAL_POLL_SECONDS=0 \
     MAVEN_CENTRAL_USERNAME=user MAVEN_CENTRAL_PASSWORD=token \
     scripts/central_upload.sh "$work/repo" >"$work/out-$1.log" 2>&1 || code=$?
   kill "$pid" 2>/dev/null || true
@@ -67,6 +71,11 @@ bearer="Bearer $(printf 'user:token' | base64)"
 check "published after validating" '[[ $code -eq 0 ]]'
 check "the upload carries the bearer token" 'grep -q "^/api/v1/publisher/upload?name=appmonitor-.*&publishingType=AUTOMATIC $bearer [1-9]" "$work/requests-PUBLISHED.log"'
 check "the status asked for that deployment" 'grep -q "^/api/v1/publisher/status?id=dep-1 $bearer" "$work/requests-PUBLISHED.log"'
+check "it asked Maven Central for the version first" 'grep -q "^GET /maven2/io/github/x/a/1.0.0/a-1.0.0.pom" "$work/requests-PUBLISHED.log"'
+code="$(run PUBLISHING)"
+check "publishing after validating ends the wait" '[[ $code -eq 0 ]] && grep -q "central: validated" "$work/out-PUBLISHING.log"'
+code="$(run ALREADY)"
+check "a version Maven Central serves is not uploaded again" '[[ $code -eq 0 ]] && ! grep -q "^/api/v1/publisher/upload" "$work/requests-ALREADY.log" && grep -q "already on Maven Central" "$work/out-ALREADY.log"'
 code="$(run FAILED)"
 check "a failed deployment fails" '[[ $code -eq 1 ]]'
 check "its errors printed" 'grep -q "bad" "$work/out-FAILED.log"'
