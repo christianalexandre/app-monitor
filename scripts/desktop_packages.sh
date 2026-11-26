@@ -28,21 +28,27 @@ zip_dir() { # directory, archive: the directory itself at the archive's root
 }
 
 collect() { # os, version, binaries dir, out dir
-  local os="$1" version="$2" bin="$3" out="$4" arch
+  local os="$1" version="$2" bin="$3" out="$4" arch dmg msi app deb rpm
   mkdir -p "$out"
   out="$(cd "$out" && pwd)"
   case "$os" in
     macos)
       arch="$(uname -m)"
-      cp "$(one "$bin/dmg/*-$version.dmg")" "$out/app-monitor-$version-macos-$arch.dmg"
+      dmg="$(one "$bin/dmg/*-$version.dmg")"
+      cp "$dmg" "$out/app-monitor-$version-macos-$arch.dmg"
       ;;
     windows)
-      cp "$(one "$bin/msi/*-$version.msi")" "$out/app-monitor-$version-windows-x64.msi"
-      zip_dir "$(one "$bin/app/*")" "$out/app-monitor-$version-windows-x64.zip"
+      msi="$(one "$bin/msi/*-$version.msi")"
+      app="$(one "$bin/app/*")"
+      cp "$msi" "$out/app-monitor-$version-windows-x64.msi"
+      zip_dir "$app" "$out/app-monitor-$version-windows-x64.zip"
       ;;
     linux)
-      cp "$(one "$bin/deb/*_$version-*.deb")" "$out/app-monitor-$version-linux-amd64.deb"
-      cp "$(one "$bin/rpm/*-$version-*.rpm")" "$out/app-monitor-$version-linux-x86_64.rpm"
+      # Compose names them app-monitor_X.Y.Z_amd64.deb and app-monitor-X.Y.Z-1.x86_64.rpm.
+      deb="$(one "$bin/deb/*_${version}_*.deb")"
+      rpm="$(one "$bin/rpm/*-$version-*.rpm")"
+      cp "$deb" "$out/app-monitor-$version-linux-amd64.deb"
+      cp "$rpm" "$out/app-monitor-$version-linux-x86_64.rpm"
       ;;
     *) usage ;;
   esac
