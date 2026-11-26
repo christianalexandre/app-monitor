@@ -155,3 +155,4 @@ Rules:
 | [0135](0135-central-bundle-over-the-monthly-file-count.md) | A release sends 1,068 files to Maven Central, over the free monthly file count | The `release/1.0.0` branch, a release refused for the file count, or the next PR that changes `scripts/central_upload.sh` | Open |
 | [0136](0136-m10-review-findings.md) | Findings of the M10 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
 | [0137](0137-h9-review-findings.md) | Findings of the H9 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
+| [0138](0138-mdns-problem-in-the-status-read-once.md) | The status line's mDNS problem is read once, at start | A stale mDNS problem seen, or a change to `runServer` | Open |

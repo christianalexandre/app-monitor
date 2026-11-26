@@ -243,3 +243,4 @@ Rules:
 | [0223](0223-mocking-switches-off-for-every-device-and-keeps-the-rules.md) | Mocking switches off for every device and keeps the rules | Accepted |
 | [0224](0224-a-cut-json-value-opens-in-place-with-a-click.md) | A cut JSON value opens in place with a click, as part of the body's rendering | Accepted |
 | [0225](0225-only-a-cut-value-s-marker-opens-or-folds-it.md) | Only a cut value's marker opens it, and a marker before an opened value folds it | Accepted |
+| [0226](0226-the-advertised-addresses-follow-the-machine.md) | The advertised addresses follow the machine's, checked every five seconds | Accepted |

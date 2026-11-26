@@ -32,6 +32,15 @@ A device on the LAN fails to connect by discovery while the desktop also has a
 link-local interface up, or a change to
 `desktop/server/src/main/kotlin/appmonitor/desktop/server/LanAddresses.kt`.
 
+## Fired 2026-11-26
+
+The owner's phone on the Wi-Fi retried `169.254.200.69` while the desktop was on
+`10.0.0.124`. The link-local address was stale: it came from the moment the desktop
+started, and the desktop never read its addresses again. ADR-0226 makes the advertised
+addresses follow the machine's, which fixes what was seen. What this DEBT describes, a
+second interface that really is link-local (a phone on USB) heard on the LAN, was not seen
+and is unchanged. Trigger kept: such a device failing, or a change to `LanAddresses.kt`.
+
 ## How it was paid
 
 > Filled when closing. What the solution taught, and what is left of it.
