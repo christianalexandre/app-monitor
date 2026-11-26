@@ -58,36 +58,12 @@ record of how the milestone was actually built once it is done.
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 | [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
 | [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Done |
+| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M11 — Desktop distribution and `1.0.0`
-
-The owner found the libraries and the desktop good for a V1 after the
-`0.1.0` field test (2026-11-25, after
-[PLAN-0020](0020-field-test-desktop-fixes.md)). Owner decisions that day:
-
-- **Straight to `1.0.0`, libraries and desktop at one tag.** No `0.x`
-  desktop release: `jpackage` refuses a macOS `app-version` whose first
-  number is 0 (run on JDK 21: *"The first number in an app-version cannot
-  be zero or negative"*), and the libraries have not changed since `0.1.0`,
-  so a `0.x` library release would spend Central's monthly file count for
-  nothing.
-- **DEBT-0135 first**: the Central bundle shrinks below the monthly file
-  count before the `1.0.0` release (the grace period ends 2026-12-14).
-- **An update notice in `1.0.0`**: the desktop reads its GitHub Releases
-  and shows a newer version with its link (`brew upgrade` on macOS), with a
-  switch in Settings to turn it off. It is the desktop's first call outside
-  the local network: an ADR records it (security / privacy, decided by the
-  owner). No self-installing update.
-
-Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
-owner's, with the steps to let them run (ADR-0055: no signing cost), at the
-libraries' `X.Y.Z` tag. The release PR `dev` → `main` is merged by the
-owner.
 
 ### M12 — The repository's front page
 
