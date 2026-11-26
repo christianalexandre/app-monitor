@@ -14,7 +14,7 @@ paid_date:
 From the code-review of `ae05cf5..d67a7c1` (PLAN-0019's milestone review).
 None of them is hit by a normal release:
 
-1. **`.github/workflows/publish.yml`:** the release notes' `awk` matches a
+1. *Paid in M11.2:* the heading is matched whole, or followed by a space. **`.github/workflows/publish.yml`:** the release notes' `awk` matches a
    `CHANGELOG.md` heading by prefix. A tag `0.1.1` would also take a
    `## 0.1.10` or `## 0.1.1-rc1` section. Today nothing re-releases an old
    version, and `version_check.sh` refuses suffixes.
@@ -25,7 +25,7 @@ None of them is hit by a normal release:
 3. *Paid in M11.1:* `--fail-with-body`, the body printed as `central: upload refused: …`,
    and a refusing stub Portal in `test_central_upload.sh`. **`scripts/central_upload.sh`:** `curl -fsS` drops the body of a 4xx or
    5xx answer, so the Portal's reason for refusing an upload is not logged.
-4. **`.github/workflows/publish.yml`:** the `pull_request` paths filter leaves
+4. *Paid in M11.2:* the filter adds `gradle.properties`, `gradle-plugin/build.gradle.kts`, `protocol/build.gradle.kts` and `sdk/*/build.gradle.kts`. **`.github/workflows/publish.yml`:** the `pull_request` paths filter leaves
    out `gradle-plugin/build.gradle.kts`, `gradle.properties` and the modules'
    build files, which also change the publication. The release gate's
    `publish` job runs the same dry run on every `dev` → `main` PR, before

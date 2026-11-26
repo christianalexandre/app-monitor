@@ -13,6 +13,12 @@ on:
       - scripts/version_check.sh
       - build-logic/src/main/kotlin/appmonitor.maven-central.gradle.kts
       - build-logic/src/main/kotlin/appmonitor.publish.gradle.kts
+      - desktop/app/build.gradle.kts
+      - scripts/desktop_packages.sh
+      - gradle.properties
+      - gradle-plugin/build.gradle.kts
+      - protocol/build.gradle.kts
+      - 'sdk/*/build.gradle.kts'
   workflow_dispatch:
 
 permissions:
@@ -72,9 +78,47 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # ADR-0227: each OS builds its own packages; jpackage does not cross-build.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            runner: macos-latest
+          - os: windows
+            runner: windows-latest
+          - os: linux
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic # ADR-0012
+      - name: rpmbuild
+        if: matrix.os == 'linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q rpm
+      - name: Packages
+        run: scripts/desktop_packages.sh build ${{ matrix.os }} build/desktop-packages
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.os }}
+          path: build/desktop-packages/*
+          if-no-files-found: error
+          retention-days: 7
+
   # The only write token, and only on a tag: a PR's dry run runs the PR's own scripts.
   release:
-    needs: central
+    needs: [central, desktop]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -84,13 +128,18 @@ jobs:
       TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          path: build/desktop-packages
+          merge-multiple: true
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="$(awk -v v="## $TAG" 'index($0, v) == 1 {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
+          notes="$(awk -v v="## $TAG" '($0 == v || index($0, v " ") == 1) {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
           if [[ -n "$notes" ]]; then
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes"
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes" build/desktop-packages/*
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes build/desktop-packages/*
           fi

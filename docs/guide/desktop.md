@@ -1,9 +1,38 @@
 # The desktop app
 
-## Run it
+## Install it
 
-Packages are not published yet. Until they are, run the desktop from the
-repository, with JDK 21:
+From `1.0.0`, each [release](https://github.com/christianalexandre/app-monitor/releases)
+attaches the desktop's packages:
+
+| OS | Package |
+| --- | --- |
+| macOS (Apple silicon) | `app-monitor-X.Y.Z-macos-arm64.dmg` |
+| Windows (x64) | `app-monitor-X.Y.Z-windows-x64.msi`, or the `.zip` to run without installing |
+| Linux (x64) | `app-monitor-X.Y.Z-linux-amd64.deb`, `app-monitor-X.Y.Z-linux-x86_64.rpm` |
+
+The packages are not signed by Apple or Microsoft, so each system asks once before the first
+run:
+
+- **macOS.** Drag *App Monitor* to *Applications* and open it. macOS says it cannot check
+  the app; close that message. Then open *System Settings → Privacy & Security*, scroll to
+  *Security*, click *Open Anyway* next to *App Monitor*, and confirm. Since macOS 15,
+  Control-click → *Open* no longer skips the check
+  ([Apple](https://support.apple.com/en-lb/guide/mac-help/mchleab3a043/15.0/mac/15.5)). If no
+  *Open Anyway* shows, this does the same from Terminal:
+
+  ```sh
+  xattr -dr com.apple.quarantine "/Applications/App Monitor.app"
+  ```
+
+- **Windows.** SmartScreen shows *Windows protected your PC*: click *More info*, then *Run
+  anyway*.
+- **Linux.** `sudo apt install ./app-monitor-X.Y.Z-linux-amd64.deb` (Debian, Ubuntu) or
+  `sudo dnf install ./app-monitor-X.Y.Z-linux-x86_64.rpm` (Fedora, RHEL). Nothing asks.
+
+## Run it from the repository
+
+With JDK 21:
 
 ```sh
 git clone https://github.com/christianalexandre/app-monitor
@@ -11,13 +40,14 @@ cd app-monitor
 make desktop
 ```
 
-To install it instead, build an unsigned package for your OS. The package
-lands in `desktop/app/build/compose/binaries/main/`:
+To build a package for your OS instead, the same one a release attaches (it lands in
+`desktop/app/build/compose/binaries/main/`):
 
 ```sh
 ./gradlew :desktop:app:packageDmg   # macOS
-./gradlew :desktop:app:packageDeb   # Linux
 ./gradlew :desktop:app:packageMsi   # Windows
+./gradlew :desktop:app:packageDeb   # Linux, Debian and Ubuntu
+./gradlew :desktop:app:packageRpm   # Linux, Fedora and RHEL (needs rpmbuild)
 ```
 
 It listens for devices on port `47474` and announces itself on the local

@@ -34,15 +34,17 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
-        jvmArgs += "-Dappmonitor.version=${providers.gradleProperty("VERSION_NAME").get()}"
+        val versionName = providers.gradleProperty("VERSION_NAME").get()
+        jvmArgs += "-Dappmonitor.version=$versionName"
 
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
             // ADR-0105: jdk.crypto.ec holds JDK 21's EC provider, which the proxy's keys and TLS need; jdeps cannot see it.
             modules("java.instrument", "java.management", "java.sql", "jdk.crypto.ec", "jdk.unsupported")
             packageName = "App Monitor"
-            packageVersion = "1.0.0"
+            // ADR-0227: numbers only, and macOS refuses a first number of 0.
+            packageVersion = versionName.substringBefore('-')
             description = "Network monitor and debug toolkit for mobile apps"
             vendor = "Christian Alexandre"
             // ADR-0211: rendered from icon/app-monitor.svg by `appIcons`.
