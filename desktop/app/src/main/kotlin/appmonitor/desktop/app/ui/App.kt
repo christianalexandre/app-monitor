@@ -10,6 +10,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -33,6 +34,7 @@ import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.ThemeMode
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.domain.UpdateRepository
 import appmonitor.desktop.feature.breakpoints.BreakpointList
 import appmonitor.desktop.feature.breakpoints.BreakpointsViewModel
 import appmonitor.desktop.feature.breakpoints.HeldCallDialog
@@ -84,6 +86,7 @@ internal fun AppMonitorApp(
     appearance: AppearanceRepository? = null,
     panes: PaneLayoutRepository? = null,
     monitor: MonitorRepository? = null,
+    updates: UpdateRepository? = null,
     live: LiveTraffic = remember { LiveTraffic() },
     runRepository: RunRepository = remember(storage) { storage.runRepository() },
     traffic: TrafficRepository = remember(storage, live) { storage.trafficRepository(live) },
@@ -104,6 +107,7 @@ internal fun AppMonitorApp(
             appearance,
             panes,
             monitor,
+            updates,
         ) {
             koinApplication {
                 modules(
@@ -122,6 +126,7 @@ internal fun AppMonitorApp(
                         appearance,
                         panes,
                         monitor,
+                        updates,
                     ),
                 )
             }
@@ -132,7 +137,7 @@ internal fun AppMonitorApp(
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
     CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
         KoinIsolatedContext(koin) {
-            AppMonitorWindow(status, onClearAll, pickHarFile, traffic, appearance)
+            AppMonitorWindow(status, onClearAll, pickHarFile, traffic, appearance, updates)
         }
     }
 }
@@ -148,8 +153,11 @@ private fun AppMonitorWindow(
     pickHarFile: (suggested: String) -> File?,
     traffic: TrafficRepository,
     appearance: AppearanceRepository?,
+    updates: UpdateRepository?,
 ) {
     val theme = appearance?.theme?.collectAsState()?.value ?: ThemeMode.Light
+    val update = updates?.available?.collectAsState()?.value
+    val uriHandler = LocalUriHandler.current
     val viewModel = koinViewModel<TrafficViewModel>()
     val state by viewModel.state.collectAsState()
     val shownRunId = state.runs.shownRunId
@@ -190,6 +198,8 @@ private fun AppMonitorWindow(
                     mocksWaiting = mocks.pending > 0,
                     callsHeld = held.isNotEmpty(),
                     exportNote = exportNote,
+                    updateLabel = update?.let { "Version ${it.version.removePrefix("v")} available" },
+                    onUpdate = { update?.let { uriHandler.openUri(it.url) } },
                     covered =
                         settingsOpen || issuesOpen || mocksShown || breakpointsOpen || benchmarksOpen || diffOpen ||
                             saving != null || held.isNotEmpty(),

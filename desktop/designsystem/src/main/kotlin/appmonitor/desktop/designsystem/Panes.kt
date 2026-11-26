@@ -2,6 +2,7 @@ package appmonitor.desktop.designsystem
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -174,6 +176,23 @@ fun StatusBar(
             content = content,
         )
     }
+}
+
+/** A caption in the primary color that runs [onClick], sized for a [StatusBar]'s height, where a [TextButton] is cut. */
+@Composable
+fun StatusLink(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    MaterialText(
+        text,
+        modifier.clickable(role = Role.Button, onClick = onClick).pointerHoverIcon(PointerIcon.Hand),
+        color = AppMonitorTheme.colors.primary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = styleOf(TextRole.Caption),
+    )
 }
 
 /** Text tabs in one row ruled below, the [selected] one strong and underlined in the primary color. */

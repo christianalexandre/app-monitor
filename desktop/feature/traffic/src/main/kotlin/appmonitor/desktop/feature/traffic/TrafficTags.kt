@@ -147,3 +147,5 @@ const val MONITOR_STATE = "monitor-state"
 const val MONITOR_SWITCH = "monitor-switch"
 const val MOCKING_STATE = "mocking-state"
 const val MOCKING_SWITCH = "mocking-switch"
+
+const val UPDATE_NOTICE = "update-notice"

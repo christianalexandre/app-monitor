@@ -69,6 +69,7 @@ import appmonitor.desktop.designsystem.SidebarSection
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.StatusBar
 import appmonitor.desktop.designsystem.StatusDot
+import appmonitor.desktop.designsystem.StatusLink
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
@@ -109,6 +110,7 @@ data class TrafficLinks(
     val mocksWaiting: Boolean = false,
     val callsHeld: Boolean = false,
     val exportNote: String? = null,
+    val updateLabel: String? = null,
     val covered: Boolean = false,
     val onSettings: () -> Unit = {},
     val onIssues: () -> Unit = {},
@@ -119,6 +121,7 @@ data class TrafficLinks(
     val onSaveAsIssue: () -> Unit = {},
     val onCompareRuns: () -> Unit = {},
     val onMock: (HttpExchange) -> Unit = {},
+    val onUpdate: () -> Unit = {},
 )
 
 /** The title bar, the sidebar, the requests and the request, then the status bar (ADR-0205). */
@@ -513,8 +516,10 @@ private fun TrafficStatusBar(
         state.health.lastError?.let { StatusText("${state.health.notSaved} events not saved: $it", error = true) }
         links.retentionWarning?.let { StatusText(it, error = true) }
         Spacer(Modifier.weight(1f))
-        if (links.mocksWaiting) TextButton(links.mocksLabel, onClick = links.onMocks, singleLine = true)
-        if (links.callsHeld) TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, singleLine = true)
+        if (links.mocksWaiting) StatusLink(links.mocksLabel, onClick = links.onMocks)
+        if (links.callsHeld) StatusLink(links.breakpointsLabel, onClick = links.onBreakpoints)
+        // ADR-0228: a newer release, its page opened in the browser.
+        links.updateLabel?.let { StatusLink(it, onClick = links.onUpdate, Modifier.testTag(UPDATE_NOTICE)) }
         StatusText("$dropped dropped", error = dropped > 0)
     }
 }

@@ -12,10 +12,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
 import appmonitor.desktop.app.store.ApprovalStore
+import appmonitor.desktop.app.store.GitHubReleases
 import appmonitor.desktop.app.store.McpController
 import appmonitor.desktop.app.store.ProxyController
 import appmonitor.desktop.app.store.TrafficStore
+import appmonitor.desktop.app.store.desktopVersion
 import appmonitor.desktop.app.ui.AppMonitorApp
+import appmonitor.desktop.data.UpdateChecker
 import appmonitor.desktop.data.appearanceRepository
 import appmonitor.desktop.data.paneLayoutRepository
 import appmonitor.desktop.data.runRepository
@@ -43,8 +46,10 @@ import appmonitor.desktop.storage.Recorder
 import appmonitor.desktop.storage.Storage
 import appmonitor.desktop.storage.dataDirectory
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -95,6 +100,14 @@ fun main() {
     server = AppMonitorServer(ServerConfig(desktopId = desktopId), approvals.approvals)
     val mcp = McpController(storage, live, access, replays = store.replays)
     val proxy = ProxyController(storage, recorder, directory)
+    // ADR-0228: lives as long as the process; its only call leaves for GitHub.
+    val updates =
+        UpdateChecker(
+            storage.settingRepository(),
+            desktopVersion(),
+            GitHubReleases(),
+            CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        )
     val stopServer = once(server::stop)
     val closeStorage = once { storage.close(STOP_TIMEOUT) }
     addStopHook(timeout = STOP_TIMEOUT * 2 + McpServer.GRACE + McpServer.STOP_TIMEOUT + ProxyServer.STOP_TIMEOUT) {
@@ -141,6 +154,7 @@ fun main() {
                                             live.clear()
                                             mcp.afterClearAll()
                                             proxy.afterClearAll()
+                                            updates.setChecking(updates.checking.value)
                                         }
                                     },
                                     mcp = mcp,
@@ -148,6 +162,7 @@ fun main() {
                                     heldCalls = store.heldCalls,
                                     replays = store.replays,
                                     monitor = store.pause,
+                                    updates = updates,
                                     appearance = appearance,
                                     panes = panes,
                                     live = live,

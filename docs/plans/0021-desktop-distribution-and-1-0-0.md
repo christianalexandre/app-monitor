@@ -59,7 +59,7 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   Accept: `brew style` and `brew audit --cask` on the generated cask; the Scoop manifest checked
   against Scoop's schema; a script test for both generators. Without the repository or the
   token: stop and ask the owner.
-- [ ] **M11.4 A newer version, noticed.** The desktop reads the repository's latest GitHub
+- [x] **M11.4 A newer version, noticed.** (`feat/update-notice`) The desktop reads the repository's latest GitHub
   Release at launch and once a day. A newer version shows in the status bar with its link,
   and a Settings switch, on by default, turns the check off. No telemetry: one unauthenticated
   `GET`, nothing about the machine sent. An ADR records the desktop's first call outside the
@@ -67,6 +67,8 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   Accept: `./gradlew :desktop:app:test` (and the feature or data module tests that own it),
   against a stand-in releases endpoint: newer, same, offline, switched off; a screenshot of the
   notice.
+  Done before M11.3, which waits for the owner's `homebrew-tap` repository and token. The
+  status bar's links became `StatusLink`: a `TextButton` there was cut by the bar's height.
 - [ ] **M11.5 `1.0.0`.** `VERSION_NAME`, the SDKs' version constants and the docs move to
   `1.0.0`, and the release PR `dev` → `main` is opened. The owner merges it and pushes the tag;
   the publish workflow does the rest. `scripts/consumers_check.sh 1.0.0` confirms what an app

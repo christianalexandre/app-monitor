@@ -159,6 +159,17 @@ fun Settings(
         } else {
             TextButton("Clear all data", onClick = { confirming = true }, Modifier.testTag(CLEAR_ALL))
         }
+        state.checksUpdates?.let { on ->
+            Divider()
+            Text("Updates", role = TextRole.Heading)
+            CheckboxRow(
+                "Check GitHub for a newer version, at launch and once a day",
+                on,
+                viewModel::setChecksUpdates,
+                Modifier.testTag(UPDATES_SWITCH),
+            )
+            Text("One request to api.github.com; nothing about this machine or its traffic is sent.", role = TextRole.Caption)
+        }
         state.mcp?.let { mcp ->
             Divider()
             McpSection(mcp, viewModel::setMcpEnabled, viewModel::regenerateToken)
@@ -368,6 +379,8 @@ const val CLEAR_ALL = "clear-all"
 const val CONFIRM_CLEAR = "confirm-clear"
 
 const val MCP_SWITCH = "mcp-switch"
+
+const val UPDATES_SWITCH = "updates-switch"
 
 const val PROXY_SWITCH = "proxy-switch"
 
