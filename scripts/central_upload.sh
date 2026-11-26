@@ -15,8 +15,8 @@ bundle="$PWD/build/central-bundle.zip"
 
 rm -f "$bundle"
 mkdir -p "$(dirname "$bundle")"
-# Central computes the metadata itself; a version's files are all it takes.
-(cd "$repo" && zip -qr "$bundle" io -x '*maven-metadata.xml*')
+# Central computes the metadata itself; it requires .md5 and .sha1 only (DEBT-0135 paid: the monthly file count).
+(cd "$repo" && zip -qr "$bundle" io -x '*maven-metadata.xml*' '*.sha256' '*.sha512')
 echo "central: bundle $(unzip -Z1 "$bundle" | grep -vc '/$') files, $(wc -c <"$bundle" | tr -d ' ') bytes"
 [[ "${2:-}" != --bundle-only ]] || exit 0
 
@@ -25,11 +25,13 @@ echo "central: bundle $(unzip -Z1 "$bundle" | grep -vc '/$') files, $(wc -c <"$b
 auth="Authorization: Bearer $(printf '%s:%s' "$MAVEN_CENTRAL_USERNAME" "$MAVEN_CENTRAL_PASSWORD" | base64 | tr -d '\n')"
 version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
 
-id="$(curl -fsS -X POST -H "$auth" -F "bundle=@$bundle" \
-  "$url/api/v1/publisher/upload?name=appmonitor-$version&publishingType=AUTOMATIC")"
+id="$(curl --fail-with-body -sS -X POST -H "$auth" -F "bundle=@$bundle" \
+  "$url/api/v1/publisher/upload?name=appmonitor-$version&publishingType=AUTOMATIC")" ||
+  { echo "central: upload refused: $id" >&2; exit 1; }
 echo "central: deployment $id"
 while :; do
-  status="$(curl -fsS -X POST -H "$auth" "$url/api/v1/publisher/status?id=$id")"
+  status="$(curl --fail-with-body -sS -X POST -H "$auth" "$url/api/v1/publisher/status?id=$id")" ||
+    { echo "central: status refused: $status" >&2; exit 1; }
   state="$(printf '%s' "$status" | sed -n 's/.*"deploymentState" *: *"\([A-Z]*\)".*/\1/p')"
   echo "central: $state"
   case "$state" in

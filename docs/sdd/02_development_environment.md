@@ -375,10 +375,12 @@ suffix. `make scripts-test` runs it on the repository.
 pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
 `scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
 signs with the release key and checks every file. `scripts/central_upload.sh
-build/maven-dry-run` zips the repository (no `maven-metadata.xml`) into
-`build/central-bundle.zip`, posts it to the Central Portal with
-`publishingType=AUTOMATIC` and polls until `PUBLISHED`; on `FAILED` it
-prints the Portal's errors. Last, the `release` job creates the GitHub
+build/maven-dry-run` zips the repository into `build/central-bundle.zip`,
+without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
+(712 files for the `0.1.x` modules, under Central's free monthly count,
+DEBT-0135). It posts the bundle to the Central Portal with
+`publishingType=AUTOMATIC` and polls until `PUBLISHED`. On `FAILED`, or an
+upload the Portal refuses, it prints the Portal's answer. Last, the `release` job creates the GitHub
 Release with the tag's section of `CHANGELOG.md`, or GitHub's generated
 notes. It is the only job with a write token, and runs only on a tag: a
 pull request's dry run runs that PR's own scripts. SwiftPM needs nothing

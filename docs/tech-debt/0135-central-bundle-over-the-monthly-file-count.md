@@ -4,7 +4,7 @@ title: A release sends 1,068 files to Maven Central, over the free monthly file 
 status: Open
 date: 2026-11-15
 trigger: The `release/1.0.0` branch is cut, or the Central Portal refuses a release for the monthly file count, or the next PR that changes `scripts/central_upload.sh`
-paid_date:
+paid_date: 2026-11-26
 ---
 
 # DEBT-0135 — A release sends 1,068 files to Maven Central, over the free monthly file count
@@ -45,4 +45,14 @@ for the monthly file count, or the next PR that changes
 
 ## How it was paid
 
-> Filled when closing.
+PLAN-0021 M11.1. `scripts/central_upload.sh` leaves `.sha256` and `.sha512` out of the
+bundle. Central's requirements page says *"`.md5` and `.sha1` are required, `.sha256` and
+`.sha512` are supported but not mandatory"*, and that *"`.asc` files don't need checksum
+files"* ([requirements](https://central.sonatype.org/publish/requirements/)). `make
+publish-dry-run` then `central_upload.sh build/maven-dry-run --bundle-only` gave **712
+files**: 178 artifacts, each with its `.asc`, `.md5` and `.sha1`. `test_central_upload.sh`
+checks that both kept checksums are there and that the optional ones are gone.
+
+What is left: 712 is under the free tier's ~1,167 per month for one release, but two releases
+in one calendar month are still over it. A second release in a month waits for the next one,
+or drops the `jvm` targets that no consumer needs.
