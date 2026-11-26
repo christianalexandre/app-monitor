@@ -244,8 +244,10 @@ jpackage from the JDK 21 toolchain (the Compose plugin downloads WiX for
 `App Monitor-1.0.0.dmg` (≈75 MB, ≈2.5 min cold). Names, bundle id
 `io.github.christianalexandre.appmonitor.desktop`, Linux package
 `app-monitor` and the Windows `upgradeUuid` are ADR-0055's; the bundled
-runtime adds the modules `./gradlew :desktop:app:suggestRuntimeModules`
-prints, so rerun it after adding a dependency. The icon is
+runtime holds the modules `./gradlew :desktop:app:suggestRuntimeModules`
+prints (jdeps over the app's jars), plus `jdk.crypto.ec` (ADR-0105);
+`make check` runs `scripts/runtime_modules_check.sh`, which fails when it
+prints one `modules(...)` lacks (ADR-0230). The icon is
 `desktop/app/icon/app-monitor.svg`; `./gradlew :desktop:app:appIcons`
 renders it to the committed ICNS, ICO and PNG the packages, the window and
 the Dock use (ADR-0211). The packages are **unsigned
