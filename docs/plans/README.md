@@ -95,6 +95,22 @@ The README rewritten for someone who has never seen the project, with
 GIFs; installation and contribution guides (`CONTRIBUTING.md`); a docs
 site.
 
+### Later — an inspector inside the app, after `1.0.0`
+
+The owner's ask (2026-11-26), for after the `1.0.0` of the libraries and of the
+desktop, not before: like app-network-monitor's shake that opened PulseUI, a
+shake (or a gesture on the simulator and emulator) opens a simple screen from
+the SDK inside the debug app. It lists the requests, shows their details, and
+offers to **forget the desktop** the device is paired with (ADR-0168), so a
+developer moves to another desktop without clearing the app's data.
+
+Questions for the owner when it is planned, each in a "stop and ask" area:
+product scope (what the screen shows); the SDKs' public API (how a developer
+turns it on, Android, iOS and KMP); security / privacy (requests kept on the
+device, and an unpin on the device, which reopens ADR-0168); licensing (own
+screens, or Pulse on iOS, MIT, and Chucker on Android, Apache-2.0). Adding
+API is compatible, so it fits a `1.x` minor.
+
 ### Later — readable bodies
 
 A body the window cannot read today (owner, 2026-10-30, after Firebase's
