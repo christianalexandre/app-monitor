@@ -101,7 +101,7 @@ captures every `OkHttpClient` (Retrofit, Apollo, Ktor's OkHttp engine…):
 ```kotlin
 // app/build.gradle.kts
 plugins {
-    id("io.github.christianalexandre.appmonitor") version "0.1.0"
+    id("io.github.christianalexandre.appmonitor") version "1.0.0"
 }
 ```
 
@@ -121,8 +121,8 @@ and options are in the [Android guide](docs/guide/android.md).
 #### iOS
 
 1. **Add the package.** *File → Add Package Dependencies…*,
-   `https://github.com/christianalexandre/app-monitor`, *Up to Next Minor
-   Version* from `0.1.0`, product `AppMonitor`, to the app target.
+   `https://github.com/christianalexandre/app-monitor`, *Up to Next Major
+   Version* from `1.0.0`, product `AppMonitor`, to the app target.
 2. **Start it** in `App.init` or `application(_:didFinishLaunchingWithOptions:)`:
 
    ```swift
