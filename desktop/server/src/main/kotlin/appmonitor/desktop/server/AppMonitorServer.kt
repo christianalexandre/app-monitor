@@ -24,8 +24,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -54,6 +56,7 @@ class AppMonitorServer internal constructor(
     },
     private val startEngine: suspend (EmbeddedServer<*, *>) -> Unit = { it.startSuspend(wait = false) },
     private val approval: DeviceApproval = DeviceApproval.ApproveAll,
+    private val addressCheckPeriod: Duration = ADDRESS_CHECK_PERIOD,
     private val startAdvertiser: (serviceName: String, port: Int) -> MdnsAdvertiser,
 ) {
     constructor(
@@ -73,6 +76,8 @@ class AppMonitorServer internal constructor(
     @Volatile private var server: EmbeddedServer<*, *>? = null
 
     @Volatile private var advertiser: MdnsAdvertiser? = null
+
+    @Volatile private var following: Job? = null
 
     @Volatile private var stopped = false
 
@@ -137,6 +142,7 @@ class AppMonitorServer internal constructor(
                 check(!stopped) { "Server stopped while starting" }
                 this.server = engine
                 this.advertiser = advertiser
+                following = advertiser?.let(::follow)
             }
             return port
         } catch (e: Throwable) {
@@ -168,11 +174,13 @@ class AppMonitorServer internal constructor(
                     val startup = this.startup
                     val server = this.server.also { this.server = null }
                     val advertiser = this.advertiser.also { this.advertiser = null }
+                    val following = this.following.also { this.following = null }
                     // Outside the caller's job: a cancelled stop still frees the port and mDNS.
                     CoroutineScope(Dispatchers.IO)
                         .async(start = CoroutineStart.LAZY) {
                             try {
                                 val startReleaseFailure = startup?.await()
+                                following?.cancelAndJoin()
                                 release(advertiser, server)
                                 if (startReleaseFailure != null) throw startReleaseFailure
                             } finally {
@@ -198,6 +206,15 @@ class AppMonitorServer internal constructor(
             }
         }
     }
+
+    // ADR-0226: a machine that wakes or changes network gets new addresses; the old ones stop being announced.
+    private fun follow(advertiser: MdnsAdvertiser): Job =
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                delay(addressCheckPeriod)
+                runCatching { advertiser.refresh() }
+            }
+        }
 
     private suspend fun release(
         advertiser: MdnsAdvertiser?,
@@ -337,6 +354,9 @@ class AppMonitorServer internal constructor(
         val SUPPORTED_CHANNELS = setOf(Protocol.CHANNEL_CORE, Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)
         val CLOSE_GRACE = 1.seconds
         val FORGOTTEN = CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Forgotten on the desktop")
+
+        // How often the advertised addresses are checked against the machine's (ADR-0226).
+        val ADDRESS_CHECK_PERIOD = 5.seconds
     }
 }
 

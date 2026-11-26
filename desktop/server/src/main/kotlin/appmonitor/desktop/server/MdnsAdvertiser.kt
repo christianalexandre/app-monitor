@@ -11,17 +11,62 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
-/** Publishes the server as [Protocol.MDNS_SERVICE_TYPE] on every LAN address that takes it (ADR-0174). */
+/**
+ * Publishes the server as [Protocol.MDNS_SERVICE_TYPE] on every LAN address that takes it (ADR-0174), and follows the
+ * machine's addresses on each [refresh] (ADR-0226).
+ */
 internal class MdnsAdvertiser private constructor(
-    private val registrations: List<Pair<InetAddress, AutoCloseable>>,
-    private val failures: List<Pair<InetAddress, Exception>>,
+    registered: List<Pair<InetAddress, AutoCloseable>>,
+    failed: List<Pair<InetAddress, Exception>>,
     private val closeTimeout: Duration,
+    private val currentAddresses: () -> List<InetAddress>,
+    private val register: (InetAddress) -> AutoCloseable,
 ) : AutoCloseable {
-    val addresses: List<InetAddress> get() = registrations.map { it.first }
+    private val lock = Any()
+    private var registrations = registered
+    private var failures = failed
+    private var closed = false
+
+    val addresses: List<InetAddress> get() = synchronized(lock) { registrations.map { it.first } }
+
+    /**
+     * Registers the addresses that appeared since the last call and closes, in the background, those that went away; an
+     * address that failed is not tried again until it goes away and comes back. Nothing after [close].
+     */
+    fun refresh() {
+        val current = currentAddresses()
+        val (known, gone) =
+            synchronized(lock) {
+                if (closed) return
+                failures = failures.filter { it.first in current }
+                (registrations.map { it.first } + failures.map { it.first }) to registrations.filter { it.first !in current }
+            }
+        gone.forEach { (_, registration) ->
+            thread(isDaemon = true, name = "app-monitor-mdns-close") { runCatching { registration.close() } }
+        }
+        val added = ArrayList<Pair<InetAddress, AutoCloseable>>()
+        val failed = ArrayList<Pair<InetAddress, Exception>>()
+        for (address in current.filter { it !in known }) {
+            try {
+                added += address to register(address)
+            } catch (e: Exception) {
+                failed += address to e
+            }
+        }
+        val late =
+            synchronized(lock) {
+                if (closed) return@synchronized added
+                registrations = registrations.filter { it.first in current } + added
+                failures = failures + failed
+                emptyList()
+            }
+        late.forEach { (_, registration) -> runCatching { registration.close() } }
+    }
 
     /** What a developer should know about the advertising, or null when every LAN address has it. */
     val problem: String?
         get() {
+            val (registrations, failures) = synchronized(lock) { registrations to failures }
             val failed =
                 failures.joinToString(", ", "mDNS failed on ") { (address, failure) ->
                     "${address.hostAddress} (${failure.message ?: failure::class.simpleName})"
@@ -39,6 +84,11 @@ internal class MdnsAdvertiser private constructor(
      * then rethrows the first failure with the others suppressed. One still closing goes on in the background.
      */
     override fun close() {
+        val registrations =
+            synchronized(lock) {
+                closed = true
+                registrations
+            }
         val failed = ConcurrentLinkedQueue<Throwable>()
         val closing =
             registrations.map { (address, registration) ->
@@ -72,7 +122,8 @@ internal class MdnsAdvertiser private constructor(
             serviceName: String,
             port: Int,
             desktopId: String? = null,
-            addresses: List<InetAddress> = LanAddresses.current(),
+            currentAddresses: () -> List<InetAddress> = LanAddresses::current,
+            addresses: List<InetAddress> = currentAddresses(),
             closeTimeout: Duration = CLOSE_TIMEOUT,
             register: (InetAddress) -> AutoCloseable = { register(it, serviceName, port, desktopId) },
         ): MdnsAdvertiser {
@@ -90,7 +141,7 @@ internal class MdnsAdvertiser private constructor(
                 registrations.forEach { (_, registration) -> runCatching { registration.close() } }
                 throw e
             }
-            return MdnsAdvertiser(registrations, failures, closeTimeout)
+            return MdnsAdvertiser(registrations, failures, closeTimeout, currentAddresses, register)
         }
 
         /** One per address: two instances on one segment sharing a host name conflict over its record (ADR-0174). */

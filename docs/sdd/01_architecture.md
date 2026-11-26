@@ -65,7 +65,10 @@ address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`,
 Each address has its own instance and host name, `appmonitor-<address with
 dashes>`. An address that fails to register is skipped; the server listens
 whatever happens to mDNS, and `advertisingProblem` says which address failed, or
-that none took it and devices need the machine's address (ADR-0174). An `Error`
+that none took it and devices need the machine's address (ADR-0174). Every five seconds
+(`ADDRESS_CHECK_PERIOD`) the server checks `LanAddresses` again: a new address is
+registered, one that went away is closed in the background, and one that failed waits until
+it goes away and comes back (`MdnsAdvertiser.refresh`, ADR-0226). An `Error`
 closes the instances already created and `start()` stops the HTTP server before
 rethrowing, so the port is free again. A taken port is a `BindException` from `start()`.
 
