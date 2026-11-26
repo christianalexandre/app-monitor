@@ -1,9 +1,10 @@
 name: Publish
 
-# ADR-0217: an X.Y.Z tag on main publishes; a PR that changes the publication runs it dry.
+# ADR-0217, ADR-0232: an X.Y.Z tag on main publishes the SDKs, a desktop-X.Y.Z tag the desktop;
+# a PR that changes the publication runs both dry.
 on:
   push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
+    tags: ['[0-9]+.[0-9]+.[0-9]+', 'desktop-[0-9]+.[0-9]+.[0-9]+']
   pull_request:
     branches: [dev]
     paths:
@@ -30,9 +31,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  central:
-    runs-on: macos-latest # ADR-0058: the iOS klibs
-    timeout-minutes: 60
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       RELEASE: ${{ github.ref_type == 'tag' }}
       TAG: ${{ github.ref_name }}
@@ -49,6 +50,16 @@ jobs:
           else
             scripts/version_check.sh
           fi
+
+  central:
+    needs: version
+    if: github.ref_type != 'tag' || !startsWith(github.ref_name, 'desktop-')
+    runs-on: macos-latest # ADR-0058: the iOS klibs
+    timeout-minutes: 60
+    env:
+      RELEASE: ${{ github.ref_type == 'tag' }}
+    steps:
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -81,6 +92,8 @@ jobs:
 
   # ADR-0227: each OS builds its own packages; jpackage does not cross-build.
   desktop:
+    needs: version
+    if: github.ref_type != 'tag' || startsWith(github.ref_name, 'desktop-')
     strategy:
       fail-fast: false
       matrix:
@@ -118,9 +131,10 @@ jobs:
           retention-days: 7
 
   # The only write token, and only on a tag: a PR's dry run runs the PR's own scripts.
+  # A tag runs central or desktop, never both: the other one is skipped.
   release:
     needs: [central, desktop]
-    if: github.ref_type == 'tag'
+    if: ${{ !cancelled() && github.ref_type == 'tag' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -130,6 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v7
+        if: startsWith(github.ref_name, 'desktop-')
         with:
           pattern: desktop-*
           path: build/desktop-packages
@@ -138,11 +153,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="$(awk -v v="## $TAG" '($0 == v || index($0, v " ") == 1) {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
+          shopt -s nullglob
+          packages=(build/desktop-packages/*)
+          title="$TAG"
+          [[ "$TAG" != desktop-* ]] || title="Desktop ${TAG#desktop-}"
+          notes="$(awk -v v="## $title" '($0 == v || index($0, v " ") == 1) {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
           if [[ -n "$notes" ]]; then
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes" build/desktop-packages/*
+            gh release create "$TAG" --verify-tag --title "$title" --notes "$notes" "${packages[@]}"
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes build/desktop-packages/*
+            gh release create "$TAG" --verify-tag --title "$title" --generate-notes "${packages[@]}"
           fi
 
   # ADR-0229: the Homebrew cask and the Scoop manifest, pushed to homebrew-tap once the release has its packages.
@@ -163,8 +182,8 @@ jobs:
           merge-multiple: true
       - name: Manifests
         run: |
-          version="$TAG"
-          [[ "$RELEASE" == true ]] || { version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"; version="${version%%-*}"; }
+          version="${TAG#desktop-}"
+          [[ "$RELEASE" == true ]] || { version="$(sed -n 's/^DESKTOP_VERSION_NAME=//p' gradle.properties)"; version="${version%%-*}"; }
           scripts/tap_manifests.sh "$version" build/desktop-packages build/tap
       - name: Push to homebrew-tap
         if: env.RELEASE == 'true'

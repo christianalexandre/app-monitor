@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Tests scripts/version_check.sh on a scratch tree (ADR-0216).
+# Tests scripts/version_check.sh on a scratch tree (ADR-0216, ADR-0232).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 check="$PWD/scripts/version_check.sh"
 tree="$PWD/build/test-version-check"
 failures=0
 
-make_tree() { # VERSION_NAME, Kotlin SDK_VERSION, Swift sdkVersion
+make_tree() { # VERSION_NAME, Kotlin SDK_VERSION, Swift sdkVersion[, DESKTOP_VERSION_NAME, VERSION_NAME by default]
   rm -rf "$tree"
   mkdir -p "$tree/sdk/core/src/commonMain/kotlin/appmonitor/sdk/core" "$tree/sdk/ios/Sources/AppMonitor"
-  printf 'org.gradle.caching=true\nVERSION_NAME=%s\n' "$1" >"$tree/gradle.properties"
+  printf 'org.gradle.caching=true\nVERSION_NAME=%s\nDESKTOP_VERSION_NAME=%s\n' "$1" "${4:-$1}" >"$tree/gradle.properties"
   printf 'package appmonitor.sdk.core\n\ninternal const val SDK_VERSION: String = "%s"\n' "$2" \
     >"$tree/sdk/core/src/commonMain/kotlin/appmonitor/sdk/core/Platform.kt"
   printf 'import Foundation\n\nlet sdkVersion = "%s"\n' "$3" >"$tree/sdk/ios/Sources/AppMonitor/Device.swift"
@@ -40,6 +40,15 @@ expect "the Kotlin SDK behind" 1
 make_tree 0.2.0 0.2.0 0.1.0
 expect "the Swift SDK behind" 1
 expect "a release with no tag" 2 --release
+make_tree 1.0.0 1.0.0 1.0.0 1.0.1
+expect "the desktop's own version" 0
+expect "a desktop tag matching DESKTOP_VERSION_NAME" 0 --release desktop-1.0.1
+expect "a desktop tag matching only VERSION_NAME" 1 --release desktop-1.0.0
+expect "an SDK tag still matches VERSION_NAME" 0 --release 1.0.0
+make_tree 1.0.0 1.0.0 1.0.0 1.0.1-SNAPSHOT
+expect "a desktop snapshot refused for a desktop release" 1 --release desktop-1.0.1-SNAPSHOT
+make_tree 1.0.0 1.0.0 1.0.0 2.0.0
+expect "the desktop on another major" 1
 make_tree 0.2.0 0.2.0 0.2.0
 expect "the real tree agrees" 0
 rm -rf "$tree"

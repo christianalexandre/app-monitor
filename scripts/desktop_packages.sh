@@ -2,7 +2,8 @@
 # Usage: desktop_packages.sh build OS OUT_DIR
 #        desktop_packages.sh collect OS VERSION BINARIES_DIR OUT_DIR
 # Builds the desktop's packages for OS (macos, windows, linux) and copies them to OUT_DIR under
-# the names the GitHub Release, the Homebrew cask and the Scoop manifest use (ADR-0227).
+# the names the GitHub Release, the Homebrew cask and the Scoop manifest use (ADR-0227), at
+# DESKTOP_VERSION_NAME without its suffix (ADR-0232).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -58,7 +59,7 @@ collect() { # os, version, binaries dir, out dir
 case "${1:-}" in
   build)
     [[ $# -eq 3 ]] || usage
-    version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+    version="$(sed -n 's/^DESKTOP_VERSION_NAME=//p' gradle.properties)"
     version="${version%%-*}"
     case "$2" in
       macos) tasks=(:desktop:app:packageDmg) ;;

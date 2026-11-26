@@ -10,8 +10,8 @@ types='feat|fix|refactor|perf|test|docs|build|ci|chore'
 fail() { echo "branch-check: $1" >&2; exit 1; }
 
 if [[ "$base" == "main" ]]; then
-  [[ "$head" == "dev" || "$head" =~ ^release/[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-    || fail "PRs to main come only from dev or release/x.y.z (got '$head')."
+  [[ "$head" == "dev" || "$head" =~ ^release/(desktop-)?[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || fail "PRs to main come only from dev, release/x.y.z or release/desktop-x.y.z (got '$head')."
   echo "branch-check: ok ($head -> main)"; exit 0
 fi
 

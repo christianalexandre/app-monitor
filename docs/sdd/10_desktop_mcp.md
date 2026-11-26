@@ -88,7 +88,7 @@ ADR-0090 C.1).
   or stops under one lock, with the value as it is then, so the last call to take
   the lock stores what it applies. Each start builds a new `McpServer` (single
   use), with the version the build passes as `-Dappmonitor.version`
-  (`VERSION_NAME`; `dev` without it). A failed start is its `status`
+  (`DESKTOP_VERSION_NAME`, ADR-0232; `dev` without it). A failed start is its `status`
   (`PortTaken`, `Failed`), never a throw. `close()` stops for good; a later
   `setEnabled(true)` does nothing.
 

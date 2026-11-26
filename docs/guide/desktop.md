@@ -2,7 +2,7 @@
 
 ## Install it
 
-From `1.0.0`, with a package manager:
+From Desktop `1.0.1`, with a package manager:
 
 ```sh
 # macOS (Apple silicon), Homebrew
@@ -19,8 +19,9 @@ scoop install christianalexandre/app-monitor
 come from [christianalexandre/homebrew-tap](https://github.com/christianalexandre/homebrew-tap),
 written by the release.
 
-Or download from the [release](https://github.com/christianalexandre/app-monitor/releases);
-each one attaches the desktop's packages:
+Or download from the newest *Desktop X.Y.Z*
+[release](https://github.com/christianalexandre/app-monitor/releases) (tag `desktop-X.Y.Z`);
+each one attaches the desktop's packages. The SDK releases (`X.Y.Z`) carry none:
 
 | OS | Package |
 | --- | --- |
@@ -49,8 +50,8 @@ run:
 
 ## Updates
 
-At launch and once a day the desktop asks GitHub for the latest release. When a newer one is
-out, the status bar says *Version X.Y.Z available*; a click opens its page. The request carries
+At launch and once a day the desktop asks GitHub for its newest *Desktop X.Y.Z* release. When
+a newer one is out, the status bar says *Version X.Y.Z available*; a click opens its page. The request carries
 only the desktop's version, and nothing about the machine, its devices or its traffic.
 *Settings → Updates* turns it off.
 

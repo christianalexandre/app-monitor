@@ -34,7 +34,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
-        val versionName = providers.gradleProperty("VERSION_NAME").get()
+        val versionName = providers.gradleProperty("DESKTOP_VERSION_NAME").get() // ADR-0232
         jvmArgs += "-Dappmonitor.version=$versionName"
 
         // ADR-0055: bundleID and upgradeUuid are kept once released.
