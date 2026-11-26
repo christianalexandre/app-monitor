@@ -15,6 +15,10 @@ if [[ "$base" == "main" ]]; then
   echo "branch-check: ok ($head -> main)"; exit 0
 fi
 
+if [[ "$base" == "dev" && "$head" == "main" ]]; then # ADR-0219: the back-merge after a release
+  echo "branch-check: ok (main -> dev)"; exit 0
+fi
+
 if [[ -z "$base" && ( "$head" == "dev" || "$head" == "main" ) ]]; then
   echo "branch-check: ok ($head)"; exit 0
 fi

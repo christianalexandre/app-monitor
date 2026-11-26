@@ -179,7 +179,7 @@ Rules:
 | [0159](0159-okhttp-websockets-captured-by-the-gradle-plugin.md) | OkHttp WebSockets are captured by the Gradle plugin, at OkHttpClient.newWebSocket | Accepted |
 | [0160](0160-the-ios-sdk-encodes-its-protocol-without-swiftprotobuf.md) | The iOS SDK encodes its protocol with generated code of its own, without SwiftProtobuf | Accepted |
 | [0161](0161-release-binaries-and-dynamic-features-hold-no-sdk.md) | KMP release binaries link the no-ops at their link task, and dynamic features hold no SDK | Accepted |
-| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Accepted |
+| [0162](0162-until-m10-the-readme-installs-from-maven-local-and-the-dev-branch.md) | Until M10 the README installs from Maven Local and the dev branch, and the SDK says what setup is missing | Superseded by [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) |
 | [0163](0163-grpc-core-leaves-the-ios-end-to-end-for-a-gate-job-of-its-own.md) | gRPC-Core leaves the iOS sample and end to end for a release gate job of its own | Accepted |
 | [0164](0164-one-lan-address-filter-in-desktop-server.md) | One LAN address filter, in `desktop/server`, without tunnels | Accepted |
 | [0165](0165-hello-carries-the-app-name-the-options-set.md) | Hello carries the app name the options set, and the desktop shows it before the app id | Accepted |
@@ -236,3 +236,14 @@ Rules:
 | [0216](0216-one-version-in-three-places-checked-by-a-script.md) | One version in three places, checked by a script; a release needs a matching X.Y.Z tag | Accepted |
 | [0217](0217-the-publish-workflow-signs-in-ci-and-uploads-automatic.md) | The publish workflow signs on a main tag and uploads with publishingType AUTOMATIC; PRs run it dry | Accepted |
 | [0218](0218-published-coordinates-consumers-and-the-ios-klib-floor.md) | Consumers of the published coordinates, and a Kotlin floor for iOS klibs equal to the build's | Accepted |
+| [0219](0219-main-merges-back-into-dev-after-a-release.md) | main merges back into dev after a release, with a merge commit | Accepted |
+| [0220](0220-the-readme-is-for-app-developers-and-guides-hold-the-details.md) | The README is for app developers, and docs/guide holds the details | Accepted |
+| [0221](0221-the-newest-request-on-top.md) | The newest request on top of every request list | Accepted |
+| [0222](0222-the-monitor-pauses-the-list-not-the-server.md) | The monitor's pause leaves out what starts, and keeps the server and the sessions | Accepted |
+| [0223](0223-mocking-switches-off-for-every-device-and-keeps-the-rules.md) | Mocking switches off for every device and keeps the rules | Accepted |
+| [0224](0224-a-cut-json-value-opens-in-place-with-a-click.md) | A cut JSON value opens in place with a click, as part of the body's rendering | Accepted |
+| [0225](0225-only-a-cut-value-s-marker-opens-or-folds-it.md) | Only a cut value's marker opens it, and a marker before an opened value folds it | Accepted |
+| [0226](0226-the-advertised-addresses-follow-the-machine.md) | The advertised addresses follow the machine's, checked every five seconds | Accepted |
+| [0227](0227-desktop-packages-built-per-os-on-each-release.md) | The desktop's packages are built per OS on each release, named for the tap and the bucket | Accepted |
+| [0228](0228-the-desktop-reads-its-latest-github-release.md) | The desktop reads its latest GitHub Release and shows a newer version | Accepted |
+| [0229](0229-homebrew-cask-and-scoop-manifest-from-one-tap.md) | A Homebrew cask and a Scoop manifest, written to one repository by the release | Accepted |

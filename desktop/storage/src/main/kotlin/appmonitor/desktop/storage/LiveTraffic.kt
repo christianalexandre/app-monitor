@@ -166,11 +166,11 @@ class LiveTraffic(
         limit: Long = Storage.PAGE_SIZE,
     ): List<ExchangeSizes> = search(filter, afterId, limit) { it.sizes() }
 
-    /** The first [limit] exchanges [filter] matches, again after each change. */
+    /** The newest [limit] exchanges [filter] matches, newest first (ADR-0221), again after each change. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = Storage.PAGE_SIZE,
-    ): Flow<List<StoredExchange>> = observe { searchExchanges(filter, 0, limit) }
+    ): Flow<List<StoredExchange>> = observe { search(filter, 0, limit, newestFirst = true) { it.row } }
 
     /** The hosts of session [sessionId]'s exchanges, or of every one when null, sorted, again after each change. */
     fun observeHosts(sessionId: Long? = null): Flow<List<String>> =
@@ -238,12 +238,14 @@ class LiveTraffic(
         filter: ExchangeFilter,
         afterId: Long,
         limit: Long,
+        newestFirst: Boolean = false,
         map: (LiveExchange) -> T,
     ): List<T> {
         if (filter.runId != null) return emptyList()
         val matches = filter.liveMatcher()
         return synchronized(lock) {
-            exchanges.values
+            val inOrder = if (newestFirst) exchanges.sequencedValues().reversed() else exchanges.values
+            inOrder
                 .asSequence()
                 .filter { it.row.id > afterId && matches(it.row, sessions[it.row.sessionId]?.row?.hello) }
                 .take(limit.toInt())

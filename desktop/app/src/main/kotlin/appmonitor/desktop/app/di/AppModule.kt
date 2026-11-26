@@ -21,12 +21,14 @@ import appmonitor.desktop.domain.HeldCallRepository
 import appmonitor.desktop.domain.IssueRepository
 import appmonitor.desktop.domain.McpRepository
 import appmonitor.desktop.domain.MockRepository
+import appmonitor.desktop.domain.MonitorRepository
 import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ProxyRepository
 import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.domain.UpdateRepository
 import appmonitor.desktop.feature.breakpoints.breakpointsModule
 import appmonitor.desktop.feature.insights.insightsModule
 import appmonitor.desktop.feature.mocks.mocksModule
@@ -52,6 +54,8 @@ internal fun appModule(
     proxy: ProxyRepository?,
     appearance: AppearanceRepository?,
     panes: PaneLayoutRepository?,
+    monitor: MonitorRepository? = null,
+    updates: UpdateRepository? = null,
 ): Module =
     module {
         includes(trafficModule, mocksModule, breakpointsModule, insightsModule, settingsModule)
@@ -77,4 +81,6 @@ internal fun appModule(
         if (proxy != null) single<ProxyRepository> { proxy }
         if (appearance != null) single<AppearanceRepository> { appearance }
         if (panes != null) single<PaneLayoutRepository> { panes }
+        if (monitor != null) single<MonitorRepository> { monitor }
+        if (updates != null) single<UpdateRepository> { updates }
     }

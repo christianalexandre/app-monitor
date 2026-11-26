@@ -32,6 +32,8 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_trailer_check.sh
 	@scripts/test_version_check.sh
 	@scripts/test_central_upload.sh
+	@scripts/test_desktop_packages.sh
+	@scripts/test_tap_manifests.sh
 	@scripts/ruleset_check.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.

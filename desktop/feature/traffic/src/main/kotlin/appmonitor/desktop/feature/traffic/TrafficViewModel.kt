@@ -8,6 +8,8 @@ import appmonitor.desktop.domain.Exchange
 import appmonitor.desktop.domain.ExchangeFilter
 import appmonitor.desktop.domain.ExportRepository
 import appmonitor.desktop.domain.HttpExchange
+import appmonitor.desktop.domain.MockRepository
+import appmonitor.desktop.domain.MonitorRepository
 import appmonitor.desktop.domain.PaneLayout
 import appmonitor.desktop.domain.PaneLayoutRepository
 import appmonitor.desktop.domain.ReplayKey
@@ -87,6 +89,8 @@ data class TrafficState(
     val detail: DetailState = DetailState(),
     val disconnected: List<DisconnectedDevice> = emptyList(),
     val canDisconnect: Boolean = false,
+    val paused: Boolean? = null,
+    val mocking: Boolean? = null,
 ) {
     /** Whether [session]'s app on its device is refused until Reconnect. */
     fun refuses(session: Session): Boolean = disconnected.any { it.deviceId == session.hello.device_id && it.appId == session.hello.app_id }
@@ -118,6 +122,8 @@ class TrafficViewModel(
     private val replays: ReplayRepository? = null,
     private val connections: DeviceConnectionRepository? = null,
     private val layout: PaneLayoutRepository? = null,
+    private val monitor: MonitorRepository? = null,
+    private val mocks: MockRepository? = null,
 ) : ViewModel() {
     private val localPanes = MutableStateFlow(PaneLayout())
 
@@ -209,7 +215,7 @@ class TrafficViewModel(
                 val found =
                     replaysOf(awaited.filter, awaited.requestId)
                         .map { ids ->
-                            ids.firstOrNull { it !in awaited.before }
+                            ids.filter { it !in awaited.before }.minOrNull()
                         }.first { it != null }
                 emit(found)
             }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -275,6 +281,8 @@ class TrafficViewModel(
         }.combine(connections?.disconnected ?: flowOf(emptyList())) { lists, disconnected ->
             lists.copy(disconnected = disconnected, canDisconnect = connections != null)
         }.combine(hosts) { lists, hosts -> lists.copy(hosts = hosts) }
+            .combine(monitor?.paused ?: flowOf(null)) { lists, paused -> lists.copy(paused = paused) }
+            .combine(mocks?.observeMocking() ?: flowOf(null)) { lists, mocking -> lists.copy(mocking = mocking) }
 
     val state: StateFlow<TrafficState> =
         combine(lists, rows, row, marked, detail) { lists, rows, row, marked, detail ->
@@ -290,6 +298,19 @@ class TrafficViewModel(
                 awaited.value = null
             }
         }
+    }
+
+    /** ADR-0222: pauses the monitor when it runs, else resumes it; nothing without a [MonitorRepository]. */
+    fun togglePause() {
+        val monitor = monitor ?: return
+        if (monitor.paused.value) monitor.resume() else monitor.pause()
+    }
+
+    /** ADR-0223: switches mock rules off for every device when on, else back on; nothing without a [MockRepository]. */
+    fun toggleMocking() {
+        val mocks = mocks ?: return
+        val on = state.value.mocking ?: return
+        viewModelScope.launch { mocks.setMocking(!on) }
     }
 
     /** [id] null shows every device's requests. */

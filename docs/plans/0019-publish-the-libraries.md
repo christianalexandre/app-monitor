@@ -1,10 +1,10 @@
 ---
 id: PLAN-0019
 title: Publish the libraries — Maven Central and SwiftPM, one version
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M10
 started: 2026-11-13
-finished:
+finished: 2026-11-15
 ---
 
 # PLAN-0019 — Publish the libraries (M10)
@@ -62,7 +62,7 @@ them:
 - [x] **M10.2 One version, checked.** (`build/one-version-checked`) A script reads the version from
   `gradle.properties` and fails unless the tag, the plugin's SDK version
   (ADR-0157) and the version each SDK sends in `Hello` (`SDK_VERSION` in
-  `sdk/core`, `sdkVersion` in `sdk/ios`, both `0.1.0-dev` today) agree; a `-SNAPSHOT` or `-dev`
+  `sdk/core`, `sdkVersion` in `sdk/ios`; `0.1.0-dev` before this task) agree; a `-SNAPSHOT` or `-dev`
   version never publishes. `dev` keeps `X.Y.Z-SNAPSHOT`; the release PR
   drops the suffix. Accept: the script's bash test in `make scripts-test`
   (a matching tag, a mismatching one, a snapshot refused).
@@ -83,29 +83,79 @@ them:
   `0.1.0` exists it runs against `mavenLocal` and a local tag, so it is
   proven before the upload. Accept: the script green against
   `mavenLocal` and a local tag; its command in AGENTS.md.
-- [ ] **M10.6 Release `0.1.0`.** The release PR `dev` → `main` with the
+- [x] **M10.6 Release `0.1.0`.** (`release/0.1.0`, #415) The release PR `dev` → `main` with the
   version `0.1.0`, the release gate green on it; `CHANGELOG.md`'s `0.1.0`
   section is the GitHub Release's notes. The owner merges and tags. The
   loop opens the PR and stops (owner-only merge); after the tag M10.4's
   script runs against `0.1.0`, then the owner's field test in a real app. Accept: the workflow's run green, the Central artifacts and
   the SwiftPM tag resolving, M10.4's script green against `0.1.0`.
-- [ ] **M10.5 Installation from the published version.** Moved after
+  Done 2026-11-15:
+  - The release gate passed after rerunning `e2e-kmp-android`, whose sample
+    lost `runAll` on a relaunch (DEBT-0134).
+  - The owner had the agent merge #415 and push the tag.
+  - `Publish` passed: the Portal reported `PUBLISHED`, and the GitHub Release
+    was created.
+  - `scripts/consumers_check.sh 0.1.0` passed against Central and the GitHub
+    tag.
+  - Then the back-merge `main` → `dev` (#418, ADR-0219) and `dev` on
+    `0.1.1-SNAPSHOT`.
+- [x] **M10.5 Installation from the published version.** (`docs/readme-for-users`) Moved after
   M10.6 by the owner (2026-11-15): the README's text comes from testing
   `0.1.0` in a real app, and it is rewritten section by section with the
   owner. *Installation* drops *Until it is published*: the plugin line on
   Android, the coordinates on KMP, the package URL and an *Up to Next
   Minor Version* rule from `0.1.0` on iOS. ADR-0162 is superseded. SDD 02
   gets *Cutting a release*: version bump PR, release PR, the owner's merge,
-  the tag, the workflow, and how to check the Central deployment.
+  the tag, the workflow, how to check the Central deployment, the
+  back-merge `main` → `dev` and the next `-SNAPSHOT` (ADR-0219).
   `CHANGELOG.md` already starts with `0.1.0` (M10.6). Accept: `make
   docs-check` green; each README step matches what M10.4's consumers do.
+  Done 2026-11-15, widened by the owner: the README became a front page for
+  app developers, and every detail moved to `docs/guide/` (ADR-0220).
+
+- [x] **M10.R1 The write token on the tag only.** (`ci/publish-write-token-tag-only`) The M10
+  milestone review's finding 5: the `central` job had `contents: write` on pull requests too,
+  running that PR's own scripts. The GitHub Release moves to a `release` job that needs
+  `central`, runs only on a tag and is the only one with `contents: write`.
+  Accept: `publish.yml` parsed, `central` with the workflow's `contents: read`;
+  `scripts/ruleset_check.sh` green.
 
 ## Outcome
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+### M10 milestone review
+
+`code-review` at `medium` of `ae05cf5..d67a7c1` (#409 to #422): a static read of the diff, with
+no test or workflow run by it. Ten findings; one is a security finding, each then read in the
+files here. Findings 1 to 7 are correctness findings left open, so this PR waits for the owner.
+
+| # | Finding | Normal use hits it? | Where |
+| --- | --- | --- | --- |
+| 1 | The release notes' `awk` matches `## 0.1.1` as a prefix of `## 0.1.10` or `## 0.1.1-rc1`. | No: nothing re-releases an old version, and suffixes are refused | DEBT-0136 |
+| 2 | A Portal slower than the 30 min timeout fails the job while it still publishes; no GitHub Release, and a rerun uploads again. | No: `0.1.0` took under 3 min | DEBT-0136 |
+| 3 | The `pull_request` paths filter leaves out `gradle-plugin` and the modules' build files. | No: the release gate's `publish` job runs the same dry run before any tag | DEBT-0136 |
+| 4 | An empty `APPMONITOR_SIGNING_KEY` counts as a key. | No: the workflow's empty value reaches only `publish_dry_run.sh`, which replaces it | DEBT-0136 |
+| 5 | `contents: write` on pull request runs, which run the PR's scripts. | Security: yes, on every PR that changes the publication | M10.R1 |
+| 6 | The consumers' release guard names only two root coordinates. | No: the TestKit consumer and the sample check the same rule on every PR | DEBT-0136 |
+| 7 | `curl -fsS` drops the Portal's reason for a 4xx or 5xx. | No: a log, not a result | DEBT-0136 |
+| 8 | `consumers_check.sh`'s header comment is 6 lines, over guideline 02's 4. | No: a comment | Fixed in M10.R1 |
+| 9 | A fresh throwaway key per dry run invalidates the configuration cache. | No: a cost | DEBT-0136 |
+| 10 | M10.2 says both `Hello`s are `0.1.0-dev` today. | No: stale text | Fixed in M10.R1 |
+
+- **Shipped**: M10.1 signed publications with what Central requires (#410). M10.2 one version
+  checked (#411). M10.3 the publish workflow (#412). M10.4 consumers of the published
+  coordinates (#413). M10.6 `0.1.0` released: the release PR (#415), the tag, `Publish` green,
+  consumers green against Central; then the back-merge rule (#417, #419), the back-merge
+  (#418) and `0.1.1-SNAPSHOT` (#420). M10.5 the README for app developers and `docs/guide/`
+  (#422). M10.R1 the write token on the tag only (this PR). Plan PRs #409 and #414; DEBT
+  PRs #416 and #421.
+- **Decisions**: ADR-0215 to ADR-0220. ADR-0162 superseded by ADR-0220.
+- **Debt**: Paid DEBT-0117 (the KMP iOS consumer's Kotlin floor, measured). Created DEBT-0134
+  (the KMP sample's `runAll` lost on a relaunch), DEBT-0135 (the Central bundle over the
+  monthly file count), DEBT-0136 (this review).
+- **Deviations**: the owner moved M10.6 before M10.5, so `0.1.0` was tested before the README
+  was rewritten (#414). M10.5 widened into the whole README (ADR-0220). The owner had the agent
+  merge #415 and push the tag. The release added a back-merge `main` → `dev` (ADR-0219), which
+  the trailer check needed to skip (#419). M10.R1 was added by the review.
+- **Lessons**: a release's first run met two limits the dry runs could not show: Central's
+  monthly file count and `dev`'s squash-only rule. The next release plan should read the
+  Portal's Usage Center before the tag, and count the bundle's files in the dry run.

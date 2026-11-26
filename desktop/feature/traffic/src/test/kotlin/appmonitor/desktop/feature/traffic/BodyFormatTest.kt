@@ -226,4 +226,43 @@ class BodyFormatTest {
         assertEquals(" · 2 in cut values", cutSummary(2))
         assertEquals("", cutSummary(0))
     }
+
+    @Test
+    fun `an opened value shows whole and its matches count as shown, folding it cuts it again`() {
+        val long = "x".repeat(MAX_SHOWN_VALUE_CHARS) + "needle" + "y".repeat(300)
+        val sent = """{"a":"$long","b":"${"z".repeat(300)}"}"""
+        val body = decoded(sent.encodeUtf8())
+
+        val opened = renderBody(body, null, setOf(0))
+
+        val text = opened.chunks.joinToString("\n")
+        assertTrue("\"a\": $FOLD \"$long\"," in text, text)
+        assertTrue("\"b\": \"${"z".repeat(MAX_SHOWN_VALUE_CHARS)}… (100 more)\"" in text, text)
+        assertEquals(listOf(true, false), opened.cut.map { it.opened })
+        assertEquals(0, hiddenMatches(opened.cut, "needle"))
+        assertEquals(1, opened.chunks.sumOf { matchesOf(it, "needle").size })
+        assertEquals(1, hiddenMatches(renderBody(body, null).cut, "needle"))
+        assertEquals(renderBody(body, null), renderBody(body, null, emptySet()))
+        assertEquals(sent, render(body, BodyFormat.Text, setOf(0)))
+    }
+
+    @Test
+    fun `each cut value's marker is placed in its chunk, past the first chunk too, and only the marker`() {
+        val fillers = (1..CHUNK_LINES).joinToString(",") { "\"k$it\":$it" }
+        val long = "v".repeat(CHUNK_CHARS + 500)
+        val body = decoded("""{$fillers,"first":"${"a".repeat(300)}","last":"$long"}""".encodeUtf8())
+
+        for (opened in listOf(emptySet(), setOf(1))) {
+            val rendered = renderBody(body, null, opened)
+            val placed =
+                rendered.cutSpans.flatMapIndexed { chunk, spans ->
+                    spans.map { it.index to rendered.chunks[chunk].substring(it.start, it.end) }
+                }
+            assertEquals(rendered.chunks.size, rendered.cutSpans.size)
+            val last = if (opened.isEmpty()) "… (${long.length - MAX_SHOWN_VALUE_CHARS} more)" else FOLD
+            assertEquals(listOf(0 to "… (100 more)", 1 to last), placed, "opened = $opened")
+        }
+        val opened = renderBody(body, null, setOf(1))
+        assertTrue(opened.cutSpans.indexOfFirst { spans -> spans.any { it.index == 1 } } > 0, "past the first chunk")
+    }
 }

@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOn
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -46,6 +48,7 @@ import appmonitor.desktop.feature.traffic.HOST_FILTER
 import appmonitor.desktop.feature.traffic.MARK
 import appmonitor.desktop.feature.traffic.RECORD
 import appmonitor.desktop.feature.traffic.RENAME_RUN
+import appmonitor.desktop.feature.traffic.REQUEST_LIST
 import appmonitor.desktop.feature.traffic.RUN
 import appmonitor.desktop.feature.traffic.RUN_NAME
 import appmonitor.desktop.feature.traffic.SAVE
@@ -536,6 +539,47 @@ class AppMonitorAppTest {
                 onNodeWithText("Live").performClick()
                 awaitText("Galaxy")
                 onNodeWithText("Pixel").assertDoesNotExist()
+            }
+        }
+
+    // ADR-0221: the newest request on top; followed from the top, held still when read further down.
+    @Test
+    fun `the newest request is on top and the list follows it only from the top`() =
+        withStorage { storage ->
+            val live = LiveTraffic()
+
+            fun send(index: Int) =
+                runBlocking {
+                    live.received(
+                        "s1",
+                        envelope(RequestStarted("r$index", "GET", "https://a.example/item/$index"), 1_000L + index),
+                    )
+                }
+            runBlocking { live.connected("s1", HELLO, "127.0.0.1") }
+            (1..40).forEach(::send)
+
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
+
+                awaitText("https://a.example/item/40")
+                awaitText("40 requests")
+
+                fun top(url: String) = onNodeWithText(url).fetchSemanticsNode().boundsInRoot.top
+                assertTrue(top("https://a.example/item/40") < top("https://a.example/item/39"))
+                onNodeWithText("https://a.example/item/1").assertDoesNotExist()
+
+                send(41)
+                awaitText("https://a.example/item/41")
+                onNodeWithText("https://a.example/item/41").assertIsDisplayed()
+                assertTrue(top("https://a.example/item/41") < top("https://a.example/item/40"))
+
+                onNodeWithTag(REQUEST_LIST).performScrollToIndex(20)
+                waitForIdle()
+                val reading = onNodeWithText("https://a.example/item/21").fetchSemanticsNode().boundsInRoot.top
+                send(42)
+                awaitText("42 requests")
+                onNodeWithText("https://a.example/item/42").assertDoesNotExist()
+                assertEquals(reading, top("https://a.example/item/21"))
             }
         }
 

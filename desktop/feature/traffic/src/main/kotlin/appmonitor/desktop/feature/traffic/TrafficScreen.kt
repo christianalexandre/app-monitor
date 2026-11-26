@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -68,6 +69,7 @@ import appmonitor.desktop.designsystem.SidebarSection
 import appmonitor.desktop.designsystem.Spacing
 import appmonitor.desktop.designsystem.StatusBar
 import appmonitor.desktop.designsystem.StatusDot
+import appmonitor.desktop.designsystem.StatusLink
 import appmonitor.desktop.designsystem.Text
 import appmonitor.desktop.designsystem.TextButton
 import appmonitor.desktop.designsystem.TextField
@@ -108,6 +110,7 @@ data class TrafficLinks(
     val mocksWaiting: Boolean = false,
     val callsHeld: Boolean = false,
     val exportNote: String? = null,
+    val updateLabel: String? = null,
     val covered: Boolean = false,
     val onSettings: () -> Unit = {},
     val onIssues: () -> Unit = {},
@@ -118,6 +121,7 @@ data class TrafficLinks(
     val onSaveAsIssue: () -> Unit = {},
     val onCompareRuns: () -> Unit = {},
     val onMock: (HttpExchange) -> Unit = {},
+    val onUpdate: () -> Unit = {},
 )
 
 /** The title bar, the sidebar, the requests and the request, then the status bar (ADR-0205). */
@@ -271,6 +275,8 @@ private fun TrafficTitleBar(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            state.paused?.let { paused -> MonitorSwitch(paused, viewModel::togglePause) }
+            state.mocking?.let { mocking -> MockingSwitch(mocking, viewModel::toggleMocking) }
             if (live) {
                 if (state.runs.recording == null) {
                     TextButton("Record", onClick = viewModel::record, Modifier.testTag(RECORD))
@@ -510,8 +516,10 @@ private fun TrafficStatusBar(
         state.health.lastError?.let { StatusText("${state.health.notSaved} events not saved: $it", error = true) }
         links.retentionWarning?.let { StatusText(it, error = true) }
         Spacer(Modifier.weight(1f))
-        if (links.mocksWaiting) TextButton(links.mocksLabel, onClick = links.onMocks, singleLine = true)
-        if (links.callsHeld) TextButton(links.breakpointsLabel, onClick = links.onBreakpoints, singleLine = true)
+        if (links.mocksWaiting) StatusLink(links.mocksLabel, onClick = links.onMocks)
+        if (links.callsHeld) StatusLink(links.breakpointsLabel, onClick = links.onBreakpoints)
+        // ADR-0228: a newer release, its page opened in the browser.
+        links.updateLabel?.let { StatusLink(it, onClick = links.onUpdate, Modifier.testTag(UPDATE_NOTICE)) }
         StatusText("$dropped dropped", error = dropped > 0)
     }
 }
@@ -571,6 +579,7 @@ private fun RequestList(
         }
     }
     LaunchedEffect(nearEnd, exchanges.size) { if (nearEnd && exchanges.isNotEmpty()) viewModel.loadMore() }
+    FollowNewest(list, exchanges)
     Column(modifier) {
         ListHeader(state, viewModel, search)
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -578,6 +587,7 @@ private fun RequestList(
                 when {
                     state.filter != ExchangeFilter() -> EmptyState("No requests match", "Change the search or the filters")
                     state.runs.shownRunId != null -> EmptyState("No requests yet", "This run holds no request")
+                    state.runs.shownRunId == null && state.paused == true -> EmptyState("Paused", "New requests show here once you resume")
                     state.runs.recording != null -> EmptyState("No requests yet", "Recording: every request that starts is stored")
                     else -> EmptyState("No requests yet", "Requests of every connected device show here as they happen")
                 }
@@ -608,6 +618,75 @@ private fun RequestList(
             }
         }
     }
+}
+
+/**
+ * ADR-0221: rows arriving above a list shown from its top stay in view; read further down, the rows on screen stay put, as
+ * the list keeps its first visible row by key.
+ */
+@Composable
+private fun FollowNewest(
+    list: LazyListState,
+    exchanges: List<Exchange>,
+) {
+    var newest by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(exchanges.firstOrNull()?.id) {
+        val before = newest
+        newest = exchanges.firstOrNull()?.id
+        val arrived = exchanges.indexOfFirst { it.id == before }
+        val atTop = list.firstVisibleItemIndex == 0 || list.firstVisibleItemIndex == arrived
+        if (arrived > 0 && atTop && list.firstVisibleItemScrollOffset == 0) list.scrollToItem(0)
+    }
+}
+
+/** ADR-0222: "Live" or "Paused" beside a dot, and the button that pauses or resumes the monitor. */
+@Composable
+private fun MonitorSwitch(
+    paused: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(Modifier.testTag(MONITOR_STATE), verticalAlignment = Alignment.CenterVertically) {
+        StatusDot(if (paused) BadgeTone.Neutral else BadgeTone.Success)
+        Text(
+            if (paused) "Paused" else "Live",
+            Modifier.padding(start = Spacing.xs),
+            role = TextRole.Small,
+            secondary = true,
+            maxLines = 1,
+        )
+    }
+    IconButton(
+        if (paused) AppIcons.Play else AppIcons.Pause,
+        if (paused) "Resume the monitor" else "Pause the monitor",
+        onClick = onToggle,
+        Modifier.testTag(MONITOR_SWITCH),
+        tooltip = true,
+    )
+}
+
+/** ADR-0223: "Mocking" or "Not mocking" beside a dot, and the button that sends the rules to the devices or takes them back. */
+@Composable
+private fun MockingSwitch(
+    on: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(Modifier.testTag(MOCKING_STATE), verticalAlignment = Alignment.CenterVertically) {
+        StatusDot(if (on) BadgeTone.Warning else BadgeTone.Neutral)
+        Text(
+            if (on) "Mocking" else "Not mocking",
+            Modifier.padding(start = Spacing.xs),
+            role = TextRole.Small,
+            secondary = true,
+            maxLines = 1,
+        )
+    }
+    IconButton(
+        if (on) AppIcons.Stop else AppIcons.Play,
+        if (on) "Stop mocking" else "Start mocking",
+        onClick = onToggle,
+        Modifier.testTag(MOCKING_SWITCH),
+        tooltip = true,
+    )
 }
 
 /** The URL filter (⌘F) and the method, the status classes and how many requests are listed, over the list (ADR-0203, ADR-0205). */

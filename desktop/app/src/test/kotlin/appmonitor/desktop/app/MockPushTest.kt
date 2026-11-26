@@ -2,6 +2,7 @@ package appmonitor.desktop.app
 
 import appmonitor.desktop.app.store.TrafficStore
 import appmonitor.desktop.app.store.mockRulesEnvelope
+import appmonitor.desktop.data.mockRepository
 import appmonitor.desktop.server.AppMonitorServer
 import appmonitor.desktop.server.ServerConfig
 import appmonitor.desktop.storage.LiveTraffic
@@ -24,6 +25,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -32,11 +34,45 @@ import okio.ByteString
 import okio.ByteString.Companion.encodeUtf8
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MockPushTest {
+    // ADR-0223: switched off, every device gets an empty rule set; switched on, its app's active rules again.
+    @Test
+    fun `switching mocking off takes the rules back from a device and on sends them again`() =
+        withStorage { storage ->
+            val window = saved(runBlocking { storage.createMock(HELLO.app_id, "items down", unavailable, MockSource.WINDOW) })
+            val mocks = storage.mockRepository()
+            withDesktop(storage) { port ->
+                connect(port, listOf(Protocol.CHANNEL_NETWORK, Protocol.CHANNEL_INTERACTION)) {
+                    receiveEnvelope()
+                    assertEquals(
+                        listOf(window),
+                        MockRules.ADAPTER
+                            .decode(nextMockRules().payload)
+                            .rules
+                            .map { it.id },
+                    )
+
+                    mocks.setMocking(false)
+                    assertEquals(emptyList(), MockRules.ADAPTER.decode(nextMockRules().payload).rules)
+                    assertFalse(mocks.observeMocking().first())
+
+                    mocks.setMocking(true)
+                    assertEquals(
+                        listOf(window),
+                        MockRules.ADAPTER
+                            .decode(nextMockRules().payload)
+                            .rules
+                            .map { it.id },
+                    )
+                }
+            }
+        }
+
     @Test
     fun `a device that lists interaction gets its app's active rules after HelloAck and on every change`() =
         withStorage { storage ->

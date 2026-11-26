@@ -1,10 +1,10 @@
 ---
 id: DEBT-0049
 title: Non-correctness findings of the first M3 milestone review
-status: Open
+status: Paid # Open | Paid | Dropped
 date: 2026-10-24
 trigger: M10's first published desktop package
-paid_date:
+paid_date: 2026-11-26
 ---
 
 # DEBT-0049 — Non-correctness findings of the first M3 milestone review
@@ -70,3 +70,8 @@ The local network grant item is dropped by PLAN-0016 H6.6: the Mac's only Androi
 (`android-37.2`) now reports `ro.build.version.sdk` 37 and `ro.build.version.codename` `REL`, so the
 gate on the SDK level grants there, and `make e2e-android` passed on it and on `android-36.1`. No image
 reporting 36 for Android 17 is left to run. Left open: the `packageVersion` item, waiting on M10.
+
+The `packageVersion` item, by PLAN-0021 M11.2 (ADR-0227): `packageVersion` is `VERSION_NAME`
+without its suffix, so each release's MSI has its own version. The fixed `upgradeUuid` is what
+lets a newer MSI upgrade an older one. The release branch `release/1.0.0`, the first to publish
+desktop packages, closes it.

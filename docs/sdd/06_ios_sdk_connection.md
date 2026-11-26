@@ -76,13 +76,13 @@ first one written (ADR-0078).
 On a device both the TCP connection and `NWBrowser` need
 `NSLocalNetworkUsageDescription` and `NSBonjourServices` containing
 `_appmonitor._tcp` (ADR-0036 E). The app's last Run Script phase, pasted
-from the README, adds them to the built `Info.plist` (ADR-0155). It reads
+from `docs/guide/ios.md` (ADR-0220), adds them to the built `Info.plist` (ADR-0155). It reads
 build settings only: a configuration whose `EXCLUDED_SOURCE_FILE_NAMES`
 matches `AppMonitor.o`, the name Xcode compares, is left as is. Any other links the SDK and
 fails the build when `SWIFT_OPTIMIZATION_LEVEL` is not `-Onone`, unless
 `APPMONITOR_ALLOW_OPTIMIZED = YES`; otherwise it gets the keys. It adds the
 usage text only when absent (`APPMONITOR_LOCAL_NETWORK_USAGE` overrides
-the default) and appends the service only when missing. The README block
+the default) and appends the service only when missing. The guide's block
 is `sdk/ios/scripts/add_local_network_keys.sh` line for line
 (`scripts/test_add_local_network_keys.sh` checks it). With
 `ENABLE_USER_SCRIPT_SANDBOXING`, the phase declares
@@ -99,6 +99,15 @@ sandboxing on or off, and both phases' keys land in the plist; with
 sandboxing off, this phase's stamp alone is enough too. Measured
 2026-10-29, Xcode 26.6, outside `/tmp`, which the sandbox lets any phase
 write.
+
+With sandboxing off, the `Info.plist` as this phase's output fails on its
+own. Xcode's step that processes the `Info.plist` and the phase both
+produce it, so the build stops with "Multiple commands produce". This
+happened even when the app's other phase that edits the plist declared no
+output. The stamp alone builds, and the keys land in the plist. So
+`docs/guide/ios.md` gives one set of files per sandboxing setting.
+Measured 2026-11-15, Xcode 26.5 SDK, in the field-test app's Dev and Prod
+configurations for the simulator.
 
 ### Resources and their owners
 

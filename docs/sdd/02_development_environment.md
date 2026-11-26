@@ -264,8 +264,8 @@ and the sessions. `hdiutil detach build/live/dmg` afterwards.
 
 ## MCP clients against real traffic
 
-The setup a developer follows is the README's *Ask your AI agent (MCP)*
-(ADR-0091). To check every tool against a sample's traffic stored by
+The setup a developer follows is `docs/guide/mcp.md`
+(ADR-0091, ADR-0220). To check every tool against a sample's traffic stored by
 `make desktop`, with no clicks:
 
 1. A store with the device approved: `liveScreenshots` with
@@ -280,7 +280,7 @@ The setup a developer follows is the README's *Ask your AI agent (MCP)*
 4. MCP Inspector (`npx @modelcontextprotocol/inspector --cli <url> --header
    "Authorization: Bearer <token>" --method tools/call --tool-name <tool>
    --tool-arg key=value`), or Claude Code without touching its own
-   configuration: the README's `.mcp.json` saved as `build/<dir>/mcp.json`,
+   configuration: the MCP guide's `.mcp.json` saved as `build/<dir>/mcp.json`,
    then `APPMONITOR_MCP_TOKEN=<token> claude -p --strict-mcp-config
    --mcp-config build/<dir>/mcp.json --allowedTools mcp__app-monitor "<question>"`.
 5. A SIGTERM to the app's `java` process stops it and closes the run; the
@@ -339,7 +339,7 @@ Signing reads `APPMONITOR_SIGNING_KEY` (ASCII-armored secret key) and
 
 `scripts/consumers_check.sh [--local] [VERSION]` (ADR-0218) builds three
 throwaway apps in `build/consumers/` that install the SDK as the README
-says:
+and `docs/guide/` say:
 
 - **Android**: AGP from the catalog and only the plugin, plus OkHttp; it
   assembles debug and release, and fails unless the debug runtime
@@ -375,11 +375,24 @@ suffix. `make scripts-test` runs it on the repository.
 pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
 `scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
 signs with the release key and checks every file. `scripts/central_upload.sh
-build/maven-dry-run` zips the repository (no `maven-metadata.xml`) into
-`build/central-bundle.zip`, posts it to the Central Portal with
-`publishingType=AUTOMATIC` and polls until `PUBLISHED`; on `FAILED` it
-prints the Portal's errors. Last, a GitHub Release with the tag's section
-of `CHANGELOG.md`, or GitHub's generated notes. SwiftPM needs nothing
+build/maven-dry-run` zips the repository into `build/central-bundle.zip`,
+without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
+(712 files for the `0.1.x` modules, under Central's free monthly count,
+DEBT-0135). It posts the bundle to the Central Portal with
+`publishingType=AUTOMATIC` and polls until `PUBLISHED`. On `FAILED`, or an
+upload the Portal refuses, it prints the Portal's answer. Beside it, the
+`desktop` job runs on macOS, Windows and Linux. Each one runs
+`scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
+that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
+`.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
+(ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
+section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
+packages. Then the `tap` job writes the Homebrew cask, the Scoop manifest and
+their README (`scripts/tap_manifests.sh <tag> build/desktop-packages
+build/tap`) and pushes them to `christianalexandre/homebrew-tap` with
+`HOMEBREW_TAP_TOKEN`, a token for that repository only (ADR-0229). `release`
+is the only job with this repository's write token, and runs only on a tag: a
+pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
 beyond the tag.
 
 Repository secrets, read only on a tag run:
@@ -389,12 +402,80 @@ Repository secrets, read only on a tag run:
 | `APPMONITOR_SIGNING_KEY` | ASCII-armored GPG secret key; its public part on `keyserver.ubuntu.com` and `keys.openpgp.org` |
 | `APPMONITOR_SIGNING_PASSWORD` | its passphrase |
 | `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | a Central Portal user token, namespace `io.github.christianalexandre` |
+| `HOMEBREW_TAP_TOKEN` | a fine-grained token, *Contents: write* on `christianalexandre/homebrew-tap` only; when it expires, the `tap` job fails at its push and a new token plus a re-run fixes it |
 
 A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
-`central_upload.sh`, `version_check.sh` or the publishing conventions runs
-the same job dry. It uses a throwaway key and no secret, and keeps the
+`central_upload.sh`, `version_check.sh`, the publishing conventions,
+`gradle.properties`, a published module's build file, `desktop/app/build.gradle.kts` or
+`desktop_packages.sh` or `tap_manifests.sh` runs the same jobs dry,
+the packages kept as `desktop-<os>` artifacts. It uses a throwaway key and no secret, and keeps the
 bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
 --bundle-only` builds the bundle locally.
+
+## Cutting a release
+
+Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
+`X.Y.Z-SNAPSHOT`.
+
+1. **Release PR.** Cut `release/X.Y.Z` from `origin/dev`. Drop `-SNAPSHOT` in
+   `gradle.properties`, `SDK_VERSION` (`sdk/core`) and `sdkVersion`
+   (`sdk/ios`), and add the version's section to `CHANGELOG.md` if `dev` has
+   not. `scripts/version_check.sh --release X.Y.Z` must pass. Open the PR to
+   `main` from `.github/PULL_REQUEST_TEMPLATE/release.md`, without
+   auto-merge. The release gate runs on it.
+2. **The owner merges it** with a merge commit.
+3. **Tag `main`:** `git tag X.Y.Z origin/main && git push origin X.Y.Z`. No
+   `v` prefix: the workflow takes `X.Y.Z` only.
+4. **`Publish` runs** (*Publishing a release* above). It is green once
+   the Portal reports `PUBLISHED` and the GitHub Release exists, with the
+   version's `CHANGELOG.md` section as notes. The artifacts reach
+   `repo1.maven.org` a few minutes later. Check them under
+   `https://repo1.maven.org/maven2/io/github/christianalexandre/`, or in the
+   Portal's *Deployments*.
+5. **Consumers:** `scripts/consumers_check.sh X.Y.Z`, run in a worktree at
+   the tag, so its versions are the release's.
+6. **Back-merge:** a PR from `main` to `dev`, merged with a merge commit
+   (ADR-0219). Then a PR on `dev` moves the three versions to the next
+   `-SNAPSHOT`.
+
+Maven Central's free tier counts files per calendar month; one release is
+near the limit (DEBT-0135).
+
+## An unreleased SDK in an app
+
+To try `dev`'s SDK in an app outside this repository before it is released,
+publish it to `~/.m2`, once per update of the clone:
+
+```sh
+./gradlew publishToMavenLocal
+./gradlew -p gradle-plugin publishToMavenLocal
+```
+
+Then let the app's `settings.gradle.kts` read it, in both blocks, and use
+`dev`'s version (`VERSION_NAME`, `X.Y.Z-SNAPSHOT`) for the plugin:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal { content { includeGroupByRegex("io\\.github\\.christianalexandre.*") } }
+        google()
+        mavenCentral()
+    }
+}
+```
+
+On iOS, add the package with the *Branch* rule, `dev` (XcodeGen
+`branch: dev`). Xcode keeps the `dev` commit it resolved first, even after
+`Package.resolved` is deleted: *File → Packages → Update to Latest Package
+Versions* takes the newer one.
 
 ## CI
 

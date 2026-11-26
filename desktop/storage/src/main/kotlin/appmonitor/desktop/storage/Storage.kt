@@ -645,6 +645,10 @@ class Storage private constructor(
     fun observeActiveMocks(appId: String): Flow<List<MockRule>> =
         observe(database.mockQueries.activeOf(appId) { id, rule -> MockRule.ADAPTER.decode(rule).copy(id = id) }).distinctUntilChanged()
 
+    /** Whether mock rules reach the devices (ADR-0223): on unless [MOCKING_KEY] says `false`, again after each commit. */
+    fun observeMocking(): Flow<Boolean> =
+        observe(database.settingQueries.valueOf(MOCKING_KEY)).map { it.firstOrNull() != "false" }.distinctUntilChanged()
+
     /** Every breakpoint, by app id, then in match order. */
     suspend fun breakpoints(): List<StoredBreakpoint> = read(emptyList()) { breakpointQueries.all().executeAsList().map { it.toStored() } }
 
@@ -690,11 +694,11 @@ class Storage private constructor(
         limit: Long = PAGE_SIZE,
     ): List<ExchangeSizes> = read(emptyList()) { exchangeSizeSearch(driver, filter, afterId, limit).executeAsList() }
 
-    /** The first [limit] exchanges [filter] matches, again after each commit that changes an exchange or a session. */
+    /** The newest [limit] exchanges [filter] matches, newest first (ADR-0221), again after each commit that changes one. */
     fun observeExchanges(
         filter: ExchangeFilter,
         limit: Long = PAGE_SIZE,
-    ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit))
+    ): Flow<List<StoredExchange>> = observe(exchangeSearch(driver, filter, 0, limit, newestFirst = true))
 
     /** The hosts of session [sessionId], else of run [runId], else of every stored exchange, sorted, again after each commit. */
     fun observeHosts(
@@ -707,7 +711,10 @@ class Storage private constructor(
             else -> observe(database.exchangeQueries.hosts())
         }
 
-    internal fun searchPlan(filter: ExchangeFilter): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE).plan()
+    internal fun searchPlan(
+        filter: ExchangeFilter,
+        newestFirst: Boolean = false,
+    ): List<String> = exchangeSearch(driver, filter, 0, PAGE_SIZE, newestFirst).plan()
 
     suspend fun sessions(runId: Long): List<StoredSession> =
         read(emptyList()) { sessionQueries.ofRun(runId).executeAsList().map { it.toStored() } }
@@ -835,6 +842,8 @@ class Storage private constructor(
     }
 
     companion object {
+        const val MOCKING_KEY = "mocks.enabled"
+
         const val FILE_NAME = "appmonitor.db"
         const val PAGE_SIZE = 200L
         const val MAX_QUEUE_BYTES = 64L * 1024 * 1024

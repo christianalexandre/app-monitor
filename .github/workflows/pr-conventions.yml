@@ -23,7 +23,8 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: scripts/pr_title_check.sh "$TITLE"
       - name: No attribution trailers
-        if: github.base_ref != 'main' || github.head_ref != 'dev' # ADR-0060
+        # ADR-0060, ADR-0219: main holds dev's checked commits and the owner's release merges.
+        if: (github.base_ref != 'main' || github.head_ref != 'dev') && (github.base_ref != 'dev' || github.head_ref != 'main')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

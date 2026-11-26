@@ -86,6 +86,10 @@ object AppIcons {
         stroke(line(6.5f, 5.8f, 6.5f, 10.2f))
         stroke(line(9.5f, 5.8f, 9.5f, 10.2f))
     }
+    val Play by icon {
+        stroke(circle(8f, 8f, 6f))
+        stroke("M6.6 5.6 L10.6 8 L6.6 10.4 z")
+    }
     val Export by icon { stroke("M8 10 V2.5 M5 5.5 l3 -3 l3 3 M3 9.5 v3 a1 1 0 0 0 1 1 h8 a1 1 0 0 0 1 -1 v-3") }
     val Replay by icon { stroke("M3 8 a5 5 0 1 0 9 -3 M12 2 v3 h-3") }
     val Ellipsis by icon {
@@ -132,6 +136,7 @@ object AppIcons {
                 "Chart" to Chart,
                 "Mask" to Mask,
                 "Pause" to Pause,
+                "Play" to Play,
                 "Export" to Export,
                 "Replay" to Replay,
                 "Ellipsis" to Ellipsis,

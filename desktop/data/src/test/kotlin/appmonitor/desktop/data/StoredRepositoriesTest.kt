@@ -96,19 +96,19 @@ class StoredRepositoriesTest {
             assertEquals(listOf(session), traffic.observeSessions(null).first())
 
             val all = traffic.observeExchanges(ExchangeFilter(sessionId = session.id)).first()
-            assertEquals(listOf("r1", "r2"), all.map { it.requestId })
-            assertEquals(listOf(false, true), all.map { it.isError })
+            assertEquals(listOf("r2", "r1"), all.map { it.requestId })
+            assertEquals(listOf(true, false), all.map { it.isError })
             val ok = traffic.observeExchanges(ExchangeFilter(sessionId = session.id, statusClasses = setOf(StatusClass.SUCCESS))).first()
             assertEquals(listOf("r1"), ok.map { it.requestId })
             assertEquals(listOf("r2"), traffic.observeExchanges(ExchangeFilter(text = "login")).first().map { it.requestId })
 
-            val detail = traffic.exchange(all.first().id)!!
+            val detail = traffic.exchange(all.last().id)!!
             assertEquals(listOf(Header("Accept", "*/*")), detail.requestHeaders)
             assertEquals(CapturedBody("[]".encodeUtf8(), originalSize = 2), detail.responseBody)
             assertEquals(200, detail.statusCode)
             assertNull(detail.connection)
-            assertEquals("timeout", traffic.exchange(all.last().id)!!.error)
-            assertNull(traffic.exchange(all.last().id + 1))
+            assertEquals("timeout", traffic.exchange(all.first().id)!!.error)
+            assertNull(traffic.exchange(all.first().id + 1))
         }
 
     @Test

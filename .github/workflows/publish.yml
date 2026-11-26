@@ -13,6 +13,13 @@ on:
       - scripts/version_check.sh
       - build-logic/src/main/kotlin/appmonitor.maven-central.gradle.kts
       - build-logic/src/main/kotlin/appmonitor.publish.gradle.kts
+      - desktop/app/build.gradle.kts
+      - scripts/desktop_packages.sh
+      - scripts/tap_manifests.sh
+      - gradle.properties
+      - gradle-plugin/build.gradle.kts
+      - protocol/build.gradle.kts
+      - 'sdk/*/build.gradle.kts'
   workflow_dispatch:
 
 permissions:
@@ -26,8 +33,6 @@ jobs:
   central:
     runs-on: macos-latest # ADR-0058: the iOS klibs
     timeout-minutes: 60
-    permissions:
-      contents: write # the GitHub Release
     env:
       RELEASE: ${{ github.ref_type == 'tag' }}
       TAG: ${{ github.ref_name }}
@@ -73,14 +78,112 @@ jobs:
           path: build/central-bundle.zip
           if-no-files-found: error
           retention-days: 7
+
+  # ADR-0227: each OS builds its own packages; jpackage does not cross-build.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            runner: macos-latest
+          - os: windows
+            runner: windows-latest
+          - os: linux
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic # ADR-0012
+      - name: rpmbuild
+        if: matrix.os == 'linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q rpm
+      - name: Packages
+        run: scripts/desktop_packages.sh build ${{ matrix.os }} build/desktop-packages
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.os }}
+          path: build/desktop-packages/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # The only write token, and only on a tag: a PR's dry run runs the PR's own scripts.
+  release:
+    needs: [central, desktop]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          path: build/desktop-packages
+          merge-multiple: true
       - name: GitHub Release
-        if: env.RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="$(awk -v v="## $TAG" 'index($0, v) == 1 {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
+          notes="$(awk -v v="## $TAG" '($0 == v || index($0, v " ") == 1) {f = 1; next} /^## / && f {exit} f' CHANGELOG.md 2>/dev/null || true)"
           if [[ -n "$notes" ]]; then
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes"
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes" build/desktop-packages/*
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes build/desktop-packages/*
           fi
+
+  # ADR-0229: the Homebrew cask and the Scoop manifest, pushed to homebrew-tap once the release has its packages.
+  tap:
+    needs: [desktop, release]
+    if: ${{ !cancelled() && needs.desktop.result == 'success' && (github.ref_type != 'tag' || needs.release.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE: ${{ github.ref_type == 'tag' }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          path: build/desktop-packages
+          merge-multiple: true
+      - name: Manifests
+        run: |
+          version="$TAG"
+          [[ "$RELEASE" == true ]] || { version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"; version="${version%%-*}"; }
+          scripts/tap_manifests.sh "$version" build/desktop-packages build/tap
+      - name: Push to homebrew-tap
+        if: env.RELEASE == 'true'
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:$TAP_TOKEN@github.com/christianalexandre/homebrew-tap.git" build/tap-repo
+          cp -R build/tap/. build/tap-repo/
+          cd build/tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "app-monitor $TAG"
+          git push origin HEAD
+      - name: Manifests, dry
+        if: env.RELEASE != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: tap
+          path: build/tap
+          if-no-files-found: error
+          retention-days: 7

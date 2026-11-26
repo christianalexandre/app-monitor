@@ -1,6 +1,6 @@
 import Foundation
 
-let sdkVersion = "0.1.0"
+let sdkVersion = "1.0.0"
 // ADR-0077
 let sdkName = "swift"
 

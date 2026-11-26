@@ -187,6 +187,7 @@ private fun Gallery(
                 Text("Listening :47474", role = TextRole.Caption, secondary = true)
                 StatusDot(BadgeTone.Error)
                 Text("Recording · 12 requests", role = TextRole.Caption, secondary = true)
+                StatusLink("Version 1.1.0 available", onClick = {})
             }
         }
         VerticalDivider()

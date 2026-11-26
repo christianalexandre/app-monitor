@@ -12,6 +12,7 @@ import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RetentionState
 import appmonitor.desktop.domain.ServiceStatus
 import appmonitor.desktop.domain.ThemeMode
+import appmonitor.desktop.domain.UpdateRepository
 import appmonitor.desktop.domain.passThroughHosts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,15 +53,17 @@ data class SettingsState(
     val mcp: McpSettings? = null,
     val proxy: ProxySettings? = null,
     val theme: ThemeMode? = null,
+    val checksUpdates: Boolean? = null,
 )
 
-/** Retention, the answered devices, the MCP server's and proxy's switches, the theme (ADR-0082, ADR-0083, ADR-0090, ADR-0101, ADR-0145). */
+/** Retention, the answered devices, the MCP server's and proxy's switches, the theme, the update check (ADR-0082, ADR-0083, ADR-0090, ADR-0101, ADR-0145, ADR-0228). */
 class SettingsViewModel(
     private val retention: RetentionRepository,
     private val answered: AnsweredDeviceRepository? = null,
     private val mcp: McpRepository? = null,
     private val proxy: ProxyRepository? = null,
     private val appearance: AppearanceRepository? = null,
+    private val updates: UpdateRepository? = null,
 ) : ViewModel() {
     // The newest retention: the store's, or the one just chosen while its writes are on their way (a second
     // choice builds on the first, not on what the store has not echoed yet).
@@ -95,6 +98,7 @@ class SettingsViewModel(
             proxySettings,
         ) { retention, retentionState, answered, mcp, proxy -> SettingsState(retention, retentionState, answered, mcp, proxy) }
             .combine(appearance?.theme ?: flowOf(null)) { state, theme -> state.copy(theme = theme) }
+            .combine(updates?.checking ?: flowOf(null)) { state, checking -> state.copy(checksUpdates = checking) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsState())
 
     /** Applies [change] to the newest retention, the one shown or chosen just before, and writes it. */
@@ -141,6 +145,11 @@ class SettingsViewModel(
     fun resetProxyCa() {
         val proxy = proxy ?: return
         viewModelScope.launch { proxy.resetCa() }
+    }
+
+    fun setChecksUpdates(on: Boolean) {
+        val updates = updates ?: return
+        viewModelScope.launch { updates.setChecking(on) }
     }
 
     fun setTheme(theme: ThemeMode) {

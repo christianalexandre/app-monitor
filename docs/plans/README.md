@@ -56,32 +56,36 @@ record of how the milestone was actually built once it is done.
 | [0016](0016-debt-sweep.md) | H6 | Debt sweep before distribution | Done |
 | [0017](0017-cleanup-and-gzip-bodies.md) | H7 | The sweep's last findings and gzip bodies | Done |
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
-| [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Active |
+| [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
+| [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Done |
+| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Active |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
 
-### Hold — the owner tests `0.1.0` before M11
-
-[PLAN-0019](0019-publish-the-libraries.md) (M10) publishes the libraries;
-the owner then installs `0.1.0` in a real project before the desktop app
-is distributed (owner, 2026-11-13). The loop does not plan past this
-section: reaching it is **stop: waiting for the owner**, who removes it
-when the libraries are good.
-
-### M11 — Desktop distribution
-
-Unsigned desktop packages via GitHub Releases and a Homebrew tap of the
-owner's, with the steps to let them run (ADR-0055: no signing cost), at the
-libraries' `X.Y.Z` tag.
-
 ### M12 — The repository's front page
 
 The README rewritten for someone who has never seen the project, with
 GIFs; installation and contribution guides (`CONTRIBUTING.md`); a docs
 site.
+
+### Later — an inspector inside the app, after `1.0.0`
+
+The owner's ask (2026-11-26), for after the `1.0.0` of the libraries and of the
+desktop, not before: like app-network-monitor's shake that opened PulseUI, a
+shake (or a gesture on the simulator and emulator) opens a simple screen from
+the SDK inside the debug app. It lists the requests, shows their details, and
+offers to **forget the desktop** the device is paired with (ADR-0168), so a
+developer moves to another desktop without clearing the app's data.
+
+Questions for the owner when it is planned, each in a "stop and ask" area:
+product scope (what the screen shows); the SDKs' public API (how a developer
+turns it on, Android, iOS and KMP); security / privacy (requests kept on the
+device, and an unpin on the device, which reopens ADR-0168); licensing (own
+screens, or Pulse on iOS, MIT, and Chucker on Android, Apache-2.0). Adding
+API is compatible, so it fits a `1.x` minor.
 
 ### Later — readable bodies
 

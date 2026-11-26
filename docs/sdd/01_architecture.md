@@ -65,7 +65,10 @@ address (point-to-point interfaces such as VPN tunnels excluded, `LanAddresses`,
 Each address has its own instance and host name, `appmonitor-<address with
 dashes>`. An address that fails to register is skipped; the server listens
 whatever happens to mDNS, and `advertisingProblem` says which address failed, or
-that none took it and devices need the machine's address (ADR-0174). An `Error`
+that none took it and devices need the machine's address (ADR-0174). Every five seconds
+(`ADDRESS_CHECK_PERIOD`) the server checks `LanAddresses` again: a new address is
+registered, one that went away is closed in the background, and one that failed waits until
+it goes away and comes back (`MdnsAdvertiser.refresh`, ADR-0226). An `Error`
 closes the instances already created and `start()` stops the HTTP server before
 rethrowing, so the port is free again. A taken port is a `BindException` from `start()`.
 
@@ -225,7 +228,7 @@ one line and exit 1. See ADR-0010.
   WebSocket and background tasks included (SDD 07, ADR-0043, ADR-0045,
   ADR-0046). Masking and the body limit run on the device, against the
   shared `protocol/fixtures/masking.json` vector (ADR-0036). Debug builds
-  need the local network keys, which the Run Script pasted from the README
+  need the local network keys, which the Run Script pasted from the iOS guide
   (`sdk/ios/scripts/add_local_network_keys.sh`) adds (ADR-0155).
 - **Android / KMP**: `sdk/core` in KMP (JVM, Android `minSdk` 24, `iosArm64`
   and `iosSimulatorArm64`; Kotlin/Native specifics in SDD 04, ADR-0066 to
@@ -352,7 +355,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   not stored (SDD 09). The device list shows its sessions, oldest first,
   "connected" until they end, under "All devices"; "All devices" (the
   default) lists every device's requests in one list, a device only its
-  own. Above the request list, on the live list only: "Record" / "Stop
+  own. Every request list puts the newest on top (ADR-0221): a list shown
+  from its top keeps a new request in view, and one read further down keeps
+  its rows where they are. The title bar's "Live" / "Paused" switch
+  (ADR-0222) pauses the monitor: requests that start while paused are left
+  out of the list and of a recording, and sessions, mocks and breakpoints go
+  on. Beside it, "Mocking" / "Not mocking" (ADR-0223) takes every mock rule
+  back from the devices, or sends them again. Above the request list, on the live list only: "Record" / "Stop
   recording" (ADR-0142), "Save" (or "Save N") which stores the ticked
   requests, or the selected one, in "Saved" and says how many it saved
   (ADR-0143), and "Clear", which empties the live list. The picker opens
@@ -491,8 +500,12 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   the HAR export's notes show under the title bar. The status bar holds the
   server's status, the devices connected, the recording, MCP and the proxy,
   what failed to be stored and the retention warning, then "Mocks (N to
-  confirm)" and "Breakpoints (N held)" while they wait, and the events
-  dropped. A request row is two lines (ADR-0203): the method, the
+  confirm)" and "Breakpoints (N held)" while they wait, "Version X.Y.Z
+  available" when a newer release is out (a `StatusLink` to its page,
+  ADR-0228), and the events dropped. The desktop's only call outside the
+  local network is that check: `GET` on the repository's latest GitHub
+  Release at launch and every 24 hours, off with *Settings → Updates*
+  (`updates.check`, `UpdateChecker`, `GitHubReleases`). A request row is two lines (ADR-0203): the method, the
   path with its query muted and the start time to the millisecond; then its
   status as a badge colored by class (2xx green, 3xx blue, 4xx amber, 5xx, a
   failure or a gRPC error red, pending or a socket neutral), the host or
@@ -546,8 +559,13 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   sideways; Text and Hex do. In the JSON view a string value over 200
   characters (`MAX_SHOWN_VALUE_CHARS`, keys never) shows its first 200 and
   ends with `… (N more)`, never cut inside an escape or a surrogate pair; Text,
-  Hex, Copy and cURL keep it whole. The search finds what the view shows, and
-  its count adds "· N in cut values" for matches in the cut parts (ADR-0208).
+  Hex, Copy and cURL keep it whole. A click on `… (N more)` opens the value
+  whole, wrapped, as `"key": (fold) "value"`, and a click on `(fold)` folds it
+  (`CodeLink` on the chunk's `CodeText`, the marker only, ADR-0225); the
+  opened values are an input of the rendering, kept per body side until the
+  format or the request changes (ADR-0224). The search finds what the view
+  shows, an opened value included, and its count adds "· N in cut values"
+  for matches in the parts still cut (ADR-0208).
   A `DecodedBody` decodes UTF-8 and parses JSON at
   most once per body, shared by the default-format choice and rendering; each
   body is rendered once per format. The hex dump is one linear pass.

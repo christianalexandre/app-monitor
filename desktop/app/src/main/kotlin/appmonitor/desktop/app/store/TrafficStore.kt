@@ -25,6 +25,7 @@ internal class TrafficStore(
     private val sink: TrafficSink,
     val heldCalls: HeldCalls = HeldCalls(),
     val replays: Replays = Replays(),
+    val pause: MonitorPause = MonitorPause(),
 ) {
     /** Collects every session and its envelopes until [sessions] completes and every session closes. */
     suspend fun collect(sessions: Flow<DeviceSession>): Unit =
@@ -76,7 +77,7 @@ internal class TrafficStore(
                                 }
                             }
                             replays.read(session, envelope)
-                            sink.received(session.id, envelope)
+                            if (pause.admits(session.id, envelope)) sink.received(session.id, envelope)
                         }
                     } finally {
                         settledLost.cancel()
@@ -84,6 +85,7 @@ internal class TrafficStore(
                         timeouts.cancel()
                         heldCalls.ended(session.id)
                         replays.ended(session.id)
+                        pause.ended(session.id)
                         // A full queue on a stalled disk must not hold the exit; the next open closes the session.
                         withContext(NonCancellable) { withTimeoutOrNull(STOP_TIMEOUT) { sink.disconnected(session.id) } }
                     }

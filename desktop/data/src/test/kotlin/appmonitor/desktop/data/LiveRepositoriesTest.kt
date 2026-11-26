@@ -33,7 +33,7 @@ class LiveRepositoriesTest {
             live.received("s1", envelope(RequestStarted("a", "GET", "https://api.test/a")))
             live.received("s2", envelope(RequestStarted("b", "GET", "https://api.test/b")))
 
-            assertEquals(listOf("a", "b"), traffic.observeExchanges(ExchangeFilter()).first().map { it.requestId })
+            assertEquals(listOf("b", "a"), traffic.observeExchanges(ExchangeFilter()).first().map { it.requestId })
             assertEquals(listOf("d1", "d2"), traffic.observeSessions(null).first().map { it.hello.device_id })
             storage.flush()
             assertEquals(emptyList(), storage.searchExchanges(StoredExchangeFilter()))
@@ -147,7 +147,7 @@ class LiveRepositoriesTest {
             val write = issues.create("Slow", "", emptyList(), listOf(b, storedId), IssueSource.WINDOW, IssueStatus.OPEN)
             val id = assertIs<IssueWrite.Saved>(write).id
             assertEquals(listOf("b", "stored"), issues.exchanges(id).map { it.requestId }.sorted())
-            assertEquals(listOf("a", "b"), traffic.observeExchanges(ExchangeFilter(runId = run.id)).first().map { it.requestId })
+            assertEquals(listOf("b", "a"), traffic.observeExchanges(ExchangeFilter(runId = run.id)).first().map { it.requestId })
 
             live.clear()
             assertEquals(listOf("b", "stored"), issues.exchanges(id).map { it.requestId }.sorted())

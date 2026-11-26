@@ -36,6 +36,7 @@ import appmonitor.desktop.designsystem.Badge
 import appmonitor.desktop.designsystem.BarHeight
 import appmonitor.desktop.designsystem.BlockEdge
 import appmonitor.desktop.designsystem.CodeBlock
+import appmonitor.desktop.designsystem.CodeLink
 import appmonitor.desktop.designsystem.CodeText
 import appmonitor.desktop.designsystem.Divider
 import appmonitor.desktop.designsystem.IconButton
@@ -379,6 +380,7 @@ private class BodyView(
     val captured: CapturedBody,
     val rendered: RenderedBody?,
     val choose: (BodyFormat) -> Unit,
+    val toggle: (Int) -> Unit = {},
 )
 
 @Composable
@@ -388,11 +390,17 @@ private fun rememberBodyView(
 ): BodyView {
     val decoded = remember(captured.bytes, headers) { DecodedBody(captured.bytes, headers) }
     var chosen by remember(decoded) { mutableStateOf<BodyFormat?>(null) }
-    val rendered by produceState<RenderedBody?>(null, decoded, chosen) {
-        value = null
-        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(decoded, chosen) }
+    var opened by remember(decoded, chosen) { mutableStateOf(emptySet<Int>()) }
+    val renderedFor = remember { mutableStateOf<Pair<DecodedBody, BodyFormat?>?>(null) }
+    val rendered by produceState<RenderedBody?>(null, decoded, chosen, opened) {
+        // Opening a value keeps the rendering shown until the new one is ready, so the list does not jump.
+        if (renderedFor.value != decoded to chosen) value = null
+        renderedFor.value = decoded to chosen
+        if (captured.bytes.size > 0) value = withContext(Dispatchers.Default) { renderBody(decoded, chosen, opened) }
     }
-    return BodyView(captured, rendered) { chosen = it }
+    // Kept with the state it writes, so a chunk's links never hold the toggle of a state no longer read.
+    val toggle: (Int) -> Unit = remember(decoded, chosen) { { index -> opened = if (index in opened) opened - index else opened + index } }
+    return BodyView(captured, rendered, { chosen = it }, toggle)
 }
 
 private fun LazyListScope.body(
@@ -413,6 +421,8 @@ private fun LazyListScope.body(
     } else {
         val json = rendered.format == BodyFormat.Json
         itemsIndexed(rendered.chunks) { index, chunk ->
+            val spans = rendered.cutSpans.getOrNull(index).orEmpty()
+            val links = remember(spans, view.toggle) { spans.map { span -> CodeLink(span.start, span.end) { view.toggle(span.index) } } }
             CodeBlock(edgeOf(index, rendered.chunks.size)) {
                 // ADR-0208: JSON wraps, the other formats scroll sideways.
                 CodeText(
@@ -422,6 +432,7 @@ private fun LazyListScope.body(
                     syntax = if (json) remember(chunk) { jsonSyntax(chunk) } else emptyList(),
                     softWrap = json,
                     current = shown?.takeIf { it.chunk == index }?.inChunk,
+                    links = links,
                 )
             }
         }
