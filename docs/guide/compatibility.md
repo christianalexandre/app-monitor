@@ -17,7 +17,7 @@ match.
 ## Desktop
 
 macOS on Apple silicon, Windows x64 and Linux x64 (`.deb` and `.rpm`), from Desktop
-`1.0.1`'s packages, or from the repository with JDK 21 on any of them
+`1.1.0`'s packages, or from the repository with JDK 21 on any of them
 ([desktop guide](desktop.md)).
 
 | macOS | Linux | Windows |

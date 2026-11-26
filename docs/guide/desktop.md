@@ -2,7 +2,7 @@
 
 ## Install it
 
-From Desktop `1.0.1`, with a package manager:
+From Desktop `1.1.0`, with a package manager:
 
 ```sh
 # macOS (Apple silicon), Homebrew
