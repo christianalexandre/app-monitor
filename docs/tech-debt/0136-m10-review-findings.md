@@ -22,7 +22,8 @@ None of them is hit by a normal release:
    `AUTOMATIC` upload, the job fails while the Portal goes on publishing.
    No GitHub Release is created, and a rerun uploads a version Central
    already has. `0.1.0` was `PUBLISHED` in under 3 minutes.
-3. **`scripts/central_upload.sh`:** `curl -fsS` drops the body of a 4xx or
+3. *Paid in M11.1:* `--fail-with-body`, the body printed as `central: upload refused: …`,
+   and a refusing stub Portal in `test_central_upload.sh`. **`scripts/central_upload.sh`:** `curl -fsS` drops the body of a 4xx or
    5xx answer, so the Portal's reason for refusing an upload is not logged.
 4. **`.github/workflows/publish.yml`:** the `pull_request` paths filter leaves
    out `gradle-plugin/build.gradle.kts`, `gradle.properties` and the modules'
@@ -53,6 +54,10 @@ The next PR that touches a file its items name: `.github/workflows/publish.yml`,
 `scripts/central_upload.sh`,
 `build-logic/src/main/kotlin/appmonitor.maven-central.gradle.kts`,
 `scripts/consumers_check.sh`, `scripts/publish_dry_run.sh`.
+
+M11.1's PR touched `central_upload.sh` for the bundle's checksums (DEBT-0135) and paid item 3.
+Item 2 is re-triggered: a release whose upload passes the 30-minute timeout, or a change to
+the script's wait loop (2026-11-26). The other items keep their files.
 
 ## How it was paid
 

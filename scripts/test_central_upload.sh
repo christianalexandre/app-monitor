@@ -6,6 +6,8 @@ work="$PWD/build/test-central-upload"
 rm -rf "$work"
 mkdir -p "$work/repo/io/github/x/a/1.0.0"
 touch "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.asc" \
+  "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.md5" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha1" \
+  "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha256" "$work/repo/io/github/x/a/1.0.0/a-1.0.0.jar.sha512" \
   "$work/repo/io/github/x/a/maven-metadata.xml" "$work/repo/io/github/x/a/maven-metadata.xml.md5"
 failures=0
 check() { # name, condition
@@ -21,6 +23,8 @@ class H(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         with open(log, "a") as f:
             f.write(f"{self.path} {self.headers.get('Authorization')} {len(body)}\n")
+        if self.path.startswith("/api/v1/publisher/upload") and final == "REFUSED":
+            self.send_response(400); self.end_headers(); self.wfile.write(b"too many files this month"); return
         if self.path.startswith("/api/v1/publisher/upload"):
             out = "dep-1"
         else:
@@ -53,6 +57,8 @@ listing="$(unzip -Z1 build/central-bundle.zip)"
 check "a bundle alone needs no credentials" '[[ $code -eq 0 ]]'
 check "the bundle holds the version's files" 'grep -qx "io/github/x/a/1.0.0/a-1.0.0.jar.asc" <<<"$listing"'
 check "the bundle leaves maven-metadata out" '! grep -q maven-metadata <<<"$listing"'
+check "the bundle keeps the checksums Central requires" 'grep -qx "io/github/x/a/1.0.0/a-1.0.0.jar.md5" <<<"$listing" && grep -qx "io/github/x/a/1.0.0/a-1.0.0.jar.sha1" <<<"$listing"'
+check "the bundle leaves .sha256 and .sha512 out" '! grep -qE "\.sha(256|512)$" <<<"$listing"'
 code=0
 env -u MAVEN_CENTRAL_USERNAME -u MAVEN_CENTRAL_PASSWORD scripts/central_upload.sh "$work/repo" >/dev/null 2>&1 || code=$?
 check "an upload without credentials refused" '[[ $code -eq 2 ]]'
@@ -64,5 +70,8 @@ check "the status asked for that deployment" 'grep -q "^/api/v1/publisher/status
 code="$(run FAILED)"
 check "a failed deployment fails" '[[ $code -eq 1 ]]'
 check "its errors printed" 'grep -q "bad" "$work/out-FAILED.log"'
+code="$(run REFUSED)"
+check "a refused upload fails" '[[ $code -eq 1 ]]'
+check "the Portal's reason printed" 'grep -q "upload refused: too many files this month" "$work/out-REFUSED.log"'
 rm -rf "$work" build/central-bundle.zip
 [[ $failures -eq 0 ]] || exit 1

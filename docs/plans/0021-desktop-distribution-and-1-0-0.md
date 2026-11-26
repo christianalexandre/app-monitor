@@ -34,7 +34,7 @@ repository only, kept as a secret of this one. M11.3 names the secret.
 
 ## Tasks
 
-- [ ] **M11.1 The Central bundle under the monthly file count.** DEBT-0135:
+- [x] **M11.1 The Central bundle under the monthly file count.** (`build/central-bundle-under-file-count`) DEBT-0135:
   `scripts/central_upload.sh` drops the `.sha256` and `.sha512` files, which Central does not
   require, taking a release from 1,068 files to about 712. `scripts/test_central_upload.sh`
   checks the list.
