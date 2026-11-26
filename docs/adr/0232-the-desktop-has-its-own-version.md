@@ -51,7 +51,7 @@ Option 1, as the owner decided:
 
 - A desktop fix ships without a library release, and the reverse.
 - "Which desktop for which SDK" is the major version; the compatibility guide says so.
-- The first desktop release under this scheme is `desktop-1.0.1`; `1.0.0`'s release keeps
+- The first desktop release under this scheme is `desktop-1.1.0`; `1.0.0`'s release keeps
   the SDKs only, its packages removed (ADR-0230).
 - A `1.0.0` desktop, which did not start, never saw the old update check; nothing reads
   `releases/latest` any more.
