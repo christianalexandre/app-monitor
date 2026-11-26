@@ -17,6 +17,7 @@ scripts/tap_manifests.sh 1.2.3 "$work/pkgs" "$work/out" >/dev/null
 cask="$(cat "$work/out/Casks/app-monitor.rb")"
 check "the cask has the version and the dmg's hash" 'grep -q "version \"1.2.3\"" <<<"$cask" && grep -q "sha256 \"$(sha "$work/pkgs/app-monitor-1.2.3-macos-arm64.dmg")\"" <<<"$cask"'
 check "the cask downloads the release's dmg" 'grep -q "releases/download/#{version}/app-monitor-#{version}-macos-arm64.dmg" <<<"$cask"'
+check "the cask leaves URL verification to Homebrew" '! grep -q "verified:" <<<"$cask"'
 check "the cask is Apple silicon only and says how to open it" 'grep -q "depends_on arch: :arm64" <<<"$cask" && grep -q "Open Anyway" <<<"$cask"'
 manifest="$work/out/bucket/app-monitor.json"
 field() { python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); v=m
