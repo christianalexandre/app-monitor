@@ -40,7 +40,7 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   checks the list.
   Accept: `make scripts-test` and `make publish-dry-run` with the file count printed; DEBT-0135
   paid.
-- [ ] **M11.2 The desktop's packages on every release.** The desktop's `packageVersion`
+- [x] **M11.2 The desktop's packages on every release.** (`feat/desktop-packages-on-release`) The desktop's `packageVersion`
   comes from `VERSION_NAME` without its suffix, and `dev` moves to `1.0.0-SNAPSHOT` (a `0.x`
   cannot be packaged on macOS). `scripts/version_check.sh` covers the desktop too. The publish
   workflow builds the `.dmg` and the zipped `.app` on macOS, the `.msi` and a zipped app on
@@ -49,6 +49,8 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   first-run steps per OS, for unsigned packages.
   Accept: `make scripts-test`; the workflow's dry run on its PR listing each package; one
   package built locally per OS at hand, opened.
+  Done without a change to `scripts/version_check.sh`: the version comes from `VERSION_NAME`
+  itself, and jpackage refuses a `0.x` on macOS (ADR-0227).
 - [ ] **M11.3 Homebrew and Scoop from `homebrew-tap`.** The publish workflow writes
   `Casks/app-monitor.rb` and `bucket/app-monitor.json` (version, URLs, SHA-256) to
   `christianalexandre/homebrew-tap` once the release has its packages. The guide gives

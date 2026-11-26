@@ -380,9 +380,14 @@ without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
 (712 files for the `0.1.x` modules, under Central's free monthly count,
 DEBT-0135). It posts the bundle to the Central Portal with
 `publishingType=AUTOMATIC` and polls until `PUBLISHED`. On `FAILED`, or an
-upload the Portal refuses, it prints the Portal's answer. Last, the `release` job creates the GitHub
-Release with the tag's section of `CHANGELOG.md`, or GitHub's generated
-notes. It is the only job with a write token, and runs only on a tag: a
+upload the Portal refuses, it prints the Portal's answer. Beside it, the
+`desktop` job runs on macOS, Windows and Linux. Each one runs
+`scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
+that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
+`.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
+(ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
+section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
+packages. It is the only job with a write token, and runs only on a tag: a
 pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
 beyond the tag.
 
@@ -395,8 +400,10 @@ Repository secrets, read only on a tag run:
 | `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | a Central Portal user token, namespace `io.github.christianalexandre` |
 
 A pull request to `dev` that changes the workflow, `publish_dry_run.sh`,
-`central_upload.sh`, `version_check.sh` or the publishing conventions runs
-the same job dry. It uses a throwaway key and no secret, and keeps the
+`central_upload.sh`, `version_check.sh`, the publishing conventions,
+`gradle.properties`, a published module's build file, `desktop/app/build.gradle.kts` or
+`desktop_packages.sh` runs the same jobs dry,
+the packages kept as `desktop-<os>` artifacts. It uses a throwaway key and no secret, and keeps the
 bundle as the `central-bundle` artifact. `scripts/central_upload.sh REPO
 --bundle-only` builds the bundle locally.
 
