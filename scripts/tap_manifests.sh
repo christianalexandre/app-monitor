@@ -25,8 +25,7 @@ cask "app-monitor" do
   version "$version"
   sha256 "$dmg_sha"
 
-  url "$releases/#{version}/app-monitor-#{version}-macos-arm64.dmg",
-      verified: "github.com/christianalexandre/app-monitor/"
+  url "$releases/#{version}/app-monitor-#{version}-macos-arm64.dmg"
   name "App Monitor"
   desc "Network monitor and debug toolkit for mobile apps"
   homepage "https://github.com/christianalexandre/app-monitor"
