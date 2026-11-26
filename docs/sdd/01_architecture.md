@@ -500,8 +500,12 @@ AppMonitorServer.sessions ──► TrafficStore.collect ──► Recorder ─�
   the HAR export's notes show under the title bar. The status bar holds the
   server's status, the devices connected, the recording, MCP and the proxy,
   what failed to be stored and the retention warning, then "Mocks (N to
-  confirm)" and "Breakpoints (N held)" while they wait, and the events
-  dropped. A request row is two lines (ADR-0203): the method, the
+  confirm)" and "Breakpoints (N held)" while they wait, "Version X.Y.Z
+  available" when a newer release is out (a `StatusLink` to its page,
+  ADR-0228), and the events dropped. The desktop's only call outside the
+  local network is that check: `GET` on the repository's latest GitHub
+  Release at launch and every 24 hours, off with *Settings → Updates*
+  (`updates.check`, `UpdateChecker`, `GitHubReleases`). A request row is two lines (ADR-0203): the method, the
   path with its query muted and the start time to the millisecond; then its
   status as a badge colored by class (2xx green, 3xx blue, 4xx amber, 5xx, a
   failure or a gRPC error red, pending or a socket neutral), the host or

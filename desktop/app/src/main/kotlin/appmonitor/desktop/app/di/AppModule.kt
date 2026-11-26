@@ -28,6 +28,7 @@ import appmonitor.desktop.domain.ReplayRepository
 import appmonitor.desktop.domain.RetentionRepository
 import appmonitor.desktop.domain.RunRepository
 import appmonitor.desktop.domain.TrafficRepository
+import appmonitor.desktop.domain.UpdateRepository
 import appmonitor.desktop.feature.breakpoints.breakpointsModule
 import appmonitor.desktop.feature.insights.insightsModule
 import appmonitor.desktop.feature.mocks.mocksModule
@@ -54,6 +55,7 @@ internal fun appModule(
     appearance: AppearanceRepository?,
     panes: PaneLayoutRepository?,
     monitor: MonitorRepository? = null,
+    updates: UpdateRepository? = null,
 ): Module =
     module {
         includes(trafficModule, mocksModule, breakpointsModule, insightsModule, settingsModule)
@@ -80,4 +82,5 @@ internal fun appModule(
         if (appearance != null) single<AppearanceRepository> { appearance }
         if (panes != null) single<PaneLayoutRepository> { panes }
         if (monitor != null) single<MonitorRepository> { monitor }
+        if (updates != null) single<UpdateRepository> { updates }
     }

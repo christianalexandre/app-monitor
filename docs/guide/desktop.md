@@ -30,6 +30,13 @@ run:
 - **Linux.** `sudo apt install ./app-monitor-X.Y.Z-linux-amd64.deb` (Debian, Ubuntu) or
   `sudo dnf install ./app-monitor-X.Y.Z-linux-x86_64.rpm` (Fedora, RHEL). Nothing asks.
 
+## Updates
+
+At launch and once a day the desktop asks GitHub for the latest release. When a newer one is
+out, the status bar says *Version X.Y.Z available*; a click opens its page. The request carries
+only the desktop's version, and nothing about the machine, its devices or its traffic.
+*Settings → Updates* turns it off.
+
 ## Run it from the repository
 
 With JDK 21:
