@@ -11,7 +11,7 @@ In the app module:
 ```kotlin
 // app/build.gradle.kts
 plugins {
-    id("io.github.christianalexandre.appmonitor") version "0.1.0"
+    id("io.github.christianalexandre.appmonitor") version "1.0.0"
 }
 ```
 

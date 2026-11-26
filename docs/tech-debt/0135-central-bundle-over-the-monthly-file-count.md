@@ -1,7 +1,7 @@
 ---
 id: DEBT-0135
 title: A release sends 1,068 files to Maven Central, over the free monthly file count
-status: Open
+status: Paid # Open | Paid | Dropped
 date: 2026-11-15
 trigger: The `release/1.0.0` branch is cut, or the Central Portal refuses a release for the monthly file count, or the next PR that changes `scripts/central_upload.sh`
 paid_date: 2026-11-26

@@ -8,8 +8,8 @@ of the SDK's code: it is not linked and has no stubs
 
 *File → Add Package Dependencies…*,
 `https://github.com/christianalexandre/app-monitor`, *Dependency Rule* *Up to
-Next Minor Version* from `0.1.0`, product `AppMonitor`, to the app target.
-Before `1.0.0`, a minor version may change the API; a patch does not.
+Next Major Version* from `1.0.0`, product `AppMonitor`, to the app target. From
+`1.0.0`, only a major version changes the API.
 
 In XcodeGen:
 
@@ -17,7 +17,7 @@ In XcodeGen:
 packages:
   AppMonitor:
     url: https://github.com/christianalexandre/app-monitor
-    minorVersion: 0.1.0
+    majorVersion: 1.0.0
 ```
 
 ## 2. Start it under `#if DEBUG`
