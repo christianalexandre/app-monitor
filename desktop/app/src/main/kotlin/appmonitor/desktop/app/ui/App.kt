@@ -199,7 +199,8 @@ private fun AppMonitorWindow(
                     callsHeld = held.isNotEmpty(),
                     exportNote = exportNote,
                     updateLabel = update?.let { "Version ${it.version.removePrefix("v")} available" },
-                    onUpdate = { update?.let { uriHandler.openUri(it.url) } },
+                    // openUri throws where no browser can be opened (Linux without xdg-open).
+                    onUpdate = { update?.let { runCatching { uriHandler.openUri(it.url) } } },
                     covered =
                         settingsOpen || issuesOpen || mocksShown || breakpointsOpen || benchmarksOpen || diffOpen ||
                             saving != null || held.isNotEmpty(),
