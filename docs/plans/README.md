@@ -58,7 +58,7 @@ record of how the milestone was actually built once it is done.
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 | [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
 | [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Done |
-| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Active |
+| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Done |
 
 ## Roadmap
 
