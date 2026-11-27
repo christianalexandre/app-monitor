@@ -38,7 +38,7 @@ Constraints this plan follows:
   `1.1.0`. Every relative link and image in the README and `docs/guide/` resolves, checked by
   `make docs-check`.
   Accept: `make docs-check` with the link check, which fails on a broken link in its test.
-- [ ] **M12.3 `CONTRIBUTING.md`.** How to build and test from a clean clone (JDK, Android SDK,
+- [x] **M12.3 `CONTRIBUTING.md`.** (`docs/contributing-guide`) How to build and test from a clean clone (JDK, Android SDK,
   Xcode and XcodeGen where needed), the `make` targets that matter, the branch and commit
   rules, where decisions and debt are written, and how a PR is reviewed. It points to
   `AGENTS.md` and `docs/guidelines/` instead of copying them.

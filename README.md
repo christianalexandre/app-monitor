@@ -196,6 +196,8 @@ Other clients and the list of tools are in the [MCP guide](docs/guide/mcp.md).
 - [Guides](docs/guide/README.md): Android, iOS, KMP, the desktop, MCP, and
   [compatibility](docs/guide/compatibility.md).
 - [Changelog](CHANGELOG.md).
+- [Contributing](CONTRIBUTING.md): build and test from a clean clone, and
+  open a pull request.
 - [How this project is built](docs/README.md): one person and an AI agent in
   a documented loop, with its decisions, plans and release gate.
 
