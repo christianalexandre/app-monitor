@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import appmonitor.desktop.app.store.MonitorPause
 import appmonitor.desktop.app.ui.AppMonitorApp
 import appmonitor.desktop.storage.LiveTraffic
 import appmonitor.desktop.storage.MockSource
@@ -164,7 +165,9 @@ class DemoCaptures {
         val file = File(out, name)
         val gif = GifWriter(file)
         runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
-            setContent { AppMonitorApp(storage, "Listening", appearance = TestAppearance, live = live) }
+            setContent {
+                AppMonitorApp(storage, "Listening on port 47474", appearance = TestAppearance, monitor = MonitorPause(), live = live)
+            }
             awaitText("Listening", substring = true)
             script(gif)
         }
