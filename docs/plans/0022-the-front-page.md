@@ -25,7 +25,7 @@ Constraints this plan follows:
 
 ## Tasks
 
-- [ ] **M12.1 Animated captures.** A Gradle task in `desktop/app` renders scripted scenes
+- [x] **M12.1 Animated captures.** (`docs/animated-captures`) A Gradle task in `desktop/app` renders scripted scenes
   offscreen, as the screenshot tests do (ADR-0145), from invented traffic: requests streaming
   in, a request's detail tabs, a mock answering a call. It writes each scene as an animated
   GIF to `docs/screenshots/` with the JDK's `ImageIO`, no new dependency. A size budget per

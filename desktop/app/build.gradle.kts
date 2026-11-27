@@ -85,6 +85,23 @@ tasks.test {
     exclude("**/LiveDeviceScreenshots*")
     exclude("**/TitleBarScreenshots*")
     exclude("**/AppIconExport*")
+    exclude("**/DemoCaptures*")
+}
+
+// The README's animated captures (PLAN-0022 M12.1): run by hand after a visible change; commit what it writes.
+tasks.register<Test>("demoGifs") {
+    description = "Renders the README's scenes offscreen from invented traffic and writes them as animated GIFs."
+    group = "documentation"
+    testClassesDirs =
+        sourceSets.test
+            .get()
+            .output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter.includeTestsMatching("appmonitor.desktop.app.DemoCaptures")
+    outputs.upToDateWhen { false }
+    testLogging.showStandardStreams = true
+    systemProperty("demoGifDir", rootProject.file("docs/screenshots").absolutePath)
 }
 
 // Needs a device running the sample (ADR-0031).
