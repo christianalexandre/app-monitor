@@ -46,7 +46,15 @@ class KmpReleaseLinkTest {
             "settings.gradle.kts",
             """
             pluginManagement { repositories { mavenCentral() } }
-            dependencyResolutionManagement { repositories { mavenCentral(); maven(url = uri("repo")) } }
+            dependencyResolutionManagement {
+                repositories {
+                    exclusiveContent {
+                        forRepository { maven(url = uri("repo")) }
+                        filter { includeGroup("io.github.christianalexandre") }
+                    }
+                    mavenCentral()
+                }
+            }
             include(":sdk:core", ":sdk:core-no-op", ":sdk:android-okhttp", ":sdk:okhttp-no-op", ":sdk:ktor", ":sdk:ktor-no-op", ":app")
             """,
         )

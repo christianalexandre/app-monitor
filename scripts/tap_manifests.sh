@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Usage: tap_manifests.sh VERSION PACKAGES_DIR OUT_DIR
 # Writes OUT_DIR/Casks/app-monitor.rb (Homebrew), OUT_DIR/bucket/app-monitor.json (Scoop) and the README for the
-# release VERSION, from the macOS .dmg and the Windows .zip in PACKAGES_DIR (ADR-0229).
+# desktop release VERSION, tagged desktop-VERSION (ADR-0232), from the macOS .dmg and the Windows .zip in
+# PACKAGES_DIR (ADR-0229).
 # RELEASES_URL moves the download URLs, for a test.
 set -euo pipefail
 
@@ -25,15 +26,15 @@ cask "app-monitor" do
   version "$version"
   sha256 "$dmg_sha"
 
-  url "$releases/#{version}/app-monitor-#{version}-macos-arm64.dmg",
-      verified: "github.com/christianalexandre/app-monitor/"
+  url "$releases/desktop-#{version}/app-monitor-#{version}-macos-arm64.dmg"
   name "App Monitor"
   desc "Network monitor and debug toolkit for mobile apps"
   homepage "https://github.com/christianalexandre/app-monitor"
 
   livecheck do
-    url :url
-    strategy :github_latest
+    url "https://github.com/christianalexandre/app-monitor"
+    regex(/^desktop-(\d+(?:\.\d+)+)$/i)
+    strategy :github_releases
   end
 
   depends_on arch: :arm64
@@ -58,7 +59,7 @@ cat >"$out/bucket/app-monitor.json" <<JSON
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "$releases/$version/$zip",
+            "url": "$releases/desktop-$version/$zip",
             "hash": "$zip_sha"
         }
     },
@@ -69,11 +70,14 @@ cat >"$out/bucket/app-monitor.json" <<JSON
             "App Monitor"
         ]
     ],
-    "checkver": "github",
+    "checkver": {
+        "url": "https://api.github.com/repos/christianalexandre/app-monitor/releases",
+        "regex": "\"tag_name\":\\\\s*\"desktop-([\\\\d.]+)\""
+    },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "$releases/\$version/app-monitor-\$version-windows-x64.zip"
+                "url": "$releases/desktop-\$version/app-monitor-\$version-windows-x64.zip"
             }
         }
     }

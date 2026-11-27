@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Usage: central_upload.sh REPO_DIR [--bundle-only]
 # Zips a signed Maven repository into a Central Portal bundle (build/central-bundle.zip) and,
-# unless --bundle-only, uploads it with publishingType AUTOMATIC and waits for PUBLISHED
-# (ADR-0215, ADR-0217). Needs MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD to upload.
+# unless --bundle-only, uploads it with publishingType AUTOMATIC and waits until Central publishes it
+# (ADR-0215, ADR-0217, ADR-0231): PUBLISHING ends the wait; a version Maven Central already serves is
+# not uploaded again. Needs MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD to upload.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 repo="${1:-}"
 [[ -d "$repo/io" ]] || { echo "usage: $0 REPO_DIR [--bundle-only] (REPO_DIR holds io/…)" >&2; exit 2; }
 url="${CENTRAL_URL:-https://central.sonatype.com}"
+maven="${CENTRAL_REPO_URL:-https://repo1.maven.org/maven2}"
 poll="${CENTRAL_POLL_SECONDS:-15}"
 deadline=$((SECONDS + ${CENTRAL_TIMEOUT_SECONDS:-1800}))
 bundle="$PWD/build/central-bundle.zip"
@@ -24,6 +26,12 @@ echo "central: bundle $(unzip -Z1 "$bundle" | grep -vc '/$') files, $(wc -c <"$b
   { echo "central: MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD are needed to upload" >&2; exit 2; }
 auth="Authorization: Bearer $(printf '%s:%s' "$MAVEN_CENTRAL_USERNAME" "$MAVEN_CENTRAL_PASSWORD" | base64 | tr -d '\n')"
 version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+pom="$(cd "$repo" && find io -name '*.pom' | sort | head -1)"
+[[ -n "$pom" ]] || { echo "central: no .pom under $repo/io" >&2; exit 2; }
+if curl -sSf -o /dev/null "$maven/$pom" 2>/dev/null; then
+  echo "central: $pom already on Maven Central; nothing uploaded"
+  exit 0
+fi
 
 id="$(curl --fail-with-body -sS -X POST -H "$auth" -F "bundle=@$bundle" \
   "$url/api/v1/publisher/upload?name=appmonitor-$version&publishingType=AUTOMATIC")" ||
@@ -36,6 +44,10 @@ while :; do
   echo "central: $state"
   case "$state" in
     PUBLISHED) exit 0 ;;
+    PUBLISHING)
+      echo "central: validated; Maven Central serves it once the Portal reports PUBLISHED, which took up to two hours"
+      exit 0
+      ;;
     FAILED)
       echo "central: $status" >&2
       exit 1

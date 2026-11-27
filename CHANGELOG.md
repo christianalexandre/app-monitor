@@ -1,8 +1,34 @@
 # Changelog
 
 Every SDK ships the same version at the same `X.Y.Z` tag (ADR-0054,
-ADR-0216). The publish workflow uses a version's section as its GitHub
-Release notes (ADR-0217).
+ADR-0216). The desktop app has its own version, at `desktop-X.Y.Z` tags, on
+the SDKs' major (ADR-0232); its sections are headed `Desktop X.Y.Z`. The
+publish workflow uses a version's section as its GitHub Release notes
+(ADR-0217).
+
+## Desktop 1.1.0
+
+The desktop app's first release under its own version (ADR-0232), for the
+`1.0.0` SDKs. The SDKs are unchanged and stay at `1.0.0`.
+
+- **The packages start.** `1.0.0`'s packages failed at launch on every OS;
+  the runtime image now holds every JDK module the app uses (ADR-0230).
+- **Install it with a package manager or a package** attached to this
+  release:
+  - `brew install --cask christianalexandre/tap/app-monitor`
+  - `scoop bucket add christianalexandre https://github.com/christianalexandre/homebrew-tap`
+    then `scoop install christianalexandre/app-monitor`
+  - `.deb` and `.rpm` on Linux
+
+  The packages are not signed by Apple or Microsoft; the first launch asks
+  once ([desktop guide](docs/guide/desktop.md)).
+- **The update notice follows desktop releases only.** It reads the newest
+  `desktop-X.Y.Z` release and skips the SDKs' ones.
+
+Known limits:
+
+- The packages are for macOS on Apple silicon, Windows x64 and Linux x64;
+  elsewhere, run it from the repository with JDK 21.
 
 ## 1.0.0
 

@@ -34,14 +34,24 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "appmonitor.desktop.app.MainKt"
-        val versionName = providers.gradleProperty("VERSION_NAME").get()
+        val versionName = providers.gradleProperty("DESKTOP_VERSION_NAME").get() // ADR-0232
         jvmArgs += "-Dappmonitor.version=$versionName"
 
         // ADR-0055: bundleID and upgradeUuid are kept once released.
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
             // ADR-0105: jdk.crypto.ec holds JDK 21's EC provider, which the proxy's keys and TLS need; jdeps cannot see it.
-            modules("java.instrument", "java.management", "java.sql", "jdk.crypto.ec", "jdk.unsupported")
+            // ADR-0230: the rest is what jdeps finds; scripts/runtime_modules_check.sh fails on one missing.
+            modules(
+                "java.instrument",
+                "java.management",
+                "java.naming",
+                "java.net.http",
+                "java.sql",
+                "jdk.crypto.ec",
+                "jdk.jfr",
+                "jdk.unsupported",
+            )
             packageName = "App Monitor"
             // ADR-0227: numbers only, and macOS refuses a first number of 0.
             packageVersion = versionName.substringBefore('-')

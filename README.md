@@ -85,8 +85,8 @@ scoop bucket add christianalexandre https://github.com/christianalexandre/homebr
 scoop install christianalexandre/app-monitor
 ```
 
-On Linux, the `.deb` or `.rpm` of the
-[latest release](https://github.com/christianalexandre/app-monitor/releases/latest). The
+On Linux, the `.deb` or `.rpm` of the newest *Desktop X.Y.Z*
+[release](https://github.com/christianalexandre/app-monitor/releases). The
 packages are not signed, so the first launch asks once; the
 [desktop guide](docs/guide/desktop.md) says how, and how to run it from the repository
 instead.

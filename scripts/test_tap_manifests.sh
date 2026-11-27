@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests scripts/tap_manifests.sh on stand-in packages: the cask's and the Scoop manifest's fields (ADR-0229).
+# Tests scripts/tap_manifests.sh on stand-in packages: the cask's and the Scoop manifest's fields (ADR-0229, ADR-0232).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 work="$PWD/build/test-tap-manifests"
@@ -16,16 +16,18 @@ sha() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 
 scripts/tap_manifests.sh 1.2.3 "$work/pkgs" "$work/out" >/dev/null
 cask="$(cat "$work/out/Casks/app-monitor.rb")"
 check "the cask has the version and the dmg's hash" 'grep -q "version \"1.2.3\"" <<<"$cask" && grep -q "sha256 \"$(sha "$work/pkgs/app-monitor-1.2.3-macos-arm64.dmg")\"" <<<"$cask"'
-check "the cask downloads the release's dmg" 'grep -q "releases/download/#{version}/app-monitor-#{version}-macos-arm64.dmg" <<<"$cask"'
+check "the cask downloads the desktop release's dmg" 'grep -q "releases/download/desktop-#{version}/app-monitor-#{version}-macos-arm64.dmg" <<<"$cask"'
+check "the cask leaves URL verification to Homebrew" '! grep -q "verified:" <<<"$cask"'
 check "the cask is Apple silicon only and says how to open it" 'grep -q "depends_on arch: :arm64" <<<"$cask" && grep -q "Open Anyway" <<<"$cask"'
 manifest="$work/out/bucket/app-monitor.json"
 field() { python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); v=m
 for k in sys.argv[2].split("."): v=v[int(k)] if isinstance(v,list) else v[k]
 print(v)' "$manifest" "$1"; }
 check "the manifest is JSON with the version" '[[ "$(field version)" == 1.2.3 ]]'
-check "the manifest downloads the release's zip with its hash" '[[ "$(field architecture.64bit.url)" == */1.2.3/app-monitor-1.2.3-windows-x64.zip && "$(field architecture.64bit.hash)" == "$(sha "$work/pkgs/app-monitor-1.2.3-windows-x64.zip")" ]]'
+check "the manifest downloads the release's zip with its hash" '[[ "$(field architecture.64bit.url)" == */desktop-1.2.3/app-monitor-1.2.3-windows-x64.zip && "$(field architecture.64bit.hash)" == "$(sha "$work/pkgs/app-monitor-1.2.3-windows-x64.zip")" ]]'
+check "both follow desktop-X.Y.Z tags only" 'grep -q "regex(/^desktop-" <<<"$cask" && [[ "$(field checkver.regex)" == *desktop-* ]] && python3 -c "import re,sys; m=re.search(sys.argv[1], sys.argv[2]); sys.exit(m is None or m.group(1) != \"1.2.4\")" "$(field checkver.regex)" "[{\"tag_name\": \"1.3.0\"}, {\"tag_name\": \"desktop-1.2.4\"}]"'
 check "the manifest opens the app from its folder" '[[ "$(field extract_dir)" == "App Monitor" && "$(field shortcuts.0.0)" == "App Monitor.exe" ]]'
-check "the manifest updates itself from the next release" '[[ "$(field autoupdate.architecture.64bit.url)" == *'"'"'/$version/app-monitor-$version-windows-x64.zip'"'"' ]]'
+check "the manifest updates itself from the next release" '[[ "$(field autoupdate.architecture.64bit.url)" == *'"'"'/desktop-$version/app-monitor-$version-windows-x64.zip'"'"' ]]'
 check "the README gives both install lines" 'grep -q "brew install --cask christianalexandre/tap/app-monitor" "$work/out/README.md" && grep -q "scoop install christianalexandre/app-monitor" "$work/out/README.md"'
 code=0
 scripts/tap_manifests.sh 1.2.3-SNAPSHOT "$work/pkgs" "$work/x" >/dev/null 2>&1 || code=$?

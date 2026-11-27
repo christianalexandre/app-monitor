@@ -247,3 +247,6 @@ Rules:
 | [0227](0227-desktop-packages-built-per-os-on-each-release.md) | The desktop's packages are built per OS on each release, named for the tap and the bucket | Accepted |
 | [0228](0228-the-desktop-reads-its-latest-github-release.md) | The desktop reads its latest GitHub Release and shows a newer version | Accepted |
 | [0229](0229-homebrew-cask-and-scoop-manifest-from-one-tap.md) | A Homebrew cask and a Scoop manifest, written to one repository by the release | Accepted |
+| [0230](0230-the-runtime-image-holds-what-jdeps-finds.md) | The desktop's runtime image holds every module jdeps finds, checked by make check | Accepted |
+| [0231](0231-central-publishing-ends-the-wait.md) | Central's PUBLISHING ends the publish wait, and a published version is not uploaded again | Accepted |
+| [0232](0232-the-desktop-has-its-own-version.md) | The desktop has its own version and tag, on the SDKs' major | Accepted |

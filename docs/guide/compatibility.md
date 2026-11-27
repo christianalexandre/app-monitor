@@ -10,12 +10,14 @@
 | Kotlin Multiplatform | The Android and iOS steps; `appmonitor-ktor` for other engines | Ktor `HttpClient` calls and WebSocket frames | Ktor 3.6+; targets Android, `iosArm64`, `iosSimulatorArm64`; Kotlin 2.2+, or 2.4+ in a module reading `appmonitor-ktor`'s iOS klibs ([ADR-0218](../adr/0218-published-coordinates-consumers-and-the-ios-klib-floor.md)) |
 
 Every SDK has the same version, published at the same tag
-([changelog](../../CHANGELOG.md)).
+([changelog](../../CHANGELOG.md)). The desktop has its own (*Desktop X.Y.Z*
+releases); a desktop and the SDKs work together when their major versions
+match.
 
 ## Desktop
 
-macOS on Apple silicon, Windows x64 and Linux x64 (`.deb` and `.rpm`), from `1.0.0`'s
-packages, or from the repository with JDK 21 on any of them
+macOS on Apple silicon, Windows x64 and Linux x64 (`.deb` and `.rpm`), from Desktop
+`1.1.0`'s packages, or from the repository with JDK 21 on any of them
 ([desktop guide](desktop.md)).
 
 | macOS | Linux | Windows |

@@ -244,8 +244,10 @@ jpackage from the JDK 21 toolchain (the Compose plugin downloads WiX for
 `App Monitor-1.0.0.dmg` (≈75 MB, ≈2.5 min cold). Names, bundle id
 `io.github.christianalexandre.appmonitor.desktop`, Linux package
 `app-monitor` and the Windows `upgradeUuid` are ADR-0055's; the bundled
-runtime adds the modules `./gradlew :desktop:app:suggestRuntimeModules`
-prints, so rerun it after adding a dependency. The icon is
+runtime holds the modules `./gradlew :desktop:app:suggestRuntimeModules`
+prints (jdeps over the app's jars), plus `jdk.crypto.ec` (ADR-0105);
+`make check` runs `scripts/runtime_modules_check.sh`, which fails when it
+prints one `modules(...)` lacks (ADR-0230). The icon is
 `desktop/app/icon/app-monitor.svg`; `./gradlew :desktop:app:appIcons`
 renders it to the committed ICNS, ICO and PNG the packages, the window and
 the Dock use (ADR-0211). The packages are **unsigned
@@ -369,27 +371,44 @@ same version: `X.Y.Z-SNAPSHOT` on `dev`, plain `X.Y.Z` on a release branch
 `--release X.Y.Z` also fails when the tag differs or the version has a
 suffix. `make scripts-test` runs it on the repository.
 
+The desktop app has its own version, `DESKTOP_VERSION_NAME` in
+`gradle.properties`, released at a `desktop-X.Y.Z` tag; its major equals
+`VERSION_NAME`'s, and only a major release moves both (ADR-0232).
+`version_check.sh` fails on another major, and `--release desktop-X.Y.Z`
+checks the tag against `DESKTOP_VERSION_NAME`. The packages' version, the
+`-Dappmonitor.version` the app reports and the cask's and manifest's version
+come from it.
+
 ## Publishing a release
 
-`.github/workflows/publish.yml` (job `central`, macOS, ADR-0217) runs on a
-pushed `X.Y.Z` tag. It refuses a tag whose commit is not on `main` and runs
-`scripts/version_check.sh --release <tag>`. Then `make publish-dry-run`
+`.github/workflows/publish.yml` runs on a pushed tag of either kind
+(ADR-0217, ADR-0232). Its `version` job refuses a tag whose commit is not on
+`main` and runs `scripts/version_check.sh --release <tag>`. An `X.Y.Z` tag
+then runs `central` and a GitHub Release with no packages; a `desktop-X.Y.Z`
+tag runs `desktop`, then a GitHub Release titled *Desktop X.Y.Z* with the
+packages, then `tap`. In the job `central` (macOS), `make publish-dry-run`
 signs with the release key and checks every file. `scripts/central_upload.sh
 build/maven-dry-run` zips the repository into `build/central-bundle.zip`,
 without `maven-metadata.xml` and without the optional `.sha256` and `.sha512`
 (712 files for the `0.1.x` modules, under Central's free monthly count,
-DEBT-0135). It posts the bundle to the Central Portal with
-`publishingType=AUTOMATIC` and polls until `PUBLISHED`. On `FAILED`, or an
-upload the Portal refuses, it prints the Portal's answer. Beside it, the
+DEBT-0135). When `repo1.maven.org` already serves the bundle's first `.pom`,
+it uploads nothing and passes, so a rerun goes on to the next jobs. Otherwise it
+posts the bundle to the Central Portal with `publishingType=AUTOMATIC` and
+polls until `PUBLISHING` or `PUBLISHED`: `PUBLISHING` means the bundle passed
+validation, and Central took about two hours from there for `1.0.0`
+(ADR-0231). On `FAILED`, or an upload the Portal refuses, it prints the
+Portal's answer. Beside it, the
 `desktop` job runs on macOS, Windows and Linux. Each one runs
 `scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
 that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
 `.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
 (ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
 section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
-packages. Then the `tap` job writes the Homebrew cask, the Scoop manifest and
-their README (`scripts/tap_manifests.sh <tag> build/desktop-packages
-build/tap`) and pushes them to `christianalexandre/homebrew-tap` with
+packages; the notes are the `CHANGELOG.md` section headed `## X.Y.Z` or
+`## Desktop X.Y.Z`. Then the `tap` job writes the Homebrew cask, the Scoop
+manifest and their README (`scripts/tap_manifests.sh X.Y.Z
+build/desktop-packages build/tap`, downloads under `desktop-X.Y.Z`, updates
+found from `desktop-` tags only) and pushes them to `christianalexandre/homebrew-tap` with
 `HOMEBREW_TAP_TOKEN`, a token for that repository only (ADR-0229). `release`
 is the only job with this repository's write token, and runs only on a tag: a
 pull request's dry run runs that PR's own scripts. SwiftPM needs nothing
@@ -427,9 +446,10 @@ Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
 3. **Tag `main`:** `git tag X.Y.Z origin/main && git push origin X.Y.Z`. No
    `v` prefix: the workflow takes `X.Y.Z` only.
 4. **`Publish` runs** (*Publishing a release* above). It is green once
-   the Portal reports `PUBLISHED` and the GitHub Release exists, with the
-   version's `CHANGELOG.md` section as notes. The artifacts reach
-   `repo1.maven.org` a few minutes later. Check them under
+   the Portal reports `PUBLISHING` or `PUBLISHED` and the GitHub Release
+   exists, with the version's `CHANGELOG.md` section as notes. The artifacts
+   reach `repo1.maven.org` from minutes (`0.1.0`) to about two hours
+   (`1.0.0`) later (ADR-0231). Check them under
    `https://repo1.maven.org/maven2/io/github/christianalexandre/`, or in the
    Portal's *Deployments*.
 5. **Consumers:** `scripts/consumers_check.sh X.Y.Z`, run in a worktree at
@@ -437,6 +457,11 @@ Every SDK ships one `X.Y.Z` at one tag (ADR-0054, ADR-0216); `dev` holds
 6. **Back-merge:** a PR from `main` to `dev`, merged with a merge commit
    (ADR-0219). Then a PR on `dev` moves the three versions to the next
    `-SNAPSHOT`.
+
+A desktop release is the same, with `release/desktop-X.Y.Z`,
+`DESKTOP_VERSION_NAME` without its suffix, a `## Desktop X.Y.Z` section and
+the tag `desktop-X.Y.Z` (ADR-0232). Nothing reaches Maven Central and step 5
+does not apply; before announcing it, install each package from the release.
 
 Maven Central's free tier counts files per calendar month; one release is
 near the limit (DEBT-0135).
