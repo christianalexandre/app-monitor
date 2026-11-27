@@ -32,7 +32,7 @@ Constraints this plan follows:
   file keeps the repository small.
   Accept: the task writes the GIFs, each under its budget; they are committed; the task is in
   `AGENTS.md`'s commands.
-- [ ] **M12.2 A README for a newcomer.** The front page opens with a GIF and what App Monitor
+- [x] **M12.2 A README for a newcomer.** (`docs/readme-for-newcomers`) The front page opens with a GIF and what App Monitor
   does in one sentence, then a short tour (capture, mocks and breakpoints, history, MCP) with
   M12.1's captures, then getting started as today. The desktop's install names Desktop
   `1.1.0`. Every relative link and image in the README and `docs/guide/` resolves, checked by

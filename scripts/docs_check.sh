@@ -63,4 +63,7 @@ for ref in $refs; do
   ls "$dir/$num"-*.md >/dev/null 2>&1 || err "$ref is referenced but $dir/$num-*.md does not exist"
 done
 
+# The front page and the guides: relative links and images resolve (PLAN-0022 M12.2).
+scripts/link_check.py . >/dev/null || err "a relative link in the README or docs/guide/ does not resolve (above)"
+
 (( errors == 0 )) && echo "docs-check: ok" || exit 1
