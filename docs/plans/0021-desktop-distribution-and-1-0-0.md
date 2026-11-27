@@ -1,10 +1,10 @@
 ---
 id: PLAN-0021
 title: Desktop distribution and 1.0.0
-status: Active # Draft | Active | Done | Abandoned
+status: Done # Draft | Active | Done | Abandoned
 milestone: M11
 started: 2026-11-26
-finished:
+finished: 2026-11-27
 ---
 
 # PLAN-0021 — Desktop distribution and 1.0.0 (M11)
@@ -79,11 +79,17 @@ repository only, kept as a secret of this one. M11.3 names the secret.
   resolves, and `brew install` / `scoop install` confirm the desktop.
   Accept: the release gate green on the PR; after the owner's tag, `consumers_check.sh 1.0.0`
   green and the packages installed from the tap and the bucket.
+  Done in two releases. `1.0.0` (#440) published the SDKs, but its packages failed at launch on
+  every OS (ADR-0230, #442). The desktop then got its own version (ADR-0232, #445) and shipped
+  as `desktop-1.1.0` (#446), the SDKs left at `1.0.0`. `consumers_check.sh 1.0.0` green; the
+  owner opened the Linux and Windows packages of #445's dry run; `brew upgrade --cask
+  app-monitor` took `1.1.0`, whose `.dmg`, downloaded from the release, launched here. `scoop
+  install` was not run: it needs Windows.
 - [x] **M11.R1 A tag that fails the version check publishes nothing.** (`fix/release-needs-version-check`) The `release` job
   needs `version` and runs only when it succeeded; the `.dmg`'s architecture in one place and
   `desktop_packages.sh`' glob quoted; the scripts' header comments back under four lines. Accept: a tag that is not on `main`, or does not match its version, ends with
   no GitHub Release (the workflow's conditions read, `actionlint` if available).
-- [ ] **M11.R2 The update notice's click cannot crash the window.** Opening the release's
+- [x] **M11.R2 The update notice's click cannot crash the window.** (`fix/update-notice-click-cannot-crash`) Opening the release's
   page goes through `runCatching`; `GitHubReleases`' KDoc under four lines. Accept: a window
   test with a `UriHandler` that throws clicks the notice and the window stays.
 
@@ -92,7 +98,8 @@ repository only, kept as a secret of this one. M11.3 names the secret.
 ### M11 milestone review
 
 `code-review` at `medium` of `7050c53..d964eed` (#436 to #449): a static read of the diff, 62
-files, no Gradle test run by it. Eight findings, each then read in the code here.
+files, no Gradle test run by it. Eight findings, each then read in the code here. Finding 3 is
+a correctness finding left open (DEBT-0141); the owner merges this PR.
 
 | # | Finding | Normal use hits it? | Where |
 | --- | --- | --- | --- |
@@ -105,10 +112,23 @@ files, no Gradle test run by it. Eight findings, each then read in the code here
 | 7 | `GitHubReleases`' KDoc and the headers of `central_upload.sh`, `tap_manifests.sh`, `desktop_packages.sh` over four lines. | A written rule (guideline 02) | M11.R1, M11.R2 |
 | 8 | `central_upload.sh` cites DEBT-0135 as paid: history in source. | A written rule (guideline 02) | M11.R1 |
 
-> Filled when the plan closes (`status: Done` or `Abandoned`):
->
-> - **Shipped**: PRs merged (`#NN`) and what each delivered.
-> - **Decisions**: ADRs created.
-> - **Debt**: DEBTs created or paid.
-> - **Deviations**: tasks added, split, dropped or reordered, and why.
-> - **Lessons**: what the next plan should do differently.
+- **Shipped**: M11.1 the Central bundle under the monthly file count (#436). M11.2 the
+  desktop's packages on every release (#437). M11.4 the update notice (#438). M11.3 the
+  Homebrew cask and Scoop manifest (#439). M11.5 `1.0.0` (#440, back-merge #441), then the
+  runtime image fix (#442), the cask's URL check left to Homebrew (#443), Central's wait ending
+  at `PUBLISHING` (#444), the desktop's own version (#445), `desktop-1.1.0` (#446, back-merge
+  #448, snapshot #449) and the plugin's TestKit stand-ins kept off Maven Central (#447).
+  M11.R1 a refused tag publishes nothing (#450). M11.R2 the update notice's click guarded,
+  and the close (this PR). Plan PR #435.
+- **Decisions**: ADR-0227 to ADR-0232.
+- **Debt**: Paid DEBT-0135 (M11.1). Created DEBT-0139 (packages never launched, re-triggered
+  to `release/desktop-1.2.0`), DEBT-0140 (`MonitorPauseTest` failed once in the gate) and
+  DEBT-0141 (this review).
+- **Deviations**: M11.4 before M11.3, which waited for the owner's tap repository and token.
+  M11.5 grew: `1.0.0`'s packages did not start, so the desktop split from the SDKs' version
+  (ADR-0232) and shipped again as `desktop-1.1.0`, the owner's pick over `1.0.1`. Two gate
+  failures on the way: #447's TestKit stand-ins, shadowed by the real `1.0.0` once on Central,
+  and DEBT-0140.
+- **Lessons**: nothing launched the packages before `1.0.0` (DEBT-0139); a release should be
+  opened from its own package before the tag. A test that resolves this project's coordinates
+  must pin where they come from, since a release puts them on Maven Central.

@@ -16,9 +16,8 @@ import java.net.http.HttpResponse
 import java.time.Duration
 
 /**
- * The repository's newest desktop release from GitHub's REST API (ADR-0228): one unauthenticated `GET` of the release list,
- * nothing about the machine sent but the `User-Agent` GitHub requires. The first published `desktop-X.Y.Z` tag, as `X.Y.Z`
- * (ADR-0232); the SDKs' `X.Y.Z` releases are skipped. Null when there is none, and on any failure.
+ * The first published `desktop-X.Y.Z` release, as `X.Y.Z`, from one unauthenticated `GET` of the release list; only the
+ * `User-Agent` GitHub requires is sent. Null when there is none, and on any failure (ADR-0228, ADR-0232).
  */
 internal class GitHubReleases(
     private val url: String = RELEASES_URL,
