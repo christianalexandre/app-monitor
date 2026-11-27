@@ -50,6 +50,19 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
+## The README's animated captures
+
+`./gradlew :desktop:app:demoGifs` renders three scenes of the desktop window
+offscreen at 1280 × 800, as the screenshot tests do, from invented traffic (a
+"Shop" app on `*.shop.example`, never a real app's): requests streaming in
+(`demo-traffic.gif`), a request's detail tabs (`demo-detail.gif`) and a mock
+answering a call (`demo-mock.gif`). `GifWriter`, in the test sources, writes
+them with the JDK's `ImageIO`: after the first frame, each keeps only the
+rectangle that changed, and a frame equal to the last lengthens it. Each GIF
+must stay under 1.5 MB or the task fails. They go to `docs/screenshots/` and are
+committed; run it again after a visible change to the window. The saved run in
+the sidebar carries the machine's date, so a rerun changes that line.
+
 ## End to end with a real device
 
 `./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
