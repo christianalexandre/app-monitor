@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests scripts/link_check.py on a crafted tree: what resolves passes, a missing file or heading fails (PLAN-0022).
+# Tests scripts/link_check.py on a crafted tree: what resolves passes, a missing file or heading fails (ADR-0233).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 work="$PWD/build/test-link-check"

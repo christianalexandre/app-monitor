@@ -31,7 +31,7 @@ import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-// The README's animated captures from invented traffic (AGENTS.md, "Nothing private"). Run only by `demoGifs`.
+// The README's animated captures from invented traffic only (ADR-0233). Run only by `demoGifs`.
 @OptIn(ExperimentalTestApi::class)
 class DemoCaptures {
     private val out = File(System.getProperty("demoGifDir") ?: "build/demo-gifs")
@@ -264,7 +264,7 @@ class DemoCaptures {
         const val SESSION = "demo"
         const val BUDGET_BYTES = 1_500_000L
 
-        // 2026-11-27 13:42:07 UTC: a fixed time, so a rerun changes nothing but the local clock's offset.
+        // 2026-11-27 13:42:07 UTC: the requests' times move only with the machine's time zone; the saved run's date does not.
         const val T0 = 1_795_786_927_000L
     }
 }
