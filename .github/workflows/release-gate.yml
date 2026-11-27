@@ -74,7 +74,7 @@ jobs:
       - name: Protocol JVM tests
         run: ./gradlew :protocol:jvmTest
       - name: Test reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: desktop-test-reports-${{ matrix.os }}
@@ -146,7 +146,7 @@ jobs:
       - name: Protocol tests, all targets
         run: ./gradlew :protocol:allTests
       - name: Logs and reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: contract-logs
@@ -176,7 +176,7 @@ jobs:
       - name: Android and KMP samples, debug and release
         run: make android-samples kmp-sample
       - name: Logs and reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: samples-logs
@@ -200,7 +200,7 @@ jobs:
       - name: iOS sample, debug and release
         run: make ios-sample
       - name: Logs and reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: samples-ios-logs
@@ -237,7 +237,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: make e2e-android
       - name: Server log and logcat
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-android-logs
@@ -265,7 +265,7 @@ jobs:
       - name: iOS end to end
         run: make e2e-ios
       - name: Server, simulator and sample build logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-ios-logs
@@ -294,7 +294,7 @@ jobs:
       - name: iOS end to end with gRPC-Core through the proxy
         run: make e2e-ios-grpc
       - name: Server, simulator and sample build logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-ios-grpc-logs
@@ -331,7 +331,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: make e2e-kmp-android
       - name: Server log and logcat
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-kmp-android-logs
@@ -359,7 +359,7 @@ jobs:
       - name: KMP iOS end to end
         run: make e2e-kmp-ios
       - name: Server, simulator and sample build logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-kmp-ios-logs
