@@ -156,4 +156,4 @@ Rules:
 | [0136](0136-m10-review-findings.md) | Findings of the M10 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
 | [0137](0137-h9-review-findings.md) | Findings of the H9 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
 | [0138](0138-mdns-problem-in-the-status-read-once.md) | The status line's mDNS problem is read once, at start | A stale mDNS problem seen, or a change to `runServer` | Open |
-| [0139](0139-packages-never-launched-before-release.md) | The desktop's packages are never launched before they are released | The `release/desktop-1.1.0` branch is cut, or a released package that does not start | Open |
+| [0139](0139-packages-never-launched-before-release.md) | The desktop's packages are never launched before they are released | The `release/desktop-1.2.0` branch is cut, or a released package that does not start | Open |
