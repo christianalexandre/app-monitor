@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Usage: central_upload.sh REPO_DIR [--bundle-only]
-# Zips a signed Maven repository into a Central Portal bundle (build/central-bundle.zip) and,
-# unless --bundle-only, uploads it with publishingType AUTOMATIC and waits until Central publishes it
-# (ADR-0215, ADR-0217, ADR-0231): PUBLISHING ends the wait; a version Maven Central already serves is
-# not uploaded again. Needs MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD to upload.
+# Zips a signed Maven repository into build/central-bundle.zip and, unless --bundle-only, uploads it
+# and waits for PUBLISHING; a version Central already serves is skipped (ADR-0215, ADR-0217, ADR-0231).
+# Needs MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD to upload.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,7 +16,7 @@ bundle="$PWD/build/central-bundle.zip"
 
 rm -f "$bundle"
 mkdir -p "$(dirname "$bundle")"
-# Central computes the metadata itself; it requires .md5 and .sha1 only (DEBT-0135 paid: the monthly file count).
+# Central requires .md5 and .sha1 only; more files count against its monthly limit (DEBT-0135).
 (cd "$repo" && zip -qr "$bundle" io -x '*maven-metadata.xml*' '*.sha256' '*.sha512')
 echo "central: bundle $(unzip -Z1 "$bundle" | grep -vc '/$') files, $(wc -c <"$bundle" | tr -d ' ') bytes"
 [[ "${2:-}" != --bundle-only ]] || exit 0
