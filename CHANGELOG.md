@@ -6,6 +6,17 @@ the SDKs' major (ADR-0232); its sections are headed `Desktop X.Y.Z`. The
 publish workflow uses a version's section as its GitHub Release notes
 (ADR-0217).
 
+## Desktop 1.1.1
+
+A fix release of the desktop app, for the `1.0.0` SDKs. The SDKs are unchanged
+and stay at `1.0.0`.
+
+- **Clicking the update notice no longer closes the window** where no browser
+  can be opened, such as Linux without `xdg-open`.
+- **The guides are a website** at
+  <https://christianalexandre.github.io/app-monitor/>, built from the README
+  and `docs/guide/`.
+
 ## Desktop 1.1.0
 
 The desktop app's first release under its own version (ADR-0232), for the

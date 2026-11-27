@@ -8,12 +8,13 @@
 **See every request your mobile app makes — live, on your desktop, without a
 proxy.**
 
+![Requests from an Android app streaming into the desktop window, then one opened on its JSON body](docs/screenshots/demo-traffic.gif)
+
 App Monitor is a network monitor and debug toolkit for **Android**, **iOS** and
 **Kotlin Multiplatform** apps. A small SDK inside your debug build streams
-traffic to a desktop app (macOS, Linux, Windows) on the same network. The
-desktop keeps a searchable history, lets you mock, hold and replay requests,
-and answers your AI agent's questions about the traffic over a local MCP
-server.
+every request to a desktop app (macOS, Linux, Windows) on the same network.
+No proxy to set up, no certificate to install: add a dependency, start it, and
+watch.
 
 > [!IMPORTANT]
 > **For debug builds only.** App Monitor captures every request and response,
@@ -22,16 +23,37 @@ server.
 > fails a release build that would still hold the SDK; on iOS the Run Script
 > fails an optimized build that links it.
 
-## Why
+## A quick tour
+
+**Every request, as it happens.** Each call your app makes shows up the moment
+it starts: method, path, status, duration, the device it came from. Filter by
+URL, status or host; failures and slow calls stand out.
+
+**Everything about one request.** Headers, bodies formatted as JSON (gzip
+opened for you), timing, and the call as a `curl` command to paste in a
+terminal.
+
+![One request's Summary, Headers, Body, Timing and cURL tabs](docs/screenshots/demo-detail.gif)
+
+**Answer it yourself.** A mock answers a request from the desktop, without the
+network, to try an error or an empty state. A breakpoint holds a call so you
+edit it before it goes on; replay sends it again.
+
+![A checkout call answered by a mock rule, marked "mocked" in the list](docs/screenshots/demo-mock.gif)
+
+**A history you and your AI agent can query.** Record named runs, save issues,
+compare endpoints from one run to the next. The desktop serves it all to your
+AI agent over a local MCP server: ask *"why did checkout fail in the last
+run?"*.
+
+## Why App Monitor
 
 - **No proxy, no certificates.** Capture happens inside the app, so it works
   with VPNs, corporate networks and certificate pinning.
 - **One desktop for every platform.** Android, iOS and KMP apps report to the
   same window, on whatever OS you develop on.
-- **History you can query.** Named runs, saved issues, per-endpoint
-  benchmarks and run-to-run diffs — for you and for your AI agent.
-- **Mocks, breakpoints and replay.** Answer a request from the desktop, hold
-  it to edit it, or send it again.
+- **Open source.** MIT licensed, the SDKs on Maven Central and SwiftPM, the
+  desktop on Homebrew and Scoop.
 
 ## How it works
 
@@ -66,13 +88,12 @@ flowchart LR
    message inside a channel envelope — the same transport will carry logs,
    analytics and storage inspection later.
 
-![The desktop app on macOS](docs/screenshots/desktop-macos.png)
 
 ## Getting started
 
 ### 1. Install the desktop app
 
-From `1.0.0`, on macOS (Apple silicon):
+Desktop `1.1.0` or newer, on macOS (Apple silicon):
 
 ```sh
 brew install --cask christianalexandre/tap/app-monitor
@@ -173,8 +194,11 @@ Other clients and the list of tools are in the [MCP guide](docs/guide/mcp.md).
 ## Documentation
 
 - [Guides](docs/guide/README.md): Android, iOS, KMP, the desktop, MCP, and
-  [compatibility](docs/guide/compatibility.md).
+  [compatibility](docs/guide/compatibility.md); also as a
+  [site](https://christianalexandre.github.io/app-monitor/).
 - [Changelog](CHANGELOG.md).
+- [Contributing](CONTRIBUTING.md): build and test from a clean clone, and
+  open a pull request.
 - [How this project is built](docs/README.md): one person and an AI agent in
   a documented loop, with its decisions, plans and release gate.
 

@@ -157,3 +157,6 @@ Rules:
 | [0137](0137-h9-review-findings.md) | Findings of the H9 milestone review that normal use does not hit | The next PR that touches a file its items name | Open |
 | [0138](0138-mdns-problem-in-the-status-read-once.md) | The status line's mDNS problem is read once, at start | A stale mDNS problem seen, or a change to `runServer` | Open |
 | [0139](0139-packages-never-launched-before-release.md) | The desktop's packages are never launched before they are released | The `release/desktop-1.2.0` branch is cut, or a released package that does not start | Open |
+| [0140](0140-monitor-pause-test-failed-once-in-ci.md) | The title bar's pause test failed once in CI | The second failure of `MonitorPauseTest` in CI or on a developer machine, or the next PR that touches `MonitorPauseTest.kt` | Open |
+| [0141](0141-m11-review-findings.md) | Findings of the M11 milestone review that normal use does not hit | The next PR that touches `UpdateChecker.kt` or `Main.kt` | Open |
+| [0142](0142-m12-review-findings.md) | Findings of the M12 milestone review that today's docs do not hit | The next PR that touches `site_src.py`, `link_check.py`, `site.yml` or `GifWriter.kt`, or a README or guide edit that adds an HTML image, a `.webp` or `.jpeg`, a reference-style link or a link outside the repository | Open |

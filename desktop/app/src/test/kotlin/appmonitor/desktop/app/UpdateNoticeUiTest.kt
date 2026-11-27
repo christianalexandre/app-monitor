@@ -61,4 +61,24 @@ class UpdateNoticeUiTest {
                 waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodesWithTag(UPDATE_NOTICE).fetchSemanticsNodes().isEmpty() }
             }
         }
+
+    @Test
+    fun `a page that cannot be opened leaves the window up`() =
+        withStorage { storage ->
+            val throwing =
+                object : UriHandler {
+                    override fun openUri(uri: String): Unit = throw UnsupportedOperationException("no browser")
+                }
+            runDesktopComposeUiTest(width = 1280, height = 800) {
+                setContent {
+                    CompositionLocalProvider(LocalUriHandler provides throwing) {
+                        AppMonitorApp(storage, "Listening", appearance = TestAppearance, updates = StandInUpdates())
+                    }
+                }
+                awaitText("Version 1.1.0 available")
+                onNodeWithTag(UPDATE_NOTICE).performClick()
+                onNodeWithTag(SETTINGS_GEAR).performClick()
+                onNodeWithTag(UPDATES_SWITCH).assertExists()
+            }
+        }
 }

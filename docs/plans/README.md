@@ -58,18 +58,13 @@ record of how the milestone was actually built once it is done.
 | [0018](0018-dense-traffic-window.md) | H8 | A dense traffic window, as the owner's mockup | Done |
 | [0019](0019-publish-the-libraries.md) | M10 | Publish the libraries — Maven Central and SwiftPM, one version | Done |
 | [0020](0020-field-test-desktop-fixes.md) | H9 | What the 0.1.0 field test asks of the desktop | Done |
-| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Active |
+| [0021](0021-desktop-distribution-and-1-0-0.md) | M11 | Desktop distribution and 1.0.0 | Done |
+| [0022](0022-the-front-page.md) | M12 | The repository's front page | Done |
 
 ## Roadmap
 
 Milestones not yet planned. Scope here is a starting point, not a contract —
 the plan sharpens it.
-
-### M12 — The repository's front page
-
-The README rewritten for someone who has never seen the project, with
-GIFs; installation and contribution guides (`CONTRIBUTING.md`); a docs
-site.
 
 ### Later — an inspector inside the app, after `1.0.0`
 

@@ -50,6 +50,34 @@ Module scripts apply one convention plugin from `build-logic/`:
 | `appmonitor.android-app` | Android sample apps | AGP application, Compose compiler; `minSdk` 24, `compileSdk` / `targetSdk` 36 (ADR-0030) |
 | `appmonitor.compose-desktop` | desktop UI modules | `kotlin-jvm` + Compose compiler + Compose Multiplatform |
 
+## The README's animated captures
+
+`./gradlew :desktop:app:demoGifs` renders three scenes of the desktop window
+offscreen at 1280 × 800, as the screenshot tests do, from invented traffic (a
+"Shop" app on `*.shop.example`, never a real app's): requests streaming in
+(`demo-traffic.gif`), a request's detail tabs (`demo-detail.gif`) and a mock
+answering a call (`demo-mock.gif`). `GifWriter`, in the test sources, writes
+them with the JDK's `ImageIO`: after the first frame, each keeps only the
+rectangle that changed, and a frame equal to the last lengthens it. Each GIF
+must stay under 1.5 MB or the task fails. They go to `docs/screenshots/` and are
+committed; run it again after a visible change to the window. The saved run in
+the sidebar carries the machine's date, so a rerun changes that line.
+
+## The docs site
+
+`make site` builds `https://christianalexandre.github.io/app-monitor/` into
+`build/site` (ADR-0234). `scripts/site_src.py` writes its source to
+`build/site-src`: the README as the home page, `docs/guide/` under `guide/`,
+the images they show under `assets/`; a relative link to a page or image of
+the site follows it, any other goes to its GitHub page on `main`.
+`zensical.toml` at the root holds the navigation and theme; Zensical, pinned
+in `scripts/site_requirements.txt`, builds it with `--strict`, so a missing
+page or anchor fails. `scripts/site_build.sh` installs it into
+`build/site-venv` with the first Python 3.11 or newer it finds (`PYTHON`
+picks one). The `Site` workflow builds it on a pull request that changes the
+README, the guides, the screenshots or the site's files, and deploys it from
+`main` only: the `github-pages` environment allows no other branch.
+
 ## End to end with a real device
 
 `./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
@@ -383,7 +411,8 @@ come from it.
 
 `.github/workflows/publish.yml` runs on a pushed tag of either kind
 (ADR-0217, ADR-0232). Its `version` job refuses a tag whose commit is not on
-`main` and runs `scripts/version_check.sh --release <tag>`. An `X.Y.Z` tag
+`main` and runs `scripts/version_check.sh --release <tag>`; a refused tag
+gets no GitHub Release, since `release` needs `version`'s success. An `X.Y.Z` tag
 then runs `central` and a GitHub Release with no packages; a `desktop-X.Y.Z`
 tag runs `desktop`, then a GitHub Release titled *Desktop X.Y.Z* with the
 packages, then `tap`. In the job `central` (macOS), `make publish-dry-run`
@@ -401,8 +430,8 @@ Portal's answer. Beside it, the
 `desktop` job runs on macOS, Windows and Linux. Each one runs
 `scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
 that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
-`.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
-(ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
+`.dmg` (Apple silicon; the build refuses another Mac, as the cask names only
+that one), `.msi` and a `.zip` of the app image, `.deb` and `.rpm` (ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
 section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
 packages; the notes are the `CHANGELOG.md` section headed `## X.Y.Z` or
 `## Desktop X.Y.Z`. Then the `tap` job writes the Homebrew cask, the Scoop

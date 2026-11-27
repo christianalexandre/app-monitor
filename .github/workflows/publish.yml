@@ -132,9 +132,10 @@ jobs:
 
   # The only write token, and only on a tag: a PR's dry run runs the PR's own scripts.
   # A tag runs central or desktop, never both: the other one is skipped.
+  # A refused tag skips central and desktop; without version's success here it would still get a release.
   release:
-    needs: [central, desktop]
-    if: ${{ !cancelled() && github.ref_type == 'tag' && !contains(needs.*.result, 'failure') }}
+    needs: [version, central, desktop]
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.version.result == 'success' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

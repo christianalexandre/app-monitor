@@ -1,0 +1,2 @@
+# The docs site's generator, pinned (ADR-0234); scripts/site_build.sh and the site workflow install it.
+zensical==0.1.3

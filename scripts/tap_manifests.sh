@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Usage: tap_manifests.sh VERSION PACKAGES_DIR OUT_DIR
-# Writes OUT_DIR/Casks/app-monitor.rb (Homebrew), OUT_DIR/bucket/app-monitor.json (Scoop) and the README for the
-# desktop release VERSION, tagged desktop-VERSION (ADR-0232), from the macOS .dmg and the Windows .zip in
-# PACKAGES_DIR (ADR-0229).
+# Writes OUT_DIR/Casks/app-monitor.rb, OUT_DIR/bucket/app-monitor.json and the README for desktop-VERSION
+# (ADR-0229, ADR-0232) from PACKAGES_DIR's .dmg and Windows .zip, named by desktop_packages.sh.
 # RELEASES_URL moves the download URLs, for a test.
 set -euo pipefail
 

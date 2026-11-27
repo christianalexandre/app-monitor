@@ -250,3 +250,5 @@ Rules:
 | [0230](0230-the-runtime-image-holds-what-jdeps-finds.md) | The desktop's runtime image holds every module jdeps finds, checked by make check | Accepted |
 | [0231](0231-central-publishing-ends-the-wait.md) | Central's PUBLISHING ends the publish wait, and a published version is not uploaded again | Accepted |
 | [0232](0232-the-desktop-has-its-own-version.md) | The desktop has its own version and tag, on the SDKs' major | Accepted |
+| [0233](0233-the-readme-opens-with-a-tour-in-animated-captures.md) | The README opens with a tour in animated captures, and its links are checked | Accepted |
+| [0234](0234-the-docs-site-is-built-by-zensical-from-the-guides.md) | The docs site is built by Zensical from the README and the guides, and main deploys it | Accepted |
