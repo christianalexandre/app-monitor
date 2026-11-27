@@ -43,7 +43,7 @@ Constraints this plan follows:
   rules, where decisions and debt are written, and how a PR is reviewed. It points to
   `AGENTS.md` and `docs/guidelines/` instead of copying them.
   Accept: a fresh worktree following it runs `make check` green; `make docs-check`.
-- [ ] **M12.4 A docs site.** The guides and the README published as a static site on GitHub
+- [x] **M12.4 A docs site.** (`docs/docs-site`) The guides and the README published as a static site on GitHub
   Pages, built from `docs/guide/` by a tool chosen in an ADR. A pull request that changes the
   guides builds it in strict mode, so a broken link fails; `main` deploys it.
   Accept: the strict build green locally and on its PR; after the next merge to `main`, the

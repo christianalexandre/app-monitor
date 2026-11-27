@@ -63,6 +63,21 @@ must stay under 1.5 MB or the task fails. They go to `docs/screenshots/` and are
 committed; run it again after a visible change to the window. The saved run in
 the sidebar carries the machine's date, so a rerun changes that line.
 
+## The docs site
+
+`make site` builds `https://christianalexandre.github.io/app-monitor/` into
+`build/site` (ADR-0234). `scripts/site_src.py` writes its source to
+`build/site-src`: the README as the home page, `docs/guide/` under `guide/`,
+the images they show under `assets/`; a relative link to a page or image of
+the site follows it, any other goes to its GitHub page on `main`.
+`zensical.toml` at the root holds the navigation and theme; Zensical, pinned
+in `scripts/site_requirements.txt`, builds it with `--strict`, so a missing
+page or anchor fails. `scripts/site_build.sh` installs it into
+`build/site-venv` with the first Python 3.11 or newer it finds (`PYTHON`
+picks one). The `Site` workflow builds it on a pull request that changes the
+README, the guides, the screenshots or the site's files, and deploys it from
+`main` only: the `github-pages` environment allows no other branch.
+
 ## End to end with a real device
 
 `./gradlew :desktop:app:liveScreenshots` (ADR-0031) runs the real
