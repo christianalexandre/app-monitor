@@ -88,7 +88,7 @@ tasks.test {
     exclude("**/DemoCaptures*")
 }
 
-// The README's animated captures (PLAN-0022 M12.1): run by hand after a visible change; commit what it writes.
+// The README's animated captures (ADR-0233): run by hand after a visible change; commit what it writes.
 tasks.register<Test>("demoGifs") {
     description = "Renders the README's scenes offscreen from invented traffic and writes them as animated GIFs."
     group = "documentation"

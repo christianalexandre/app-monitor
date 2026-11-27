@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Usage: link_check.py [ROOT]
 # Every relative link and image in ROOT's README.md, CONTRIBUTING.md and docs/guide/*.md resolves: the file
-# exists, and a #anchor names a heading of it as GitHub slugs it. External links are not fetched (PLAN-0022).
+# exists, and a #anchor names a heading of it as GitHub slugs it. External links are not fetched (ADR-0233).
 import re
 import sys
 from pathlib import Path
