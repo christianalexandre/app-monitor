@@ -118,7 +118,10 @@ class OkHttpInjectionTest {
         descriptor: String,
     ) = "Class descriptor  : '$descriptor'" in dex(apk)
 
-    /** [local]: the SDK projects in the consumer's build; else published to `repo/` first, as from Maven. */
+    /**
+     * [local]: the SDK projects in the consumer's build; else published to `repo/` first, as from Maven. `repo/` is the
+     * only repository for the SDK's group: from Maven Central, a released `sdkVersion` would replace the stand-ins.
+     */
     private fun consumer(
         vararg apps: String,
         local: Boolean = true,
@@ -131,7 +134,13 @@ class OkHttpInjectionTest {
             """
             pluginManagement { repositories { google(); mavenCentral() } }
             dependencyResolutionManagement {
-                repositories { google(); mavenCentral(); maven(url = uri("repo")) }
+                repositories {
+                    exclusiveContent {
+                        forRepository { maven(url = uri("repo")) }
+                        filter { includeGroup("io.github.christianalexandre") }
+                    }
+                    google(); mavenCentral()
+                }
             }
             ${if (local) "include($projects)" else ""}
             include(${apps.joinToString { "\":$it\"" }})
