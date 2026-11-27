@@ -383,7 +383,8 @@ come from it.
 
 `.github/workflows/publish.yml` runs on a pushed tag of either kind
 (ADR-0217, ADR-0232). Its `version` job refuses a tag whose commit is not on
-`main` and runs `scripts/version_check.sh --release <tag>`. An `X.Y.Z` tag
+`main` and runs `scripts/version_check.sh --release <tag>`; a refused tag
+gets no GitHub Release, since `release` needs `version`'s success. An `X.Y.Z` tag
 then runs `central` and a GitHub Release with no packages; a `desktop-X.Y.Z`
 tag runs `desktop`, then a GitHub Release titled *Desktop X.Y.Z* with the
 packages, then `tap`. In the job `central` (macOS), `make publish-dry-run`
@@ -401,8 +402,8 @@ Portal's answer. Beside it, the
 `desktop` job runs on macOS, Windows and Linux. Each one runs
 `scripts/desktop_packages.sh build <os> build/desktop-packages`, which builds
 that OS's packages and names them `app-monitor-X.Y.Z-<os>-<arch>.<ext>`:
-`.dmg` (Apple silicon), `.msi` and a `.zip` of the app image, `.deb` and `.rpm`
-(ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
+`.dmg` (Apple silicon; the build refuses another Mac, as the cask names only
+that one), `.msi` and a `.zip` of the app image, `.deb` and `.rpm` (ADR-0227). Last, the `release` job creates the GitHub Release with the tag's
 section of `CHANGELOG.md`, or GitHub's generated notes, and attaches those
 packages; the notes are the `CHANGELOG.md` section headed `## X.Y.Z` or
 `## Desktop X.Y.Z`. Then the `tap` job writes the Homebrew cask, the Scoop

@@ -15,7 +15,7 @@ check() { # name, condition
 }
 
 scripts/desktop_packages.sh collect macos 1.2.3 "$bin" "$work/mac" >/dev/null
-check "the dmg named with the version, OS and architecture" '[[ -f "$work/mac/app-monitor-1.2.3-macos-$(uname -m).dmg" ]]'
+check "the dmg named with the version, OS and architecture" '[[ -f "$work/mac/app-monitor-1.2.3-macos-arm64.dmg" ]]'
 scripts/desktop_packages.sh collect windows 1.2.3 "$bin" "$work/win" >/dev/null
 check "the msi named" '[[ -f "$work/win/app-monitor-1.2.3-windows-x64.msi" ]]'
 listing="$(unzip -Z1 "$work/win/app-monitor-1.2.3-windows-x64.zip")"
@@ -30,6 +30,11 @@ touch "$bin/deb/other_1.2.3_amd64.deb"
 code=0
 scripts/desktop_packages.sh collect linux 1.2.3 "$bin" "$work/two" >/dev/null 2>&1 || code=$?
 check "two matching packages refused" '[[ $code -eq 1 ]]'
+mkdir -p "$work/with space"
+cp -R "$bin" "$work/with space/bin"
+rm "$work/with space/bin/deb/other_1.2.3_amd64.deb"
+scripts/desktop_packages.sh collect linux 1.2.3 "$work/with space/bin" "$work/spaced" >/dev/null
+check "a binaries directory with a space in its path" '[[ -f "$work/spaced/app-monitor-1.2.3-linux-amd64.deb" ]]'
 code=0
 scripts/desktop_packages.sh collect beos 1.2.3 "$bin" "$work/x" >/dev/null 2>&1 || code=$?
 check "an unknown OS refused" '[[ $code -eq 2 ]]'

@@ -158,3 +158,4 @@ Rules:
 | [0138](0138-mdns-problem-in-the-status-read-once.md) | The status line's mDNS problem is read once, at start | A stale mDNS problem seen, or a change to `runServer` | Open |
 | [0139](0139-packages-never-launched-before-release.md) | The desktop's packages are never launched before they are released | The `release/desktop-1.2.0` branch is cut, or a released package that does not start | Open |
 | [0140](0140-monitor-pause-test-failed-once-in-ci.md) | The title bar's pause test failed once in CI | The second failure of `MonitorPauseTest` in CI or on a developer machine, or the next PR that touches `MonitorPauseTest.kt` | Open |
+| [0141](0141-m11-review-findings.md) | Findings of the M11 milestone review that normal use does not hit | The next PR that touches `UpdateChecker.kt` or `Main.kt` | Open |
