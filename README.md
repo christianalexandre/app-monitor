@@ -194,7 +194,8 @@ Other clients and the list of tools are in the [MCP guide](docs/guide/mcp.md).
 ## Documentation
 
 - [Guides](docs/guide/README.md): Android, iOS, KMP, the desktop, MCP, and
-  [compatibility](docs/guide/compatibility.md).
+  [compatibility](docs/guide/compatibility.md); also as a
+  [site](https://christianalexandre.github.io/app-monitor/).
 - [Changelog](CHANGELOG.md).
 - [Contributing](CONTRIBUTING.md): build and test from a clean clone, and
   open a pull request.

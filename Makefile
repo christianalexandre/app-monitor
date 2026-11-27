@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check check-full samples android-samples docs-check designsystem-check runtime-modules-check lint scripts-test build swift swift-sim swift-stress ios-sample kmp-sample e2e-android e2e-ios e2e-ios-grpc e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
+.PHONY: help check check-full samples android-samples docs-check site designsystem-check runtime-modules-check lint scripts-test build swift swift-sim swift-stress ios-sample kmp-sample e2e-android e2e-ios e2e-ios-grpc e2e-kmp e2e-kmp-android e2e-kmp-ios publish-dry-run swift-proto desktop server fake-traffic branch-check debt-check loop loop-watch loop-worktree
 
 # Default macOS location; an ANDROID_HOME from the environment wins.
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
@@ -14,6 +14,9 @@ check-full: check swift-sim samples ## Fast suite plus simulator tests and sampl
 
 docs-check: ## Docs frontmatter, indexes and ADR/DEBT references
 	@scripts/docs_check.sh
+
+site: ## The docs site from the README and docs/guide/, strict, into build/site (ADR-0234)
+	@scripts/site_build.sh
 
 runtime-modules-check: ## The desktop's runtime image holds every JDK module its jars use (ADR-0230)
 	@scripts/runtime_modules_check.sh
@@ -39,6 +42,7 @@ scripts-test: ## Bash tests of the loop and end to end scripts (ADR-0013)
 	@scripts/test_tap_manifests.sh
 	@scripts/test_runtime_modules_check.sh
 	@scripts/test_link_check.sh
+	@scripts/test_site_src.sh
 	@scripts/ruleset_check.sh
 
 # ADR-0076: the sample apps build in make samples and the release gate.
