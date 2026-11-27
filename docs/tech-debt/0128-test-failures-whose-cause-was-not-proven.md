@@ -11,7 +11,7 @@ paid_date:
 
 ## What is missing
 
-Five failures seen around release PR #379, none explained by a reproduction:
+Failures none explained by a reproduction, the first five seen around release PR #379:
 
 - `BreakpointsUiTest`, *a breakpoint moves up and down*: timed out once on the
   gate's Windows runner waiting for the second move (run `42045925738`, attempt 2).
@@ -30,6 +30,11 @@ Five failures seen around release PR #379, none explained by a reproduction:
   would pass unheld; whether that happened is not known.
 - `TestDesktop`'s port: which socket held 22755 (run `41889263190`) is not known.
   `TestDesktop` now draws another.
+- `e2e-ios-grpc` on release PR #458 (run `46038732861`, attempt 1): `make e2e-ios-grpc`
+  printed nothing for 50 minutes and the job timed out; its logs were not kept, as
+  the upload ran on `failure()` only. Attempt 2 passed in 39 minutes (26 to 35 in the
+  seven runs before), and one local run in 58 s. The gate's log uploads now run on
+  `cancelled()` too, so the next timeout keeps them.
 
 ## Why it was accepted
 
